@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="724px"
+   height="384px"
+   version="1.1"
+   id="svg3059"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="Drawing1.svg">
+  <metadata
+     id="metadata3131">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1366"
+     inkscape:window-height="664"
+     id="namedview3129"
+     showgrid="false"
+     inkscape:zoom="1.2421875"
+     inkscape:cx="362"
+     inkscape:cy="192"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3059" />
+  <defs
+     id="defs3061" />
+  <g
+     transform="translate(0.5,0.5)"
+     id="g3063">
+    <ellipse
+       cx="362"
+       cy="192"
+       rx="360"
+       ry="190"
+       id="ellipse3065"
+       d="M 722,192 C 722,296.9341 560.82251,382 362,382 163.17749,382 2,296.9341 2,192 2,87.065898 163.17749,2 362,2 560.82251,2 722,87.065898 722,192 z"
+       stroke="#000000"
+       fill="#66b2ff" />
+    <rect
+       x="342"
+       y="182"
+       width="60"
+       height="40"
+       id="rect3067"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="14px"
+       id="g3069"
+       transform="translate(-0.80503145,-173.08176)"
+       style="font-size:14px;fill:#000000;font-family:Consolas">
+      <text
+         x="344"
+         y="197"
+         id="text3071">Heap</text>
+    </g>
+    <ellipse
+       cx="182"
+       cy="192"
+       rx="140"
+       ry="150"
+       id="ellipse3073"
+       d="M 322,192 C 322,274.84271 259.31986,342 182,342 104.68014,342 42,274.84271 42,192 42,109.15729 104.68014,42 182,42 c 77.31986,0 140,67.15729 140,150 z"
+       stroke="#000000"
+       fill="#ff9999" />
+    <rect
+       x="132"
+       y="182"
+       width="105"
+       height="20"
+       id="rect3075"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="14px"
+       id="g3077"
+       transform="translate(-5.6352233,-114.31447)"
+       style="font-size:14px;fill:#000000;font-family:Consolas">
+      <text
+         x="134"
+         y="197"
+         id="text3079">Spidermonkey</text>
+    </g>
+    <ellipse
+       cx="542"
+       cy="192"
+       rx="140"
+       ry="150"
+       id="ellipse3081"
+       d="m 682,192 c 0,82.84271 -62.68014,150 -140,150 -77.31986,0 -140,-67.15729 -140,-150 0,-82.84271 62.68014,-150 140,-150 77.31986,0 140,67.15729 140,150 z"
+       stroke="#000000"
+       fill="#99ff99" />
+    <rect
+       x="522"
+       y="177"
+       width="60"
+       height="30"
+       id="rect3083"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="14px"
+       id="g3085"
+       transform="translate(1.6100644,-115.92453)"
+       style="font-size:14px;fill:#000000;font-family:Consolas"
+       inkscape:transform-center-x="177.10692"
+       inkscape:transform-center-y="-24.150943">
+      <text
+         x="524"
+         y="192"
+         id="text3087">Gecko</text>
+    </g>
+    <rect
+       x="86.578621"
+       y="105.34591"
+       width="120"
+       height="60"
+       rx="9"
+       ry="9"
+       id="rect3089"
+       style="fill:#ff9999;stroke:#000000" />
+    <rect
+       x="155"
+       y="102"
+       width="60"
+       height="20"
+       id="rect3091"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="14px"
+       id="g3093"
+       transform="translate(-37.836478,22.540881)"
+       style="font-size:14px;fill:#000000;font-family:Consolas">
+      <text
+         x="157"
+         y="117"
+         id="text3095">GC Heap</text>
+    </g>
+    <rect
+       x="436.02515"
+       y="156.74214"
+       width="220"
+       height="60"
+       rx="9"
+       ry="9"
+       id="rect3097"
+       style="fill:#99ff99;stroke:#000000" />
+    <rect
+       x="452"
+       y="102"
+       width="200"
+       height="50"
+       id="rect3099"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="14px"
+       id="g3101"
+       transform="translate(7.245283,56.352201)"
+       style="font-size:14px;fill:#000000;font-family:Consolas">
+      <text
+         x="454"
+         y="117"
+         id="text3103">Reference Counted Heap</text>
+    </g>
+    <rect
+       x="449.24527"
+       y="178.32704"
+       width="200"
+       height="33"
+       rx="5"
+       ry="5"
+       id="rect3105"
+       style="fill:#99ff99;stroke:#000000" />
+    <rect
+       x="462"
+       y="132"
+       width="180"
+       height="40"
+       id="rect3107"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="14px"
+       id="g3109"
+       transform="translate(5.6352201,50.716981)"
+       style="font-size:14px;fill:#000000;font-family:Consolas">
+      <text
+         x="464"
+         y="147"
+         id="text3111">Cycle Collected Heap</text>
+    </g>
+    <rect
+       x="162"
+       y="232"
+       width="120"
+       height="60"
+       rx="9"
+       ry="9"
+       id="rect3113"
+       stroke="#000000"
+       fill="#ff9999" />
+    <rect
+       x="182"
+       y="247"
+       width="90"
+       height="30"
+       id="rect3115"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="12px"
+       id="g3117"
+       font-family="Consolas"
+       fill="#000000">
+      <text
+         x="184"
+         y="260"
+         id="text3119">Manual Heap</text>
+    </g>
+    <rect
+       x="442"
+       y="232"
+       width="120"
+       height="60"
+       rx="9"
+       ry="9"
+       id="rect3121"
+       stroke="#000000"
+       fill="#99ff99" />
+    <rect
+       x="457"
+       y="247"
+       width="90"
+       height="30"
+       id="rect3123"
+       stroke="none"
+       fill="none" />
+    <g
+       font-size="12px"
+       id="g3125"
+       font-family="Consolas"
+       fill="#000000">
+      <text
+         x="459"
+         y="260"
+         id="text3127">Manual Heap</text>
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:40px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Consolas;-inkscape-font-specification:Consolas"
+       x="332.78302"
+       y="247.44968"
+       id="text3916"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3918"
+         x="332.78302"
+         y="247.44968"
+         style="font-size:14px">jemalloc</tspan></text>
+  </g>
+  <rect
+     style="opacity:0"
+     id="rect3907"
+     width="653.68555"
+     height="314.7673"
+     x="49.911949"
+     y="49.911949" />
+  <path
+     sodipodi:type="arc"
+     style="opacity:1;fill:#000000;stroke:#000000;stroke-opacity:1;fill-opacity:0.25098041"
+     id="path3911"
+     sodipodi:cx="400.90567"
+     sodipodi:cy="252.37737"
+     sodipodi:rx="206.08806"
+     sodipodi:ry="76.07547"
+     d="m 606.99373,252.37737 a 206.08806,76.07547 0 1 1 -412.17612,0 206.08806,76.07547 0 1 1 412.17612,0 z"
+     transform="matrix(1.3124596,-0.23883001,0.2390607,1.4078,-172.71982,-26.491939)" />
+</svg>
