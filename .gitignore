@@ -1,3 +1,7 @@
 *.aux
 *.log
 *.toc
+*.bbl
+*.blg
+v1/tex/en/aosa.pdf
+v2/tex/en/aosa2.pdf
