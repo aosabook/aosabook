@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: twisted.html 1414 2012-06-19 15:46:24Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications (Volume 2): Twisted</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar2.jpg"
+           alt="The Architecture of Open Source Applications (Volume 2)"</img></a>
+        <h1>Twisted</h1>
+        <p><a href="intro2.html#mckellar-jessica">Jessica McKellar</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span8 offset2">
+        
+<p>Twisted is an event-driven networking engine in Python. It was born in the
+early 2000s, when the writers of networked games had few scalable and no
+cross-platform libraries, in any language, at their disposal. The authors of
+Twisted tried to develop games in the existing networking landscape, struggled,
+saw a clear need for a scalable, event-driven, cross-platform networking
+framework and decided to make one happen, learning from the mistakes and
+hardships of past game and networked application writers.</p>
+
+<p>Twisted supports many common transport and application layer protocols,
+including TCP, UDP, SSL/TLS, HTTP, IMAP, SSH, IRC, and FTP.  Like the language
+in which it is written, it is "batteries-included"; Twisted comes with client
+and server implementations for all of its protocols, as well as utilities that
+make it easy to configure and deploy production-grade Twisted applications from
+the command line.</p>
+
+<section>
+<h2>21.1. Why Twisted?</h2>
+
+<p>In 2000, glyph, the creator of Twisted, was working on a text-based
+multiplayer game called Twisted Reality. It was a big mess of threads, 3 per
+connection, in Java. There was a thread for input that would block on reads, a
+thread for output that would block on some kind of write, and a "logic" thread
+that would sleep while waiting for timers to expire or events to queue. As
+players moved through the virtual landscape and interacted, threads were
+deadlocking, caches were getting corrupted, and the locking logic was never
+quite right&mdash;the use of threads had made the software complicated, buggy, and
+hard to scale.</p>
+
+<p>Seeking alternatives, he discovered Python, and in particular Python's
+<code>select</code> module for multiplexing I/O from stream objects like
+sockets and pipes (the Single UNIX Specification, Version 3
+  (SUSv3) describes the <code>select</code> API). At the time, Java didn't
+expose the operating system's <code>select</code> interface or any other
+asynchronous I/O API (The <code>java.nio</code> package for
+  non-blocking I/O was added in J2SE 1.4, released in 2002). A quick
+prototype of the game in Python using <code>select</code> immediately proved
+less complex and more reliable than the threaded version.</p>
+
+<p>An instant convert to Python, <code>select</code>, and event-driven
+programming, glyph wrote a client and server for the game in Python
+using the <code>select</code> API. But then he wanted to do more. Fundamentally,
+he wanted to be able to turn network activity into method calls on objects in
+the game. What if you could receive email in the game, like the Nethack mailer
+daemon? What if every player in the game had a home page? Glyph found himself
+needing good Python IMAP and HTTP clients and servers that used
+<code>select</code>.</p>
+
+<p>He first turned to <a href="http://www.nightmare.com/medusa/">Medusa</a>, a platform developed in the mid-'90s for
+writing networking servers in Python based on the <code>asyncore</code>
+module. <code>asyncore</code>
+is an asynchronous socket handler that builds a dispatcher and
+callback interface on top of the operating system's <code>select</code> API.</p>
+
+<p>This was an inspiring find for glyph, but Medusa had two drawbacks:</p>
+
+<ol>
+
+<li>
+It was on its way towards being unmaintained by 2001 when glyph
+  started working on Twisted Reality.
+</li>
+
+<li>
+<code>asyncore</code> is such a thin wrapper around sockets that
+  application programmers are still required to manipulate sockets
+  directly. This means portability is still the responsibility of the
+  programmer. Additionally, at the time, <code>asyncore</code>'s Windows
+  support was buggy, and glyph knew that he wanted to run a GUI client
+  on Windows.
+</li>
+
+</ol>
+
+<p>Glyph was facing the prospect of implementing a networking platform himself
+and realized that Twisted Reality had opened the door to a problem that was just
+as interesting as his game.</p>
+
+<p>Over time, Twisted Reality the game became Twisted the networking platform,
+which would do what existing networking platforms in Python didn't:</p>
+
+<ul>
+
+<li>
+Use event-driven programming instead of multi-threaded
+  programming.
+</li>
+
+<li>
+Be cross-platform: provide a uniform interface to the event
+  notification systems exposed by major operating systems.
+</li>
+
+<li>
+Be "batteries-included": provide implementations of popular
+  application-layer protocols out of the box, so that Twisted is
+  immediately useful to developers.
+</li>
+
+<li>
+Conform to RFCs, and prove conformance with a robust test suite.
+</li>
+
+<li>
+Make it easy to use multiple networking protocols together.
+</li>
+
+<li>
+Be extensible.
+</li>
+
+</ul>
+
+</section>
+
+<section>
+<h2>21.2. The Architecture of Twisted</h2>
+
+<p>Twisted is an event-driven networking engine. Event-driven programming is so
+integral to Twisted's design philosophy that it is worth taking a moment to
+review what exactly event-driven programming means.</p>
+
+<p>Event-driven programming is a programming paradigm in which program flow is
+determined by external events. It is characterized by an event loop and the use
+of callbacks to trigger actions when events happen. Two other common
+programming paradigms are (single-threaded) synchronous and multi-threaded
+programming.</p>
+
+<p>Let's compare and contrast single-threaded, multi-threaded, and
+event-driven programming models with an example.
+<a href="#fig.twisted.threadingmodels">Figure 21.1</a> shows the work done by a
+program over time under these three models. The program has three tasks to
+complete, each of which blocks while waiting for I/O to finish. Time
+spent blocking on I/O is greyed out.</p>
+
+<figure id="fig.twisted.threadingmodels">
+  <img src="../images/twisted/threading_models.png" />
+  <figcaption>Figure 21.1: Threading models</figcaption>
+</figure>
+
+<p>In the single-threaded synchronous version of the program, tasks are
+performed serially. If one task blocks for a while on I/O, all of the other
+tasks have to wait until it finishes and they are executed in turn. This
+definite order and serial processing are easy to reason about, but the program
+is unnecessarily slow if the tasks don't depend on each other, yet still have to
+wait for each other.</p>
+
+<p>In the threaded version of the program, the three tasks that block while doing
+work are performed in separate threads of control. These threads are managed by
+the operating system and may run concurrently on multiple processors or
+interleaved on a single processor. This allows progress to be made by some
+threads while others are blocking on resources. This is often more
+time-efficient than the analogous synchronous program, but one has to write code
+to protect shared resources that could be accessed concurrently from multiple
+threads. Multi-threaded programs can be harder to reason about because one now
+has to worry about thread safety via process serialization (locking),
+reentrancy, thread-local storage, or other mechanisms, which when implemented
+improperly can lead to subtle and painful bugs.</p>
+
+<p>The event-driven version of the program interleaves the execution of the three
+tasks, but in a single thread of control. When performing I/O or other expensive
+operations, a callback is registered with an event loop, and then execution
+continues while the I/O completes. The callback describes how to handle an event
+once it has completed. The event loop polls for events and dispatches them as
+they arrive, to the callbacks that are waiting for them. This allows the program
+to make progress when it can without the use of additional threads. Event-driven
+programs can be easier to reason about than multi-threaded programs because the
+programmer doesn't have to worry about thread safety.</p>
+
+<p>The event-driven model is often a good choice when there are:</p>
+
+<ol>
+
+<li>
+many tasks, that are&hellip;
+</li>
+
+<li>
+largely independent (so they don't have to communicate with or
+  wait on each other), and&hellip;
+</li>
+
+<li>
+some of these tasks block while waiting on events.
+</li>
+
+</ol>
+
+<p>It is also a good choice when an application has to share mutable data
+between tasks, because no synchronization has to be performed.</p>
+
+<p>Networking applications often have exactly these properties, which is what
+makes them such a good fit for the event-driven programming model.</p>
+
+<section>
+<h3>Reusing Existing Applications</h3>
+
+<p>Many popular clients and servers for various networking protocols already
+existed when Twisted was created. Why did glyph not just use Apache, IRCd, BIND,
+OpenSSH, or any of the other pre-existing applications whose clients and servers
+would have to get re-implemented from scratch for Twisted?</p>
+
+<p>The problem is that all of these server implementations have networking code
+written from scratch, typically in C, with application code coupled directly to
+the networking layer. This makes them very difficult to use as libraries. 
+They have to be treated as black boxes when used together, giving a developer no
+chance to reuse code if he or she wanted to expose the same data over multiple
+protocols. Additionally, the server and client implementations are often
+separate applications that don't share code. Extending these applications and
+maintaining cross-platform client-server compatibility is harder than it needs
+to be.</p>
+
+<p>With Twisted, the clients and servers are written in Python using a
+consistent interface. This makes it is easy to write new clients and servers, to
+share code between clients and servers, to share application logic between
+protocols, and to test one's code.</p>
+
+</section>
+
+<section>
+<h3>The Reactor</h3>
+
+<p>Twisted implements the <em>reactor</em> design pattern, which describes demultiplexing
+and dispatching events from multiple sources to their handlers in a
+single-threaded environment.</p>
+
+<p>The core of Twisted is the reactor event loop. The reactor knows about network,
+file system, and timer events. It waits on and then handles these events,
+abstracting away platform-specific behavior and presenting interfaces to make
+responding to events anywhere in the network stack easy.</p>
+
+<p>The reactor essentially accomplishes:</p>
+
+<pre>
+while True:
+    timeout = time_until_next_timed_event()
+    events = wait_for_events(timeout)
+    events += timed_events_until(now())
+    for event in events:
+        event.process()
+</pre>
+
+<p>A reactor based on the <code>poll</code> API (decribed in the Single UNIX
+Specification, Version 3 (SUSv3)) is
+the current default on all platforms. Twisted additionally supports a
+number of platform-specific high-volume multiplexing
+APIs. Platform-specific reactors include the KQueue reactor based on
+FreeBSD's <code>kqueue</code> mechanism, an <code>epoll</code>-based reactor for
+systems supporting the <code>epoll</code> interface (currently Linux 2.6),
+and an IOCP reactor based on Windows Input/Output Completion Ports.</p>
+
+<p>Examples of polling implementation-dependent details that Twisted takes care
+of include:</p>
+
+<ul>
+
+<li>
+Network and filesystem limits.
+</li>
+
+<li>
+Buffering behavior.
+</li>
+
+<li>
+How to detect a dropped connection.
+</li>
+
+<li>
+The values returned in error cases.
+</li>
+
+</ul>
+
+<p>Twisted's reactor implementation also takes care of using the underlying
+non-blocking APIs correctly and handling obscure edge cases correctly. Python
+doesn't expose the IOCP API at all, so Twisted maintains its own
+implementation.</p>
+
+</section>
+
+<section>
+<h3>Managing Callback Chains</h3>
+
+<p>Callbacks are a fundamental part of event-driven programming and are the way
+that the reactor indicates to an application that events have completed. As
+event-driven programs grow, handling both the success and error cases for the
+events in one's application becomes increasingly complex. Failing to register an
+appropriate callback can leave a program blocking on event processing that will
+never happen, and errors might have to propagate up a chain of callbacks from
+the networking stack through the layers of an application.</p>
+
+<p>Let's examine some of the pitfalls of event-driven programs by comparing
+synchronous and asynchronous versions of a toy URL fetching utility in
+Python-like pseudo-code:</p>
+
+<div class="row">
+  <div class="span4">
+      <p>Synchronous URL fetcher:</p>
+<pre>
+import getPage
+
+def processPage(page):
+    print page
+
+def logError(error):
+    print error
+
+def finishProcessing(value):
+    print "Shutting down..."
+    exit(0)
+
+url = "http://google.com"
+try:
+    page = getPage(url)
+    processPage(page)
+except Error, e:
+    logError(error)
+finally:
+    finishProcessing()
+</pre>
+  </div>
+
+  <div class="span4">
+<p>Asynchronous URL fetcher:</p>
+<pre>
+from twisted.internet import reactor
+import getPage
+
+def processPage(page):
+    print page
+    finishProcessing()
+
+def logError(error):
+    print error
+    finishProcessing()
+
+def finishProcessing(value):
+    print "Shutting down..."
+    reactor.stop()
+
+url = "http://google.com"
+# getPage takes: url, 
+#    success callback, error callback
+getPage(url, processPage, logError)
+
+reactor.run()
+</pre>
+  </div>
+</div> <!-- row -->
+
+
+<p>In the asynchronous URL fetcher,
+<code>reactor.run()</code> starts the reactor event loop. 
+In both the synchronous and asynchronous versions, a hypothetical
+<code>getPage</code> function does the work of page
+retrieval. <code>processPage</code> is invoked if the retrieval is successful,
+and <code>logError</code> is invoked if an <code>Exception</code> is raised
+while attempting to retrieve the page. In either case,
+<code>finishProcessing</code> is called afterwards.</p>
+
+<p>The callback to <code>logError</code> in the asynchronous version mirrors the
+<code>except</code> part of the <code>try/except</code> block in the synchronous
+version. The callback to <code>processPage</code> mirrors <code>else</code>, and
+the unconditional callback to <code>finishProcessing</code> mirrors
+<code>finally</code>.</p>
+
+<p>In the synchronous version, by virtue of the structure of a
+<code>try/except</code> block exactly one of <code>logError</code> and
+<code>processPage</code> is called, and <code>finishProcessing</code> is always
+called once; in the asynchronous version it is the programmer's responsibility
+to invoke the correct chain of success and error callbacks. If, through
+programming error, the call to <code>finishProcessing</code> were left out of
+<code>processPage</code> or <code>logError</code> along their respective
+callback chains, the reactor would never get stopped and the program would run
+forever.</p>
+
+<p>This toy example hints at the complexity frustrating programmers during the
+first few years of Twisted's development. Twisted responded to this complexity
+by growing an object called a <code>Deferred</code>.</p>
+
+<section>
+<h4>Deferreds</h4>
+
+<p>The <code>Deferred</code> object is an abstraction of the idea of a result that
+doesn't exist yet. It also helps manage the callback chains for this
+result. When returned by a function, a <code>Deferred</code> is a promise
+that the function will have a result <em>at some point</em>. That single
+returned <code>Deferred</code> contains references to all of the callbacks
+registered for an event, so only this one object needs to be passed
+between functions, which is much simpler to keep track of than
+managing callbacks individually.</p>
+
+<p><code>Deferred</code>s have a pair of callback chains, one for success
+(callbacks) and one for errors (errbacks). <code>Deferred</code>s start out with
+two empty chains. One adds pairs of callbacks and errbacks to handle successes
+and failures at each point in the event processing. When an asynchronous result
+arrives, the <code>Deferred</code> is "fired" and the appropriate callbacks or
+errbacks are invoked in the order in which they were added.</p>
+
+<p>Here is a version of the asynchronous URL fetcher pseudo-code which
+uses <code>Deferred</code>s:</p>
+
+<pre>
+from twisted.internet import reactor
+import getPage
+
+def processPage(page):
+    print page
+
+def logError(error):
+    print error
+
+def finishProcessing(value):
+    print "Shutting down..."
+    reactor.stop()
+
+url = "http://google.com"
+deferred = getPage(url) # getPage returns a Deferred
+deferred.addCallbacks(success, failure)
+deferred.addBoth(stop)
+
+reactor.run()
+</pre>
+
+<p>In this version, the same event handlers are invoked, but they are all
+registered with a single <code>Deferred</code> object instead of spread out in
+the code and passed as arguments to <code>getPage</code>.</p>
+
+<p>The <code>Deferred</code> is created with two stages of callbacks. First,
+<code>addCallbacks</code> adds the <code>processPage</code> callback and
+<code>logError</code> errback to the first stage of their respective
+chains. Then <code>addBoth</code> adds <code>finishProcessing</code> to the second
+stage of both chains. Diagrammatically, the callback chains look like
+<a href="#fig.twisted.callback">Figure 21.2</a>.</p>
+
+<figure id="fig.twisted.callback">
+  <img src="../images/twisted/deferred.png" />
+  <figcaption>Figure 21.2: Callback chains</figcaption>
+</figure>
+
+<p><code>Deferred</code>s can only be fired once; attempting to re-fire them
+will raise an <code>Exception</code>. This gives <code>Deferred</code>s
+semantics closer to those of the <code>try/except</code> blocks of their synchronous
+cousins, which makes processing the asynchronous events easier to reason about
+and avoids subtle bugs caused by callbacks being invoked more or less than once
+for a single event.</p>
+
+<p>Understanding <code>Deferred</code>s is an important part of understanding
+the flow of Twisted programs. However, when using the high-level abstractions
+Twisted provides for networking protocols, one often doesn't have to use
+<code>Deferred</code>s directly at all.</p>
+
+<p>The <code>Deferred</code> abstraction is powerful and has been borrowed by
+many other event-driven platforms, including jQuery, Dojo, and Mochikit.</p>
+
+</section>
+
+</section>
+
+<section>
+<h3>Transports</h3>
+
+<p>Transports represent the connection between two endpoints communicating over
+a network. Transports are responsible for describing connection details, like
+being stream- or datagram-oriented, flow control, and reliability. TCP, UDP, and
+Unix sockets are examples of transports. They are designed to be "minimally
+functional units that are maximally reusable" and are decoupled from protocol
+implementations, allowing for many protocols to utilize the same type of
+transport. Transports implement the <code>ITransport</code> interface, which has
+the following methods:</p>
+
+<table class="table table-condensed">
+<tr><td><code>write</code></td><td>Write some data to the physical connection, in sequence, in a non-blocking fashion.</td></tr>
+<tr><td><code>writeSequence</code></td><td>Write a list of strings to the physical connection.</td></tr>
+<tr><td><code>loseConnection</code></td><td>Write all pending data and then close the connection.</td></tr>
+<tr><td><code>getPeer</code></td><td>Get the remote address of this connection.</td></tr>
+<tr><td><code>getHost</code></td><td>Get the address of this side of the connection.</td></tr>
+</table>
+
+<p>Decoupling transports from procotols also makes testing the two layers
+easier. A mock transport can simply write data to a string for inspection.</p>
+
+</section>
+
+<section>
+<h3>Protocols</h3>
+
+<p>Procotols describe how to process network events asynchronously. HTTP, DNS,
+and IMAP are examples of application protocols. Protocols implement the
+<code>IProtocol</code> interface, which has the following methods:</p>
+
+<table class="table table-condensed">
+<tr><td><code>makeConnection</code></td><td>Make a connection to a transport and a server.</td></tr>
+<tr><td><code>connectionMade</code></td><td>Called when a connection is made.</td></tr>
+<tr><td><code>dataReceived</code></td><td>Called whenever data is received.</td></tr>
+<tr><td><code>connectionLost</code></td><td>Called when the connection is shut down.</td></tr>
+</table>
+
+<p>The relationship between the reactor, protocols, and transports is best
+illustrated with an example. Here are complete implementations of an echo
+server and client, first the server:</p>
+
+<pre>
+from twisted.internet import protocol, reactor
+
+class Echo(protocol.Protocol):
+    def dataReceived(self, data):
+        # As soon as any data is received, write it back
+        self.transport.write(data)
+
+class EchoFactory(protocol.Factory):
+    def buildProtocol(self, addr):
+        return Echo()
+
+reactor.listenTCP(8000, EchoFactory())
+reactor.run()
+</pre>
+
+<p>And the client:</p>
+
+<pre>
+from twisted.internet import reactor, protocol
+
+class EchoClient(protocol.Protocol):
+   def connectionMade(self):
+       self.transport.write("hello, world!")
+
+   def dataReceived(self, data):
+       print "Server said:", data
+       self.transport.loseConnection()
+
+   def connectionLost(self, reason):
+       print "connection lost"
+
+class EchoFactory(protocol.ClientFactory):
+   def buildProtocol(self, addr):
+       return EchoClient()
+
+   def clientConnectionFailed(self, connector, reason):
+       print "Connection failed - goodbye!"
+       reactor.stop()
+
+   def clientConnectionLost(self, connector, reason):
+       print "Connection lost - goodbye!"
+       reactor.stop()
+
+reactor.connectTCP("localhost", 8000, EchoFactory())
+reactor.run()
+</pre>
+
+<p>Running the server script starts a TCP server listening for connections on
+port 8000. The server uses the <code>Echo</code> protocol, and data is written
+out over a TCP transport. Running the client makes a TCP connection to the
+server, echoes the server response, and then terminates the connection and stops
+the reactor. Factories are used to produce instances of protocols for both sides
+of the connection. The communication is asynchronous on both sides;
+<code>connectTCP</code> takes care of registering callbacks with the reactor to
+get notified when data is available to read from a socket.</p>
+
+</section>
+
+<section>
+<h3>Applications</h3>
+
+<p>Twisted is an engine for producing scalable, cross-platform network servers
+and clients. Making it easy to deploy these applications in a standardized
+fashion in production environments is an important part of a platform like this
+getting wide-scale adoption.</p>
+
+<p>To that end, Twisted developed the Twisted application infrastructure, a
+re-usable and configurable way to deploy a Twisted application. It allows a
+programmer to avoid boilerplate code by hooking an application into existing
+tools for customizing the way it is run, including daemonization, logging, using
+a custom reactor, profiling code, and more.</p>
+
+<p>The application infrastructure has four main parts: Services, Applications,
+configuration management (via TAC files and plugins), and the <code>twistd</code>
+command-line utility. To illustrate this infrastructure, we'll turn the echo
+server from the previous section into an Application.</p>
+
+<section>
+<h4>Service</h4>
+
+<p>A Service is anything that can be started and stopped and which adheres to
+the <code>IService</code> interface. Twisted comes with service implementations
+for TCP, FTP, HTTP, SSH, DNS, and many other protocols. Many Services can
+register with a single application.</p>
+
+<p>The core of the <code>IService</code> interface is:</p>
+
+<table class="table table-condensed">
+<tr><td><code>startService</code></td><td>Start the service. This might include loading configuration data, setting up database connections, or listening on a port</td></tr>
+<tr><td><code>stopService</code></td><td>Shut down the service. This might include saving state to disk, closing database connections, or stopping listening on a port</td></tr>
+</table>
+
+<p>Our echo service uses TCP, so we can use Twisted's default
+<code>TCPServer</code> implementation of this <code>IService</code>
+interface.</p>
+
+</section>
+
+<section>
+<h4>Application</h4>
+
+<p>An Application is the top-level service that represents the entire Twisted
+application. Services register themselves with an Application, and the <code>twistd</code>
+deployment utility described below searches for and runs Applications.</p>
+
+<p>We'll create an echo Application with which the echo Service can
+register.</p>
+
+</section>
+
+<section>
+<h4>TAC Files</h4>
+
+<p>When managing Twisted applications in a regular Python file, the developer is
+responsible for writing code to start and stop the reactor and to configure the
+application. Under the Twisted application infrastructure, protocol
+implementations live in a module, Services using those protocols are registered
+in a Twisted Application Configuration (TAC) file, and the reactor and
+configuration are managed by an external utility.</p>
+
+<p>To turn our echo server into an echo application, we can follow a simple
+algorithm:</p>
+
+<ol>
+
+<li>
+Move the Protocol parts of the echo server into their own
+    module.
+</li>
+
+<li>
+Inside a TAC file:
+
+  <ol>
+    <li>
+      Create an echo Application.
+    </li>
+    <li>
+      Create an instance of the <code>TCPServer</code> Service which will use our <code>EchoFactory</code>, and register it with the Application.
+    </li>
+  </ol>
+</li>
+
+</ol>
+
+<p>The code for managing the reactor will be taken care of by
+<code>twistd</code>, discussed below. The application code ends up looking like
+this:</p>
+
+<p>The <code>echo.py</code> file:</p>
+
+<pre>
+from twisted.internet import protocol, reactor
+
+class Echo(protocol.Protocol):
+    def dataReceived(self, data):
+        self.transport.write(data)
+
+class EchoFactory(protocol.Factory):
+    def buildProtocol(self, addr):
+    return Echo()
+</pre>
+
+<p>The <code>echo_server.tac</code> file:</p>
+
+<pre>
+from twisted.application import internet, service
+from echo import EchoFactory
+
+application = service.Application("echo")
+echoService = internet.TCPServer(8000, EchoFactory())
+echoService.setServiceParent(application)
+</pre>
+
+</section>
+
+<section>
+<h4>twistd</h4>
+
+<p><code>twistd</code> (pronounced "twist-dee") is a cross-platform utility for
+deploying Twisted applications. It runs TAC files and handles starting and
+stopping an application. As part of Twisted's batteries-included approach to
+network programming, <code>twistd</code> comes with a number of useful configuration flags,
+including daemonizing the application, the location of log files, dropping
+privileges, running in a chroot, running under a non-default reactor, or even
+running the application under a profiler.</p>
+
+<p>We can run our echo server Application with:</p>
+
+<pre>
+$ twistd -y echo_server.tac
+</pre>
+
+<p>In this simplest case, <code>twistd</code> starts a daemonized
+instance of the application, logging to
+<code>twistd.log</code>. After starting and stopping the
+application, the log looks like this:</p>
+
+</div>
+
+<div class="span9 offset2">
+<pre>
+2011-11-19 22:23:07-0500 [-] Log opened.
+2011-11-19 22:23:07-0500 [-] twistd 11.0.0 (/usr/bin/python 2.7.1) starting up.
+2011-11-19 22:23:07-0500 [-] reactor class: twisted.internet.selectreactor.SelectReactor.
+2011-11-19 22:23:07-0500 [-] echo.EchoFactory starting on 8000
+2011-11-19 22:23:07-0500 [-] Starting factory &lt;echo.EchoFactory instance at 0x12d8670&gt;
+2011-11-19 22:23:20-0500 [-] Received SIGTERM, shutting down.
+2011-11-19 22:23:20-0500 [-] (TCP Port 8000 Closed)
+2011-11-19 22:23:20-0500 [-] Stopping factory &lt;echo.EchoFactory instance at 0x12d8670&gt;
+2011-11-19 22:23:20-0500 [-] Main loop terminated.
+2011-11-19 22:23:20-0500 [-] Server Shut Down.
+</pre>
+</div>
+<div class="span8 offset2">
+
+<p>Running a service using the Twisted application infrastructure allows
+developers to skip writing boilerplate code for common service functionalities
+like logging and daemonization. It also establishes a standard command line
+interface for deploying applications.</p>
+
+</section>
+
+<section>
+<h4>Plugins</h4>
+
+<p>An alternative to the TAC-based system for running Twisted applications is
+the plugin system. While the TAC system makes it easy to register simple
+hierarchies of pre-defined services within an application configuration file,
+the plugin system makes it easy to register custom services as subcommands of
+the <code>twistd</code> utility, and to extend the command-line interface to an
+application.</p>
+
+<p>Using this system:</p>
+
+<ol>
+
+<li>
+Only the plugin API is required to remain stable, which makes it
+  easy for third-party developers to extend the software.
+</li>
+
+<li>
+Plugin discoverability is codified. Plugins can be loaded and
+  saved when a program is first run, re-discovered each time the
+  program starts up, or polled for repeatedly at runtime, allowing the
+  discovery of new plugins installed after the program has started.
+</li>
+
+</ol>
+
+<p>To extend a program using the Twisted plugin system, all one has to do is
+create objects which implement the <code>IPlugin</code> interface and put them
+in a particular location where the plugin system knows to look for them.</p>
+
+<p>Having already converted our echo server to a Twisted application,
+transformation into a Twisted plugin is straightforward. Alongside the
+<code>echo</code> module from before, which contains the <code>Echo</code>
+protocol and <code>EchoFactory</code> definitions, we add a directory called
+<code>twisted</code>, containing a subdirectory called <code>plugins</code>,
+containing our echo plugin definition. This plugin will allow us to start an
+echo server and specify the port to use as arguments to the <code>twistd</code> utility:</p>
+
+<pre>
+from zope.interface import implements
+
+from twisted.python import usage
+from twisted.plugin import IPlugin
+from twisted.application.service import IServiceMaker
+from twisted.application import internet
+
+from echo import EchoFactory
+
+class Options(usage.Options):
+    optParameters = [["port", "p", 8000, "The port number to listen on."]]
+
+class EchoServiceMaker(object):
+    implements(IServiceMaker, IPlugin)
+    tapname = "echo"
+    description = "A TCP-based echo server."
+    options = Options
+
+    def makeService(self, options):
+        """
+        Construct a TCPServer from a factory defined in myproject.
+        """
+        return internet.TCPServer(int(options["port"]), EchoFactory())
+
+serviceMaker = EchoServiceMaker()
+</pre>
+
+<p>Our echo server will now show up as a server option in the output of
+<code>twistd --help</code>, and running <code>twistd echo --port=1235</code>
+will start an echo server on port 1235.</p>
+
+<p>Twisted comes with a pluggable authentication system for servers called
+<code>twisted.cred</code>, and a common use of the plugin system is to add an
+authentication pattern to an application. One can use 
+<code>twisted.cred AuthOptionMixin</code> to add command-line support for various kinds of
+authentication off the shelf, or to add a new kind. For example, one could add
+authentication via a local Unix password database or an LDAP server using the
+plugin system.</p>
+
+<p><code>twistd</code> comes with plugins for many of Twisted's supported protocols,
+which turns the work of spinning up a server into a single command. Here are
+some examples of <code>twistd</code> servers that ship with Twisted:</p>
+
+<dl>
+
+<dt><code>twistd web --port 8080 --path .</code></dt>
+<dd>
+  Run an HTTP server on
+  port 8080, serving both static and dynamic content out of the
+  current working directory.
+</dd>
+
+<dt><code>twistd dns -p 5553 --hosts-file=hosts</code></dt>
+<dd>
+  Run a DNS server
+  on port 5553, resolving domains out of a file called <code>hosts</code> in the
+  format of <code>/etc/hosts</code>.
+</dd>
+
+<dt><code>sudo twistd conch -p tcp:2222</code></dt>
+<dd>
+  Run an ssh server on port 2222. ssh keys must be set up independently.
+</dd>
+
+<dt><code>twistd mail -E -H localhost -d localhost=emails</code></dt>
+<dd>
+  Run an
+  ESMTP POP3 server, accepting email for localhost and saving it to
+  the <code>emails</code> directory.
+</dd>
+
+</dl>
+
+<p><code>twistd</code> makes it easy to spin up a server for testing clients,
+but it is also pluggable, production-grade code.</p>
+
+<p>In that respect, Twisted's application deployment mechanisms via TAC files,
+plugins, and <code>twistd</code> have been a success. However, anecdotally, most
+large Twisted deployments end up having to rewrite some of these management and
+monitoring facilities; the architecture does not quite expose what system
+administrators need. This is a reflection of the fact that Twisted has not
+historically had much architectural input from system administrators&mdash;the
+people who are experts at deploying and maintaining applications.</p>
+
+<p>Twisted would be well-served to more aggressively solicit feedback from
+expert end users when making future architectural decisions in this space.</p>
+
+</section>
+
+</section>
+
+</section>
+
+<section>
+<h2>21.3. Retrospective and Lessons Learned</h2>
+
+<p>Twisted recently celebrated its 10th anniversary. Since its inception,
+inspired by the networked game landscape of the early 2000s, it has largely
+achieved its goal of being an extensible, cross-platform, event-driven
+networking engine. Twisted is used in production environments at companies from
+Google and Lucasfilm to Justin.TV and the Launchpad software collaboration
+platform. Server implementations in Twisted are the core of numerous other open
+source applications, including BuildBot, BitTorrent, and Tahoe-LAFS.</p>
+
+<p>Twisted has had few major architectural changes since its initial
+development. The one crucial addition was <code>Deferred</code>, as
+discussed above, for managing pending results and their callback chains.</p>
+
+<p>There was one important removal, which has almost no footprint in the current
+implementation: Twisted Application Persistence.</p>
+
+<section>
+<h3>Twisted Application Persistence</h3>
+
+<p>Twisted Application Persistence (TAP) was a way of keeping an application's
+configuration and state in a pickle. Running an application using this scheme
+was a two-step process:</p>
+
+<ol>
+
+<li>
+Create the pickle that represents an Application, using the now
+  defunct <code>mktap</code> utility.
+</li>
+
+<li>
+Use <code>twistd</code> to unpickle and run the Application.
+</li>
+
+</ol>
+
+<p>This process was inspired by Smalltalk images, an aversion to the
+proliferation of seemingly ad hoc configuration languages that were hard to
+script, and a desire to express configuration details in Python.</p>
+
+<p>TAP files immediately introduced unwanted complexity. Classes would change in
+Twisted without instances of those classes getting changed in the pickle. Trying
+to use class methods or attributes from a newer version of Twisted on the
+pickled object would crash the application. The notion of "upgraders" that would
+upgrade pickles to new API versions was introduced, but then a matrix of
+upgraders, pickle versions, and unit tests had to be maintained to cover all
+possible upgrade paths, and comprehensively accounting for all interface changes
+was still hard and error-prone.</p>
+
+<p>TAPs and their associated utilities were abandoned and then eventually
+removed from Twisted and replaced with TAC files and plugins. TAP was
+backronymed to Twisted Application Plugin, and few traces of the failed pickling
+system exist in Twisted today.</p>
+
+<p>The lesson learned from the TAP fiasco was that to have reasonable
+maintainability, persistent data needs an explicit schema. More generally, it
+was a lesson about adding complexity to a project: when considering introducing
+a novel system for solving a problem, make sure the complexity of that solution
+is well understood and tested and that the benefits are clearly worth the added
+complexity before committing the project to it.</p>
+
+</section>
+
+<section>
+<h3>web2: a lesson on rewrites</h3>
+
+<p>While not primarily an architectural decision, a project management decision
+about rewriting the Twisted Web implementation has had long-term ramifications
+for Twisted's image and the maintainers' ability to make architectural
+improvements to other parts of the code base, and it deserves a short
+discussion.</p>
+
+<p>In the mid-2000s, the Twisted developers decided to do a full rewrite of the
+<code>twisted.web</code> APIs as a separate project in the Twisted code base
+called <code>web2</code>. <code>web2</code> would contain numerous improvements
+over <code>twisted.web</code>, including full HTTP 1.1 support and a streaming
+data API.</p>
+
+<p><code>web2</code> was labelled as experimental, but ended up getting used by
+major projects anyway and was even accidentally released and packaged by
+Debian. Development on <code>web</code> and <code>web2</code> continued
+concurrently for years, and new users were perennially frustrated by the
+side-by-side existence of both projects and a lack of clear messaging about
+which project to use. The switchover to <code>web2</code> never happened, and in
+2011 <code>web2</code> was finally removed from the code base and the
+website. Some of the improvements from <code>web2</code> are slowly getting
+ported back to <code>web</code>.</p>
+
+<p>Partially because of <code>web2</code>, Twisted developed a reputation for
+being hard to navigate and structurally confusing to newcomers. Years later, the
+Twisted community still works hard to combat this image.</p>
+
+<p>The lesson learned from <code>web2</code> was that rewriting a project from
+scratch is often a bad idea, but if it has to happen make sure that the
+developer community understands the long-term plan, and that the user community
+has one clear choice of implementation to use during the rewrite.</p>
+
+<p>If Twisted could go back and do <code>web2</code> again, the developers would
+have done a series of backwards-compatible changes and deprecations to
+<code>twisted.web</code> instead of a rewrite.</p>
+
+</section>
+
+<section>
+<h3>Keeping Up with the Internet</h3>
+
+<p>The way that we use the Internet continues to evolve. The decision to
+implement many protocols as part of the core software burdens Twisted with
+maintaining code for all of those protocols.  Implementations have to evolve
+with changing standards and the adoption of new protocols while maintaining a
+strict backwards-compatibility policy.</p>
+
+<p>Twisted is primarily a volunteer-driven project, and the limiting factor for
+development is not community enthusiasm, but rather volunteer time. For example,
+RFC 2616 defining HTTP 1.1 was released in 1999, work began on adding HTTP 1.1
+support to Twisted's HTTP protocol implementations in 2005, and the work was
+completed in 2009.  Support for IPv6, defined in RFC 2460 in 1998, is in
+progress but unmerged as of 2011.</p>
+
+<p>Implementations also have to evolve as the interfaces exposed by
+supported operating systems change. For example, the <code>epoll</code>
+event notification facility was added to Linux 2.5.44 in 2002, and
+Twisted grew an <code>epoll</code>-based reactor to take advantage of this new
+API. In 2007, Apple released OS 10.5 Leopard with a <code>poll</code>
+implementation that didn't support devices, which was buggy enough
+behavior for Apple to not expose <code>select.poll</code> in its build of
+Python.
+Twisted has had to <a href="http://twistedmatrix.com/trac/ticket/4173">work around</a> this issue and document it for users
+ever since.</p>
+
+<p>Sometimes, Twisted development doesn't keep up with the changing networking
+landscape, and enhancements are moved to libraries outside of the core
+software. For example, the <a href="https://github.com/ralphm/wokkel">Wokkel project</a>,
+a collection of enhancements to
+Twisted's Jabber/XMPP support, has lived as a to-be-merged independent project
+for years without a champion to oversee the merge. An attempt was made to
+add WebSockets to Twisted as browsers began to adopt support for the new
+protocol in 2009, but development moved to external projects after a decision
+not to include the protocol until it moved from an IETF draft to a standard.</p>
+
+<p>All of this being said, the proliferation of libraries and add-ons is a
+testament to Twisted's flexibility and extensibility. A strict test-driven
+development policy and accompanying documentation and coding standards help the
+project avoid regressions and preserve backwards compatibility while maintaining
+a large matrix of supported protocols and platforms. It is a mature, stable
+project that continues to have very active development and adoption.</p>
+
+<p>Twisted looks forward to being the engine of your Internet for another ten
+years.</p>
+
+</section>
+
+</section>
+<section>      
+ <!-- Footer
+      ================================================== -->
+      <footer class="footer">
+        <hr>
+        <p class="pull-right">This work is made available under
+            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
+            Commons Attribution 3.0 Unported</a> license.  Please see
+            the <a href="intro1.html#license">full description of the
+            license</a> for details.</a>
+            <p><a href="#">Back to top</a><br/>
+        <a href="index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
+      </footer>
+</section>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

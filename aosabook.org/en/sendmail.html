@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: sendmail.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Sendmail</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Sendmail</h1>
+        <p><a href="intro1.html#allman-eric">Eric Allman</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Most people think of electronic mail as the program that they interact
+with&mdash;their mail client, technically known as a Mail User Agent
+(MUA).  But another important part of electronic mail is the software
+that actually transfers the mail from the sender to the
+recipient&mdash;the Mail Transfer Agent (MTA).  The first MTA on the
+Internet, and still the most prevalent, was sendmail.</p>
+
+<p>Sendmail was first created before the Internet officially existed. It
+has been extraordinarily successful, having grown from 1981, when it
+wasn't at all obvious that the Internet was going to be more than an
+academic experiment with only a few hundred hosts, to today, with over
+800 million Internet hosts as of January
+2011<sup class="footnote"><a href="#footnote-1">1</a></sup>.
+Sendmail remains among the most used implementations of SMTP on the Internet.</p>
+
+<div class="sect">
+<h2>17.1. Once Upon a Time&hellip;</h2>
+
+<p>The first versions of the program that would become known as sendmail
+were written in 1980. It started as a quick hack to forward messages
+between different networks.  The Internet was being developed but was
+not functional at that time.  In fact, many different networks had been
+proposed with no obvious consensus emerging.  The Arpanet was in use
+in the United States and the Internet was being designed as an
+upgrade, but Europe had thrown its weight behind the OSI (Open Systems
+Interconnect) effort, and for a while it appeared that OSI might
+triumph. Both of these used leased lines from the phone companies; in
+the US that speed was 56 Kbps.</p>
+
+<p>Probably the most successful network of the time,
+in terms of numbers of computers
+and people connected, was the UUCP network, which was unusual in that
+it had absolutely no central authority. It was, in some sense, the
+original peer-to-peer network, which ran over dialup phone lines: 9600
+bps was about the fastest available for some time. The fastest network
+(at 3 Mbps) was based on the Ethernet from Xerox, which ran a protocol
+called XNS (Xerox Network Systems)&mdash;but it didn't work outside of a
+local installation.</p>
+
+<p>The environment of the time was rather different than what exists
+today.  Computers were highly heterogeneous, to the extent that there
+wasn't even complete agreement to use 8-bit bytes.
+For example, other machines included the PDP-10 (36 bit words, 9 bit bytes),
+the PDP-11 (16 bit words, 8 bit bytes),
+the CDC 6000 series (60 bit words, 6 bit characters),
+the IBM 360 (32 bit words, 8 bit bytes),
+the XDS 940, the ICL 470, and the Sigma 7.
+One of the up-and-coming platforms was Unix,
+which at that time came from Bell Laboratories.
+Most Unix-based
+machines had 16-bit addresses spaces: at that time the PDP-11 was the
+major Unix machine, with the Data General 8/32 and the VAX-11/780 just
+appearing.  Threads didn't exist&mdash;in fact, the concept of dynamic
+processes was still fairly new (Unix had them, but "serious" systems
+such as IBM's OS/360 did not). File locking was not supported in the
+Unix kernel (but tricks were possible using filesystem links).</p>
+
+<p>To the extent they existed at all, networks were generally low speed
+(many based on 9600-baud TTY lines; the truly rich might have had
+Ethernet available, but for local use only). The venerable socket
+interface wasn't going to be invented for many years. Public key
+encryption hadn't been invented either, so most network security as we
+know it today wasn't feasible.</p>
+
+<p>Network email already existed on Unix, but it was created using
+hacks.  The primary user agent at the time was the <code>/bin/mail</code>
+command (today sometimes referred to as <code>binmail</code> or
+<code>v7mail</code>), but some sites had other user agents such as
+<code>Mail</code> from Berkeley, which actually understood how to
+treat messages as individual items rather than being a glorified
+<code>cat</code> program.  Every user agent read (and usually wrote!)
+<code>/usr/spool/mail</code> directly; there was no abstraction for how the
+messages were actually stored.</p>
+
+<p>The logic to route a message to the network versus local e-mail was nothing
+more than seeing if the address contained an exclamation point (UUCP)
+or a colon (BerkNET). People with Arpanet access had to use a
+completely separate mail program, which would not interoperate with
+other networks, and which even stored local mail in a different place
+and in a different format.</p>
+
+<p>To make things even more interesting, there was virtually no
+standardization on the format of the messages themselves.  There was
+general agreement that there would be a block of header fields at the
+top of the message, that each header field would be on a new line, and
+that header field names and values would be separated by a
+colon. Beyond that, there was very little standardization in either the
+selection of header field names or the syntaxes of individual
+fields. For example, some systems used <code>Subj:</code> instead of
+<code>Subject:</code>, <code>Date:</code> fields were different syntaxes, and some
+systems didn't understand full names in a <code>From:</code> field. On top
+of all of this, what was documented was often ambiguous or not quite
+what was actually in use. In particular, RFC 733 (which purported to
+describe the format of Arpanet messages) was different from what was
+actually used in subtle but sometimes important ways, and the method
+of actually transmitting messages was not officially documented at all
+(although several RFCs made reference to the mechanism, none defined
+it). The result was that there was somewhat of a priesthood around
+messaging systems.</p>
+
+<p>In 1979, the INGRES Relational Database Management Project
+(a.k.a. my day job)
+got a DARPA grant, and with it a 9600bps Arpanet connection
+to our PDP-11.
+At the time it was the only Arpanet connection available in
+the Computer Science Division,
+so everyone wanted access to our machine so they could get to the Arpanet.
+However, that machine was already maxed out,
+and so we could only make two login ports available for everyone in the
+department to share.
+This caused substantial contention and frequent conflicts.
+However, I noticed that what people wanted most of all was not
+remote login or file transfer, but e-mail.</p>
+
+<p>Into this, sendmail (initially called delivermail) emerged as an
+attempt to unify the chaos into one place. Every MUA (mail user agent,
+or mail client) would just call delivermail to deliver email rather than
+figuring out how to do it on an ad hoc (and often incompatible) basis.
+Delivermail/sendmail made no attempt to dictate how local mail should be stored or
+delivered; it did absolutely nothing except shuffle mail between other
+programs. (This changed when SMTP was added, as we'll see shortly.)
+In some sense it was just glue to hold the various mail systems
+together rather than being a mail system in its own right.</p>
+
+<p>During the development of sendmail the Arpanet was transformed into
+the Internet. The changes were extensive, from the low level packets
+on the wire up through application protocols, and did not happen
+instantly.  Sendmail was literally developed concurrently with the
+standards, and in some cases influenced them. It's also notable that
+sendmail has survived and even thrived as "the network" (as we think
+of it today) scaled from a few hundred hosts to hundreds of millions
+of hosts.</p>
+
+<div class="box">
+  <p class="boxtitle">Another Network</p>
+
+<p>It's worth mentioning that another completely separate
+mail standard was proposed at the
+time called X.400, which was a part of ISO/OSI (International
+Standards Organization/Open Systems Interconnect).  X.400 was a binary
+protocol, with the message encoded using ASN.1 (Abstract Syntax
+Notation 1), which is still in use in some Internet protocols today
+such as LDAP. LDAP was in turn a simplification of X.500, which was
+the directory service used by X.400.  Sendmail made no attempt
+whatsoever to be directly compatible with X.400, although there were
+some gateway services extant at the time. Although X.400 was initially
+adopted by many of the commercial vendors at the time, Internet mail
+and SMTP
+ended up winning in the marketplace.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.2. Design Principles</h2>
+
+<p>While developing sendmail, I adhered to several design principles. All
+of these in some sense came down to one thing: do as little as
+possible.  This is in sharp contrast to some of the other efforts of
+the time that had much broader goals and required much larger
+implementations.</p>
+
+<div class="subsect">
+<h3>17.2.1. Accept that One Programmer Is Finite</h3>
+
+<p>I wrote sendmail as a part-time, unpaid project. It was intended to be
+a quick way of making Arpanet mail more accessible to people at
+U.C. Berkeley. The key was to forward mail between existing networks,
+all of which were implemented as standalone programs that were unaware
+that more than one network even existed. Modifying more than a tiny
+amount of the existing software was infeasible with only one part-time
+programmer.  The design had to minimize the amount of existing code
+that needed to be modified as well as the amount of new code that
+needed to be written.  This constraint drove most of the rest of the
+design principles. As it turned out, in most cases they would have
+been the right thing to do even if there had been a larger team
+available.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.2.2. Don't Redesign User Agents</h3>
+
+<p>A Mail User Agent (MUA) is what most end users think of as the "mail
+system"&mdash;it's the program that they use to read, write, and answer
+mail. It is quite distinct from the Mail Transfer Agent (MTA), which
+routes email from the sender to the receiver. At the time sendmail was
+written, many implementations at least partly combined these two
+functions, so they were often developed in tandem. Trying to work on
+both at the same time would have been too much, so Sendmail completely
+punted on the user interface problem: the only changes to MUAs were to
+have them invoke sendmail instead of doing their own routing. In
+particular, there were already several user agents, and people were
+often quite emotional about how they interacted with mail.
+Trying to work on both at the same time would have been too much.
+This
+separation of the MUA from the MTA is accepted wisdom now, but was far
+from standard practice at the time.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.2.3. Don't Redesign the Local Mail Store</h3>
+
+<p>The local mail store (where messages would be saved until the
+recipient came along to read them) was not formally standardized. Some sites
+liked to store them in a centralized place, such as <code>/usr/mail</code>,
+<code>/var/mail</code>, or <code>/var/spool/mail</code>. Other sites liked to
+store them in the recipient's home directory (e.g., as a file called
+<code>.mail</code>). Most sites started each message with a line beginning
+"From" followed by a space character (an extraordinarily bad
+decision, but that was the convention at the time), but sites that
+were Arpanet-focused usually stored messages separated by a line
+containing four control-A characters. Some sites attempted to lock the
+mailbox to prevent collisions, but they used different locking
+conventions (file locking primitives were not yet available). In
+short, the only reasonable thing to do was treat local mail storage as
+a black box.</p>
+
+<p>On nearly all sites, the actual mechanism for doing local mailbox
+storage was embodied in the <code>/bin/mail</code> program. This had a
+(quite primitive) user interface, routing, and storage built into one
+program. To incorporate sendmail, the routing portion was pulled out
+and replaced with a call to sendmail.  A <code>-d</code> flag was added to
+force final delivery, i.e., it prevented <code>/bin/mail</code> from calling
+sendmail to do the routing. In later years the code used to deliver a
+message to a physical mailbox was extracted into another program
+called <code>mail.local</code>. The <code>/bin/mail</code> program exists today
+only to include a lowest common denominator for scripts to send
+mail.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.2.4. Make Sendmail Adapt to the World, Not the Other Way Around</h3>
+
+<p>Protocols such as UUCP and BerkNET were already implemented as
+separate programs that had their own, sometimes quirky, command line
+structure. In some cases they were being actively developed at the
+same time as sendmail. It was clear that reimplementing them (for
+example, to convert them to standard calling conventions) was going to
+be painful. This led directly to the principle that sendmail should
+adapt to the rest of the world rather than trying to make the rest of
+the world adapt to sendmail.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.2.5. Change as Little as Possible</h3>
+
+<p>To the fullest extent possible, during the development of sendmail I
+didn't touch anything I didn't absolutely have to touch. Besides just
+not having enough time to do it, there was a culture at Berkeley at
+the time that eschewed most formal code ownership in favor of a policy
+of "the last person who touched the code is the go-to person for that
+program" (or more simply, "you touch it, you own it"). Although
+that sounds chaotic by most modern-day standards, it worked quite well
+in a world where no one at Berkeley was assigned full time to work on
+Unix; individuals worked on parts of the system that they were
+interested in and committed to and didn't touch the rest of the code
+base except in dire circumstances.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.2.6. Think About Reliability Early</h3>
+
+<p>The mail system prior to sendmail (including most of the transport
+systems) wasn't terribly concerned about reliability. For example,
+versions of Unix prior to 4.2BSD did not have native file locking,
+although it could be simulated by creating a temporary file and then
+linking it to a lock file (if the lock file already existed the link
+call would fail). However, sometimes different programs writing the
+same data file wouldn't agree on how the locking should be done (for
+example, they might use a different lock file name or even make no attempt
+to do locking at all), and so it wasn't
+that uncommon to lose mail.  Sendmail took the approach that losing
+mail wasn't an option (possibly a result of my background as a
+database guy, where losing data is a mortal sin).</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.2.7. What Was Left Out</h3>
+
+<p>There were many things that were not done in the early versions.
+I did not try to re-architect the mail system
+or build a completely general solution:
+functionality could be added as the need arose.
+Very early versions were not even intended to be completely configurable
+without access to the source code and a compiler
+(although this changed fairly early on).
+In general, the modus operandi for sendmail
+was to get something working quickly
+and then enhance working code as needed
+and as the problem was better understood.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.3. Development Phases</h2>
+
+<p>Like most long-lived software, sendmail was developed in phases, each
+with its own basic theme and feeling.</p>
+
+<div class="subsect">
+<h3>17.3.1. Wave 1: delivermail</h3>
+
+<p>The first instantiation of sendmail was known as delivermail. It was
+extremely simple, if not simplistic. Its sole job was to forward mail
+from one program to another; in particular, it had no SMTP support,
+and so never made any direct network connections. No queuing
+was necessary because each network already had its own queue, so the
+program was really just a crossbar switch. Since delivermail had no
+direct network protocol support, there was no reason for it to run as
+a daemon&mdash;it would be invoked to route each message as it was
+submitted, pass it to the appropriate program that would implement the
+next hop, and terminate.  Also, there was no attempt to rewrite
+headers to match the network to which a message was being
+delivered. This commonly resulted in messages being forwarded that
+could not be replied to. The situation was so bad that an entire book
+was written about addressing mail (called, fittingly,
+<em>!%@:: A Directory of Electronic Mail Addressing &amp; Networks</em>
+[<a href="bib1.html#bib:adams:email">AF94</a>]).</p>
+
+<p>All configuration in delivermail was compiled in and was based only on
+special characters in each address.  The characters had
+precedence. For example, a host configuration might search for an
+"@" sign and, if one was found, send the entire address to a
+designated Arpanet relay host. Otherwise, it might search for a colon,
+and send the message to BerkNET with the designated host and user if
+it found one, then could check for an exclamation point ("!")
+signalling that the message should be forwarded to a designated UUCP
+relay.  Otherwise it would attempt local delivery. This configuration
+might result in the following:</p>
+
+<table>
+  <tr>
+    <th>Input</th>
+    <th>Sent To {net, host, user}</th>
+  </tr>
+  <tr>
+    <td>foo@bar</td>
+    <td>{Arpanet, bar, foo}</td>
+  </tr>
+  <tr>
+    <td>foo:bar</td>
+    <td>{Berknet, foo, bar}</td>
+  </tr>
+  <tr>
+    <td>foo!bar!baz</td>
+    <td>{Uucp, foo, bar!baz}</td>
+  </tr>
+  <tr>
+    <td>foo!bar@baz</td>
+    <td>{Arpanet, baz, foo!bar}</td>
+  </tr>
+</table>
+
+<p class="continue">Note that address delimiters differed in their associativity,
+resulting in ambiguities that could only be resolved using heuristics.
+For example, the last example might reasonably be parsed as
+{Uucp, foo, bar@baz}
+at another site.</p>
+
+<p>The configuration was compiled in for several reasons: first, with a
+16 bit address space and limited memory, parsing a runtime
+configuration was too expensive. Second, the systems of the time had
+been so highly customized that recompiling was a good idea, just to
+make sure you had the local versions of the libraries (shared
+libraries did not exist with Unix 6th Edition).</p>
+
+<p>Delivermail was distributed with 4.0 and 4.1 BSD and was more
+successful than expected; Berkeley was far from the only site with
+hybrid network architectures.  It became clear that more work was
+required.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.3.2. Wave 2: sendmail 3, 4, and 5</h3>
+
+<p>Versions 1 and 2 were distributed under the delivermail name. In March
+1981 work began on version 3, which would be distributed under the
+sendmail name. At this point the 16-bit PDP-11 was still in common use
+but the 32-bit VAX-11 was becoming popular, so many of the original
+constraints associated with small address spaces were starting to be
+relaxed.</p>
+
+<p>The initial goals of sendmail were to convert to runtime
+configuration, allow message modification to provide compatibility
+across networks for forwarded mail, and have a richer language on
+which to make routing decisions. The technique used was essentially
+textual rewriting of addresses (based on tokens rather than
+character strings),
+a mechanism used in some expert systems at the time. There was ad hoc
+code to extract and save any comment strings (in parentheses) as well
+as to re-insert them after the programmatic rewriting completed. It
+was also important to be able to add or augment header fields (e.g.,
+adding a <code>Date</code> header field or including the full name of the
+sender in the <code>From</code> header if it was known).</p>
+
+<p>SMTP development started in November 1981.
+The Computer Science Research Group (CSRG) at U.C. Berkeley had gotten
+the DARPA contract to produce a Unix-based platform to support DARPA
+funded research, with the intent of making sharing between projects
+easier.  The initial work on the TCP/IP stack was done by that time,
+although the details of the socket interface were still changing.
+Basic application protocols such as Telnet and FTP were done, but SMTP
+had yet to be implemented. In fact, the SMTP protocol wasn't even
+finalized at that point; there had been a huge debate about how mail
+should be sent using a protocol to be creatively named Mail Transfer
+Protocol (MTP). As the debate raged, MTP got more and more complex
+until in frustration SMTP (Simple Mail Transfer Protocol) was drafted
+more-or-less by fiat (but not officially published until August 1982).
+Officially, I was working on the INGRES Relational Database Management
+System, but since I knew more about the mail system than anyone else
+around Berkeley at the time, I got talked into implementing SMTP.</p>
+
+<p>My initial thought was to create a separate SMTP mailer that would
+have its own queueing and daemon; that subsystem would attach to
+sendmail to do the routing. However, several features of SMTP made
+this problematic. For example, the <code>EXPN</code> and <code>VRFY</code> commands required
+access to the parsing, aliasing, and local address verification
+modules. Also, at the time I thought it was important that the <code>RCPT</code>
+command return immediately if the address was unknown, rather than
+accepting the message and then having to send a delivery failure
+message later. This turns out to have been a prescient
+decision. Ironically, later MTAs often got this wrong, exacerbating
+the spam backscatter problem. These issues drove the decision to
+include SMTP as part of sendmail itself.</p>
+
+<p>Sendmail 3 was distributed with 4.1a and 4.1c BSD (beta versions),
+sendmail 4 was distributed with 4.2 BSD, and sendmail 5 was
+distributed with 4.3 BSD.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.3.3. Wave 3: The Chaos Years</h3>
+
+<p>After I left Berkeley and went to a startup company, my time available
+to work on sendmail rapidly decreased. But the Internet was starting
+to seriously explode and sendmail was being used in a variety of new
+(and larger) environments. Most of the Unix system vendors (Sun, DEC,
+and IBM in particular) created their own versions of sendmail, all of
+which were mutually incompatible. There were also attempts to build
+open source versions, notably IDA sendmail and KJS.</p>
+
+<p>IDA sendmail came from Link&ouml;ping University.  IDA included extensions
+to make it easier to install and manage in larger environments and a
+completely new configuration system. One of the major new features was
+the inclusion of dbm(3) database maps to support highly dynamic
+sites. These were available using a new syntax in the configuration
+file and were used for many functions including mapping of addresses
+to and from external syntax (for example, sending out mail as
+john_doe@example.com instead of johnd@example.com) and routing.</p>
+
+<p>King James Sendmail (KJS, produced by Paul Vixie) was an attempt to
+unify all the various versions of sendmail that had sprung
+up. Unfortunately, it never really got enough traction to have the
+desired effect.  This era was also driven by a plethora of new
+technologies that were reflected in the mail system. For example,
+Sun's creation of diskless clusters added the YP (later NIS) directory
+services and NFS, the Network File System.  In particular, YP had to be
+visible to sendmail,
+since aliases were stored in YP rather than in local files.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.3.4. Wave 4: sendmail 8</h3>
+
+<p>After several years, I returned to Berkeley as a staff member. My job
+was to manage a group installing and supporting shared infrastructure
+for research around the Computer Science department. For that to
+succeed, the largely ad hoc environments of individual research groups
+had to be unified in some rational way. Much like the early days of
+the Internet, different research groups were running on radically
+different platforms, some of which were quite old. In general, every
+research group ran its own systems, and although some of them were
+well managed, most of them suffered from "deferred maintenance."</p>
+
+<p>In most cases email was similarly fractured. Each person's email
+address was "<code>person@host.berkeley.edu</code>", where <code>host</code> was
+the name of the workstation in their office or the shared server they
+used (the campus didn't even have internal subdomains) with the
+exception of a few special people who had <code>@berkeley.edu</code> addresses. The
+goal was to switch to internal subdomains (so all individual hosts
+would be in the <code>cs.berkeley.edu</code> subdomain) and have a unified
+mail system (so each person would have an <code>@cs.berkeley.edu</code>
+address). This goal was most easily realized by creating a new version
+of sendmail that could be used throughout the department.</p>
+
+<p>I began by studying many of the variants of sendmail that had become
+popular.  My intent was not to start from a different code base but
+rather to understand the functionality that others had found useful.
+Many of those ideas found their way into sendmail 8, often with
+modifications to merge related ideas or make them more generic. For
+example, several versions of sendmail had the ability to access
+external databases such as dbm(3) or NIS; sendmail 8 merged these into
+one "map" mechanism that could handle multiple types of databases
+(and even arbitrary non-database transformations).  Similarly, the
+"generics" database (internal to external name mapping)
+from IDA sendmail was incorporated.</p>
+
+<p>Sendmail 8 also included a new configuration package using the m4(1)
+macro processor.
+This was
+intended to be more declarative than the sendmail 5 configuration
+package, which had been largely procedural. That is, the sendmail 5
+configuration package required the administrator to essentially lay
+out the entire configuration file by hand, really only using the
+"include" facility from m4 as shorthand. The sendmail 8
+configuration file allowed the administrator to just declare what
+features, mailers, and so on were required, and m4 laid out the final
+configuration file.</p>
+
+<p>Much of <a href="#sec.sendmail.evo">Section&nbsp;17.7</a> discusses the enhancements in
+sendmail&nbsp;8.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.3.5. Wave 5: The Commercial Years</h3>
+
+<p>As the Internet grew and the number of sendmail sites expanded,
+support for the ever larger user base became more problematic.  For a
+while I was able to continue support by setting up a group of
+volunteers (informally called the "Sendmail Consortium",
+a.k.a. sendmail.org) who provided free support via e-mail and
+newsgroup.  But by the late 1990s, the installed base had grown to such
+an extent that it was nearly impossible to support it on a volunteer
+basis.  Together with a more business-savvy friend I founded Sendmail,
+Inc.<sup class="footnote"><a href="#footnote-2">2</a></sup>,
+with the expectation of getting new resources to bear on the
+code.</p>
+
+<p>Although the commercial product was originally based largely on
+configuration and management tools, many new features were added to
+the open-source MTA to support the needs of the commercial world.
+Notably, the company added support for TLS (connection encryption),
+SMTP Authentication, site security enhancements such as Denial of
+Service protection, and most importantly mail filtering plugins (the
+Milter interface discussed below).</p>
+
+<p>At of this writing the commercial product has expanded to include a large
+suite of e-mail based applications, nearly all of which are constructed
+on the extensions added to sendmail during the first few years of the
+company.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.3.6. Whatever Happened to sendmail 6 and 7?</h3>
+
+<p>Sendmail 6 was essentially the beta for sendmail 8. It was never
+officially released, but was distributed fairly widely. Sendmail 7
+never existed at all; sendmail jumped directly to version 8 because
+all the other source files for the BSD distribution were bumped to
+version 8 when 4.4 BSD was released in June 1993.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.4. Design Decisions</h2>
+
+<p>Some design decisions were right. Some started out right and became
+wrong as the world changed. Some were dubious and haven't become any
+less so.</p>
+
+<div class="subsect">
+<h3>17.4.1. The Syntax of the Configuration File</h3>
+
+<p>The syntax of the configuration file was driven by a couple of issues.
+First, the entire application had to fit into a 16-bit address space,
+so the parser had to be small. Second, early configurations were quite
+short (under one page), so while the syntax was obscure, the file was
+still comprehensible.  However, as time passed, more operational
+decisions moved out of the C code into the configuration file, and the
+file started to grow. The configuration file acquired a reputation for
+being arcane. One particular frustration for many people was the
+choice of the tab character as an active syntax item. This was a
+mistake that was copied from other systems of the time, notably
+<code>make</code>. That particular problem became more acute as window
+systems (and hence cut-and-paste, which usually did not preserve the
+tabs) became available.</p>
+
+<p>In retrospect, as the file got larger and 32-bit machines took over,
+it would have made sense to reconsider the syntax. There was a time
+when I thought about doing this but decided against it because I
+didn't want to break the "large" installed base (which at that point
+was probably a few hundred machines). In retrospect this was a
+mistake; I had simply not appreciated how large the install base would
+grow and how many hours it would save me had I changed the syntax
+early.  Also, when the standards stabilized a fair amount of the
+generality could have been pushed back into the C code base, thus
+simplifying the configurations.</p>
+
+<p>Of particular interest was how more functionality got moved into the
+configuration file. I was developing sendmail at the same time as the
+SMTP standard was evolving. By moving operational decisions into the
+configuration file I was able to respond rapidly to design
+changes&mdash;usually in under 24 hours. I believe that this improved the
+SMTP standard, since it was possible to get operational experience
+with a proposed design change quite quickly, but only at the cost of
+making the configuration file difficult to understand.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.4.2. Rewriting Rules</h3>
+
+<p>One of the difficult decisions when writing sendmail was how to do the
+necessary rewriting to allow forwarding between networks without
+violating the standards of the receiving network. The transformations
+required changing metacharacters (for example, BerkNET used colon as a
+separator, which was not legal in SMTP addresses), rearranging address
+components, adding or deleting components, etc. For example, the
+following rewrites would be needed under certain circumstances:</p>
+
+<table>
+  <tr>
+    <th>From</th>
+    <th>To</th>
+    </tr>
+  <tr>
+    <td>a:foo</td>
+    <td>a.foo@berkeley.edu</td>
+  </tr>
+  <tr>
+    <td>a!b!c</td>
+    <td>b!c@a.uucp</td>
+  </tr>
+  <tr>
+    <td>&lt;@a.net,@b.org:user@c.com&gt;</td>
+    <td>&lt;@b.org:user@c.com&gt;</td>
+  </tr>
+</table>
+
+<p>Regular expressions were not a good choice because they didn't have
+good support for word boundaries, quoting, etc. It quickly became
+obvious that it would be nearly impossible to write regular
+expressions that were accurate, much less intelligible. In particular,
+regular expressions reserve a number of metacharacters, including
+".", "*", "+", "{[}", and "{]}", all of which can appear in
+e-mail addresses. These could have been escaped in configuration files,
+but I deemed that to be complicated, confusing, and a bit
+ugly. (This was tried by UPAS from Bell Laboratories, the mailer for
+Unix Eighth Edition, but it never caught
+on<sup class="footnote"><a href="#footnote-3">3</a></sup>.)
+Instead, a scanning phase was necessary to produce tokens that could
+then be manipulated much like characters in regular expressions. A
+single parameter describing "operator characters", which were
+themselves both tokens and token separators, was sufficient. Blank
+spaces separated tokens but were not tokens themselves. The rewriting
+rules were just pattern match/replace pairs organized into what were
+essentially subroutines.</p>
+
+<p>Instead of a large number of metacharacters that had to be escaped to
+lose their "magic" properties (as used in regular expressions), I
+used a single "escape" character that combined with ordinary
+characters to represent wildcard patterns (to match an arbitrary word,
+for example).  The traditional Unix approach would be to use
+backslash, but backslash was already used as a quote character in some
+address syntaxes. As it turned out, "$" was one of the few
+characters that had not already been used as a punctuation character
+in some email syntax.</p>
+
+<p>One of the original bad decisions was, ironically, just a matter of how white
+space was used. A space character was a separator, just as in most
+scanned input, and so could have been used freely between tokens in
+patterns. However, the original configuration files distributed did
+not include spaces, resulting in patterns that were far harder to
+understand than necessary. Consider the difference between the
+following two (semantically identical) patterns:</p>
+
+<pre>
+$+ + $* @ $+ . $={mydomain}
+$++$*@$+.$={mydomain}
+</pre>
+
+</div>
+
+<div class="subsect">
+<h3>17.4.3. Using Rewriting for Parsing</h3>
+
+<p>Some have suggested that sendmail should have used conventional
+grammar-based parsing techniques to parse addresses rather than
+rewriting rules and leave the rewriting rules for address modification.
+On the surface this would seem to make sense, given
+that the standards define addresses using a grammar.  The main reason
+for reusing rewriting rules is that in some cases it was necessary to
+parse header field addresses (e.g., in order to extract the sender
+envelope from a header when receiving mail from a network that didn't
+have a formal envelope). Such addresses aren't easy to parse using
+(say) an LALR(1) parser such as YACC and a traditional scanner because
+of the amount of lookahead required. For example, parsing the address:
+<code>allman@foo.bar.baz.com
+  &lt;eric@example.com&gt;</code> requires lookahead by
+either the scanner or the parser; you can't know that the initial
+"allman@&hellip;" is not an address until you see the
+"&lt;".
+Since LALR(1) parsers only have one token of lookahead
+this would have had to be done in the scanner,
+which would have complicated it substantially.
+Since the rewriting rules already had arbitrary backtracking
+(i.e., they could look ahead arbitrarily far),
+they were sufficient.</p>
+
+<p>A secondary reason was that it was relatively easy to make the
+patterns recognize and fix broken input. Finally, rewriting was more
+than powerful enough to do the job, and reusing any code was wise.</p>
+
+<p>One unusual point about the rewriting rules: when doing the pattern
+matching, it is useful for both the input and the pattern to be
+tokenized. Hence, the same scanner is used for both the input
+addresses and the patterns themselves. This requires that the scanner
+be called with different character type tables for differing input.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.4.4. Embedding SMTP and Queueing in sendmail</h3>
+
+<p>An "obvious" way to implement outgoing (client) SMTP would have been
+to build it as an external mailer, similarly to UUCP,  But this would
+raise a number of other questions. For example, would queueing be done
+in sendmail or in the SMTP client module? If it was done in sendmail
+then either separate copies of messages would have to be sent to each
+recipient (i.e., no "piggybacking", wherein a single connection can
+be opened and then multiple <code>RCPT</code> commands can be sent) or a much
+richer communication back-path would be necessary to convey the
+necessary per-recipient status than was possible using simple Unix
+exit codes. If queueing was done in the client module then there was a
+potential for large amounts of replication; in particular, at the time
+other networks such as XNS were still possible
+contenders. Additionally, including the queue into sendmail itself
+provided a more elegant way of dealing with certain kinds of failures,
+notably transient problems such as resource exhaustion.</p>
+
+<p>Incoming (server) SMTP involved a different set of decisions. At the
+time, I felt it was important to implement the <code>VRFY</code> and
+<code>EXPN</code> SMTP commands faithfully, which required access to the
+alias mechanism.  This would once again require a much richer protocol
+exchange between the server SMTP module and sendmail than was possible
+using command lines and exit codes&mdash;in fact, a protocol akin to SMTP
+itself.</p>
+
+<p>I would be much more inclined today to leave queueing in the core
+sendmail but move both sides of the SMTP implementation into other
+processes. One reason is to gain security: once the server side has an
+open instance of port 25 it no longer needs access to root
+permissions. Modern extensions such as TLS and DKIM signing complicate
+the client side (since the private keys should not be accessible to
+unprivileged users), but strictly speaking root access is still not
+necessary. Although the security issue is still an issue here, if the
+client SMTP is running as a non-root user who can read the private
+keys, that user by definition has special privileges, and hence should
+not be communicating directly with other sites. All of these issues
+can be finessed with a bit of work.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.4.5. The Implementation of the Queue</h3>
+
+<p>Sendmail followed the conventions of the time for storing queue files.
+In fact, the format used is extremely similar to the lpr subsystem of
+the time.  Each job had two files, one with the control information
+and one with the data. The control file was a flat text file with the
+first character of each line representing the meaning of that line.</p>
+
+<p>When sendmail wanted to process the queue it had to read all of the
+control files, storing the relevant information in memory, and then
+sort the list. That worked fine with a relatively small number of
+messages in the queue, but started to break down at around 10,000
+queued messages. Specifically, when the directory got large enough to
+require indirect blocks in the filesystem, there was a serious
+performance knee that could reduce performance by as much as an order
+of magnitude. It was possible to ameliorate this problem by having
+sendmail understand multiple queue directories, but that was at best a
+hack.</p>
+
+<p>An alternative implementation might be to store all the control files
+in one database file. This wasn't done because when sendmail coding
+began there was no generally available database package, and when
+dbm(3) became available it had several flaws, including the inability
+to reclaim space, a requirement that all keys that hashed together fit
+on one (512 byte) page, and a lack of locking. Robust database
+packages didn't appear for many years.</p>
+
+<p>Another alternative implementation would have been to have a separate
+daemon that would keep the state of the queue in memory, probably
+writing a log to allow recovery. Given the relatively low email
+traffic volumes of the time, the lack of memory on most machines,
+the relatively high cost of background processes,
+and the complexity of implementing such a process,
+this didn't seem
+like a good tradeoff at the time.</p>
+
+<p>Another design decision was to store the message header in the queue
+control file rather than the data file. The rationale was that most
+headers needed considerable rewriting that varied from destination to
+destination (and since messages could have more than one destination,
+they would have to be customized multiple times), and the cost of
+parsing the headers seemed high, so storing them in a pre-parsed
+format seemed like a savings. In retrospect this was not a good decision,
+as was storing the message body in Unix-standard format (with newline
+endings) rather than in the format in which it was received (which
+could use newlines, carriage-return/line-feed, bare carriage-return,
+or line-feed/carriage-return). As the e-mail world evolved and
+standards were adopted, the need for rewriting diminished, and even
+seemingly innocuous rewriting has the risk of error.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.4.6. Accepting and Fixing Bogus Input</h3>
+
+<p>Since sendmail was created in a world of multiple protocols and
+disturbingly few written standards, I decided to clean up malformed
+messages wherever possible.
+This matches the "Robustness Principle" (a.k.a. Postel's Law)
+articulated in RFC 793<sup class="footnote"><a href="#footnote-4">4</a></sup>.
+Some of these changes were obvious and even required:
+when sending a
+UUCP message to the Arpanet, the UUCP addresses needed to be converted
+to Arpanet addresses, if only to allow "reply" commands to work
+correctly,
+line terminations needed to be converted between the conventions used
+by various platforms, and so on.
+Some were less obvious: if a message was received that did
+not include a <code>From:</code> header field required in the Internet
+specifications, should you add a <code>From:</code> header field, pass the
+message on without the <code>From:</code> header field, or reject the message?  At
+the time, my prime consideration was interoperability, so sendmail
+patched the message, e.g., by adding the <code>From:</code> header
+field. However, this is claimed to have allowed other broken mail
+systems to be perpetuated long past the time when they should have
+been fixed or killed off.</p>
+
+<p>I believe my decision was correct for the time, but is problematic
+today. A high degree of interoperability was important to let mail
+flow unimpeded. Had I rejected malformed messages, most messages at
+the time would have been rejected. Had I passed them through unfixed,
+recipients would have received messages that they couldn't reply to
+and in some cases couldn't even determine who sent the message&mdash;that
+or the message would have been rejected by another mailer.</p>
+
+<p>Today the standards are written, and for the most part those standards
+are accurate and complete. It is no longer the case that most messages
+would be rejected, and yet there is still mail software out there that
+send out mangled messages. This unnecessarily creates numerous
+problems for other software on the Internet.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.4.7. Configuration and the Use of M4</h3>
+
+<p>For a period I was both making regular changes to the sendmail
+configuration files and personally supporting many machines. Since a
+large amount of the configuration file was the same between different
+machines, the use of a tool to build the configuration files was
+desirable. The m4 macro processor was included with Unix. It was
+designed as a front end for programming languages (notably
+ratfor). Most importantly, it had "include" capabilities, like
+"#include" in the C language.
+The original configuration files used little
+more than this capability and some minor macro expansions.</p>
+
+<p>IDA sendmail also used m4, but in a dramatically different way. In
+retrospect I should have probably studied these prototypes in more
+detail. They contained many clever ideas, in particular the way they
+handled quoting.</p>
+
+<p>Starting with sendmail 6, the m4 configuration files were completely
+rewritten to be in a more declarative style and much smaller. This
+used considerably more of the power of the m4 processor, which was
+problematic when the introduction of GNU m4 changed some of
+the semantics in subtle ways.</p>
+
+<p>The original plan was that the m4
+configurations would follow the 80/20 rule: they would be simple
+(hence 20% of the work), and would cover 80% of the cases. This broke
+down fairly quickly, for two reasons.
+The minor reason was that it turned out to be relatively easy to
+handle the vast majority of the cases, at least in the beginning. It
+became much harder as sendmail and the world evolved, notably with the
+inclusion of features such as TLS encryption and SMTP Authentication,
+but those didn't come until quite a bit later.</p>
+
+<p>The important reason was that it was becoming clear that the raw
+configuration file was just too difficult for most people to
+manage. In essence, the <code>.cf</code> (raw) format had become assembly
+code&mdash;editable in principle, but in reality quite opaque. The
+"source code" was an m4 script stored in the <code>.mc</code> file.</p>
+
+<p>Another important distinction is that the raw format configuration
+file was really a programming language. It had procedural code
+(rulesets), subroutine calls, parameter expansion, and loops (but no
+gotos). The syntax was obscure, but in many ways resembled
+the <code>sed</code> and <code>awk</code> commands, at
+least conceptually. The m4 format was declarative: although it was
+possible to drop into the low-level raw language, in practice these
+details were hidden from the user.</p>
+
+<p>It isn't clear that this decision was correct or incorrect.
+I felt at the time (and still feel) that with complex systems
+it can be useful to implement what amounts to a Domain Specific Language (DSL)
+for building certain portions of that system.
+However, exposing that DSL to end users as a configuration methodology
+essentially converts all attempts to configure a system
+into a programming problem.
+Great power results from this, but at a non-trivial cost.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.5. Other Considerations</h2>
+
+<p>Several other architectural and development points deserve to be
+mentioned.</p>
+
+<div class="subsect">
+<h3>17.5.1. A Word About Optimizing Internet Scale Systems</h3>
+
+<p>In most network-based systems there is a tension between the client
+and the server. A good strategy for the client may be the
+wrong thing for the server and vice versa. For example, when possible
+the server would like to minimize its processing costs by pushing as
+much as possible back to the client, and of course the client feels
+the same way but in the opposite direction. For example, a server
+might want to keep a connection open while doing spam processing since
+that lowers the cost of rejecting a message (which these days is the
+common case), but the client wants to move on as quickly as
+possible. Looking at the entire system, that is, the Internet as a
+whole, the optimum solution may be to balance these two needs.</p>
+
+<p>There have been cases of MTAs that have used strategies that
+explicitly favor either the client or the server. They can do this
+only because they have a relatively small installed base.  When your
+system is used on a significant portion of the Internet you have to
+design it in order to balance the load between both sides in an
+attempt to optimize the Internet as a whole. This is complicated by
+the fact that there will always be MTAs completely skewed in one
+direction or the other&mdash;for example, mass mailing systems only care
+about optimizing the outgoing side.</p>
+
+<p>When designing a system that incorporates both sides of the
+connection, it is important to avoid playing favorites. Note that this
+is in stark contrast to the usual asymmetry of clients and
+services&mdash;for example, web servers and web clients are generally not
+developed by the same groups.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.5.2. Milter</h3>
+
+<p>One of the most important additions to sendmail was the milter
+(<em>m</em>ail f<em>ilter</em>) interface.  Milter allows for the use of
+offboard plugins (i.e., they run in a separate process) for mail
+processing. These were originally designed for anti-spam
+processing. The milter protocol runs synchronously with the server
+SMTP protocol. As each new SMTP command is received from the client,
+sendmail calls the milters with the information from that command. The
+milter has the opportunity to accept the command or send a rejection,
+which rejects the phase of the protocol appropriate for the SMTP
+command. Milters are modeled as callbacks, so as an SMTP command comes
+in, the appropriate milter subroutine is called. Milters are threaded,
+with a per-connection context pointer handed in to each routine to
+allow passing state.</p>
+
+<p>In theory milters could work as loadable modules in the sendmail
+address space. We declined to do this for three reasons.  First, the
+security issues were too significant: even if sendmail were running as
+a unique non-root user id, that user would have access to all of the
+state of other messages.  Similarly, it was inevitable that some milter
+authors would try to access internal sendmail state.</p>
+
+<p>Second, we wanted to create a firewall between sendmail and the
+milters: if a milter crashed, we wanted it to be clear who was at
+fault, and for mail to (potentially) continue to flow. Third, it was
+much easier for a milter author to debug a standalone process than
+sendmail as a whole.</p>
+
+<p>It quickly became clear that the milter was useful for more than
+anti-spam processing. In fact, the milter.org<sup class="footnote"><a href="#footnote-5">5</a></sup>
+web site lists milters
+for anti-spam, anti-virus, archiving, content monitoring, logging,
+traffic shaping, and many other categories, produced by commercial
+companies and open source projects. The postfix
+mailer<sup class="footnote"><a href="#footnote-6">6</a></sup>
+has added
+support for milters using the same interface. Milters have proven to
+be one of sendmail's great successes.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.5.3. Release Schedules</h3>
+
+<p>There is a popular debate between "release early and often" and
+"release stable systems" schools of thought. Sendmail has used both
+of these at various times. During times of considerable change I was
+sometimes doing more than one release a day. My general philosophy was
+to make a release after each change. This is similar to providing
+public access to the source management system tree. I personally
+prefer doing releases over providing public source trees, at least in
+part because I use source management in what is now considered an
+unapproved way: for large changes, I will check in non-functioning
+snapshots while I am writing the code. If the tree is shared I will
+use branches for these snapshots, but in any case they are available
+for the world to see and can create considerable confusion. Also,
+creating a release means putting a number on it, which makes it easier
+to track the changes when going through a bug report.
+Of course, this requires that releases be easy to generate,
+which is not always true.</p>
+
+<p>As sendmail became used in ever more critical production environments
+this started to become problematic. It wasn't always easy for others
+to tell the difference between changes that I wanted out there for
+people to test versus changes that were really intended to be used in
+the wild. Labeling releases as "alpha" or "beta" alleviates but
+does not fix the problem. The result was that as sendmail matured it
+moved toward less frequent but larger releases. This became especially
+acute when sendmail got folded into a commercial company which had
+customers who wanted both the latest and greatest but also only stable
+versions, and wouldn't accept that the two are incompatible.</p>
+
+<p>This tension between open source developer needs and commercial
+product needs will never go away. There are many advantages to
+releasing early and often, notably the potentially huge audience of
+brave (and sometimes foolish) testers who stress the system in ways
+that you could almost never expect to reproduce in a standard
+development system. But as a project becomes successful it tends to
+turn into a product (even if that product is open source and free),
+and products have different needs than projects.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.6. Security</h2>
+
+<p>Sendmail has had a tumultuous life, security-wise. Some of this is
+well deserved, but some not, as our concept of "security" changed
+beneath us. The Internet started out with a user base of a few
+thousand people, mostly in academic and research settings. It was, in
+many ways, a kinder, gentler Internet than we know today. The network
+was designed to encourage sharing, not to build firewalls (another
+concept that did not exist in the early days). The net is now a
+dangerous, hostile place, filled with spammers and crackers.
+Increasingly it is being described as a war zone, and in war zones
+there are civilian casualties.</p>
+
+<p>It's hard to write network servers securely, especially when the
+protocol is anything beyond the most simple. Nearly all programs have
+had at least minor problems; even common TCP/IP implementations have
+been successfully attacked. Higher-level implementation languages have
+proved no panacea, and have even created vulnerabilities of their
+own. The necessary watch phrase is "distrust all input," no matter
+where it comes from. Distrusting input includes secondary input, for
+example, from DNS servers and milters. Like most early network
+software, sendmail was far too trusting in its early versions.</p>
+
+<p>But the biggest problem with sendmail was that early versions ran with
+root permissions. Root permission is needed in order to open the SMTP
+listening socket, to read individual users' forwarding information,
+and to deliver to individual users' mailboxes and home
+directories. However, on most systems today the concept of a mailbox
+name has been divorced from the concept of a system user, which
+effectively eliminates the need for root access except to open the
+SMTP listening socket. Today sendmail has the ability to give up root
+permissions before it processes a connection, eliminating this concern
+for environments that can support it. It's worth noting that on those
+systems that do not deliver directly to users' mailboxes, sendmail can
+also run in a chrooted environment, allowing further permission
+isolation.</p>
+
+<p>Unfortunately, as sendmail gained a reputation for poor security, it
+started to be blamed for problems that had nothing to do with
+sendmail.  For example, one system administrator made his <code>/etc</code>
+directory world writable and then blamed sendmail when someone
+replaced the <code>/etc/passwd</code> file. It was incidents like this that
+caused us to tighten security substantially, including explicitly
+checking the ownerships and modes on files and directories that
+sendmail accesses. These were so draconian that we were obliged to
+include the <code>DontBlameSendmail</code> option to (selectively) turn off
+these checks.</p>
+
+<p>There are other aspects of security that are not related to protecting
+the address space of the program itself. For example, the rise of spam
+also caused a rise in address harvesting. The <code>VRFY</code> and <code>EXPN</code> commands
+in SMTP were designed specifically to validate individual addresses
+and expand the contents of mailing lists respectively. These have been
+so badly abused by spammers that most sites now turn them off
+entirely. This is unfortunate, at least with <code>VRFY</code>, as this command was
+sometimes used by some anti-spam agents to validate the purported
+sending address.</p>
+
+<p>Similarly, anti-virus protection was once seen as a desktop problem,
+but rose in importance to the point where any commercial-grade MTA had
+to have anti-virus checking available.
+Other security-related requirements in modern settings
+include mandatory encryption of sensitive data,
+data loss protection,
+and enforcement of regulatory requirements,
+for example, for HIPPA.</p>
+
+<p>One of the principles that sendmail took to heart early on was
+reliability&mdash;every message should either be delivered or reported
+back to the sender. But the problem of joe-jobs (attackers forging
+the return address on a message, viewed by many as a security issue)
+has caused many sites to turn off the
+creation of bounce messages. If a failure can be determined while
+the SMTP connection is still open, the server can report the problem
+by failing the command, but after the SMTP connection is closed an
+incorrectly addressed message will silently disappear. To be fair,
+most legitimate mail today is single hop, so problems will be
+reported, but at least in principle the world has decided that
+security wins over reliability.</p>
+
+</div>
+
+<div class="sect" id="sec.sendmail.evo">
+<h2>17.7. Evolution of Sendmail</h2>
+
+<p>Software doesn't survive in a rapidly changing environment without
+evolving to fit the changing environment. New hardware technologies
+appear, which push changes in the operating system, which push changes
+in libraries and frameworks, which push changes in applications. If an
+application succeeds, it gets used in ever more problematic
+environments.  Change is inevitable; to succeed you have to accept and
+embrace change.  This section describes some of the more important
+changes that have occurred as sendmail evolved.</p>
+
+<div class="subsect">
+<h3>17.7.1. Configuration Became More Verbose</h3>
+
+<p>The original configuration of sendmail was quite terse. For example,
+the names of options and macros were all single characters. There were
+three reasons for this. First, it made parsing very simple (important in
+a 16-bit environment). Second, there weren't very many options, so it
+wasn't hard to come up with mnemonic names.
+Third,
+the single character convention was already established
+with command-line flags.</p>
+
+<p>Similarly, rewriting rulesets were originally numbered instead of
+named. This was perhaps tolerable with a small number of rulesets, but
+as their number grew it became important that they have more mnemonic
+names.</p>
+
+<p>As the environment in which sendmail operated became more complex, and
+as the 16-bit environment faded away, the need for a richer
+configuration language became evident. Fortunately, it was possible to
+make these changes in a backward compatible way. These changes
+dramatically improved the understandability of the configuration file.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.7.2. More Connections with Other Subsystems: Greater Integration</h3>
+
+<p>When sendmail was written the mail system was largely isolated from
+the rest of the operating system.  There were a few services that
+required integration, e.g., the <code>/etc/passwd</code> and
+<code>/etc/hosts</code> files.  Service switches had not been invented,
+directory services were nonexistent, and configuration was small and
+hand-maintained.</p>
+
+<p>That quickly changed. One of the first additions was DNS. Although the
+system host lookup abstraction (<code>gethostbyname</code>) worked for
+looking up IP addresses, email had to use other queries such as
+MX. Later, IDA sendmail included an external database lookup
+functionality using dbm(3) files.  Sendmail 8 updated that to a
+general mapping service that allowed other database types, including
+external databases and internal transformations that could not be done
+using rewriting (e.g., dequoting an address).</p>
+
+<p>Today, the email system relies on many external services that are, in
+general, not designed specifically for the exclusive use of email.
+This has moved sendmail toward more abstractions in the code. It has
+also made maintaining the mail system more difficult as more "moving
+parts" are added.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.7.3. Adaptation to a Hostile World</h3>
+
+<p>Sendmail was developed in a world that seems completely foreign by
+today's standards. The user population on the early network were
+mostly researchers who were relatively benign, despite the sometimes
+vicious academic politics.  Sendmail reflected the world in which it
+was created, putting a lot of emphasis on getting the mail through as
+reliably as possible, even in the face of user errors.</p>
+
+<p>Today's world is much more hostile. The vast majority of email is
+malicious. The goal of an MTA has transitioned from getting the mail
+through to keeping the bad mail out. Filtering is probably the first
+priority for any MTA today.  This required a number of changes in
+sendmail.</p>
+
+<p>For example, many rulesets have been added to allow checking of
+parameters on incoming SMTP commands in order to catch problems as
+early as possible. It is much cheaper to reject a message when reading
+the envelope than after you have committed to reading the entire
+message, and even more expensive after you have accepted the message
+for delivery. In the early days filtering was generally done by
+accepting the message, passing it to a filter program, and then
+sending it to another instance of sendmail if the message passed (the
+so-called "sandwich" configuration). This is just far too expensive
+in today's world.</p>
+
+<p>Similarly, sendmail has gone from being a quite vanilla consumer of
+TCP/IP connections to being much more sophisticated, doing things like
+"peeking" at network input to see if the sender is transmitting
+commands before the previous command has been acknowledged. This
+breaks down some of the previous abstractions that were designed to
+make sendmail adaptable to multiple network types.  Today, it would
+involve considerable work to connect sendmail to an XNS or DECnet
+network, for example, since the knowledge of TCP/IP has been built
+into so much of the code.</p>
+
+<p>Many configuration features were added to address the hostile world,
+such as support for access tables, Realtime Blackhole Lists, address
+harvesting mitigation, denial-of-service protection, and spam
+filtering.  This has dramatically complicated the task of configuring
+a mail system, but was absolutely necessary to adapt to today's world.</p>
+
+</div>
+
+<div class="subsect">
+<h3>17.7.4. Incorporation of New Technologies</h3>
+
+<p>Many new standards have come along over the years that required
+significant changes to sendmail. For example, the addition of TLS
+(encryption) required significant changes through much of the
+code. SMTP pipelining required peering into the low-level TCP/IP
+stream to avoid deadlocks. The addition of the submission port (587)
+required the ability to listen to multiple incoming ports, including
+having different behaviors depending on the arrival port.</p>
+
+<p>Other pressures were forced by circumstances rather than standards.
+For example, the addition of the milter interface was a direct
+response to spam. Although milter was not a published standard, it was
+a major new technology.</p>
+
+<p>In all cases, these changes enhanced the mail system in some way, be
+it increased security, better performance, or new
+functionality. However, they all came with costs, in nearly all cases
+complicating both the code base and the configuration file.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.8. What If I Did It Today?</h2>
+
+<p>Hindsight is 20/20. There are many things I would do differently
+today.  Some were unforeseeable at the time (e.g., how spam would
+change our perception of e-mail, what modern toolsets would look like,
+etc.), and some were eminently predictable. Some were just that in the
+process of writing sendmail I learned a lot about e-mail, about TCP/IP,
+and about programming itself&mdash;everyone grows as they code.</p>
+
+<p>But there are also many things I would do the same, some in
+contradiction to the standard wisdom.</p>
+
+<div class="subsect">
+<h3>17.8.1. Things I Would Do Differently</h3>
+
+<p>Perhaps my biggest mistake with sendmail was to not recognize early
+enough how important it was going to be. I had several opportunities
+to nudge the world in the correct direction but didn't take them; in
+fact, in some cases I did damage, e.g., by not making sendmail
+stricter about bad input when it became appropriate to do
+so. Similarly, I recognized that the configuration file syntax needed
+to be improved fairly early on, when there were perhaps a few hundred
+sendmail instances deployed, but decided not to change things because
+I didn't want to cause the installed user base undue pain. In
+retrospect it would have been better to improve things early and
+cause temporary pain in order to produce a better long-term result.</p>
+
+<div class="subsubsect">
+<h4>Version 7 Mailbox Syntax</h4>
+
+<p>One example of this was the way version 7 mailboxes separated
+messages.  They used a line beginning "From&#9251;" (where
+"&#9251;" represents the ASCII space character, 0x20) to separate
+messages. If a message came in containing the word "From&#9251;"
+at the
+beginning of the line, local mailbox software converted it to
+"&gt;From&#9251;".
+One refinement on some but not all systems was
+to require a preceding blank line, but this could not be relied
+upon. To this day, "&gt;From" appears in extremely
+unexpected places that aren't obviously related to email (but clearly
+were processed by email at one time or another). In retrospect I
+probably could have converted the BSD mail system to use a new syntax.
+I would have been roundly cursed at the time, but I would have saved
+the world a heap of trouble.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Syntax and Contents of Configuration File</h4>
+
+<p>Perhaps my biggest mistake in the syntax of the configuration file was
+the use of tab (HT, 0x09) in rewriting rules
+to separate the pattern from the
+replacement.  At the time I was emulating make, only to learn years
+later that Stuart Feldman, the author of make, thought that was one of
+his biggest mistakes. Besides being non-obvious when looking at the
+configuration on a screen, the tab character doesn't survive
+cut-and-paste in most window systems.</p>
+
+<p>Although I believe that rewriting rules were the correct idea (see
+below), I would change the general structure of the configuration
+file.  For example, I did not anticipate the need for hierarchies in
+the configuration (e.g., options that would be set differently for
+different SMTP listener ports). At the time the configuration file was
+designed there were no "standard" formats. Today, I would be inclined
+to use an Apache-style configuration&mdash;it's clean, neat, and has
+adequate expressive power&mdash;or perhaps even embed a language such as Lua.</p>
+
+<p>When sendmail was developed the address spaces were small and the
+protocols were still in flux. Putting as much as possible into the
+configuration file seemed like a good idea. Today, that looks like a
+mistake: we have plenty of address space (for an MTA) and the
+standards are fairly static.
+Furthermore, part of the "configuration file" is really code
+that needs to be updated in new releases.
+The <code>.mc</code> configuration file fixes that,
+but having to rebuild your configuration every time you update the software
+is a pain.
+A simple solution to this would simply be
+to have two configuration files that sendmail would read, one hidden
+and installed with each new software release and the other exposed and
+used for local configuration.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Use of Tools</h4>
+
+<p>There are many new tools available today&mdash;for example, for
+configuring and building the software. Tools can be good leverage if
+you need them, but they can also be overkill, making it harder than
+necessary to understand the system. For example, you should never use
+a yacc(1) grammar when all you need is strtok(3). But reinventing the
+wheel isn't a good idea either.  In particular, despite some
+reservations I would almost certainly use autoconf today.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Backward Compatibility</h4>
+
+<p>With the benefit of hindsight, and knowing how ubiquitous sendmail
+became, I would not worry so much about breaking existing
+installations in the early days of development.  When existing
+practice is seriously broken it should be fixed, not accommodated
+for. That said, I would still not do strict checking of all message
+formats; some problems can be easily and safely ignored or
+patched. For example, I would probably still insert a <code>Message-Id:</code>
+header field into messages that did not have one, but I would be more
+inclined to reject messages without a <code>From:</code> header field rather than
+try to create one from the information in the envelope.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Internal Abstractions</h4>
+
+<p>There are certain internal abstractions that I would not attempt
+again, and others that I would add. For example, I would not use
+null-terminated strings, opting instead for a length/value pair,
+despite the fact that this means that much of the Standard C Library
+becomes difficult to use. The security implications of this alone make
+it worthwhile. Conversely, I would not attempt to build exception
+handling in C, but I would create a consistent status code system that
+would be used throughout the code rather than having routines return
+<code>null</code>, <code>false</code>, or negative numbers to represent errors.</p>
+
+<p>I would certainly abstract the concept of mailbox names from Unix user
+ids. At the time I wrote sendmail the model was that you only sent
+messages to Unix users. Today, that is almost never the case; even on
+systems that do use that model, there are system accounts that should
+never receive e-mail.</p>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>17.8.2. Things I Would Do The Same</h3>
+
+<p>Of course, some things <em>did</em> work well&hellip;</p>
+
+<div class="subsubsect">
+<h4>Syslog</h4>
+
+<p>One of the successful side projects from sendmail was syslog. At the
+time sendmail was written, programs that needed to log had a specific
+file that they would write. These were scattered around the
+filesystem.  Syslog was difficult to write at the time (UDP didn't
+exist yet, so I used something called mpx files), but well worth
+it. However, I would make one specific change: I would pay more
+attention to making the syntax
+of logged messages
+machine parseable&mdash;essentially, I
+failed to predict the existence of log monitoring.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Rewriting Rules</h4>
+
+<p>Rewriting rules have been much maligned, but I would use them again
+(although probably not for as many things as they are used for now).
+Using the tab character was a clear mistake, but given the limitations
+of ASCII and the syntax of e-mail addresses, some escape character is
+probably required<sup class="footnote"><a href="#footnote-7">7</a></sup>. In general, the concept of
+using a pattern-replace paradigm worked well and was very flexible.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Avoid Unnecessary Tools</h4>
+
+<p>Despite my comment above that I would use more existing tools, I am
+reluctant to use many of the run-time libraries available today. In my
+opinion far too many of them are so bloated as to be dangerous.
+Libraries should be chosen with care, balancing the merits of reuse
+against the problems of using an overly powerful tool to solve a
+simple problem. One particular tool I would avoid is XML, at least as
+a configuration language. I believe that the syntax is too baroque for
+much of what it is used for. XML has its place, but it is overused
+today.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Code in C</h4>
+
+<p>Some people have suggested that a more natural implementation language
+would be Java or C++. Despite the well-known problems with C, I would
+still use it as my implementation language. In part this is personal:
+I know C much better than I know Java or C++. But I'm also
+disappointed by the cavalier attitude that most object-oriented
+languages take toward memory allocation. Allocating memory has many
+performance concerns that can be difficult to characterize.  Sendmail
+uses object-oriented concepts internally where appropriate (for
+example, the implementation of map classes), but in my opinion going
+completely object-oriented is wasteful and overly restrictive.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>17.9. Conclusions</h2>
+
+<p>The sendmail MTA was born into a world of immense upheaval, a sort of
+"wild west" that existed when e-mail was ad hoc and the current mail
+standards were not yet formulated.  In the intervening 31 years the
+"e-mail problem" has changed from just working reliably to working
+with large messages and heavy load to protecting sites from spam and
+viruses and finally today to being used as a platform for a plethora
+of e-mail-based applications.  Sendmail has evolved into a work-horse
+that is embraced by even the most risk-averse corporations, even as
+e-mail has evolved from pure text person-to-person communications into
+a multimedia-based mission-critical part of the infrastructure.</p>
+
+<p>The reasons for this success are not always obvious.  Building a
+program that survives and even thrives in a rapidly changing world
+with only a handful of part-time developers can't be done using
+conventional software development methodologies.  I hope I've provided
+some insights into how sendmail succeeded.</p>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://ftp.isc.org/www/survey/reports/2011/01/</code></li>
+<li id="footnote-2"><code class="url">http://www.sendmail.com</code></li>
+<li id="footnote-3"><code class="url">http://doc.cat-v.org/bell_labs/upas_mail_system/upas.pdf</code></li>
+<li id="footnote-4">"Be conservative in what you do,
+be liberal in what you accept from others"</li>
+<li id="footnote-5"><code class="url">http://milter.org</code></li>
+<li id="footnote-6"><code class="url">http://postfix.org</code></li>
+<li id="footnote-7">Somehow I suspect that using Unicode for
+configuration would not prove popular.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

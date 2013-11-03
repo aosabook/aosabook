@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: gpsd.html 1344 2012-04-26 17:03:10Z amy $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications (Volume 2): GPSD</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar2.jpg"
+           alt="The Architecture of Open Source Applications (Volume 2)"</img></a>
+        <h1>GPSD</h1>
+        <p><a href="intro2.html#raymond-eric">Eric Raymond</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span8 offset2">
+        
+<p>GPSD is a suite of tools for managing collections of GPS devices and other
+sensors related to navigation and precision timekeeping, including
+marine AIS (Automatic Identification System) radios and digital compasses. The main program, a service
+daemon named <code>gpsd</code>, manages a collection of sensors and makes
+reports from all of them available as a JSON object stream on a
+well-known TCP/IP port.  Other programs in the suite include 
+demonstration clients usable as code models and various diagnostic
+tools.</p>
+
+<p>GPSD is widely deployed on laptops, smartphones, and autonomous
+vehicles including self-driving automobiles and robot submarines. It
+features in embedded systems used for navigation, precision
+agriculture, location-sensitive scientific telemetry, and network time
+service. It's even used in the Identification-Friend-or-Foe system of
+armored fighting vehicles including the M1 "Abrams"main battle tank.</p>
+
+<p>GPSD is a mid-sized project&mdash;about 43 KLOC, mainly in C and
+Python&mdash;with a history under its current lead going back to 2005 and a
+prehistory going back to 1997.  The core team has been stable at about
+three developers, with semi-regular contributions from about two dozen
+more and the usual one-off patches from hundreds of others.</p>
+
+<p>GPSD has historically had an exceptionally low defect rate, as
+measured both by auditing tools such as <code>splint</code>, <code>valgrind</code>, and Coverity
+and by the incidence of bug reports on its tracker and elsewhere.
+This did not come about by accident; the project has been very
+aggressive about incorporating technology for automated testing, and
+that effort has paid off handsomely.</p>
+
+<p>GPSD is sufficiently good at what it does that it has coopted or
+effectively wiped out all of its approximate predecessors and at least
+one direct attempt to compete with it.  In 2010, GPSD won the first
+Good Code Grant from the Alliance for Code Excellence.  By the time
+you finish this chapter you should understand why.</p>
+
+<section>
+<h2>7.1. Why GPSD Exists</h2>
+
+<p>GPSD exists because the application protocols shipped with GPSs and
+other navigation-related sensors are badly designed, poorly
+documented, and highly variable by sensor type and model. See
+[<a href="bib2.html#gps-suck">Ray</a>] for a detailed discussion; in particular, you'll 
+learn there about the vagaries of NMEA 0183 (the sort-of standard for
+GPS reporting packets) and the messy pile of poorly documented vendor
+protocols that compete with it. </p>
+
+<p>If applications had to handle all this complexity themselves the
+result would be huge amounts of brittle and duplicative code, leading
+to high rates of user-visible defects and constant problems as
+hardware gradually mutated out from under the applications.</p>
+
+<p>GPSD isolates location-aware applications from hardware interface
+details by knowing about all the protocols itself (at time of writing
+we support about 20 different ones), managing serial and USB devices 
+so the applications don't have to, and reporting sensor payload
+information in a simple device-independent JSON format.  GPSD further
+simplifies life by providing client libraries so client applications
+need not even know about that reporting format.  Instead, getting
+sensor information becomes a simple procedure call.</p>
+
+<p>GPSD also supports precision timekeeping; it can act as a time source
+for <code>ntpd</code> (the Network Time Protocol Daemon) if any of its
+attached sensors have PPS (pulse-per-second) capability. The GPSD
+developers cooperate closely with the <code>ntpd</code> project in improving
+the network time service.</p>
+
+<p>We are presently (mid-2011) working on completing support for the AIS
+network of marine navigational receivers.  In the future, we expect to
+support new kinds of location-aware sensors&mdash;such as receivers for
+second-generation aircraft transponders&mdash;as protocol documentation
+and test devices become available.</p>
+
+<p>To sum up, the single most important theme in GPSD's design is
+hiding all the device-dependent ugliness behind a simple client
+interface talking to a zero-configuration service.</p>
+
+</section>
+
+<section>
+<h2>7.2. The External View</h2>
+
+<p>The main program in the GPSD suite is the <code>gpsd</code> service daemon.
+It can collect the take from a set of attached sensor devices over
+RS232, USB, Bluetooth, TCP/IP, and UDP links. Reports are normally
+shipped to TCP/IP port 2947, but can also go out via a shared-memory
+or D-BUS interface.</p>
+
+<p>The GPSD distribution ships with client libraries for C, C++, and
+Python.  It includes sample clients in C, C++, Python, and PHP. A Perl
+client binding is available via CPAN.  These client libraries are not
+merely a convenience for application developers; they save GPSD's
+developers headaches too, by isolating applications from the details
+of GPSD's JSON reporting protocol.  Thus, the API exposed to clients
+can remain the same even as the protocol grows new features for new
+sensor types.</p>
+
+<p>Other programs in the suite include a utility for low-level device
+monitoring (<code>gpsmon</code>), a profiler that produces reports on error
+statistics and device timing (<code>gpsprof</code>), a utility for tweaking
+device settings (<code>gpsctl</code>), and a program for batch-converting
+sensor logs into readable JSON (<code>gpsdecode</code>). Together, they help
+technically savvy users look as deeply into the operation of the
+attached sensors as they care to.</p>
+
+<p>Of course, these tools also help GPSD's own developers verify the
+correct operation of <code>gpsd</code>. The single most important test tool
+is <code>gpsfake</code>, a test harness for gpsd which can connect it to any
+number of sensor logs as though they were live devices.  With
+<code>gpsfake</code>, we can re-run a sensor log shipped with a bug report
+to reproduce specific problems.  <code>gpsfake</code> is also the engine of
+our extensive regression-test suite, which lowers the cost of
+modifying the software by making it easy to spot changes that break
+things.</p>
+
+<p>One of the most important lessons we think we have for future projects
+is that it is not enough for a software suite to be correct, it should
+also be able to <em>demonstrate its own correctness</em>.  We have found that
+when this goal is pursued properly it is not a hair shirt but rather a
+pair of wings&mdash;the time we've take to write test harnesses and
+regression tests has paid for itself many times over in the freedom
+it gives us to modify code without fearing that we are wreaking
+subtle havoc on existing functionality.</p>
+
+</section>
+
+<section>
+<h2>7.3. The Software Layers</h2>
+
+<p>There is a lot more going on inside GPSD than the "plug a sensor in
+and it just works" experience might lead people to assume.
+<code>gpsd</code>'s internals break naturally into four pieces: the
+<em>drivers</em>, the <em>packet sniffer</em>, the <em>core library</em> and
+the <em>multiplexer</em>. We'll describe these from the bottom up.</p>
+
+<figure id="fig.gpsd.layers">
+  <img src="../images/gpsd/software-layers.png" />
+  <figcaption>Figure 7.1: Software layers</figcaption>
+</figure>
+
+<p>The <em>drivers</em> are essentially user-space device drivers for each
+kind of sensor chipset we support.  The key entry points are methods
+to parse a data packet into time-position-velocity or status
+information, change its mode or baud rate, probe for device subtype,
+etc.  Auxiliary methods may support driver control operations, such as
+changing the serial speed of the device. The entire interface to a
+driver is a C structure full of data and method pointers, deliberately
+modeled on a Unix device driver structure.</p>
+
+<p>The <em>packet sniffer</em> is responsible for mining data packets out
+of serial input streams.  It's basically a state machine that watches
+for anything that looks like one of our 20 or so known packet types
+(most of which are checksummed, so we can have high confidence when we
+think we have identified one).  Because devices can hotplug or change
+modes, the type of packet that will come up the wire from a serial or
+USB port isn't necessarily fixed forever by the first one recognized.</p>
+
+<p>The <em>core library</em> manages a session with a sensor device.  The
+key entry points are:</p>
+
+<ul>
+
+<li>
+starting a session by opening the device and reading data from
+    it, hunting through baud rates and parity/stopbit combinations
+    until the packet sniffer achieves synchronization lock with a
+    known packet type;
+</li>
+
+<li>
+polling the device for a packet; and
+</li>
+
+<li>
+closing the device and wrapping up the session.
+</li>
+
+</ul>
+
+<p>A key feature of the core library is that it is responsible for
+switching each GPS connection to using the correct device driver
+depending on the packet type that the sniffer returns.  This is
+<em>not configured in advance</em> and may change over time, notably if
+the device switches between different reporting protocols.  (Most GPS
+chipsets support NMEA and one or more vendor binary protocols, and
+devices like AIS receivers may report packets in two different
+protocols on the same wire.)</p>
+
+<p>Finally, the <em>multiplexer</em> is the part of the daemon that handles
+client sessions and device assignment.  It is responsible for passing
+reports up to clients, accepting client commands, and responding to
+hotplug notifications. It is essentially all contained in one source
+file, <code>gpsd.c</code>, and never talks to the device drivers directly.</p>
+
+<p>The first three components (other than the multiplexer) are linked
+together in a library called <code>libgpsd</code> and can be used separately
+from the multiplexer. Our other tools that talk to sensors directly,
+such as <code>gpsmon</code> and <code>gpsctl</code>, do it by calling into the
+core library and driver layer directly.</p>
+
+<p>The most complex single component is the packet sniffer at about two
+thousand lines of code.  This is irreducible; a state machine
+that can recognize as many different protocols as it does is bound to
+be large and gnarly.  Fortunately, the packet sniffer is also easy to
+isolate and test; problems in it do not tend to be coupled to other
+parts of the code.</p>
+
+<p>The multiplexer layer is about same size, but somewhat less gnarly.
+The device drivers make up the bulk of the daemon code at around 15
+KLOC.  All the rest of the code&mdash;all the support tools and libraries
+and test clients together&mdash;adds up to about the size of the daemon
+(some code, notably the JSON parser, is shared between the daemon and
+the client libraries).</p>
+
+<p>The success of this layering approach is demonstrated in a couple of
+different ways.  One is that new device drivers are so easy to write
+that several have been contributed by people not on the core team: the
+driver API is documented, and the individual drivers are coupled to
+the core library only via pointers in a master device types table.</p>
+
+<p>Another benefit is that system integrators can drastically reduce
+GPSD's footprint for embedded deployment simply by electing not to
+compile in unused drivers.  The daemon is not large to begin with, and
+a suitably stripped-down build runs quite happily on low-power,
+low-speed, small-memory ARM devices. (ARM is a 32-bit RISC instruction
+set architecture used in mobile and embedded electronics. See
+<a href="http://en.wikipedia.org/wiki/ARM_architecture">http://en.wikipedia.org/wiki/ARM_architecture</a>.)</p>
+
+<p>A third benefit of the layering is that the daemon multiplexer can be
+detached from atop the core library and replaced with simpler logic,
+such as the straight batch conversion of sensor logfiles to JSON
+reports that the <code>gpsdecode</code> utility does.</p>
+
+<p>There is nothing novel about this part of the GPSD architecture. Its
+lesson is that conscious and rigorous application of the design
+pattern of Unix device handling is beneficial not just in OS kernels
+but also in userspace programs that are similarly required to deal
+with varied hardware and protocols.</p>
+
+</section>
+
+<section>
+<h2>7.4. The Dataflow View</h2>
+
+<p>Now we'll consider GPSD's architecture from a dataflow view.  In
+normal operation, gpsd spins in a loop waiting for input from one of
+these sources:</p>
+
+<ol>
+
+<li>
+A set of clients making requests over a TCP/IP port.
+</li>
+
+<li>
+A set of navigation sensors connected via serial or USB
+    devices.
+</li>
+
+<li>
+The special control socket used by hotplug scripts and some
+    configuration tools.
+</li>
+
+<li>
+A set of servers issuing periodic differential-GPS correction
+    updates (DGPS and NTRIP).  These are handled as though they are
+    navigation sensors.
+</li>
+
+</ol>
+
+<p>When a USB port goes active with a device that might be a navigation
+sensor, a hotplug script (shipped with GPSD) sends a notification to
+the control socket.  This is the cue for the multiplexer layer to put
+the device on its internal list of sensors.  Conversely, a
+device-removal event can remove a device from that list.</p>
+
+<p>When a client issues a watch request, the multiplexer layer opens the
+navigation sensors in its list and begins accepting data from them (by
+adding their file descriptors to the set in the main select
+call). Otherwise all GPS devices are closed (but remain in the list)
+and the daemon is quiescent. Devices that stop sending data get timed
+out of the device list.</p>
+
+<figure id="fig.gpsd.dataflow">
+  <img src="../images/gpsd/dataflow.png" />
+  <figcaption>Figure 7.2: Dataflow</figcaption>
+</figure>
+
+<p>When data comes in from a navigation sensor, it's fed to the packet
+sniffer, a finite-state machine that works like the lexical analyzer
+in a compiler.  The packet sniffer's job is to accumulate data from
+each port (separately), recognizing when it has accumulated a packet
+of a known type.</p>
+
+<p>A packet may contain a position fix from a GPS, a marine AIS datagram,
+a sensor reading from a magnetic compass, a DGPS (Differential GPS)
+broadcast packet, or any
+of several other things.  The packet sniffer doesn't care about the 
+content of the packet; all it does is tell the core library when it
+has accumulated one and pass back the payload and the packet type.</p>
+
+<p>The core library then hands the packet to the driver associated with
+its type.  The driver's job is to mine data out of the packet payload
+into a per-device session structure and set some status bits telling
+the multiplexer layer what kind data it got.</p>
+
+<p>One of those bits is an indication that the daemon has accumulated
+enough data to ship a report to its clients.  When this bit is raised
+after a data read from a sensor device, it means we've seen the end of
+a packet, the end of a packet group (which may be one or more
+packets), and the data in the device's session structure should be
+passed to one of the exporters.</p>
+
+<p>The main exporter is the "socket" one; it generates a report object
+in JSON and ships it to all the clients watching the device. There's a
+shared-memory exporter that copies the data to a shared-memory segment
+instead. In either of these cases, it is expected that a client
+library will unmarshal the data into a structure in the client
+program's memory space.  A third exporter, which ships position
+updates via DBUS, is also available.</p>
+
+<p>The GPSD code is as carefully partitioned horizontally as it
+vertically.  The packet sniffer neither knows nor needs to know
+anything about packet payloads, and doesn't care whether its input
+source is a USB port, an RS232 device, a Bluetooth radio link, a
+pseudo-tty, a TCP socket connection, or a UDP packet stream.  The
+drivers know how to analyze packet payloads, but know nothing about
+either the packet-sniffer internals nor the exporters.  The exporters
+look only at the session data structure updated by the drivers.</p>
+
+<p>This separation of function has served GPSD very well. For example,
+when we got a request in early 2010 to adapt the code to accept sensor
+data coming in as UDP packets for the on-board navigation system of a
+robot submarine, it was easy to implement that in a handful of lines
+of code without disturbing later stages in the data pipeline.</p>
+
+<p>More generally, careful layering and modularization has made it
+relatively easy to add new sensor types.  We incorporate new drivers
+every six months or so; some have been written by people who are not
+core developers.</p>
+
+</section>
+
+<section>
+<h2>7.5. Defending the Architecture</h2>
+
+<p>As an open source program like <code>gpsd</code> evolves, one of the
+recurring themes is that each contributor will do things to solve his or
+her particular problem case which gradually leak more information
+between layers or stages that were originally designed with clean
+separation.</p>
+
+<p>One that we're concerned about at the time of writing is that some
+information about input source type (USB, RS232, pty, Bluetooth, TCP,
+UDP) seems to need to be passed up to the multiplexer layer, to tell it,
+for example, whether probe strings should be sent to an unidentified
+device. Such probes are sometimes required to wake up RS232C sensors, but
+there are good reasons not to ship them to any more devices than we
+have to. Many GPSs and other sensor devices are designed on low
+budgets and in a hurry; some can be confused to the point of catatonia
+by unexpected control strings.</p>
+
+<p>For a similar reason, the daemon has a <code>-b</code> option that prevents 
+it from attempting baud-rate changes  during the packet-sniffer
+hunt loop.  Some poorly made Bluetooth devices handle these so poorly
+that they have to be power-cycled to function again; in one
+extreme case a user actually had to unsolder the backup battery to
+unwedge his!</p>
+
+<p>Both these cases are necessary exceptions to the project's design
+rules.  Much more usually, though, such exceptions are a bad thing.
+For example, we've had some patches contributed to make PPS time
+service work better that messed up the vertical layering, making it
+impossible for PPS to work properly with more than the one driver they
+were intended to help. We rejected these in favor of working harder
+at device-type-independent improvement.</p>
+
+<p>On one occasion some years ago, we had a request to support a GPS with
+the odd property that the checksums in its NMEA packets may be invalid
+when the device doesn't have a location fix.  To support this device,
+we would have had to either (a) give up on validating the checksum on
+<em>any</em> incoming data that looked like an NMEA packet, risking that
+the packet-sniffer would hand garbage to the NMEA driver, or (b) add a
+command-line option to force the sensor type.</p>
+
+<p>The project lead (the author of this chapter) refused to do either.
+Giving up on NMEA packet validation was an obvious bad idea.  But a
+switch to force the sensor type would have been an invitation to get
+lazy about proper autoconfiguration, which would cause problems all
+the way up to GPSD's client applications and their users.  The next
+step down that road paved with good intentions would surely have been
+a baud-rate switch. Instead, we declined to support this broken device.</p>
+
+<p>One of the most important duties of a project's lead architect is to
+defend the architecture against expedient "fixes" that would break
+it and cause functional problems or severe maintenance headaches
+down the road.  Arguments over this can get quite heated,
+especially when defending architecture conflicts against something
+that a developer or user considers a must-have feature.  But these
+arguments are necessary, because the easiest choice is often the wrong
+one for the longer term.</p>
+
+</section>
+
+<section>
+<h2>7.6. Zero Configuration, Zero Hassles</h2>
+
+<p>An extremely important feature of <code>gpsd</code> is that it is a
+zero-configuration service (with one minor exception for
+Bluetooth devices with broken firmware).  It has no dotfile!  The
+daemon deduces the sensor types it's talking to by sniffing the
+incoming data.  For RS232 and USB devices <code>gpsd</code> even autobauds
+(that is, automatically detects the serial line speed), so it is not
+necessary for the daemon to know in advance the speed/parity/stopbits
+at which the sensor is shipping information.</p>
+
+<p>When the host operating system has a hotplug capability, hotplug
+scripts can ship device-activation and deactivation messages to a
+control socket to notify the daemon of the change in its environment.
+The GPSD distribution supplies these scripts for Linux.  The result
+is that end users can plug a USB GPS into their laptop and expect
+it to immediately begin supplying reports that location-aware
+applications can read&mdash;no muss, no fuss, and no editing a 
+dotfile or preferences registry.</p>
+
+<p>The benefits of this ripple all the way up the application stack.
+Among other things, it means that location-aware applications don't
+have to have a configuration panel dedicated to tweaking the GPS and
+port settings until the whole mess works. This saves a lot of effort
+for application writers as well as users: they get to treat location
+as a service that is nearly as simple as the system clock.</p>
+
+<p>One consequence of the zero-configuration philosophy is that we do not
+look favorably on proposals to add a config file or additional
+command-line options.  The trouble with this is that configuration
+which can be edited, <em>must</em> be edited.  This implies adding setup
+hassle for end users, which is precisely what a well-designed service
+daemon should avoid.</p>
+
+<p>The GPSD developers are Unix hackers working from deep inside the
+Unix tradition, in which configurability and having lots of knobs
+is close to being a religion.  Nevertheless, we think open source
+projects could be trying a lot harder to throw away their dotfiles
+and autoconfigure to what the running environment is actually doing.</p>
+
+</section>
+
+<section>
+<h2>7.7. Embedded Constraints Considered Helpful</h2>
+
+<p>Designing for embedded deployment has been a major goal of GPSD since
+2005. This was originally because we got a lot of interest from system
+integrators working with single-board computers, but it has since paid
+off in an unexpected way: deployment on GPS-enabled smartphones. (Our
+very favorite embedded-deployment reports are still the ones from the
+robot submarines, though.)</p>
+
+<p>Designing for embedded deployment has influenced GPSD in important
+ways.  We think a lot about ways to keep memory footprint and CPU
+usage low so the code will run well on low-speed, small-memory,
+power-constrained systems.</p>
+
+<p>One important attack on this issue, as previously mentioned, is to
+ensure that <code>gpsd</code> builds don't have to carry any deadweight over
+the specific set of sensor protocols that a system integrator needs to
+support. In June 2011 a minimum static build of <code>gpsd</code> on an x86
+system has a memory footprint of about 69K (that is <em>with</em> all
+required standard C libraries linked in) on 64-bit x86. For
+comparison, the static build with all drivers is about 418K.</p>
+
+<p>Another is that we profile for CPU hotspots with a slightly different
+emphasis than most projects. Because location sensors tend to report
+only small amounts of data at intervals on the order of 1 second,
+performance in the normal sense isn't a GPSD issue&mdash;even grossly
+inefficient code would be unlikely to introduce enough latency to be
+visible at the application level.  Instead, our focus is on decreasing
+processor usage and power consumption.  We've been quite successful at
+this: even on low-power ARM systems without an FPU, <code>gpsd</code>'s
+fraction of CPU is down around the level of profiler noise.</p>
+
+<p>While designing the core code for low footprint and good power
+efficiency is at this point largely a solved problem, there is one
+respect in which targeting embedded deployments still produces tension
+in the GPSD architecture: use of scripting languages. On the one hand,
+we want to minimize defects due to low-level resource management by
+moving as much code as possible out of C.  On the other hand, Python
+(our preferred scripting language) is simply too heavyweight and slow
+for most embedded deployments.</p>
+
+<p>We've split the difference in the obvious way: the <code>gpsd</code> service
+daemon is C, while the test framework and several of the support
+utilities are written in Python. Over time, we hope to migrate more of
+the auxiliary code out of C and into Python, but embedded deployment
+makes those choices a continuing source of controversy and discomfort.</p>
+
+<p>Still, on the whole we find the pressures from embedded deployment
+quite bracing.  It feels good to write code that is lean, tight, and
+sparing of processor resources.  It has been said that art comes from
+creativity under constraints; to the extent that's true, GPSD is
+better art for the pressure.</p>
+
+<p>That feeling doesn't translate directly into advice for other
+projects, but something else definitely does: don't guess, measure!
+There is nothing like regular profiling and footprint measurements to
+warn you when you're straying into committing bloat&mdash;and to reassure
+you that you're not.</p>
+
+</section>
+
+<section>
+<h2>7.8. JSON and the Architecturenauts</h2>
+
+<p>One of the most significant transitions in the history of the project
+was when we switched over from the original reporting protocol to
+using JSON as a metaprotocol and passing reports up to clients as JSON
+objects. The original protocol had used one-letter keys for commands
+and responses, and we literally ran out of keyspace as the daemon's
+capabilities gradually increased.</p>
+
+<p>Switching to JSON was a big, big win. JSON combines the traditional
+Unix virtues of a purely textual format&mdash;easy to examine with a Mark
+1 Eyeball, easy to edit with standard tools, easy to generate
+programmatically&mdash;with the ability to pass structured information in
+rich and flexible ways.</p>
+
+<p>By mapping report types to JSON objects, we ensured that any report
+could contain mixes of string, numeric, and Boolean data with
+structure (a capability the old protocol lacked).  By identifying
+report types with a <code>"class"</code> attribute, we guaranteed that we
+would always be able to add new report types without stepping on old
+ones.</p>
+
+<p>This decision was not without cost.  A JSON parser is a bit more
+computationally expensive than the very simple and limited parser it
+replaced, and certainly requires more lines of code (implying more
+places for defects to occur). Also, conventional JSON parsers require
+dynamic storage allocation in order to cope with the variable-length
+arrays and dictionaries that JSON describes, and dynamic storage
+allocation is a notorious defect attractor.</p>
+
+<p>We coped with these problems in several ways. The first step was to
+write a C parser for a (sufficiently) large subset of JSON that uses
+entirely static storage.  This required accepting some minor
+restrictions; for example, objects in our dialect cannot contain the
+JSON <code>null</code> value, and arrays always have a fixed maximum length.
+Accepting these restrictions allowed us to fit the parser into 600
+lines of C.</p>
+
+<p>We then built a comprehensive set of unit tests for the parser 
+in order to verify error-free operation. Finally, for very tight
+embedded deployments where the overhead of JSON might be too high,
+we wrote a shared-memory exporter that bypasses the need to
+ship and parse JSON entirely if the daemon and its client have
+access to common memory.</p>
+
+<p>JSON isn't just for web applications anymore.  We think anyone
+designing an application protocol should consider an approach like
+GPSD's.  Of course the idea of building your protocol on top of a
+standard metaprotocol is not new; XML fans have been pushing it for
+many years, and that makes sense for protocols with a document-like
+structure. JSON has the advantages of being lower-overhead than XML
+and better fitted to passing around array and record structures.</p>
+
+</section>
+
+<section>
+<h2>7.9. Designing for Zero Defects</h2>
+
+<p>Because of its use in navigational systems, any software that lives
+between the user and a GPS or other location sensor is potentially
+life-critical, especially at sea or when airborne.  Open source
+navigation software has a tendency to try to evade this problem by
+shipping with disclaimers that say, "Don't rely on this if doing so
+might put lives at risk."</p>
+
+<p>We think such disclaimers are futile and dangerous: futile because
+system integrators are quite likely to treat them as pro-forma and
+ignore them, and dangerous because they encourage developers to fool
+themselves that code defects won't have serious consequences, and that
+cutting corners in quality assurance is acceptable.</p>
+
+<p>The GPSD project developers believe that the only acceptable policy is
+to design for zero defects. Software complexity being what it is, we
+have not quite achieved this&mdash;but for a project GPSD's size and age
+and complexity we come very close.</p>
+
+<p>Our strategy for doing this is a combination of architecture and
+coding policies that aim to <em>exclude the possibility of defects in
+shipped code</em>.</p>
+
+<p>One important policy is this: the <code>gpsd</code> daemon never uses
+dynamic storage allocation&mdash;no <code>malloc</code> or <code>calloc</code>, and no
+calls to any functions or libraries that require it.  At a stroke
+this banishes the single most notorious defect attractor in C coding.
+We have no memory leaks and no double-malloc or double-free bugs, and
+we never will.</p>
+
+<p>We get away with this because all of the sensors we handle emit
+packets with relatively small fixed maximum lengths, and the daemon's
+job is to digest them and ship them to clients with minimal buffering.
+Still, banishing <code>malloc</code> requires coding discipline and some
+design compromises, a few of which we previously noted in discussing
+the JSON parser. We pay these costs willingly to reduce our defect
+rate.</p>
+
+<p>A useful side effect of this policy is that it increases the
+effectiveness of static code checkers such as <code>splint</code>,
+<code>cppcheck</code>, and Coverity.  This feeds into another major policy
+choice; we make extremely heavy use of both these code-auditing tools
+and a custom framework for regression testing.  (We do not know of any
+program suite larger than GPSD that is fully <code>splint</code>-annotated,
+and strongly suspect that none such yet exist.)</p>
+
+<p>The highly modular architecture of GPSD aids us here as well. The
+module boundaries serve as cut points where we can rig test harnesses,
+and we have very systematically done so.  Our normal regression test
+checks everything from the floating-point behavior of the host
+hardware up through JSON parsing to correct reporting behavior on over
+seventy different sensor logs.</p>
+
+<p>Admittedly, we have a slightly easier time being rigorous than many
+applications would because the daemon has no user-facing interfaces;
+the environment around it is just a bunch of serial data streams and is
+relatively easy to simulate.  Still, as with banishing <code>malloc</code>,
+actually exploiting that advantage requires the right attitude, which
+very specifically means being willing to spend as much design and
+coding time on test tools and harnesses as we do on the production
+code.  This is a policy we think other open-source projects can and
+should emulate.</p>
+
+<p>As I write (July 2011), GPSD's project bug tracker is empty.  It has
+been empty for weeks, and based on past rates of bug submissions we can
+expect it to stay that way for a good many more.  We haven't shipped
+code with a crash bug in six years.  When we do have bugs, they tend
+to be the sort of minor missing feature or mismatch with specification
+that is readily fixed in a few minutes of work.</p>
+
+<p>This is not to say that the project has been an uninterrupted idyll.  
+Next, we'll review some of our mistakes&hellip;</p>
+
+</section>
+
+<section>
+<h2>7.10. Lessons Learned</h2>
+
+<p>Software design is difficult; mistakes and blind alleys are all too
+normal a part of it, and GPSD has been no exception to that rule.  The
+largest mistake in this project's history was the design of the
+original pre-JSON protocol for requesting and reporting GPS
+information.  Recovering from it took years of effort, and there are
+lessons in both the original mis-design and the recovery.</p>
+
+<p>There were two serious problems with the original protocol:</p>
+
+<ol>
+
+<li>
+Poor extensibility.  It used requests and response tags
+    consisting of a single letter each, case-insensitive. Thus, for
+    example, the request to report longitude and latitude was
+    <code>"P"</code> and a response looked like <code>"P -75.32 40.05"</code>. 
+    Furthermore, the parser interpreted a request like
+    <code>"PA"</code> as a <code>"P"</code> request followed by an <code>"A"</code>
+    (altitude) request.  As the daemon's capabilities gradually
+    broadened, we literally ran out of command space.
+</li>
+
+<li>
+A mismatch between the protocol's implicit model of sensor
+    behavior and how they actually behave.  The old protocol was
+    request/response: send a request for position (or altitude, or
+    whatever) get back a report sometime later. In reality, it is
+    usually not possible to request a report from a GPS or other
+    navigation-related sensors; they stream out reports, and the best
+    a request can do is query a cache.  This mismatch encouraged
+    sloppy data-handling from applications; too often, they would ask
+    for location data without also requesting a timestamp or any check
+    information about the fix quality, a practice which could easily
+    result in stale or invalid data getting presented to the user.
+</li>
+
+</ol>
+
+<p>It became clear as early as 2006 that the old protocol design was
+inadequate, but it took nearly three years of design sketches and 
+false starts to design a new one.  The transition took two years
+after that, and caused some pain for developers of client applications.
+It would have cost a lot more if the project had not shipped client-side
+libraries that insulated users from most of the protocol details&mdash;but
+we didn't get the API of those libraries quite right either at first.</p>
+
+<p>If we had known then what we know now, the JSON-based protocol would
+have been introduced five years sooner, and the API design of the
+client libraries would have required many fewer revisions. But there
+are some kinds of lessons only experience and experiment can teach.</p>
+
+<p>There are at least two design guidelines that future service daemons
+could bear in mind to avoid replicating our mistakes:</p>
+
+<ol>
+
+<li>
+Design for extensibility.  If your daemon's application
+    protocol can run out of namespace the way our old one did, you're
+    doing it wrong. Overestimating the short-term costs and
+    underestimating the long-term benefits of metaprotocols like XML
+    and JSON is an error that's all too common.
+</li>
+
+<li>
+Client-side libraries are a better idea than exposing the
+    application protocol details. A library may be able to adapt its
+    internals to multiple versions of the application protocol,
+    substantially reducing both interface complexity and defect rates
+    compared to the alternative, in which each application writer needs to
+    develop an ad hoc binding.  This difference will translate
+    directly into fewer bug reports on your project's tracker.
+</li>
+
+</ol>
+
+<p>One possible reply to our emphasis on extensibility, not just in
+GPSD's application protocol but in other aspects of the project
+architecture like the packet-driver interface, is to dismiss it as an
+over-elaboration brought about by mission creep.  Unix programmers
+schooled in the tradition of "do one thing well" may ask whether
+<code>gpsd</code>'s command set really needs to be larger in 2011 than it
+was in 2006, why <code>gpsd</code> now handles non-GPS sensors like magnetic
+compasses and Marine AIS receivers, and why we contemplate
+possibilities like ADS-B aircraft tracking.</p>
+
+<p>These are fair questions. We can approach an answer by looking at the
+actual complexity cost of adding a new device type.  For very good
+reasons, including relatively low data volumes and the high
+electrical-noise levels historically associated with serial wires to
+sensors, almost all reporting protocols for GPSs and other
+navigation-related sensors look broadly similar: small packets with a
+validation checksum of some sort.  Such protocols are fiddly to handle
+but not really difficult to distinguish from each other and parse, and
+the incremental cost of adding a new one tends to be less than a KLOC
+each. Even the most complex of our supported protocols with their own
+report generators attached, such as Marine AIS, only cost on the order
+of 3 KLOC each. In aggregate, the drivers plus the packet-sniffer and
+their associated JSON report generators are about 18 KLOC total.</p>
+
+<p>Comparing this with 43 KLOC for the project as a whole, we see that
+most of the complexity cost of GPSD is actually in the framework code
+around the drivers&mdash;and (importantly) in the test tools and framework
+for verifying the daemon's correctness.  Duplicating these would be a
+much larger project than writing any individual packet parser.  So
+writing a GPSD-equivalent for a packet protocol that GPSD doesn't
+handle would be a great deal more work than adding another driver and
+test set to GPSD itself.  Conversely, the most economical outcome (and
+the one with the lowest expected cumulative rate of defects) is for
+GPSD to grow packet drivers for many different sensor types.</p>
+
+<p>The "one thing" that GPSD has evolved to do well is handle any
+collection of sensors that ship distinguishable checksummed packets.
+What looks like mission creep is actually preventing many different
+and duplicative handler daemons from having to be written.  Instead,
+application developers get one relatively simple API and the benefit
+of our hard-won expertise at design and testing across an increasing
+range of sensor types.</p>
+
+<p>What distinguishes GPSD from a mere mission-creepy pile of features is
+not luck or black magic but careful application of known best
+practices in software engineering.  The payoff from these begins with
+a low defect rate in the present, and continues with the ability to
+support new features with little effort or expected impact on defect
+rates in the future.</p>
+
+<p>Perhaps the most important lesson we have for other open-source
+projects is this: reducing defect rates asymptotically close to zero
+is difficult, but it's not impossible&mdash;not even for a project as
+widely and variously deployed as GPSD is.  Sound architecture, good
+coding practice, and a really determined focus on testing can achieve
+it&mdash;and the most important prerequisite is the discipline to pursue
+all three.</p>
+
+</section>
+    
+        <!-- Footer
+      ================================================== -->
+      <footer class="footer">
+        <hr>
+        <p class="pull-right">This work is made available under
+            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
+            Commons Attribution 3.0 Unported</a> license.  Please see
+            the <a href="intro1.html#license">full description of the
+            license</a> for details.</a>
+            <p><a href="#">Back to top</a><br/>
+        <a href="index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
+      </footer>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

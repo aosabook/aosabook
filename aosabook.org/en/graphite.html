@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: graphite.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Graphite</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Graphite</h1>
+        <p><a href="intro1.html#davis-chris">Chris Davis</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Graphite<sup class="footnote"><a href="#footnote-1">1</a></sup> performs two
+pretty simple tasks: storing numbers that change over time and
+graphing them. There has been a lot of software written over the years
+to do these same tasks.  What makes Graphite unique is that it
+provides this functionality as a network service that is both easy to
+use and highly scalable.  The protocol for feeding data into Graphite
+is simple enough that you could learn to do it by hand in a few
+minutes (not that you'd actually want to, but it's a decent litmus
+test for simplicity).  Rendering graphs and retrieving data points are
+as easy as fetching a URL.  This makes it very natural to integrate
+Graphite with other software and enables users to build powerful
+applications on top of Graphite.  One of the most common uses of
+Graphite is building web-based dashboards for monitoring and analysis.
+Graphite was born in a high-volume e-commerce environment and its
+design reflects this.  Scalability and real-time access to data are
+key goals.</p>
+
+<p>The components that allow Graphite to achieve these goals include a
+specialized database library and its storage format, a caching
+mechanism for optimizing I/O operations, and a simple yet effective
+method of clustering Graphite servers. Rather than simply
+describing how Graphite works today, I will explain how Graphite was
+initially implemented (quite naively), what problems I ran into, and
+how I devised solutions to them.</p>
+
+<div class="sect">
+<h2>7.1. The Database Library: Storing Time-Series Data</h2>
+
+<p>Graphite is written entirely in Python and consists of three major
+components: a database library named <code>whisper</code>, a back-end daemon named
+<code>carbon</code>, and a front-end webapp that renders graphs and provides a
+basic UI. While <code>whisper</code> was written specifically for Graphite, it can
+also be used independently. It is very similar in design to the
+round-robin-database used by RRDtool, and only stores time-series
+numeric data.  Usually we think of databases as server processes that
+client applications talk to over sockets. However, <code>whisper</code>, much like
+RRDtool, is a database library used by applications to manipulate and
+retrieve data stored in specially formatted files. The most basic
+<code>whisper</code> operations are <code>create</code> to make a new <code>whisper</code> file,
+<code>update</code> to write new data points into a file, and <code>fetch</code>
+to retrieve data points.</p>
+
+<div class="figure" id="fig.gra.whis">
+  <img src="../images/graphite/whisper-file.png" alt="[Basic Anatomy of a whisper File]" />
+  <p>Figure&nbsp;7.1: Basic Anatomy of a <code>whisper</code> File</p>
+</div>
+
+<p>As shown in <a href="#fig.gra.whis">Figure&nbsp;7.1</a>, <code>whisper</code> files consist of a
+header section containing various metadata, followed by one or more
+archive sections . Each archive is a sequence of consecutive data
+points which are <code>(timestamp, value)</code> pairs. When an
+<code>update</code> or <code>fetch</code> operation is performed, <code>whisper</code>
+determines the offset in the file where data should be written to or
+read from, based on the timestamp and the archive configuration.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.2. The Back End: A Simple Storage Service</h2>
+
+<p>Graphite's back end is a daemon process called <code>carbon-cache</code>, usually
+simply referred to as <code>carbon</code>.  It is built on Twisted, a highly
+scalable event-driven I/O framework for Python. Twisted enables <code>carbon</code>
+to efficiently talk to a large number of clients and handle a large
+amount of traffic with low overhead.  <a href="#fig.gra.carbon">Figure&nbsp;7.2</a>
+shows the data flow among <code>carbon</code>, <code>whisper</code> and the webapp: Client
+applications collect data and send it to the Graphite back end, <code>carbon</code>,
+which stores the data using <code>whisper</code>. This data can then be used by the
+Graphite webapp to generate graphs.</p>
+
+<div class="figure" id="fig.gra.carbon">
+  <img src="../images/graphite/dataflow.png" alt="[Data Flow]" />
+  <p>Figure&nbsp;7.2: Data Flow</p>
+</div>
+
+<p>The primary function of <code>carbon</code> is to store data points for metrics
+provided by clients. In Graphite terminology, a metric is any
+measurable quantity that can vary over time (like the CPU utilization
+of a server or the number of sales of a product). A data point is
+simply a <code>(timestamp, value)</code> pair corresponding to the measured
+value of a particular metric at a point in time. Metrics are uniquely
+identified by their name, and the name of each metric as well as its
+data points are provided by client applications. A common type of
+client application is a monitoring agent that collects system or
+application metrics, and sends its collected values to <code>carbon</code> for easy
+storage and visualization.  Metrics in Graphite have simple
+hierarchical names, similar to filesystem paths except that a dot is
+used to delimit the hierarchy rather than a slash or backslash.
+<code>carbon</code> will respect any legal name and creates a <code>whisper</code> file for each
+metric to store its data points. The <code>whisper</code> files are stored within
+<code>carbon</code>'s data directory in a filesystem hierarchy that mirrors the
+dot-delimited hierarchy in each metric's name, so that (for example)
+<code>servers.www01.cpuUsage</code> maps to
+<code>&hellip;/servers/www01/cpuUsage.wsp</code>.</p>
+
+<p>When a client application wishes to send data points to Graphite it
+must establish a TCP connection to <code>carbon</code>, usually on port
+2003<sup class="footnote"><a href="#footnote-2">2</a></sup>.  The client does all
+the talking; <code>carbon</code> does not send anything over the connection. The
+client sends data points in a simple plain-text format while the
+connection may be left open and re-used as needed. The format is one
+line of text per data point where each line contains the dotted metric
+name, value, and a Unix epoch timestamp separated by spaces.  For
+example, a client might send:</p>
+
+<pre>
+servers.www01.cpuUsage 42 1286269200
+products.snake-oil.salesPerMinute 123 1286269200
+[one minute passes]
+servers.www01.cpuUsageUser 44 1286269260
+products.snake-oil.salesPerMinute 119 1286269260
+</pre>
+
+<p>On a high level, all <code>carbon</code> does is listen for data in this format and
+try to store it on disk as quickly as possible using <code>whisper</code>. Later on
+we will discuss the details of some tricks used to ensure scalability
+and get the best performance we can out of a typical hard drive.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.3. The Front End: Graphs On-Demand</h2>
+
+<p>The Graphite webapp allows users to request custom graphs with a
+simple URL-based API. Graphing parameters are specified in the
+query-string of an HTTP GET request, and a PNG image is returned in
+response. For example, the URL:</p>
+
+<pre>
+http://graphite.example.com/render?target=servers.www01.cpuUsage&amp;
+width=500&amp;height=300&amp;from=-24h
+</pre>
+
+<p class="continue">requests a 500&times;300 graph for the metric
+<code>servers.www01.cpuUsage</code> and the past 24 hours of data. Actually,
+only the target parameter is required; all the others are optional and
+use your default values if omitted.</p>
+
+<p>Graphite supports a wide variety of display options as well as data
+manipulation functions that follow a simple functional syntax. For
+example, we could graph a 10-point moving average of the metric in our
+previous example like this:</p>
+
+<pre>
+target=movingAverage(servers.www01.cpuUsage,10)
+</pre>
+
+<p class="continue">Functions can be nested, allowing for complex expressions and
+calculations.</p>
+
+<p>Here is another example that gives the running total of sales for the
+day using per-product metrics of sales-per-minute:</p>
+
+<pre>
+target=integral(sumSeries(products.*.salesPerMinute))&amp;amp;from=midnight
+</pre>
+
+<p class="continue">The <code>sumSeries</code> function computes a time-series that is the sum
+of each metric matching the pattern
+<code>products.*.salesPerMinute</code>. Then <code>integral</code> computes a
+running total rather than a per-minute count. From here it isn't too
+hard to imagine how one might build a web UI for viewing and
+manipulating graphs. Graphite comes with its own Composer UI, shown in
+<a href="#fig.gra.ui">Figure&nbsp;7.3</a>, that does this using Javascript to modify the
+graph's URL parameters as the user clicks through menus of the
+available features.</p>
+
+<div class="figure" id="fig.gra.ui">
+  <img src="../images/graphite/composer-ui.png" alt="[Graphite's Composer Interface]" />
+  <p>Figure&nbsp;7.3: Graphite's Composer Interface</p>
+</div>
+
+</div>
+
+<div class="sect">
+<h2>7.4. Dashboards</h2>
+
+<p>Since its inception Graphite has been used as a tool for creating
+web-based dashboards. The URL API makes this a natural use
+case. Making a dashboard is as simple as making an HTML page full of
+tags like this:</p>
+
+<pre>
+&lt;img src="../http://graphite.example.com/render?parameters-for-my-awesome-graph"&gt;
+</pre>
+
+<p>However, not everyone likes crafting URLs by hand, so Graphite's Composer UI
+provides a point-and-click method to create a graph from which you can
+simply copy and paste the URL. When coupled with another tool that
+allows rapid creation of web pages (like a wiki) this becomes easy
+enough that non-technical users can build their own dashboards pretty
+easily.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.5. An Obvious Bottleneck</h2>
+
+<p>Once my users started building dashboards, Graphite quickly began to
+have performance issues. I investigated the web server logs to see
+what requests were bogging it down. It was pretty obvious that the
+problem was the sheer number of graphing requests. The webapp was
+CPU-bound, rendering graphs constantly. I noticed that there were a
+lot of identical requests, and the dashboards were to blame.</p>
+
+<p>Imagine you have a dashboard with 10 graphs in it and the page
+refreshes once a minute. Each time a user opens the dashboard in
+their browser, Graphite has to handle 10 more requests per
+minute. This quickly becomes expensive.</p>
+
+<p>A simple solution is to render each graph only once and then serve a
+copy of it to each user. The Django web framework (which Graphite is
+built on) provides an excellent caching mechanism that can use various
+back ends such as memcached. Memcached<sup class="footnote"><a href="#footnote-3">3</a></sup>
+is essentially a hash table
+provided as a network service. Client applications can get and set
+key-value pairs just like an ordinary hash table. The main benefit of
+using memcached is that the result of an expensive request (like
+rendering a graph) can be stored very quickly and retrieved later to
+handle subsequent requests. To avoid returning the same stale graphs
+forever, memcached can be configured to expire the cached graphs after
+a short period. Even if this is only a few seconds, the burden it
+takes off Graphite is tremendous because duplicate requests are so
+common.</p>
+
+<p>Another common case that creates lots of rendering requests is when a
+user is tweaking the display options and applying functions in the
+Composer UI. Each time the user changes something, Graphite must
+redraw the graph. The same data is involved in each request so it
+makes sense to put the underlying data in the memcache as well.  This
+keeps the UI responsive to the user because the step of retrieving
+data is skipped.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.6. Optimizing I/O</h2>
+
+<p>Imagine that you have 60,000 metrics that you send to your Graphite
+server, and each of these metrics has one data point per
+minute. Remember that each metric has its own <code>whisper</code> file on the
+filesystem. This means <code>carbon</code> must do one write operation to 60,000
+different files each minute.  As long as <code>carbon</code> can write to one file
+each millisecond, it should be able to keep up. This isn't too far
+fetched, but let's say you have 600,000 metrics updating each minute,
+or your metrics are updating every second, or perhaps you simply
+cannot afford fast enough storage. Whatever the case, assume the rate
+of incoming data points exceeds the rate of write operations that your
+storage can keep up with. How should this situation be handled?</p>
+
+<p>Most hard drives these days have slow seek time<sup class="footnote"><a href="#footnote-4">4</a></sup>, that is, the delay between doing I/O
+operations at two different locations, compared to writing a
+contiguous sequence of data. This means the more contiguous writing we
+do, the more throughput we get. But if we have thousands of files that
+need to be written to frequently, and each write is very small (one
+<code>whisper</code> data point is only 12 bytes) then our disks are definitely
+going to spend most of their time seeking.</p>
+
+<p>Working under the assumption that the rate of write operations has a
+relatively low ceiling, the only way to increase our data point
+throughput beyond that rate is to write multiple data points in a
+single write operation. This is feasible because <code>whisper</code> arranges
+consecutive data points contiguously on disk. So I added an
+<code>update_many</code> function to <code>whisper</code>, which takes a list of data
+points for a single metric and compacts contiguous data points into a
+single write operation.  Even though this made each write larger, the
+difference in time it takes to write ten data points (120 bytes)
+versus one data point (12 bytes) is negligible. It takes quite a few
+more data points before the size of each write starts to noticeably
+affect the latency.</p>
+
+<p>Next I implemented a buffering mechanism in <code>carbon</code>. Each incoming data
+point gets mapped to a queue based on its metric name and is then
+appended to that queue.  Another thread repeatedly iterates through
+all of the queues and for each one it pulls all of the data points out
+and writes them to the appropriate <code>whisper</code> file with
+<code>update_many</code>. Going back to our example, if we have 600,000
+metrics updating every minute and our storage can only keep up with 1
+write per millisecond, then the queues will end up holding about 10
+data points each on average. The only resource this costs us is
+memory, which is relatively plentiful since each data point is only a
+few bytes.</p>
+
+<p>This strategy dynamically buffers as many datapoints as necessary to sustain
+a rate of incoming datapoints that may exceed the rate of I/O operations your
+storage can keep up with. A nice advantage of this approach is that it adds a degree of
+resiliency to handle temporary I/O slowdowns. If the system needs to
+do other I/O work outside of Graphite then it is likely that the rate
+of write operations will decrease, in which case <code>carbon</code>'s queues will
+simply grow. The larger the queues, the larger the writes. Since the
+overall throughput of data points is equal to the rate of write
+operations times the average size of each write, <code>carbon</code> is able to
+keep up as long as there is enough memory for the queues.  <code>carbon</code>'s
+queueing mechanism is depicted in <a href="#fig.gra.queue">Figure&nbsp;7.4</a>.</p>
+
+<div class="figure" id="fig.gra.queue">
+  <img src="../images/graphite/carbon-queues.png" alt="[Carbon's Queueing Mechanism]" />
+  <p>Figure&nbsp;7.4: Carbon's Queueing Mechanism</p>
+</div>
+
+</div>
+
+<div class="sect">
+<h2>7.7. Keeping It Real-Time</h2>
+
+<p>Buffering data points was a nice way to optimize <code>carbon</code>'s I/O but it
+didn't take long for my users to notice a rather troubling side
+effect.  Revisiting our example again, we've got 600,000 metrics that
+update every minute and we're assuming our storage can only keep up
+with 60,000 write operations per minute. This means we will have
+approximately 10 minutes worth of data sitting in <code>carbon</code>'s queues at
+any given time.  To a user this means that the graphs they request
+from the Graphite webapp will be missing the most recent 10 minutes of
+data: Not good!</p>
+
+<p>Fortunately the solution is pretty straight-forward. I simply added a
+socket listener to <code>carbon</code> that provides a query interface for
+accessing the buffered data points and then modifies the Graphite
+webapp to use this interface each time it needs to retrieve data.  The
+webapp then combines the data points it retrieves from <code>carbon</code> with the
+data points it retrieved from disk and voila, the graphs are
+real-time. Granted, in our example the data points are updated to the
+minute and thus not exactly "real-time", but the fact that each data
+point is instantly accessible in a graph once it is received by <code>carbon</code>
+is real-time.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.8. Kernels, Caches, and Catastrophic Failures</h2>
+
+<p>As is probably obvious by now, a key characteristic of system
+performance that Graphite's own performance depends on is I/O latency.
+So far we've assumed our system has consistently low I/O latency
+averaging around 1 millisecond per write, but this is a big assumption
+that requires a little deeper analysis. Most hard drives simply aren't
+that fast; even with dozens of disks in a RAID array there is very
+likely to be more than 1 millisecond latency for random access. Yet if
+you were to try and test how quickly even an old laptop could write a
+whole kilobyte to disk you would find that the write system call
+returns in far less than 1 millisecond. Why?</p>
+
+<p>Whenever software has inconsistent or unexpected performance
+characteristics, usually either buffering or caching is to blame. In
+this case, we're dealing with both. The write system call doesn't
+technically write your data to disk, it simply puts it in a buffer
+which the kernel then writes to disk later on. This is why the write
+call usually returns so quickly. Even after the buffer has been
+written to disk, it often remains cached for subsequent reads. Both of
+these behaviors, buffering and caching, require memory of
+course.</p>
+
+<p>Kernel developers, being the smart folks that they are, decided it
+would be a good idea to use whatever user-space memory is currently
+free instead of allocating memory outright. This turns out to be a
+tremendously useful performance booster and it also explains why no
+matter how much memory you add to a system it will usually end up
+having almost zero "free" memory after doing a modest amount of
+I/O. If your user-space applications aren't using that memory then
+your kernel probably is. The downside of this approach is that this
+"free" memory can be taken away from the kernel the moment a
+user-space application decides it needs to allocate more memory for
+itself. The kernel has no choice but to relinquish it, losing whatever
+buffers may have been there.</p>
+
+<p>So what does all of this mean for Graphite? We just highlighted
+<code>carbon</code>'s reliance on consistently low I/O latency and we also know
+that the write system call only returns quickly because the data is
+merely being copied into a buffer. What happens when there is not
+enough memory for the kernel to continue buffering writes? The writes
+become synchronous and thus terribly slow! This causes a dramatic drop
+in the rate of <code>carbon</code>'s write operations, which causes <code>carbon</code>'s queues
+to grow, which eats up even more memory, starving the kernel even
+further. In the end, this kind of situation usually results in <code>carbon</code>
+running out of memory or being killed by an angry sysadmin.</p>
+
+<p>To avoid this kind of catastrophe, I added several features to <code>carbon</code>
+including configurable limits on how many data points can be queued
+and rate-limits on how quickly various <code>whisper</code> operations can be
+performed.  These features can protect <code>carbon</code> from spiraling out of
+control and instead impose less harsh effects like dropping some data
+points or refusing to accept more data points. However, proper values
+for those settings are system-specific and require a fair amount of
+testing to tune. They are useful but they do not fundamentally solve
+the problem.  For that, we'll need more hardware.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.9. Clustering</h2>
+
+<p>Making multiple Graphite servers appear to be a single system from
+a user perspective isn't terribly difficult, at least for a na&iuml;ve
+implementation.  The webapp's user interaction primarily consists of
+two operations: finding metrics and fetching data points (usually in
+the form of a graph). The find and fetch operations of the webapp are
+tucked away in a library that abstracts their implementation from the
+rest of the codebase, and they are also exposed through HTTP request
+handlers for easy remote calls.</p>
+
+<p>The <code>find</code> operation searches the local filesystem of <code>whisper</code>
+data for things matching a user-specified pattern, just as a filesystem
+glob like <code>*.txt</code> matches files with that extension.
+Being a tree structure, the result returned by <code>find</code> is a
+collection of <code>Node</code> objects, each deriving from either the <code>Branch</code> or
+<code>Leaf</code> sub-classes of <code>Node</code>. Directories correspond to branch nodes and
+<code>whisper</code> files correspond to leaf nodes.  This layer of abstraction
+makes it easy to support different types of underlying storage
+including RRD files<sup class="footnote"><a href="#footnote-5">5</a></sup> and gzipped <code>whisper</code> files.</p>
+
+<p>The <code>Leaf</code> interface defines a <code>fetch</code> method whose
+implementation depends on the type of leaf node. In the case of
+<code>whisper</code> files it is simply a thin wrapper around the <code>whisper</code> library's
+own fetch function.  When clustering support was added, the
+<code>find</code> function was extended to be able to make remote find calls
+via HTTP to other Graphite servers specified in the webapp's
+configuration. The node data contained in the results of these HTTP
+calls gets wrapped as <code>RemoteNode</code> objects which conform to the usual
+<code>Node</code>, <code>Branch</code>, and <code>Leaf</code> interfaces. This makes the clustering
+transparent to the rest of the webapp's codebase. The <code>fetch</code>
+method for a remote leaf node is implemented as another HTTP call to
+retrieve the data points from the node's Graphite server.</p>
+
+<p>All of these calls are made between the webapps the same way a client
+would call them, except with one additional parameter specifying that
+the operation should only be performed locally and not be
+redistributed throughout the cluster.  When the webapp is asked to
+render a graph, it performs the <code>find</code> operation to locate the
+requested metrics and calls <code>fetch</code> on each to retrieve their
+data points. This works whether the data is on the local server,
+remote servers, or both. If a server goes down, the remote calls
+timeout fairly quickly and the server is marked as being out of
+service for a short period during which no further calls to it will be
+made. From a user standpoint, whatever data was on the lost server
+will be missing from their graphs unless that data is duplicated on
+another server in the cluster.</p>
+
+<div class="subsect">
+<h3>7.9.1. A Brief Analysis of Clustering Efficiency</h3>
+
+<p>The most expensive part of a graphing request is rendering the graph.
+Each rendering is performed by a single server so adding more servers
+does effectively increase capacity for rendering graphs. However, the
+fact that many requests end up distributing <code>find</code> calls to every
+other server in the cluster means that our clustering scheme is
+sharing much of the front-end load rather than dispersing it.  What we
+have achieved at this point, however, is an effective way to
+distribute back-end load, as each <code>carbon</code> instance operates
+independently.  This is a good first step since most of the time the
+back end is a bottleneck far before the front end is, but clearly the
+front end will not scale horizontally with this approach.</p>
+
+<p>In order to make the front end scale more effectively, the number of
+remote <code>find</code> calls made by the webapp must be reduced. Again,
+the easiest solution is caching. Just as memcached is already used to
+cache data points and rendered graphs, it can also be used to cache
+the results of <code>find</code> requests.  Since the location of metrics is
+much less likely to change frequently, this should typically be cached
+for longer. The trade-off of setting the cache timeout for <code>find</code>
+results too long, though, is that new metrics that have been added to
+the hierarchy may not appear as quickly to the user.</p>
+
+</div>
+
+<div class="subsect">
+<h3>7.9.2. Distributing Metrics in a Cluster</h3>
+
+<p>The Graphite webapp is rather homogeneous throughout a cluster, in
+that it performs the exact same job on each server. <code>carbon</code>'s role,
+however, can vary from server to server depending on what data you
+choose to send to each instance. Often there are many different
+clients sending data to <code>carbon</code>, so it would be quite annoying to
+couple each client's configuration with your Graphite cluster's
+layout. Application metrics may go to one <code>carbon</code> server, while
+business metrics may get sent to multiple <code>carbon</code> servers for
+redundancy.</p>
+
+<p>To simplify the management of scenarios like this, Graphite comes with
+an additional tool called <code>carbon-relay</code>. Its job is quite simple;
+it receives metric data from clients exactly like the standard <code>carbon</code>
+daemon (which is actually named <code>carbon-cache</code>) but instead of storing
+the data, it applies a set of rules to the metric names to determine
+which <code>carbon-cache</code> servers to relay the data to. Each rule consists of
+a regular expression and a list of destination servers. For each data
+point received, the rules are evaluated in order and the first rule
+whose regular expression matches the metric name is used. This way all
+the clients need to do is send their data to the <code>carbon-relay</code> and it
+will end up on the right servers.</p>
+
+<p>In a sense <code>carbon-relay</code> provides replication functionality, though it
+would more accurately be called input duplication since it does not
+deal with synchronization issues. If a server goes down temporarily,
+it will be missing the data points for the time period in which it was
+down but otherwise function normally. There are administrative scripts
+that leave control of the re-synchronization process in the hands of
+the system administrator.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>7.10. Design Reflections</h2>
+
+<p>My experience in working on Graphite has reaffirmed a belief of mine
+that scalability has very little to do with low-level performance but
+instead is a product of overall design. I have run into many
+bottlenecks along the way but each time I look for improvements in
+design rather than speed-ups in performance. I have been asked many
+times why I wrote Graphite in Python rather than Java or C++, and my
+response is always that I have yet to come across a true need for the
+performance that another language could offer. In
+[<a href="bib1.html#bib:knuth:goto">Knu74</a>], Donald Knuth famously said that premature
+optimization is the root of all evil.  As long as we assume that our
+code will continue to evolve in non-trivial ways then all
+optimization<sup class="footnote"><a href="#footnote-6">6</a></sup> is in some sense premature.</p>
+
+<p>One of Graphite's greatest strengths and greatest weaknesses is the
+fact that very little of it was actually "designed" in the
+traditional sense.  By and large Graphite evolved gradually, hurdle by
+hurdle, as problems arose. Many times the hurdles were foreseeable and
+various pre-emptive solutions seemed natural. However it can be useful
+to avoid solving problems you do not actually have yet, even if it
+seems likely that you soon will. The reason is that you can learn much
+more from closely studying actual failures than from theorizing about
+superior strategies.  Problem solving is driven by both the empirical
+data we have at hand and our own knowledge and intuition. I've found
+that doubting your own wisdom sufficiently can force you to look at
+your empirical data more thoroughly.</p>
+
+<p>For example, when I first wrote <code>whisper</code> I was convinced that it would
+have to be rewritten in C for speed and that my Python implementation
+would only serve as a prototype. If I weren't under a time-crunch I
+very well may have skipped the Python implementation entirely. It
+turns out however that I/O is a bottleneck so much earlier than CPU
+that the lesser efficiency of Python hardly matters at all in
+practice.</p>
+
+<p>As I said, though, the evolutionary approach is also a great weakness
+of Graphite. Interfaces, it turns out, do not lend themselves well to
+gradual evolution. A good interface is consistent and employs
+conventions to maximize predictability. By this measure, Graphite's
+URL API is currently a sub-par interface in my opinion. Options and
+functions have been tacked on over time, sometimes forming small
+islands of consistency, but overall lacking a global sense of
+consistency. The only way to solve such a problem is through
+versioning of interfaces, but this too has drawbacks. Once a new
+interface is designed, the old one is still hard to get rid of,
+lingering around as evolutionary baggage like the human appendix. It
+may seem harmless enough until one day your code gets appendicitis
+(i.e. a bug tied to the old interface) and you're forced to
+operate. If I were to change one thing about Graphite early on, it
+would have been to take much greater care in designing the external
+APIs, thinking ahead instead of evolving them bit by bit.</p>
+
+<p>Another aspect of Graphite that causes some frustration is the limited
+flexibility of the hierarchical metric naming model. While it is quite
+simple and very convenient for most use cases, it makes some
+sophisticated queries very difficult, even impossible, to
+express. When I first thought of creating Graphite I knew from the
+very beginning that I wanted a human-editable URL API for creating
+graphs<sup class="footnote"><a href="#footnote-7">7</a></sup>. While I'm still glad that Graphite provides this today,
+I'm afraid this requirement has burdened the API with excessively
+simple syntax that makes complex expressions unwieldy.  A hierarchy
+makes the problem of determining the "primary key" for a metric
+quite simple because a path is essentially a primary key for a node in
+the tree. The downside is that all of the descriptive data (i.e.
+column data) must be embedded directly in the path. A potential
+solution is to maintain the hierarchical model and add a separate
+metadata database to enable more advanced selection of metrics with a
+special syntax.</p>
+
+</div>
+
+<div class="sect">
+<h2>7.11. Becoming Open Source</h2>
+
+<p>Looking back at the evolution of Graphite, I am still surprised both by
+how far it has come as a project and by how far it has taken me as a
+programmer. It started as a pet project that was only a few hundred
+lines of code. The rendering engine started as an experiment, simply
+to see if I could write one. <code>whisper</code> was written over the course of a
+weekend out of desperation to solve a show-stopper problem before a
+critical launch date. <code>carbon</code> has been rewritten more times than I care
+to remember. Once I was allowed to release Graphite under an open
+source license in 2008 I never really expected much response. After a
+few months it was mentioned in a CNET article that got picked up by
+Slashdot and the project suddenly took off and has been active ever
+since.  Today there are dozens of large and mid-sized companies using
+Graphite. The community is quite active and
+continues to grow. Far from being a finished product, there is a lot
+of cool experimental work being done, which keeps it fun to work on
+and full of potential.</p>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://launchpad.net/graphite</code></li>
+<li id="footnote-2">There is another port over which serialized objects can
+be sent, which is more efficient than the plain-text format. This is
+only needed for very high levels of traffic.</li>
+<li id="footnote-3"><code class="url">http://memcached.org</code></li>
+<li id="footnote-4">Solid-state
+drives generally have extremely fast seek times compared to
+conventional hard drives.</li>
+<li id="footnote-5">RRD files are actually branch nodes
+because they can contain multiple data sources; an RRD data source
+is a leaf node.</li>
+<li id="footnote-6">Knuth specifically meant low-level code
+optimization, not macroscopic optimization such as design
+improvements.</li>
+<li id="footnote-7">This forces the graphs themselves to be open
+source. Anyone can simply look at a graph's URL to understand it or
+modify it.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

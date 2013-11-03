@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: wesnoth.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Battle for Wesnoth</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Battle for Wesnoth</h1>
+        <p><a href="intro1.html#shimooka-richard">Richard Shimooka</a> and <a href="intro1.html#white-david">David White</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Programming tends to be considered a straightforward problem solving
+activity; a developer has a requirement and codes a solution. Beauty
+is often judged on the technical implementation's elegance or
+effectiveness; this book is replete with excellent examples. Yet
+beyond its immediate computing functions, code can have a profound
+effect on people's lives. It can inspire people to participate and
+create new content. Unfortunately, serious barriers exist that prevent
+individuals from participating in a project.</p>
+
+<p>Most programming languages require significant technical expertise to
+utilize, which is out of reach for many. In addition, enhancing the
+accessibility of code is technically difficult and is not necessary
+for many programs. It rarely translates into neat coding scripts or
+clever programming solutions. Achieving accessibility requires
+considerable forethought in project and program design, which often
+runs counter-intuitive to normal programming standards. Moreover most
+projects rely upon an established staff of skilled professionals that
+are expected to operate at a reasonably high level. They do not
+require additional programming resources. Thus, code accessibility
+becomes an afterthought, if considered at all.</p>
+
+<p>Our project, the Battle for Wesnoth, attempted to address this issue
+from its origins. The program is a turn-based fantasy strategy game,
+produced in an open source model based on a GPL2 license. It has been
+a moderate success, with over four million downloads at the time of
+this writing. While this is an impressive metric, we believe the real
+beauty of our project is the development model that allowed a band of
+volunteers from widely different skill levels to interact in a
+productive way.</p>
+
+<p>Enhancing accessibility was not a vague objective set by developers,
+it was viewed as essential for the project's survival. Wesnoth's open
+source approach meant that the project could not immediately expect
+large numbers of highly skilled developers.  Making the project
+accessible to a wide a number of contributors, with varying skill
+levels, would ensure its long-term viability.</p>
+
+<p>Our developers attempted to lay the foundations for broadening
+accessibility right from its earliest iteration. This would have
+undeniable consequences for all aspect of the programming
+architecture. Major decisions were made largely with this objective in
+mind. This chapter will provide an in-depth examination of our program
+with a focus on the efforts to increase accessibility.</p>
+
+<p>The first part of this chapter offers a general overview of the
+project's programming, covering its language, dependencies and
+architecture. The second part will focus on Wesnoth's unique data
+storage language, known as Wesnoth Markup Language (WML). It will
+explain the specific functions of WML, with a particular emphasis on
+its effects on in-game units. The next section covers multiplayer
+implementation and external programs.  The chapter will end with some
+concluding observations on our structure and the challenges of
+broadening participation.</p>
+
+<div class="sect">
+<h2>25.1. Project Overview</h2>
+
+<p>Wesnoth's core engine is written in C++, totalling around 200,000 lines
+at the time of this publication. This represents the core game engine,
+approximately half of the code base without any content.  The program
+also allows in game content to be defined in a unique data language
+known as Wesnoth Markup Language (WML). The game ships with another
+250,000 lines of WML code. The proportion has shifted over the
+project's existence. As the program matured, game content that was
+hardcoded in C++ has increasingly been rewritten so that WML can
+be used to define its operation. <a href="#fig.wes.arch">Figure&nbsp;25.1</a> gives a
+rough picture of the program's architecture; green areas are
+maintained by Wesnoth developers, while white areas are external
+dependencies.</p>
+
+<div class="figure" id="fig.wes.arch">
+  <img src="../images/wesnoth/architecture.png" alt="[Program Architecture]" />
+  <p>Figure&nbsp;25.1: Program Architecture</p>
+</div>
+
+<p>Overall, the project attempts to minimize dependencies in most cases
+so as to maximize the portability of the application. This has the
+added benefit of reducing the program's complexity, and decreases the
+need for developers to learn the nuances of a large number of third
+party APIs.  At the same time, the prudent use of some dependencies
+can actually achieve the same effect. For example, Wesnoth uses the
+Simple Directmedia Layer (SDL) for video, I/O and event handling. It
+was chosen because it is easy to use and provides a common I/O
+interface across many platforms.  This allows it to be portable to a
+wide array of platforms, rather than the alternative of coding to
+specific APIs on different platforms. This comes at a price however;
+it is harder to take advantage of some platform specific features. SDL
+also has an accompanying family of libraries that are used by Wesnoth
+for various purposes:</p>
+
+<ul>
+
+  <li>SDL_Mixer for audio and sound</li>
+
+  <li>SDL_Image for loading PNG and other image formats</li>
+
+  <li>SDL_Net for network I/O</li>
+
+</ul>
+
+<p>Additionally, Wesnoth uses several other libraries:</p>
+
+<ul>
+
+  <li>Boost for a variety of advanced C++ features</li>
+
+  <li>Pango with Cairo for internationalized fonts</li>
+
+  <li>zlib for compression</li>
+
+  <li>Python and Lua for scripting support</li>
+
+  <li>GNU gettext for internationalization</li>
+
+</ul>
+
+<p>Throughout Wesnoth's engine, the use of WML objects&mdash;that is, string
+dictionaries with child nodes&mdash;is fairly ubiquitous.  Many objects
+can be constructed from a WML node, and also serialize themselves to a
+WML node. Some parts of the engine keep data in this WML dictionary
+based format, interpreting it directly rather than parsing it into a
+C++ data structure.</p>
+
+<p>Wesnoth utilizes several important subsystems, most of which are as
+self-contained as possible. This segmented structure has advantages
+for accessibility. An interested party can easily work a code in a
+specific area and introduce changes without damaging the rest of the
+program. The major subdivisions include:</p>
+
+<ul>
+
+  <li>A WML parser with preprocessor</li>
+
+  <li>Basic I/O modules that abstract underlying libraries and
+  system calls&mdash;a video module, a sound module, a network module</li>
+
+  <li>A GUI module containing widget implementations for buttons,
+  lists, menus, etc.</li>
+
+  <li>A display module for rendering the game board, units,
+  animations, and so forth</li>
+
+  <li>An AI module</li>
+
+  <li>A pathfinding module that includes many utility functions for
+  dealing with a hexagonal gaming board</li>
+
+  <li>A map generation module for generating different kinds of
+  random maps</li>
+
+</ul>
+
+<p>There are also different modules for controlling different parts of
+the game flow:</p>
+
+<ul>
+
+  <li>The titlescreen module, for controlling display of the
+  title screen.</li>
+
+  <li>The storyline module, for showing cut-scene sequences.</li>
+
+  <li>The lobby module, for displaying and allowing setup of games
+  on the multiplayer server.</li>
+
+  <li>The "play game" module that controls the main gameplay.</li>
+
+</ul>
+
+<p>The "play game" module and the main display module are the largest
+within Wesnoth.  Their purpose is the least well defined, as their
+function is ever-changing and thus difficult to have a clear
+specification for. Consequently, the modules has often been in danger
+of suffering from the Blob anti-pattern over the program's
+history&mdash;i.e., becoming huge dominant segments without well-defined
+behaviors.  The code in the display and play game modules are
+regularly reviewed to see if any of it can be separated into a module
+of its own.</p>
+
+<p>There are also ancillary features that are part of the overall
+project, but are separate from the main program. This includes a
+multiplayer server that facilitates multiplayer network games, as well
+as a content server that allows users to upload their content to a
+common server and share it with others. Both are written in C++.</p>
+
+</div>
+
+<div class="sect">
+<h2>25.2. Wesnoth Markup Language</h2>
+
+<p>As an extensible game engine, Wesnoth uses a simple data language to
+store and load all game data. Although XML was considered initially,
+we decided that we wanted something a little more friendly to non-technical
+users, and a little more relaxed with regard to use of visual data.
+We therefore developed our own data language,
+called Wesnoth Markup Language (WML). It was designed with the least
+technical of users in mind: the hope was that even users who find
+Python or HTML intimidating would be able to make sense of a WML
+file. All Wesnoth game data is stored in WML, including unit
+definitions, campaigns, scenarios, GUI definitions, and other game
+logic configuration.</p>
+
+<p>WML shares the same basic attributes as XML: elements and attributes,
+though it doesn't support text within elements. WML attributes are
+represented simply as a dictionary mapping strings to strings, with
+the program logic responsible for interpretation of attributes. A
+simple example of WML is a trimmed definition for the Elvish Fighter
+unit within the game:</p>
+
+<pre>
+[unit_type]
+    id=Elvish Fighter
+    name= _ "Elvish Fighter"
+    race=elf
+    image="units/elves-wood/fighter.png"
+    profile="portraits/elves/fighter.png"
+    hitpoints=33
+    movement_type=woodland
+    movement=5
+    experience=40
+    level=1
+    alignment=neutral
+    advances_to=Elvish Captain,Elvish Hero
+    cost=14
+    usage=fighter
+    {LESS_NIMBLE_ELF}
+    [attack]
+        name=sword
+        description=_"sword"
+        icon=attacks/sword-elven.png
+        type=blade
+        range=melee
+        damage=5
+        number=4
+    [/attack]
+[/unit_type]
+</pre>
+
+<p>Since internationalization is important in Wesnoth, WML does have
+direct support for it: attribute values which have an underscore
+prefix are translatable. Any translatable string is converted using
+GNU <code>gettext</code> to the translated version of the string when the
+WML is parsed.</p>
+
+<p>Rather than have many different WML documents, Wesnoth opts for the
+approach of all main game data being presented to the game engine in
+just a single document. This allows for a single global variable to
+hold the document, and when the game is loaded all unit definitions,
+for instance, are loaded by looking for elements with the name
+<code>unit_type</code> within a <code>units</code> element.</p>
+
+<p>Though all data is stored in a single conceptual WML
+document, it would be unwieldy to have it all in a single file.
+Wesnoth therefore supports a preprocessor that is run over all WML
+before parsing. This preprocessor allows one file to include the
+contents of another file, or an entire directory. For instance:</p>
+
+<pre>
+{gui/default/window/}
+</pre>
+
+<p class="continue">will include all the <code>.cfg</code> files within <code>gui/default/window/</code>.</p>
+
+<p>Since WML can become very verbose, the preprocessor also allows
+macros to be defined to condense things. For instance, the
+<code>{LESS_NIMBLE_ELF}</code> invocation in the definition of the
+Elvish Fighter is a call to a macro that makes certain elf units less
+nimble under certain conditions, such as when they are stationed in a
+forest:</p>
+
+<pre>
+#define LESS_NIMBLE_ELF
+    [defense]
+        forest=40
+    [/defense]
+#enddef
+</pre>
+
+<p>This design has the advantage of making the engine agnostic to how the
+WML document is broken up into files. It is the responsibility of WML
+authors to decide how to structure and divide all game data into
+different files and directories.</p>
+
+<p>When the game engine loads the WML document, it also defines some
+preprocessor symbols according to various game settings.  For
+instance, a Wesnoth campaign can define different difficulty settings,
+with each difficulty setting resulting in a different preprocessor
+symbol being defined. As an example, a common way to vary difficulty
+is by varying the amount of resources given to an opponent
+(represented by gold). To facilitate this, there is a WML macro
+defined like this:</p>
+
+<pre>
+#define GOLD EASY_AMOUNT NORMAL_AMOUNT HARD_AMOUNT
+  #ifdef EASY
+    gold={EASY_AMOUNT}
+  #endif
+  #ifdef NORMAL
+    gold={NORMAL_AMOUNT}
+  #endif
+  #ifdef HARD
+    gold={HARD_AMOUNT}
+  #endif
+#enddef
+</pre>
+
+<p class="continue">This macro can be invoked using, for instance, <code>{GOLD 50 100
+200}</code> within the definition of an opponent to define how much gold
+the opponent has based on the difficulty level.</p>
+
+<p>Since the WML is processed conditionally, if any of the
+symbols provided to the WML document change during execution of the
+Wesnoth engine, the entire WML document must be re-loaded and
+processed. For instance, when the user starts the game, the WML
+document is loaded and available campaigns among other things are
+loaded. But then, if the user chooses to start a campaign and chooses
+a certain difficulty level&mdash;easy for instance&mdash;then the entire
+document will have to be re-loaded with EASY defined.</p>
+
+<p>This design is convenient in that a single document contains all game
+data, and that symbols can allow easy configuration of the WML
+document. However, as a successful project, more and more content is
+available for Wesnoth, including much downloadable content&mdash;all of
+which ends up inserted into the core document tree&mdash;which means the
+WML document is many megabytes in size. This has become a performance
+issue for Wesnoth: Loading the document may take up to a minute on
+some computers, causing delays in-game any time the document needs to
+be reloaded. Additionally, it uses a substantial amount of
+memory. Some measures are used to counter this: when a campaign is
+loaded, it has a symbol unique to that campaign defined in the
+preprocessor. This means that any content specific to that campaign
+can be <code>#ifdef</code>ed to only be used when that campaign is needed.</p>
+
+<p>Additionally, Wesnoth uses a caching system to cache the fully
+preprocessed version of the WML document for a given set of key
+definitions. Naturally this caching system must inspect the timestamp
+of all WML files so that if any have changed, the cached document is
+regenerated.</p>
+
+</div>
+
+<div class="sect">
+<h2>25.3. Units in Wesnoth</h2>
+
+<p>The protagonists of Wesnoth are its units. An Elvish Fighter and an
+Elvish Shaman might battle against a Troll Warrior and an Orcish
+Grunt.  All units share the same basic behavior, but many have special
+abilities that alter the normal flow of gameplay. For example, a troll
+regenerates some of its health every turn, an Elvish shaman slows its
+opponents with an entangling root, and a Wose is invisible in a
+forest.</p>
+
+<p>What is the best way to represent this in an engine? It is
+tempting to make a base <code>unit</code> class in C++, with different types
+of units derived from it. For instance, a <code>wose_unit</code> class could
+derive from <code>unit</code>, and <code>unit</code> could have a virtual
+function, <code>bool is_invisible() const</code>, which returns false, which
+the <code>wose_unit</code> overrides, returning true if the unit happens to
+be in forest.</p>
+
+<p>Such an approach would work reasonably well for a game with a limited
+set of rules. Unfortunately Wesnoth is quite a large game and such an
+approach is not easily extendable. If a person wanted to add a new
+type of unit under this approach, it would require the addition of a
+new C++ class to the game. Additionally, it does not allow different
+characteristics to be combined well: what if you had a unit that
+regenerated, could slow enemies with a net, and was invisible in a
+forest? You would have to write an entirely new class that duplicates
+code in the other classes.</p>
+
+<p>Wesnoth's unit system doesn't use inheritance at all to accomplish
+this task. Instead, it uses a <code>unit</code> class to represent instances
+of units, and a <code>unit_type</code> class, which represents the
+immutable characteristics that all units of a certain type share. The
+<code>unit</code> class has a reference to the type of object that it is.
+All the possible <code>unit_type</code> objects are stored in a globally
+held dictionary that is loaded when the main WML document is loaded.</p>
+
+<p>A unit type has a list of all the abilities that that unit has. For
+instance, a Troll has the "regeneration" ability that makes it heal
+life every turn. A Saurian Skirmisher has the "skirmisher" ability
+that allows it to move through enemy lines. Recognition of these
+abilities is built into the engine&mdash;for instance, the pathfinding
+algorithms will check if a unit has the "skirmisher" flag set to see
+if it can move freely past enemy lines. This approach allows an
+individual to add new units, which have any combination of abilities
+made by the engine, by only editing WML. Of course, it doesn't allow
+adding completely new abilities and unit behavior without modifying
+the engine.</p>
+
+<p>Additionally, each unit in Wesnoth may have any number of ways to
+attack.  For instance, an Elvish Archer has a long-range bow attack
+and also a short-range sword attack. Each deals different damage
+amounts and characteristics. To represent an attack, there is an
+<code>attack_type</code> class, with every <code>unit_type</code> instance
+having a list of possible <code>attack_types</code>.</p>
+
+<p>To give each unit more character, Wesnoth has a feature known as
+traits. Upon recruitment, most units are assigned two traits at random
+from a predefined list. For instance, a strong unit does more damage
+with its melee attacks, while an intelligent unit needs less
+experience before it "levels up." Also, it is possible for units to
+acquire equipment during the game that make them more powerful. For
+instance, there might be a sword a unit can pick up that makes their
+attacks do more damage. To implement traits and equipment Wesnoth
+allows modifications on units, which are WML-defined alterations to a
+unit's statistics. The modification can even be applied to certain
+types of attacks. For instance, the strong trait gives strong units
+more damage when attacking in melee, but not when using a ranged
+strike.</p>
+
+<p>Allowing completely configurable unit behavior with WML would be an
+admirable goal, so it is instructional to consider why Wesnoth has
+never achieved such a goal.  WML would need to be much more flexible
+than it is if it were to allow arbitrary unit behavior. Rather than
+being a data-oriented language, WML would have to be extended into a
+full-fledged programming language and that would be intimidating for
+many aspiring contributors.</p>
+
+<p>Additionally, the Wesnoth AI, which is developed in C++, recognizes
+the abilities present in the game. It takes into account regeneration,
+invisibility, and so forth, and attempts to maneuver its units to take
+best advantage of these different abilities. Even if a unit ability
+could be created using WML, it would be difficult to make the AI
+sophisticated enough to recognize this ability to take advantage of
+it.  Implementing an ability but not having it accounted for by the AI
+would not be a very satisfying implementation.  Similarly,
+implementing an ability in WML and then having to modify the AI in C++
+to account for the ability would be awkward. Thus, having units
+definable in WML, but having abilities hard-wired into the engine is
+considered a reasonable compromise that works best for Wesnoth's
+specific requirements.</p>
+
+</div>
+
+<div class="sect">
+<h2>25.4. Wesnoth's Multiplayer Implementation</h2>
+
+<p>The Wesnoth multiplayer implementation uses a simple-as-possible
+approach to implementing multiplayer in Wesnoth. It attempts to
+mitigate the possibility of malicious attacks on the server, but
+doesn't make a serious attempt to prevent cheating.  Any movement that
+is made in a Wesnoth game&mdash;moving of a unit, attacking an enemy,
+recruiting a unit, and so forth&mdash;can be saved as a WML node. For
+instance, a command to move a unit might be saved into WML like this:</p>
+
+<pre>
+[move]
+    x="11,11,10,9,8,7"
+    y="6,7,7,8,8,9"
+[/move]
+</pre>
+
+<p class="continue">This shows the path that a unit follows as a result of a player's
+commands. The game then has a facility to execute any such WML command
+given to it. This is very useful because it means that a complete
+replay can be saved, by storing the initial state of the game and then
+all subsequent commands. Being able to replay games is useful both for
+players to observe each other playing, as well as to help in certain
+kinds of bug reports.</p>
+
+<p>We decided that the community would try to focus on friendly, casual
+games for the network multiplayer implementation of Wesnoth.  Rather
+than fight a technical battle against anti-social crackers trying to
+compromise cheat prevention systems, the project would simply not try
+hard to prevent cheating. An analysis of other multiplayer games
+indicated that competitive ranking systems were a key source of
+anti-social behavior. Deliberately preventing such functions on the
+server greatly reduced the motivation for individuals to cheat.
+Moreover the moderators try to encourage a positive gaming community
+where individuals develop personal rapport with other players and play
+with them. This placed a greater emphasis on relationships rather than
+competition. The outcome of these efforts has been deemed successful,
+as thus far efforts to maliciously hack the game have been largely
+isolated.</p>
+
+<p>Wesnoth's multiplayer implementation consists of a typical
+client-server infrastructure. A server, known as wesnothd, accepts
+connections from the Wesnoth client, and sends the client a summary of
+available games.  Wesnoth will display a 'lobby' to the player who can
+choose to join a game or create a new game for others to join. Once
+players are in a game and the game starts, each instance of Wesnoth
+will generate WML commands describing the actions the player
+makes. These commands are sent to the server, and then the server
+relays them on to all the other clients in the game. The server will
+thus act as a very thin, simple relay. The replay system is used on
+the other clients to execute the WML commands.  Since Wesnoth is a
+turn-based game, TCP/IP is used for all network communication.</p>
+
+<p>This system also allows observers to easily watch a game. An observer
+can join a game in-progress, in which case the server will send the
+WML representing the initial state of the game, followed by a history
+of all commands that have been carried out since the start of the
+game. This allows new observers to get up to speed on the state of
+the game. They can see a history of the game, although it does take
+time for the observer to get to the game's current position&mdash;the
+history of commands can be fast forwarded but it still takes
+time. The alternative would be to have one of the clients generate a
+snapshot of the game's current state as WML and send it to the new
+observer; however this approach would burden clients with overhead
+based on observers, and could facilitate denial-of-service attacks by
+having many observers join a game.</p>
+
+<p>Of course, since Wesnoth clients do not share any kind of game state
+with each other, only sending commands, it is important that they
+agree on the rules of the game. The server is segmented by version,
+with only players using the same version of the game able to
+interact. Players are immediately alerted if their client's game
+becomes out of sync with others. This also is a useful system to
+prevent cheating. Although it is rather easy for a player to cheat by
+modifying their client, any difference between versions will
+immediately be identified to players where it can be dealt with.</p>
+
+</div>
+
+<div class="sect">
+<h2>25.5. Conclusion</h2>
+
+<p>We believe that the beauty of the Battle for Wesnoth as a program is
+how it made coding accessible to a wide variety of individuals. To
+achieve this aim, the project often made compromises that do not look
+elegant whatsoever in the code. It should be noted that many of the
+project's more talented programmers frown upon WML for its inefficient
+syntax. Yet this compromise enabled one of the project's greatest
+successes. Today Wesnoth can boast of hundreds of user-made campaigns
+and eras, created mostly by users with little or no programming
+experience. Furthermore it has inspired a number of people to take up
+programming as a profession, using the project as a learning
+tool. Those are tangible accomplishments that few programs can equal.</p>
+
+<p>One of the key lessons a reader should take away from Wesnoth's
+efforts is to consider the challenges faced by lesser skilled
+programmers. It requires an awareness of what blocks contributors from
+actually performing coding and developing their skills. For example an
+individual might want to contribute to the program but does not
+possess any programming skills. Dedicated technological editors like
+<code>emacs</code> or <code>vim</code> possess a significant learning curve that
+might prove daunting for such an individual. Thus WML was designed to
+allow a simple text editor to open up its files, giving anybody the
+tools to contribute.</p>
+
+<p>However, increasing a code base's accessibility is not a simple
+objective to achieve. There are no hard and fast rules for increasing
+code's accessibility. Rather it requires a balance between different
+considerations, which can have negative consequences that the
+community must be aware of. This is apparent in how the program dealt
+with dependencies. In some cases, dependencies can actually increase
+barriers to participation, while in others they can allow people to
+contribute more easily. Every issue must be considered on a
+case-by-case basis.</p>
+
+<p>We should also be careful not to overstate some of Wesnoth's
+successes.  The project enjoyed some advantages that are not easily
+replicated by other programs. Making code accessible to a wider public
+is partly a result of the program's setting. As an open source
+program, Wesnoth had several advantages in this regard. Legally the
+GNU license allows someone to open up an existing file, understand how
+it works and makes changes.  Individuals are encouraged to experiment,
+learn and share within this culture, which might not be appropriate
+for other programs. Nevertheless we hope that there are certain
+elements that might prove useful for all developers and help them in
+their effort to find beauty in coding.</p>
+
+</div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: cmake.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: CMake</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>CMake</h1>
+        <p><a href="intro1.html#hoffman-bill">Bill Hoffman</a> and <a href="intro1.html#martin-kenneth">Kenneth Martin</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>In 1999 the National Library of Medicine engaged a small company
+called Kitware to develop a better way to configure, build, and deploy
+complex software across many different platforms. This work was part
+of the Insight Segmentation and Registration Toolkit, or
+ITK<sup class="footnote"><a href="#footnote-1">1</a></sup>.  Kitware, the engineering
+lead on the project, was tasked with developing a build system that
+the ITK researchers and developers could use. The system had to be
+easy to use, and allow for the most productive use of the researchers'
+programming time. Out of this directive emerged CMake as a replacement
+for the aging autoconf/libtool approach to building software.  It was
+designed to address the weaknesses of existing tools while maintaining
+their strengths.</p>
+
+<p>In addition to a build system, over the years CMake has evolved into a
+family of development tools: CMake, CTest, CPack, and CDash. CMake is
+the build tool responsible for building software. CTest is a test
+driver tool, used to run regression tests. CPack is a packaging tool
+used to create platform-specific installers for software built with
+CMake. CDash is a web application for displaying testing results and
+performing continuous integration testing.</p>
+
+<div class="sect">
+<h2>5.1. CMake History and Requirements</h2>
+
+<p>When CMake was being developed, the normal practice for a project was
+to have a configure script and Makefiles for Unix platforms, and
+Visual Studio project files for Windows. This duality of build systems
+made cross-platform development very tedious for many projects: the
+simple act of adding a new source file to a project was painful. The
+obvious goal for developers was to have a single unified build system.
+The developers of CMake had experience with two approaches of solving
+the unified build system problem.</p>
+
+<p>One approach was the VTK build system of 1999.  That system consisted
+of a configure script for Unix and an executable called <code>pcmaker</code>
+for Windows. <code>pcmaker</code> was a C program that read in Unix
+Makefiles and created NMake files for Windows.  The binary executable
+for <code>pcmaker</code> was checked into the VTK CVS system repository.  Several
+common cases, like adding a new library, required changing that source
+and checking in a new binary.
+Although this was a unified system in some sense, it had many
+shortcomings.</p>
+
+<p>The other approach the developers had experience with was a
+<code>gmake</code> based build system for TargetJr.  TargetJr was a C++
+computer vision environment originally developed on Sun
+workstations. Originally TargetJr used the <code>imake</code> system to
+create Makefiles. However, at some point, when a Windows port was
+needed, the <code>gmake</code> system was created. Both Unix compilers and
+Windows compilers could be used with this <code>gmake</code>-based system.
+The system required several environment variables to be set prior to
+running <code>gmake</code>.  Failure to have the correct environment caused
+the system to fail in ways that were difficult to debug, especially
+for end users.</p>
+
+<p>Both of these systems suffered from a serious flaw: they forced
+Windows developers to use the command line. Experienced Windows
+developers prefer to use integrated development environments (IDEs).
+This would encourage Windows developers to create IDE files by hand
+and contribute them to the project, creating the dual build system
+again.  In addition to the lack of IDE support, both of the systems
+described above made it extremely difficult to combine software
+projects. For example, <a href="vtk.html">VTK</a> had very few modules for reading images
+mostly because the build system made it very difficult to use
+libraries like libtiff and libjpeg.</p>
+
+<p>It was decided that a new build system would be developed for ITK and
+C++ in general. The basic constraints of the new build system would be
+as follows:</p>
+
+<ul>
+
+  <li>Depend only on a C++ compiler being installed on the system.</li>
+
+  <li>It must be able to generate Visual Studio IDE input files.</li>
+
+  <li>It must be easy to create the basic build system targets,
+    including static libraries, shared libraries, executables, and
+    plugins.</li>
+
+  <li>It must be able to run build time code generators.</li>
+
+  <li>It must support separate build trees from the source tree.</li>
+
+  <li>It must be able to perform system introspection, i.e.,
+    be able to determine automatically what the target system
+    could and could not do.</li>
+
+  <li>It must do dependency scanning of C/C++ header files
+    automatically.</li>
+
+  <li>All features would need to work consistently and equally well
+    on all supported platforms.</li>
+
+</ul>
+
+<p>In order to avoid depending on any additional libraries and parsers,
+CMake was designed with only one major dependency, the C++ compiler
+(which we can safely assume we have if we're building C++ code). At the
+time, building and installing scripting languages like Tcl was difficult
+on many popular UNIX and Windows systems. It can still be an
+issue today on modern supercomputers and secured computers with no
+Internet connection, so it can still be difficult to build third-party
+libraries. Since the build
+system is such a basic requirement for a package, it was decided that no
+additional dependencies would be introduced into CMake. This
+did limit CMake to creating its own simple language, which is a choice
+that still causes some people to dislike CMake. However, at the time
+the most popular embedded language was Tcl. If CMake had been a
+Tcl-based build system, it is unlikely that it would have gained the
+popularity that it enjoys today.</p>
+
+<p>The ability to generate IDE project files is a strong selling point
+for CMake, but it also limits CMake to providing only the features
+that the IDE can support natively.  However, the benefits of providing
+native IDE build files outweigh the limitations.  Although this
+decision made the development of CMake more difficult, it made the
+development of ITK and other projects using CMake much easier.
+Developers are happier and more productive when using the tools they
+are most familiar with.  By allowing developers to use their preferred
+tools, projects can take best advantage of their most important
+resource: the developer.</p>
+
+<p>All C/C++ programs require one or more of the following fundamental
+building blocks of software: executables, static libraries, shared
+libraries, and plugins. CMake had to provide the ability to create
+these products on all supported platforms. Although all platforms
+support the creation of those products, the compiler flags used to
+create them vary greatly from compiler to compiler and platform to
+platform.  By hiding the complexity and platform differences behind a
+simple command in CMake, developers are able to create them on
+Windows, Unix and Mac. This ability allows developers to focus on the
+project rather than on the details of how to build a shared library.</p>
+
+<p>Code generators provide added complexity to a build system.  From the
+start, VTK provided a system that automatically wrapped the
+C++ code into Tcl, Python, and Java by
+parsing the C++ header files, and automatically generating a wrapping
+layer.  This requires a build system that can build a C/C++ executable
+(the wrapper generator), then run that executable at build time to
+create more C/C++ source code (the wrappers for the particular
+modules).  That generated source code must then be compiled into
+executables or shared libraries. All of this has to happen within the
+IDE environments and the generated Makefiles.</p>
+
+<p>When developing flexible cross-platform C/C++ software, it is
+important to program to the features of the system, and not to the
+specific system. Autotools has a model for doing system introspection
+which involves compiling small snippets of code, inspecting and
+storing the results of that compile. Since CMake was meant to be
+cross-platform it adopted a similar system introspection technique.
+This allows developers to program to the canonical system instead of
+to specific systems. This is important to make future portability
+possible, as compilers and operating systems change over time.  For
+example, code like this:</p>
+
+<pre>
+#ifdef linux
+// do some linux stuff
+#endif
+</pre>
+
+<p class="continue">Is more brittle than code like this:</p>
+
+<pre>
+#ifdef HAS_FEATURE
+// do something with a feature
+#endif
+</pre>
+
+<p>Another early CMake requirement also came from autotools: the ability
+to create build trees that are separate from the source tree. This
+allows for multiple build types to be performed on the same source
+tree. It also prevents the source tree from being cluttered with build
+files, which often confuses version control systems.</p>
+
+<p>One of the most important features of a build system is the ability to
+manage dependencies. If a source file is changed, then all products
+using that source file must be rebuilt. For C/C++ code, the header
+files included by a <code>.c</code> or <code>.cpp</code> file must also be checked
+as part of the dependencies.  Tracking down issues where only some of
+the code that should be compiled actually gets compiled as a result of
+incorrect dependency information can be time consuming.</p>
+
+<p>All of the requirements and features of the new build system had to
+work equally well on all supported platforms. CMake needed to provide
+a simple API for developers to create complicated software systems
+without having to understand platform details. In effect, software
+using CMake is outsourcing the build complications to the CMake
+team. Once the vision for the build tool was created with the basic
+set of requirements, implementation needed to proceed in an agile way.
+ITK needed a build system almost from day one. The first versions of
+CMake did not meet all of the requirements set out in the vision, but
+they were able to build on Windows and Unix.</p>
+
+</div>
+
+<div class="sect">
+<h2>5.2. How CMake Is Implemented</h2>
+
+<p>As mentioned, CMake's development languages are C and C++. To explain
+its internals this section will first describe the CMake process from
+a user's point of view, then examine its structures.</p>
+
+<div class="subsect">
+<h3>5.2.1. The CMake Process</h3>
+
+<p>CMake has two main phases. The first is the "configure" step, in which
+CMake processes all the input given to it and creates an internal
+representation of the build to be performed. Then next phase is the
+"generate" step. In this phase the actual build files are created.</p>
+
+<div class="subsubsect">
+<h4>Environment Variables (or Not)</h4>
+
+<p>In many build systems in 1999, and even today, shell level environment
+variables are used during the build of a project. It is typical that a
+project has a PROJECT_ROOT environment variable that points to the
+location of the root of the source tree.  Environment variables are
+also used to point to optional or external packages. The trouble with
+this approach is that for the build to work, all of these external
+variables need to be set each time a build is performed. To solve this
+problem CMake has a cache file that stores all of the variables
+required for a build in one place. These are not shell or environment
+variables, but CMake variables. The first time CMake is run for a
+particular build tree, it creates a <code>CMakeCache.txt</code> file which
+stores all the persistent variables for that build. Since the file is
+part of the build tree, the variables will always be available to
+CMake during each run.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>The Configure Step</h4>
+
+<p>During the configure step, CMake first reads the <code>CMakeCache.txt</code>
+if it exists from a prior run.  It then reads <code>CMakeLists.txt</code>,
+found in the root of the source tree given to CMake. During the
+configure step, the <code>CMakeLists.txt</code> files are parsed by the
+CMake language parser. Each of the CMake commands found in the file is
+executed by a command pattern object. Additional <code>CMakeLists.txt</code>
+files can be parsed
+during this step by the <code>include</code> and <code>add_subdirectory</code>
+CMake commands.
+CMake has a C++ object for each of the commands that can be used in
+the CMake language. Some examples of commands are <code>add_library</code>,
+<code>if</code>, <code>add_executable</code>, <code>add_subdirectory</code>, and
+<code>include</code>. In effect, the entire language of CMake is implemented
+as calls to commands. The parser simply converts the CMake input files
+into command calls and lists of strings that are arguments to
+commands.</p>
+
+<p>The configure step essentially "runs" the user-provided CMake
+code. After all of the code is executed, and all cache variable values
+have been computed, CMake has an in-memory representation of the
+project to be built. This will include all of the libraries,
+executables, custom commands, and all other information required to
+create the final build files for the selected generator. At this
+point, the <code>CMakeCache.txt</code> file is saved to disk for use in
+future runs of CMake.</p>
+
+<p>The in-memory representation of the project is a collection of
+targets, which are simply things that may be built, such as
+libraries and executables. CMake also supports custom
+targets: users can define their inputs and outputs, and provide
+custom executables or scripts to be run at build time. CMake
+stores each target in a <code>cmTarget</code> object. These objects are
+stored in turn in the <code>cmMakefile</code> object, which is basically a
+storage place for all of the targets found in a given directory of the
+source tree. The end result is a tree of <code>cmMakefile</code> objects
+containing maps of <code>cmTarget</code> objects.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>The Generate Step</h4>
+
+<p>Once the configure step has been completed, the generate step can take
+place. The generate step is when CMake creates the build files for the
+target build tool selected by the user. At this point the internal
+representation of targets (libraries, executables, custom targets) is
+converted to either an input to an IDE build tool like Visual Studio,
+or a set of Makefiles to be executed by <code>make</code>. CMake's internal
+representation after the configure step is as generic as possible so
+that as much code and data structures as possible can be shared
+between different built tools.</p>
+
+<p>An overview of the process can be seen in <a href="#fig.cma.pro">Figure&nbsp;5.1</a>.</p>
+
+<div class="figure" id="fig.cma.pro">
+  <img src="../images/cmake/process.png" alt="[Overview of the CMake Process]" />
+  <p>Figure&nbsp;5.1: Overview of the CMake Process</p>
+</div>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>5.2.2. CMake: The Code</h3>
+
+<div class="subsubsect">
+<h4>CMake Objects</h4>
+
+<p>CMake is an object-oriented system using inheritance, design patterns
+and encapsulation.  The major C++ objects and their relationships can
+be seen in <a href="#fig.cma.obj">Figure&nbsp;5.2</a>.</p>
+
+<div class="figure" id="fig.cma.obj">
+  <img src="../images/cmake/objects.png" alt="[CMake Objects]" />
+  <p>Figure&nbsp;5.2: CMake Objects</p>
+</div>
+
+<p>The results of parsing each <code>CMakeLists.txt</code> file are stored in
+the <code>cmMakefile</code> object. In addition to storing the information
+about a directory, the <code>cmMakefile</code> object controls the parsing
+of the <code>CMakeLists.txt</code> file. The parsing function calls an
+object that uses a lex/yacc-based parser for the CMake language.
+Since the CMake language syntax changes very infrequently, and lex and yacc
+are not always available on systems where CMake is being built, the
+lex and yacc output files are processed and stored in the
+<code>Source</code> directory under version control with all of the other
+handwritten files.</p>
+
+<p>Another important class in CMake is <code>cmCommand</code>. This is the base
+class for the implementation of all commands in the CMake
+language. Each subclass not only provides the implementation for the
+command, but also its documentation. As an example, see the
+documentation methods on the <code>cmUnsetCommand</code> class:</p>
+
+<pre>
+virtual const char* GetTerseDocumentation()
+{
+    return "Unset a variable, cache variable, or environment variable.";
+}
+
+/**
+ * More documentation.
+ */
+
+virtual const char* GetFullDocumentation()
+{
+    return
+      "  unset(&lt;variable&gt; [CACHE])\n"
+      "Removes the specified variable causing it to become undefined.  "
+      "If CACHE is present then the variable is removed from the cache "
+      "instead of the current scope.\n"
+      "&lt;variable&gt; can be an environment variable such as:\n"
+      "  unset(ENV{LD_LIBRARY_PATH})\n"
+      "in which case the variable will be removed from the current "
+      "environment.";
+}
+</pre>
+
+</div>
+
+<div class="subsubsect">
+<h4>Dependency Analysis</h4>
+
+<p>CMake has powerful built-in dependency analysis capabilities for
+individual Fortran, C and C++ source code files. Since Integrated
+Development Environments (IDEs) support and maintain file dependency
+information, CMake skips this step for those build systems. For IDE
+builds, CMake creates a native IDE input file, and lets the IDE handle
+the file level dependency information. The target level dependency information
+is translated to the IDE's format for specifying dependency information.</p>
+
+<p>With Makefile-based builds, native make programs do not know how to
+automatically compute and keep dependency information up-to-date. For
+these builds, CMake automatically computes dependency information for
+C, C++ and Fortran files. Both the generation and maintenance of these
+dependencies are automatically done by CMake. Once a project is
+initially configured by CMake, users only need to run <code>make</code> and
+CMake does the rest of the work.</p>
+
+<p>Although users do not need to know how CMake does this work, it may be
+useful to look at the dependency information files for a project. This
+information for each target is stored in four files called
+<code>depend.make</code>, <code>flags.make</code>, <code>build.make</code>, and
+<code>DependInfo.cmake</code>.  <code>depend.make</code> stores the dependency
+information for all the object files in the directory.
+<code>flags.make</code> contains the compile flags used for the source files
+of this target. If they change then the files will be recompiled.
+<code>DependInfo.cmake</code> is used to keep the dependency information
+up-to-date and contains information about what files are part of the
+project and what languages they are in. Finally, the rules for
+building the dependencies are stored in <code>build.make</code>. If a
+dependency for a target is out of date then the depend information
+for that target will be recomputed, keeping the dependency information
+current. This is done because a change to a .h file could add a new
+dependency.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>CTest and CPack</h4>
+
+<p>Along the way, CMake grew from a build system into
+a family of tools for building, testing, and packaging
+software. In addition to command line <code>cmake</code>, and the CMake GUI
+programs, CMake ships with a testing tool CTest, and a packaging tool
+CPack. CTest and CPack shared the same code base as CMake, but are
+separate tools not required for a basic build.</p>
+
+<p>The <code>ctest</code> executable is used to run regression tests. A project
+can easily create tests for CTest to run with the <code>add_test</code>
+command. The tests can be run with CTest, which can also be used to
+send testing results to the CDash application for viewing on the web.
+CTest and CDash together are similar to the Hudson testing tool. They
+do differ in one major area: CTest is designed to allow a much more
+distributed testing environment.  Clients can be setup to pull source
+from version control system, run tests, and send the results to
+CDash. With Hudson, client machines must give Hudson ssh access to the
+machine so tests can be run.</p>
+
+<p>The <code>cpack</code> executable is used to create installers for
+projects. CPack works much like the build part of CMake: it interfaces
+with other packaging tools. For example, on Windows the NSIS packaging
+tool is used to create executable installers from a project. CPack
+runs the install rules of a project to create the install tree, which
+is then given to a an installer program like NSIS.  CPack also
+supports creating RPM, Debian <code>.deb</code> files, <code>.tar</code>,
+<code>.tar.gz</code> and self-extracting tar files.</p>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>5.2.3. Graphical Interfaces</h3>
+
+<p>The first place many users first see CMake is one of CMake's user
+interface programs. CMake has two main user interface programs:
+a windowed Qt-based application, and a command line
+curses graphics-based application. These GUIs are
+graphical editors for the <code>CMakeCache.txt</code> file. They are
+relatively simple interfaces with two buttons, configure and
+generate, used to trigger the main phases of the CMake process. The
+curses-based GUI is available on Unix TTY-type platforms and
+Cygwin. The Qt GUI is available on all platforms.  The GUIs can be
+seen in <a href="#fig.cma.gui1">Figure&nbsp;5.3</a> and <a href="#fig.cma.gui2">Figure&nbsp;5.4</a>.</p>
+
+<div class="figure" id="fig.cma.gui1">
+  <img src="../images/cmake/GUI1.png" alt="[Command Line Interface]" />
+  <p>Figure&nbsp;5.3: Command Line Interface</p>
+</div>
+
+<div class="figure" id="fig.cma.gui2">
+  <img src="../images/cmake/GUI2.png" alt="[Graphics-based Interface]" />
+  <p>Figure&nbsp;5.4: Graphics-based Interface</p>
+</div>
+
+<p>Both GUIs have cache variable names on the left, and values on the
+right. The values on the right can be changed by the user to values
+that are appropriate for the build. There are two types of
+variables, normal and advanced. By default the normal variables are
+shown to the user. A project can determine which variables are
+advanced inside the <code>CMakeLists.txt</code> files for the project. This
+allows users to be presented with as few choices as necessary for a
+build.</p>
+
+<p>Since cache values can be modified as the commands are executed, the
+process of converging on a final build can be iterative. For example,
+turning on an option may reveal additional options. For this reason,
+the GUI disables the "generate" button until the user has had a
+chance to see all options at least once. Each time the configure
+button is pressed, new cache variables that have not yet been
+presented to the user are displayed in red. Once there are
+no new cache variables created during a configure run, the generate
+button is enabled.</p>
+
+</div>
+
+<div class="subsect">
+<h3>5.2.4. Testing CMake</h3>
+
+<p>Any new CMake developer is first introduced to the testing process
+used in CMake development. The process makes use of the CMake family
+of tools (CMake, CTest, CPack, and CDash).  As the code is developed
+and checked into the version control system, continuous integration
+testing machines automatically build and test the new CMake code using
+CTest. The results are sent to a CDash server which notifies
+developers via email if there are any build errors, compiler warnings,
+or test failures.</p>
+
+<p>The process is a classic continuous integration testing system. As new
+code is checked into the CMake repository, it is automatically tested
+on the platforms supported by CMake. Given the large number of
+compilers and platforms that CMake supports, this type of testing
+system is essential to the development of a stable build system.</p>
+
+<p>For example, if a new developer wants to add support for a new
+platform, the first question he or she is asked is whether they can
+provide a nightly dashboard client for that system. Without constant
+testing, it is inevitable that new systems will stop working after
+some period of time.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>5.3. Lessons Learned</h2>
+
+<p>CMake was successfully building ITK from day one, and that was the
+most important part of the project. If we could redo the development
+of CMake, not much would change. However, there are always things that
+could have been done better.</p>
+
+<div class="subsect">
+<h3>5.3.1. Backwards Compatibility</h3>
+
+<p>Maintaining backwards compatibility is important to the CMake
+development team. The main goal of the project is to make building
+software easier. When a project or developer chooses CMake for a build
+tool, it is important to honor that choice and try very hard to not
+break that build with future releases of CMake. CMake 2.6 implemented
+a policy system where changes to CMake that would break existing
+behavior will warn but still perform the old behavior. Each
+<code>CMakeLists.txt</code> file is required to specify which version of
+CMake they are expecting to use.  Newer versions of CMake might warn,
+but will still build the project as older versions did.</p>
+
+</div>
+
+<div class="subsect">
+<h3>5.3.2. Language, Language, Language</h3>
+
+<p>The CMake language is meant to be very simple. However, it is one of
+the major obstacles to adoption when a new project is considering
+CMake. Given its organic growth, the CMake language does have a few
+quirks. The first parser for the language was not even lex/yacc based
+but rather just a simple string parser. Given the chance to do the
+language over, we would have spent some time looking for a nice
+embedded language that already existed. Lua is the best fit that might
+have worked. It is very small and clean. Even if an external language
+like Lua was not used, I would have given more consideration to the
+existing language from the start.</p>
+
+</div>
+
+<div class="subsect">
+<h3>5.3.3. Plugins Did Not Work</h3>
+
+<p>To provide the ability for extension of the CMake language by
+projects, CMake has a plugin class. This allows a project to create
+new CMake commands in C. This sounded like a good idea at
+the time, and the interface was defined for C so that different
+compilers could be used. However, with the advent of multiple API
+systems like 32/64 bit Windows and Linux, the compatibility of plugins
+became hard to maintain. While extending CMake with the CMake language
+is not as powerful, it avoids CMake crashing or not being able
+to build a project because a plugin failed to build or load.</p>
+
+</div>
+
+<div class="subsect">
+<h3>5.3.4. Reduce Exposed APIs</h3>
+
+<p>A big lesson learned during the development of the CMake project is
+that you don't have to maintain backward compatibility with something
+that users don't have access to. Several times during the development
+of CMake, users and customers requested that CMake be made into a
+library so that other languages could be bound to the CMake
+functionality. Not only would this have fractured the CMake user
+community with many different ways to use CMake, but it would have
+been a huge maintenance cost for the CMake project.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://www.itk.org/</code></li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

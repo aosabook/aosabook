@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: intro2.html 1367 2012-05-08 19:32:01Z amy $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications (Volume 2): $TITLE</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar2.jpg"
+           alt="The Architecture of Open Source Applications (Volume 2)"</img></a>
+        <h1>Introduction</h1>
+        <p><a href="#brown-amy">Amy Brown</a> and <a href="#wilson-greg">Greg Wilson</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+
+<p>In the introduction to Volume 1 of this series, we wrote:</p>
+
+<blockquote>
+Building architecture and software architecture have a lot in common,
+but there is one crucial difference.  While architects study thousands
+of buildings in their training and during their careers, most software
+developers only ever get to know a handful of large programs
+well&hellip; As a result, they repeat one another's mistakes rather
+than building on one another's successes&hellip; This book is our
+attempt to change that.
+</blockquote>
+
+<p>In the year since that book appeared, over two dozen people have
+worked hard to create the sequel you have in your hands.  They have
+done so because they believe, as we do, that software design can and
+should be taught by example&mdash;that the best way to learn how think
+like an expert is to study how experts think.  From web servers and
+compilers through health record management systems to the
+infrastructure that Mozilla uses to get Firefox out the door, there
+are lessons all around us.  We hope that by collecting some of them
+together in this book, we can help you become a better developer.</p>
+
+<p>&mdash; Amy Brown and Greg Wilson</p>
+
+<section>
+<h2>Contributors</h2>
+
+<p id="alexeev-andrew"><em>Andrew Alexeev
+(<a href="nginx.html">nginx</a>)</em>: Andrew is a co-founder of
+Nginx, Inc.&mdash;the company behind nginx. Prior to joining Nginx,
+Inc. at the beginning of 2011, Andrew worked in the Internet industry
+and in a variety of ICT divisions for enterprises. Andrew holds a
+diploma in Electronics from St. Petersburg Electrotechnical University
+and an executive MBA from Antwerp Management School.</p>
+
+<p id="atlee-chris"><em>Chris AtLee (<a href="ffreleng.html">Firefox
+Release Engineering</a>)</em>: Chris is loving his job managing
+Release Engineers at Mozilla. He has a BMath in Computer Science from
+the University of Waterloo. His online ramblings can be found at
+<a href="http://atlee.ca">http://atlee.ca</a>.</p>
+
+<p id="bayer-michael"><em>Michael Bayer
+(<a href="sqlalchemy.html">SQLAlchemy</a>)</em>: Michael Bayer has
+been working with open source software and databases since the
+mid-1990s. Today he's active in the Python community, working to
+spread good software practices to an ever wider audience. Follow Mike
+on Twitter at <code>@zzzeek</code>.</p>
+
+<p id="blakk-lukas"><em>Lukas Blakk (<a href="ffreleng.html">Firefox
+Release Engineering</a>)</em>: Lukas graduated from Toronto's Seneca
+College with a bachelor of Software Development in 2009, but started
+working with Mozilla's Release Engineering team while still a student
+thanks to Dave Humphrey's (<a href="http://vocamus.net/dave/">http://vocamus.net/dave/</a>)
+<em>Topics in Open Source</em> classes. Lukas Blakk's adventures with
+open source can be followed on her blog at
+<a href="http://lukasblakk.com">http://lukasblakk.com</a>.</p>
+
+<p id="brown-amy"><em>Amy Brown (editorial)</em>: Amy worked in the
+software industry for ten years before quitting to create a freelance
+editing and book production business. She has an underused degree in
+Math from the University of Waterloo. She can be found online at
+<a href="http://www.amyrbrown.ca/">http://www.amyrbrown.ca/</a>.</p>
+
+<p id="droettboom-michael"><em>Michael Droettboom
+(<a href="matplotlib.html">matplotlib</a>)</em>: Michael Droettboom
+works for STScI developing science and calibration software for the
+Hubble and James Webb Space Telescopes. He has worked on the
+matplotlib project since 2007.</p>
+
+<p id="flanagan-elizabeth"><em>Elizabeth Flanagan
+(<a href="yocto.html">Yocto</a>)</em>: Elizabeth Flanagan works for
+the Open Source Technologies Center at Intel Corp as the Yocto
+Project's Build and Release engineer. She is the maintainer of the
+Yocto Autobuilder and contributes to the Yocto Project and OE-Core.
+She lives in Portland, Oregon and can be found online at
+<a href="http://www.hacklikeagirl.com">http://www.hacklikeagirl.com</a>.</p>
+
+<p id="hardy-jeff"><em>Jeff Hardy (<a href="ironlang.html">The Dynamic
+Language Runtime and the Iron Languages</a>)</em>: Jeff started
+programming in high school, which led to a bachelor's degree in
+Software Engineering from the University of Alberta and his current
+position writing Python code for Amazon.com in Seattle.  He has also
+led IronPython's development since 2010. You can find more information
+about him at <a href="http://jdhardy.ca">http://jdhardy.ca</a>.</p>
+
+<p id="harihareswara-sumana"><em>Sumana Harihareswara
+(<a href="mediawiki.html">MediaWiki</a>)</em>: Sumana is the community
+manager for MediaWiki as the volunteer development coordinator for the
+Wikimedia Foundation. She previously worked with the GNOME, Empathy,
+Telepathy, Miro, and AltLaw projects. Sumana is an advisory board
+member for the Ada Initiative, which supports women in open technology
+and culture.  She lives in New York City. Her personal site is at
+<a href="http://www.harihareswara.net/">http://www.harihareswara.net/</a>.</p>
+
+<p id="hunt-tim"><em>Tim Hunt (<a href="moodle.html">Moodle</a>)</em>:
+Tim Hunt started out as a mathematician, getting as far as a PhD in
+non-linear dynamics from the University of Cambridge before deciding
+to do something a bit less esoteric with his life. He now works as a
+Leading Software Developer at the Open University in Milton Keynes,
+UK, working on their learning and teaching systems which are based on
+Moodle. Since 2006 he has been the maintainer of the Moodle quiz
+module and the question bank code, a role he still enjoys. From 2008
+to 2009, Tim spent a year in Australia working at the Moodle HQ
+offices. He blogs at <a href="http://tjhunt.blogspot.com">http://tjhunt.blogspot.com</a> and can be
+found <code>@tim_hunt</code> on Twitter.</p>
+
+<p id="hunter-john"><em>John Hunter
+(<a href="matplotlib.html">matplotlib</a>)</em>: John Hunter is a
+Quantitative Analyst at TradeLink Securities.  He received his
+doctorate in neurobiology at the University of Chicago for
+experimental and numerical modeling work on synchronization, and
+continued his work on synchronization processes as a postdoc in
+Neurology working on epilepsy. He left academia for quantitative
+finance in 2005.  An avid Python programmer and lecturer in scientific
+computing in Python, he is original author and lead developer of the
+scientific visualization package matplotlib.</p>
+
+<p id="ibanez-luis"><em>Luis Ib&aacute;&ntilde;ez
+(<a href="itk.html">ITK</a>)</em>: Luis has worked for 12 years on the
+development of the Insight Toolkit (ITK), an open source library for
+medical imaging analysis.  Luis is a strong supporter of open access
+and the revival of reproducibility verification in scientific
+publishing. Luis has been teaching a course on Open Source Software
+Practices at Rensselaer Polytechnic Institute since 2007.</p>
+
+<p id="kamermans-mike"><em>Mike Kamermans
+(<a href="pjs.html">Processing.js</a>)</em>: Mike started his career
+in computer science by failing technical Computer Science and promptly
+moved on to getting a master's degree in Artificial Intelligence,
+instead. He's been programming in order not to have to program since
+1998, with a focus on getting people the tools they need to get the
+jobs they need done, done.  He has focussed on many other things as
+well, including writing a book on Japanese grammar, and writing a
+detailed explanation of the math behind B&eacute;zier curves.  His
+under-used home page is at
+<a href="http://pomax.nihongoresources.com">http://pomax.nihongoresources.com</a>.</p>
+
+<p id="kanies-luke"><em>Luke Kanies
+(<a href="puppet.html">Puppet</a>)</em>: Luke founded Puppet and
+Puppet Labs in 2005 out of fear and desperation, with the goal of
+producing better operations tools and changing how we manage
+systems. He has been publishing and speaking on his work in Unix
+administration since 1997, focusing on development since 2001.  He has
+developed and published multiple simple sysadmin tools and contributed
+to established products like Cfengine, and has presented on Puppet and
+other tools around the world, including at OSCON, LISA, Linux.Conf.au,
+and FOSS.in.  His work with Puppet has been an important part of
+DevOps and delivering on the promise of cloud computing.</p>
+
+<p id="king-brad"><em>Brad King (<a href="itk.html">ITK</a>)</em>: Brad
+King joined Kitware as a founding member of the Software Process
+group.  He earned a PhD in Computer Science from Rensselaer
+Polytechnic Institute. He is one of the original developers of the
+Insight Toolkit (ITK), an open source library for medical imaging
+analysis.  At Kitware Dr. King's work focuses on methods and tools for
+open source software development. He is a core developer of CMake and
+has made contributions to many open source projects including VTK and
+ParaView.</p>
+
+<p id="marlow-simon"><em>Simon Marlow (<a href="ghc.html">The Glasgow
+Haskell Compiler</a>)</em>: Simon Marlow is a developer at Microsoft
+Research's Cambridge lab, and for the last 14 years has been doing
+research and development using Haskell.  He is one of the lead
+developers of the Glasgow Haskell Compiler, and amongst other things
+is responsible for its runtime system.  Recently, Simon's main focus
+has been on providing great support for concurrent and parallel
+programming with Haskell.  Simon can be reached
+via <code>@simonmar</code> on Twitter, or +Simon Marlow on
+Google+.</p>
+
+<p id="matsudaira-kate"><em>Kate Matsudaira
+(<a href="distsys.html">Scalable Web Architecture and Distributed
+Systems</a>)</em>: Kate Matsudaira has worked as the VP
+Engineering/CTO at several technology startups, including currently at
+Decide, and formerly at SEOmoz and Delve Networks (acquired by
+Limelight).  Prior to joining the startup world she spent time as a
+software engineer and technical lead/manager at Amazon and
+Microsoft. Kate has hands-on knowledge and experience with building
+large scale distributed web systems, big data, cloud computing and
+technical leadership.  Kate has a BS in Computer Science from Harvey
+Mudd College, and has completed graduate work at the University of
+Washington in both Business and Computer Science (MS).  You can read
+more on her blog and website <a href="http://katemats.com">http://katemats.com</a>.</p>
+
+<p id="mckellar-jessica"><em>Jessica McKellar
+(<a href="twisted.html">Twisted</a>)</em>: Jessica is a software
+engineer from Boston, MA. She is a Twisted maintainer, Python Software
+Foundation member, and an organizer for the Boston Python user
+group. She can be found online at <a href="http://jesstess.com">http://jesstess.com</a>.</p>
+
+<p id="oduinn-john"><em>John O'Duinn (<a href="ffreleng.html">Firefox
+Release Engineering</a>)</em>: John has led Mozilla's Release
+Engineering group since May 2007. In that time, he's led work to
+streamline Mozilla's release mechanics, improve developer
+productivity&mdash;and do it all while also making the lives of
+Release Engineers better. John got involved in Release Engineering 19
+years ago when he shipped software that reintroduced a bug that had
+been fixed in a previous release. John's blog is at
+<a href="http://oduinn.com/">http://oduinn.com/</a>.</p>
+
+<p id="paumier-guillaume"><em>Guillaume Paumier
+(<a href="mediawiki.html">MediaWiki</a>)</em>: Guillaume is Technical
+Communications Manager at the Wikimedia Foundation, the nonprofit
+behind Wikipedia and MediaWiki. A Wikipedia photographer and editor
+since 2005, Guillaume is the author of a Wikipedia handbook in
+French. He also holds an engineering degree in Physics and a PhD in
+microsystems for life sciences. His home online is at
+<a href="http://guillaumepaumier.com">http://guillaumepaumier.com</a>.</p>
+
+<p id="peterson-benjamin"><em>Benjamin Peterson
+(<a href="pypy.html">PyPy</a>)</em>: Benjamin contributes to CPython
+and PyPy as well as several Python libraries. In general, he is
+interested in compilers and interpreters, particularly for dynamic
+languages. Outside of programming, he enjoys music (clarinet, piano,
+and composition), pure math, German literature, and great food. His
+website is <a href="http://benjamin-peterson.org">http://benjamin-peterson.org</a>.</p>
+
+<p id="peyton-jones-simon"><em>Simon Peyton Jones
+(<a href="ghc.html">The Glasgow Haskell Compiler</a>)</em>: Simon
+Peyton Jones is a researcher at Microsoft Research Cambridge, before
+which he was a professor of computer science at Glasgow University.
+Inspired by the elegance of purely-functional programming when he was
+a student, Simon has focused nearly thirty years of research on
+pursuing that idea to see where it leads.  Haskell is his first baby,
+and still forms the platform for much of his research.
+<a href="http://research.microsoft.com/~simonpj">http://research.microsoft.com/~simonpj</a></p>
+
+<p id="potter-susan"><em>Susan Potter
+(<a href="git.html">Git</a>)</em>: Susan is a polyglot software
+developer with a penchant for skepticism. She has been designing,
+developing and deploying distributed trading services and applications
+since 1996, recently switching to building multi-tenant systems for
+software firms. Susan is a passionate power user of Git, Linux, and
+Vim. You can find her tweeting random thoughts on Erlang, Haskell,
+Scala, and (of course) Git <code>@SusanPotter</code>.</p>
+
+<p id="raymond-eric"><em>Eric Raymond
+(<a href="gpsd.html">GPSD</a>)</em>: Eric S. Raymond is a wandering
+anthropologist and trouble-making philosopher.  He's written some
+code, too. If you're not laughing by now, why are you reading this
+book?</p>
+
+<p id="ruttan-jennifer"><em>Jennifer Ruttan
+(<a href="oscar.html">OSCAR</a>)</em>: Jennifer Ruttan lives in
+Toronto. Since graduating from the University of Toronto with a degree
+in Computer Science, she has worked as a software engineer for
+Indivica, a company devoted to improving patient health care through
+the use of new technology. Follow her on
+Twitter <code>@jenruttan</code>.</p>
+
+<p id="shebs-stan"><em>Stan Shebs (<a href="gdb.html">GDB</a>)</em>:
+Stan has had open source as his day job since 1989, when a colleague
+at Apple needed a compiler to generate code for an experimental VM and
+GCC 1.31 was conveniently at hand.  After following up with the
+oft-disbelieved Mac System 7 port of GCC (it was the experiment's
+control case), Stan went to Cygnus Support, where he maintained GDB
+for the FSF and helped on many embedded tools projects.  Returning to
+Apple in 2000, he worked on GCC and GDB for Mac OS X.  A short time at
+Mozilla preceded a jump to CodeSourcery, now part of Mentor Graphics,
+where he continues to develop new features for GDB.  Stan's
+professorial tone is explained by his PhD in Computer Science from the
+University of Utah.</p>
+
+<p id="snoyman-michael"><em>Michael Snoyman
+(<a href="yesod.html">Yesod</a>)</em>: Michael Snoyman received his BS
+in Mathematics from UCLA. After working as an actuary in the US, he
+moved to Israel and began a career in web development. In order to
+produce high-performance, robust sites quickly, he created the Yesod
+Web Framework and its associated libraries.</p>
+
+<p id="squyres-jeff"><em>Jeffrey M. Squyres
+(<a href="openmpi.html">Open MPI</a>)</em>: Jeff works in the rack
+server division at Cisco; he is Cisco's representative to the MPI
+Forum standards body and is a chapter author of the MPI-2 standard.
+Jeff is Cisco's core software developer in the open source Open MPI
+project.  He has worked in the High Performance Computing (HPC) field
+since his early graduate-student days in the mid-1990s.  After some
+active duty tours in the military, Jeff received his doctorate in
+Computer Science and Engineering from the University of Notre Dame in
+2004. He blogs about <a href="http://blogs.cisco.com/category/performance/">High
+Performance Computing Networking</a>.</p>
+
+<p id="sustrik-martin"><em>Martin S&uacute;strik
+(<a href="zeromq.html">ZeroMQ</a>)</em>: Martin S&uacute;strik is an
+expert in the field of messaging middleware, and participated in the
+creation and reference implementation of the AMQP standard. He has
+been involved in various messaging projects in the financial
+industry. He is a founder of the &Oslash;MQ project, and currently is
+working on integration of messaging technology with operating systems
+and the Internet stack. He can be reached at
+<code>sustrik@250bpm.com</code>, <a href="http://www.250bpm.com">http://www.250bpm.com</a> and on Twitter as
+<code>@sustrik</code>.</p>
+
+<p id="svec-christopher"><em>Christopher Svec
+(<a href="freertos.html">FreeRTOS</a>)</em>: Chris is an embedded
+software engineer who currently develops firmware for low power
+wireless chips.  In a previous life he designed x86 processors, which
+comes in handy more often than you'd think when working on non-x86
+processors.  Chris has bachelor's and master's degrees in Electrical
+and Computer Engineering, both from Purdue University.  He lives in
+Boston with his wife and golden retriever. You can find him on the web
+at <a href="http://saidsvec.com">http://saidsvec.com</a>.</p>
+
+<p id="warsaw-barry"><em>Barry Warsaw (<a href="mailman.html">GNU
+Mailman</a>)</em>: Barry Warsaw is the project leader for GNU Mailman.
+He has been a core Python developer since 1995, and release manager
+for several Python versions. He currently works for Canonical as a
+software engineer on the Ubuntu Platform Foundations team.  He can be
+reached at
+<code>barry@python.org</code> or <code>@pumpichank</code> on Twitter.
+His home page is <a href="http://barry.warsaw.us">http://barry.warsaw.us</a>.</p>
+
+<p id="wilson-greg"><em>Greg Wilson (editorial)</em>: Greg has worked
+over the past 25 years in high-performance scientific computing, data
+visualization, and computer security, and is the author or editor of
+several computing books (including the 2008 Jolt Award
+winner <em>Beautiful Code</em>) and two books for children.  Greg
+received a PhD in Computer Science from the University of Edinburgh in
+1993.</p>
+
+<p id="zambrano-gasparnian-armen"><em>Armen Zambrano Gasparnian
+(<a href="ffreleng.html">Firefox Release Engineering</a>)</em>: Armen
+has been working for Mozilla since 2008 as a Release Engineer. He has
+worked on releases, developers' infrastructure optimization and
+localization.  Armen works with youth at the Church on the Rock,
+Toronto, and has worked with international Christian non-profits for
+years. Armen has a bachelor in Software Development from Seneca
+College and has taken a few years of Computer Science at the
+University of Malaga.  He blogs at
+<a href="http://armenzg.blogspot.com">http://armenzg.blogspot.com</a>.</p>
+
+</section>
+
+<section>
+<h2>Acknowledgments</h2>
+
+<p>We would like to thank Google for their support of Amy Brown's work on this
+project, and Cat Allman for arranging it.  We would also like to thank
+all of our technical reviewers:</p>
+	<div class="row">
+      <div class="span6 offset3">
+
+<table class="table table-condensed">
+  <tr>
+    <td>Johan Harjono</td>
+    <td>Justin Sheehy</td>
+    <td>Nikita Pchelin</td>
+  </tr>
+  <tr>
+    <td>Laurie McDougall Sookraj</td>
+    <td>Tom Plaskon</td>
+    <td>Greg Lapouchnian</td>
+  </tr>
+  <tr>
+    <td>Will Schroeder</td>
+    <td>Bill Hoffman</td>
+    <td>Audrey Tang</td>
+  </tr>
+  <tr>
+    <td>James Crook</td>
+    <td>Todd Ritchie</td>
+    <td>Josh McCarthy</td>
+  </tr>
+  <tr>
+    <td>Andrew Petersen</td>
+    <td>Pascal Rapicault</td>
+    <td>Eric Aderhold</td>
+  </tr>
+  <tr>
+    <td>Jonathan Deber</td>
+    <td>Trevor Bekolay</td>
+    <td>Taavi Burns</td>
+  </tr>
+  <tr>
+    <td>Tina Yee</td>
+    <td>Colin Morris</td>
+    <td>Christian Muise</td>
+  </tr>
+  <tr>
+    <td>David Scannell</td>
+    <td>Victor Ng</td>
+    <td>Blake Winton</td>
+  </tr>
+  <tr>
+    <td>Kim Moir</td>
+    <td>Simon Stewart</td>
+    <td>Jonathan Dursi</td>
+  </tr>
+  <tr>
+    <td>Richard Barry</td>
+    <td>Ric Holt</td>
+    <td>Maria Khomenko</td>
+  </tr>
+  <tr>
+    <td>Erick Dransch</td>
+    <td>Ian Bull</td>
+    <td>Ellen Hsiang</td>
+  </tr>
+</table>
+</div>
+</div>
+
+<p>especially Tavish Armstrong and Trevor Bekolay, without whose
+above-and-beyond assistance this book would have taken a lot longer to
+produce.  Thanks also to everyone who offered to review but was unable
+to for various reasons, and to everyone else who helped and supported the
+production of this book.</p>
+
+<p>Thank you also to James Howe (<a href="http://jameshowephotography.com/">http://jameshowephotography.com/</a>), who
+kindly let us use his picture of New York's Equitable Building for the cover.</p>
+</section>
+
+<section>
+<h2>Contributing</h2>
+
+<p>Dozens of volunteers worked hard to create this book, but there is
+still a lot to do.  You can help by reporting errors, helping to
+translate the content into other languages, or describing the
+architecture of other open source projects.  Please contact us at
+<code>aosa@aosabook.org</code> if you would like to get involved.</p>
+</section>
+    </div>
+  </div>
+
+</body>
+</html>

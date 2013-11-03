@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: mercurial.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Mercurial</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Mercurial</h1>
+        <p><a href="intro1.html#ochtman-dirkjan">Dirkjan Ochtman</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Mercurial is a modern distributed version control system (VCS), written
+mostly in Python with bits and pieces in C for performance. In this
+chapter, I will discuss some of the decisions involved in designing
+Mercurial's algorithms and data structures. First, allow me to go into
+a short history of version control systems, to add necessary context.</p>
+
+<div class="sect">
+<h2>12.1.  A Short History of Version Control</h2>
+
+<p>While this chapter is primarily about Mercurial's software
+architecture, many of the concepts are shared with other version
+control systems. In order to fruitfully discuss Mercurial, I'd like to
+start off by naming some of the concepts and actions in different
+version control systems. To put all of this in perspective, I will
+also provide a short history of the field.</p>
+
+<p>Version control systems were invented to help developers work on
+software systems simultaneously, without passing around full copies
+and keeping track of file changes themselves. Let's generalize from
+software source code to any tree of files. One of the primary
+functions of version control is to pass around changes to the
+tree. The basic cycle is something like this:</p>
+
+<ol>
+
+  <li>Get the latest tree of files from someone else</li>
+
+  <li>Work on a set of changes to this version of the tree</li>
+
+  <li>Publish the changes so that others can retrieve them</li>
+
+</ol>
+
+<p class="continue">The first action, to get a local tree of files, is called a
+<em>checkout</em>. The store where we retrieve and publish our changes
+is called a <em>repository</em>, while the result of the checkout is
+called a <em>working directory</em>, <em>working tree</em>, or
+<em>working copy</em>. Updating a working copy with the latest files
+from the repository is simply called <em>update</em>; sometimes this
+requires <em>merging</em>, i.e., combining changes from different users
+in a single file. A diff command allows us to review changes between
+two revisions of a tree or file, where the most common mode is to
+check the local (unpublished) changes in your working copy. Changes
+are published by issuing a <em>commit</em> command, which will save the
+changes from the working directory to the repository.</p>
+
+<div class="subsect">
+<h3>12.1.1. Centralized Version Control</h3>
+
+<p>The first version control system was the Source Code Control System,
+SCCS, first described in 1975. It was mostly a way of saving deltas to
+single files that was more efficient than just keeping around copies,
+and didn't help with publishing these changes to others. It was
+followed in 1982 by the Revision Control System, RCS, which was a more
+evolved and free alternative to SCCS (and which is still being
+maintained by the GNU project).</p>
+
+<p>After RCS came CVS, the Concurrent Versioning System, first released
+in 1986 as a set of scripts to manipulate RCS revision files in
+groups. The big innovation in CVS is the notion that multiple users can
+edit simultaneously, with merges being done after the fact
+(concurrent edits). This also required the notion of edit conflicts.
+Developers may only commit a new version of some file if it's based
+on the latest version available in the repository. If there are changes
+in the repository and in my working directory, I have to resolve any
+conflicts resulting from those changes (edits changing the same lines).</p>
+
+<p>CVS also pioneered the notions of <em>branches</em>, which allow
+developers to work on different things in parallel, and <em>tags</em>,
+which enable naming a consistent snapshot for easy reference. While
+CVS deltas were initially communicated via the repository on a shared
+filesystem, at some point CVS also implemented a client-server
+architecture for use across large networks (such as the Internet).</p>
+
+<p>In 2000, three developers got together to build a new VCS, christened
+Subversion, with the intention of fixing some of the larger
+warts in CVS. Most importantly, Subversion works on whole trees at a
+time, meaning changes in a revisions should be atomic, consistent,
+isolated, and durable. Subversion working copies also retain a
+pristine version of the checked out revision in the working directory,
+so that the common diff operation (comparing the local tree against
+a checked-out changeset) is local and thus fast.</p>
+
+<p>One of the interesting concepts in Subversion is that tags and
+branches are part of a project tree. A Subversion project is usually
+divided into three areas: <code>tags</code>, <code>branches</code>, and
+<code>trunk</code>. This design has proved very intuitive to users who were
+unfamiliar with version control systems, although the flexibility
+inherent in this design has caused
+numerous problems for conversion tools, mostly because <code>tags</code> and
+<code>branches</code> have more structural representation in other systems.</p>
+
+<p>All of the aforementioned systems are said to be <em>centralized</em>;
+to the extent that they even know how to exchange changes (starting
+with CVS), they rely on some other computer to keep track of the
+history of the repository. <em>Distributed</em> version control systems
+instead keep a copy of all or most of the repository history on each
+computer that has a working directory of that repository.</p>
+
+</div>
+
+<div class="subsect">
+<h3>12.1.2. Distributed Version Control</h3>
+
+<p>While Subversion was a clear improvement over CVS, there are still a
+number of shortcomings. For one thing, in all centralized systems,
+committing a changeset and publishing it are effectively the same
+thing, since repository history is centralized in one place. This
+means that committing changes without network access is
+impossible. Secondly, repository access in centralized systems always
+needs one or more network round trips, making it relatively slow compared
+to the local accesses needed with distributed systems. Third, the systems
+discussed above were not very good at tracking merges (some have since
+grown better at it). In large groups working concurrently, it's
+important that the version control system records what changes have
+been included in some new revision, so that nothing gets lost and
+subsequent merges can make use of this information. Fourth, the
+centralization required by traditional VCSes sometimes seems
+artificial, and promotes a single place for integration. Advocates of
+distributed VCSes argue that a more distributed system allows for a
+more organic organization, where developers can push around and
+integrate changes as the project requires at each point in time.</p>
+
+<p>A number of new tools have been developed to address these needs. From
+where I sit (the open source world), the most notable three of these
+in 2011 are Git, Mercurial and Bazaar. Both Git and Mercurial were
+started in 2005 when the Linux kernel developers decided to no longer
+use the proprietary BitKeeper system. Both were started by Linux
+kernel developers (Linus Torvalds and Matt Mackall, respectively) to
+address the need for a version control system that could handle
+hundreds of thousands of changesets in tens of thousands of files (for
+example, the kernel). Both Matt and Linus were also heavily influenced
+by the Monotone VCS. Bazaar was developed separately but gained
+widespread usage around the same time, when it was adopted by
+Canonical for use with all of their projects.</p>
+
+<p>Building a distributed version control system obviously comes with
+some challenges, many of which are inherent in any distributed
+system. For one thing, while the source control server in centralized
+systems always provided a canonical view of history, there is no such
+thing in a distributed VCS. Changesets can be committed in parallel,
+making it impossible to temporally order revisions in any given
+repository.</p>
+
+<p>The solution that has been almost universally adopted is to use a
+directed acyclic graph (DAG) of changesets instead of a linear
+ordering (<a href="#fig.hg.dag">Figure&nbsp;12.1</a>). That is, a newly committed
+changeset is the child revision of the revision it was based on, and
+no revision can depend on itself or its descendant revisions. In this
+scheme, we have three special types of revisions: <em>root
+revisions</em> which have no parents (a repository can have multiple
+roots), <em>merge revisions</em> which have more than one parent, and
+<em>head revisions</em> which have no children. Each repository starts
+from an empty root revision and proceeds from there along a line of
+changesets, ending up in one or more heads. When two users have
+committed independently and one of them wants to pull in the changes
+from the other, he or she will have to explicitly merge the other's
+changes into a new revision, which he subsequently commits as a merge
+revision.</p>
+
+<div class="figure" id="fig.hg.dag">
+  <img src="../images/mercurial/dag.png" alt="[Directed Acyclic Graph of Revisions]" />
+  <p>Figure&nbsp;12.1: Directed Acyclic Graph of Revisions</p>
+</div>
+
+<p>Note that the DAG model helps solve some of the problems that are hard
+to solve in centralized version control systems: merge revisions are used to
+record information about newly merged branches of the DAG. The
+resulting graph can also usefully represent a large group of parallel
+branches, merging into smaller groups, finally merging into one
+special branch that's considered canonical.</p>
+
+<p>This approach requires that the system keep track of the ancestry
+relations between changesets; to facilitate exchange of changeset data,
+this is usually done by having changesets keep track of their
+parents. To do this, changesets obviously also need some kind of
+identifier. While some systems use a UUID or a similar kind of scheme,
+both Git and Mercurial have opted to use SHA1 hashes of the contents
+of the changesets. This has the additional useful property that the
+changeset ID can be used to verify the changeset contents. In fact,
+because the parents are included in the hashed data, all history
+leading up to any revision can be verified using its hash. Author
+names, commit messages, timestamps and other changeset metadata is
+hashed just like the actual file contents of a new revision, so that
+they can also be verified. And since timestamps are recorded at commit
+time, they too do not necessarily progress linearly in any given
+repository.</p>
+
+<p>All of this can be hard for people who have previously only used
+centralized VCSes to get used to: there is no nice integer to globally
+name a revision, just a 40-character hexadecimal string. Moreover,
+there's no longer any global ordering, just a local ordering; the only
+global "ordering" is a DAG instead of a line. Accidentally starting
+a new head of development by committing against a parent revision that
+already had another child changeset can be confusing when you're used
+to a warning from the VCS when this kind of thing happens.</p>
+
+<p>Luckily, there are tools to help visualize the tree ordering, and
+Mercurial provides an unambiguous short version of the changeset hash
+<em>and</em> a local-only linear number to aid identification. The
+latter is a monotonically climbing integer that indicates the order in
+which changesets have entered the clone. Since this order can be
+different from clone to clone, it cannot be relied on for non-local
+operations.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>12.2. Data Structures</h2>
+
+<p>Now that the concept of a DAG should be somewhat clear, let's try
+and see how DAGs are stored in Mercurial. The DAG model is central to
+the inner workings of Mercurial, and we actually use several different
+DAGs in the repository storage on disk (as well as the in-memory
+structure of the code). This section explains what they are and how
+they fit together.</p>
+
+<div class="subsect">
+<h3>12.2.1. Challenges</h3>
+
+<p>Before we dive into actual data structures, I'd like to provide some
+context about the environment in which Mercurial evolved. The first
+notion of Mercurial can be found in an email Matt Mackall sent to the
+Linux Kernel Mailing List on April 20, 2005. This happened shortly
+after it was decided that BitKeeper could no longer be used for the
+development of the kernel. Matt started his mail by outlining some
+goals: to be simple, scalable, and efficient.</p>
+
+<p>In [<a href="bib1.html#bib:mackall:better">Mac06</a>],
+Matt claimed that a modern VCS must deal
+with trees containing millions of files, handle millions of
+changesets, and scale across many thousands of users creating new
+revisions in parallel over a span of decades. Having set the goals,
+he reviewed the limiting technology factors:</p>
+
+<ul>
+
+  <li>speed: CPU</li>
+
+  <li>capacity: disk and memory</li>
+
+  <li>bandwidth: memory, LAN, disk, and WAN</li>
+
+  <li>disk seek rate</li>
+
+</ul>
+
+<p>Disk seek rate and WAN bandwidth are the limiting factors today, and
+should thus be optimized for. The paper goes on to review common
+scenarios or criteria for evaluating the performance of such a system
+at the file level:</p>
+
+<ul>
+
+  <li>Storage compression: what kind of compression is best suited
+  to save the file history on disk? Effectively, what algorithm makes
+  the most out of the I/O performance while preventing CPU time
+  from becoming a bottleneck?</li>
+
+  <li>Retrieving arbitrary file revisions: a number of version control
+  systems will store a given revision in such a way that a large
+  number of older revisions must be read to reconstruct the newer one
+  (using deltas). We want to control this to make sure that retrieving
+  old revisions is still fast.</li>
+
+  <li>Adding file revisions: we regularly add new revisions. We don't
+  want to rewrite old revisions every time we add a new one, because
+  that would become too slow when there are many revisions.</li>
+
+  <li>Showing file history: we want to be able to review a history of
+  all changesets that touched a certain file. This also allows us to
+  do annotations (which used to be called <code>blame</code> in CVS but was
+  renamed to <code>annotate</code> in some later systems to remove the
+  negative connotation): reviewing the originating changeset for each
+  line currently in a file.</li>
+
+</ul>
+
+<p>The paper goes on to review similar scenarios at the project level.
+Basic operations at this level are checking out a revision, committing
+a new revision, and finding differences in the working directory. The
+latter, in particular, can be slow for large trees (like those of the
+Mozilla or NetBeans projects, both of which use Mercurial for their
+version control needs).</p>
+
+</div>
+
+<div class="subsect">
+<h3>12.2.2. Fast Revision Storage: Revlogs</h3>
+
+<p>The solution Matt came up with for Mercurial is called the <em>revlog</em>
+(short for revision log). The revlog is a way of efficiently storing
+revisions of file contents (each with some amount of changes compared
+to the previous version). It needs to be efficient in both access time
+(thus optimizing for disk seeks) and storage space, guided by the common
+scenarios outlined in the previous section. To do this, a revlog is
+really two files on disk: an index and the data file.</p>
+
+<div class="table" id="tbl.hg.records">
+  <table>
+    <tr>
+      <td>6 bytes</td>
+      <td>hunk offset</td>
+    </tr>
+    <tr>
+      <td>2 bytes</td>
+      <td>flags</td>
+    </tr>
+    <tr>
+      <td>4 bytes</td>
+      <td>hunk length</td>
+    </tr>
+    <tr>
+      <td>4 bytes</td>
+      <td>uncompressed length</td>
+    </tr>
+    <tr>
+      <td>4 bytes</td>
+      <td>base revision</td>
+    </tr>
+    <tr>
+      <td>4 bytes</td>
+      <td>link revision</td>
+    </tr>
+    <tr>
+      <td>4 bytes</td>
+      <td>parent 1 revision</td>
+    </tr>
+    <tr>
+      <td>4 bytes</td>
+      <td>parent 2 revision</td>
+    </tr>
+    <tr>
+      <td>32 bytes</td>
+      <td>hash</td>
+    </tr>
+  </table>
+  <p>Table 12.1: Mercurial Record Format</p>
+</div>
+
+<p>The index consists of fixed-length records, whose contents are
+detailed in <a href="#tbl.hg.records">Table&nbsp;12.1</a>.  Having
+fixed-length records is nice, because it means that having the local
+revision number allows direct (i.e., constant-time) access to the
+revision: we can simply read to the position
+(index-length&times;revision) in the index file, to locate the
+data. Separating the index from the data also means we can quickly
+read the index data without having to seek the disk through all the
+file data.</p>
+
+<p>The hunk offset and hunk length specify a chunk of the data file to
+read in order to get the compressed data for that revision. To get the
+original data we have to start by reading the base revision, and apply
+deltas through to this revision. The trick here is the decision on
+when to store a new base revision. This decision is based on the
+cumulative size of the deltas compared to the uncompressed length of
+the revision (data is compressed using zlib to use even less space on
+disk). By limiting the length of the delta chain in this way, we make
+sure that reconstruction of the data in a given revision does not
+require reading and applying lots of deltas.</p>
+
+<p>Link revisions are used to have dependent revlogs point back to the
+highest-level revlog (we'll talk more about this in a little bit), and
+the parent revisions are stored using the local integer revision
+number. Again, this makes it easy to look up their data in the
+relevant revlog. The hash is used to save the unique identifier for
+this changeset. We have 32 bytes instead of the 20 bytes required for
+SHA1 in order to allow future expansion.</p>
+
+</div>
+
+<div class="subsect">
+<h3>12.2.3. The Three Revlogs</h3>
+
+<p>With the revlog providing a generic structure for historic data, we
+can layer the data model for our file tree on top of that. It consists
+of three types of revlogs: the <em>changelog</em>, <em>manifests</em>, and
+<em>filelogs</em>. The changelog contains metadata for each revision,
+with a pointer into the manifest revlog (that is, a node id for one
+revision in the manifest revlog). In turn, the manifest is a file that
+has a list of filenames plus the node id for each file, pointing to a
+revision in that file's filelog. In the code, we have classes for
+changelog, manifest, and filelog that are subclasses of the generic
+revlog class, providing a clean layering of both concepts.</p>
+
+<div class="figure" id="fig.hg.revlog">
+  <img src="../images/mercurial/revlogs.png" alt="[Log Structure]" />
+  <p>Figure&nbsp;12.2: Log Structure</p>
+</div>
+
+<p>A changelog revision looks like this:</p>
+
+<pre>
+0a773e3480fe58d62dcc67bd9f7380d6403e26fa
+Dirkjan Ochtman &lt;dirkjan@ochtman.nl&gt;
+1276097267 -7200
+mercurial/discovery.py
+discovery: fix description line
+</pre>
+
+<p class="continue">This is the value you get from the revlog layer; the changelog layer
+turns it into a simple list of values. The initial line provides the
+manifest hash, then we get author name, date and time (in the form of
+a Unix timestamp and a timezone offset), a list of affected files, and
+the description message. One thing is hidden here: we allow arbitrary
+metadata in the changelog, and to stay backwards compatible we added
+those bits to go after the timestamp.</p>
+
+<p>Next comes the manifest:</p>
+
+<pre>
+.hgignore\x006d2dc16e96ab48b2fcca44f7e9f4b8c3289cb701
+.hgsigs\x00de81f258b33189c609d299fd605e6c72182d7359
+.hgtags\x00b174a4a4813ddd89c1d2f88878e05acc58263efa
+CONTRIBUTORS\x007c8afb9501740a450c549b4b1f002c803c45193a
+COPYING\x005ac863e17c7035f1d11828d848fb2ca450d89794
+&hellip;
+</pre>
+
+<p class="continue">This is the manifest revision that changeset 0a773e points to
+(Mercurial's UI allows us to shorten the identifier to any unambiguous
+prefix). It is a simple list of all files in the tree, one per line,
+where the filename is followed by a NULL byte, followed by the
+hex-encoded node id that points into the file's filelog. Directories
+in the tree are not represented separately, but simply inferred from
+including slashes in the file paths. Remember that the manifest is
+diffed in storage just like every revlog, so this structure should
+make it easy for the revlog layer to store only changed files and
+their new hashes in any given revision. The manifest is usually
+represented as a hashtable-like structure in Mercurial's Python code,
+with filenames as keys and nodes as values.</p>
+
+<p>The third type of revlog is the filelog. Filelogs are stored in Mercurial's internal <code>store</code> directory,
+where they're named almost exactly like the file they're tracking. The
+names are encoded a little bit to make sure things work across all
+major operating systems. For example, we have to deal with casefolding
+filesystems on Windows and Mac OS X, specific disallowed filenames on
+Windows, and different character encodings as used by the various
+filesystems. As you can imagine, doing this reliably across operating
+systems can be fairly painful. The contents of a filelog revision, on
+the other hand, aren't nearly as interesting: just the file contents,
+except with some optional metadata prefix (which we use for tracking
+file copies and renames, among other minor things).</p>
+
+<p>This data model gives us complete access to the data store in a
+Mercurial repository, but it's not always very convenient. While the
+actual underlying model is vertically oriented (one filelog per file),
+Mercurial developers often found themselves wanting to deal with all
+details from a single revision, where they start from a changeset from
+the changelog and want easy access to the manifest and filelogs from
+that revision.  They later invented another set of classes, layered
+cleanly on top of the revlogs, which do exactly that. These are
+called <code>contexts</code>.</p>
+
+<p>One nice thing about the way the separate revlogs are set up is the
+ordering. By ordering appends so that filelogs get appended to first,
+then the manifest, and finally the changelog, the repository is always
+in a consistent state. Any process that starts reading the changelog
+can be sure all pointers into the other revlogs are valid, which takes
+care of a number of issues in this department. Nevertheless, Mercurial
+also has some explicit locks to make sure there are no two processes
+appending to the revlogs in parallel.</p>
+
+</div>
+
+<div class="subsect">
+<h3>12.2.4. The Working Directory</h3>
+
+<p>A final important data structure is what we call the
+<em>dirstate</em>. The dirstate is a representation of what's in the
+working directory at any given point. Most importantly, it keeps track
+of what revision has been checked out: this is the baseline for all
+comparisons from the <code>status</code> or <code>diff</code> commands, and also
+determines the parent(s) for the next changeset to be committed. The
+dirstate will have two parents set whenever the <code>merge</code> command
+has been issued, trying to merge one set of changes into the other.</p>
+
+<p>Because <code>status</code> and <code>diff</code> are very common operations (they
+help you check the progress of what you've currently got against the
+last changeset), the dirstate also contains a cache of the state of
+the working directory the last time it was traversed by Mercurial.
+Keeping track of last modified timestamps and file sizes makes it
+possible to speed up tree traversal. We also need to keep track of the
+state of the file: whether it's been added, removed, or merged in the
+working directory. This will again help speed up traversing the
+working directory, and makes it easy to get this information at commit
+time.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>12.3. Versioning Mechanics</h2>
+
+<p>Now that you are familiar with the underlying data model and the
+structure of the code at the lower levels of Mercurial, let's move up
+a little bit and consider how Mercurial implements version control
+concepts on top of the foundation described in the previous section.</p>
+
+<div class="subsect">
+<h3>12.3.1. Branches</h3>
+
+<p>Branches are commonly used to separate different lines of development
+that will be integrated later. This might be because someone is
+experimenting with a new approach, just to be able to always keep the
+main line of development in a shippable state (feature branches), or
+to be able to quickly release fixes for an old release (maintenance
+branches). Both approaches are commonly used, and are supported by all
+modern version control systems. While implicit branches are common in
+DAG-based version control named branches (where the branch name is
+saved in the changeset metadata) are not as common.</p>
+
+<p>Originally, Mercurial had no way to explicitly name branches. Branches
+were instead handled by making different clones and publishing them
+separately. This is effective, easy to understand, and especially
+useful for feature branches, because there is little
+overhead. However, in large projects, clones can still be quite
+expensive: while the repository store will be hardlinked on most
+filesystems, creating a separate working tree is slow and may require
+a lot of disk space.</p>
+
+<p>Because of these downsides, Mercurial added a second way to do
+branches: including a branch name in the changeset metadata. A
+<code>branch</code> command was added that can set the branch name for the
+current working directory, such that that branch name will be used for
+the next commit. The normal <code>update</code> command can be used to
+update to a branch name, and a changeset committed on a branch will
+always be related to that branch. This approach is called <em>named
+branches</em>. However, it took a few more Mercurial releases before
+Mercurial started including a way to close these branches up
+again (closing a branch will hide the branch from view in a list of
+branches). Branch closing is implemented by adding an extra field in the changeset
+metadata, stating that this changeset closes the branch. If the branch
+has more than one head, all of them have to be closed before the
+branch disappears from the list of branches in the repository.</p>
+
+<p>Of course, there's more than one way to do it.
+Git has a different way of naming branches, using
+references. References are names pointing to another object in the
+Git history, usually a changeset. This means that Git's branches are
+ephemeral: once you remove the reference, there is no trace of the
+branch ever having existed, similar to what you would get when using a
+separate Mercurial clone and merging it back into another clone. This
+makes it very easy and lightweight to manipulate branches locally, and
+prevents cluttering of the list of branches.</p>
+
+<p>This way of branching turned out to be very popular, much more popular
+than either named branches or branch clones in Mercurial. This has
+resulted in the <code>bookmarks</code>q extension, which will probably be
+folded into Mercurial in the future. It uses a simple unversioned file
+to keep track of references. The wire protocol used to exchange
+Mercurial data has been extended to enable communicating about
+bookmarks, making it possible to push them around.</p>
+
+</div>
+
+<div class="subsect">
+<h3>12.3.2. Tags</h3>
+
+<p>At first sight, the way Mercurial implements tags can be a bit
+confusing. The first time you add a tag (using the <code>tag</code>
+command), a file called <code>.hgtags</code> gets added to the repository and
+committed. Each line in that file will contain a changeset node id and
+the tag name for that changeset node. Thus, the tags file is treated
+the same way as any other file in the repository.</p>
+
+<p>There are three important reasons for this. First, it must be possible
+to change tags; mistakes do happen, and it should be possible to fix
+them or delete the mistake. Second, tags should be part of changeset
+history: it's valuable to see when a tag was made, by whom, and for
+what reason, or even if a tag was changed. Third, it should be
+possible to tag a changeset retroactively. For example, some projects
+extensively test drive a release artifact exported from the version
+control system before releasing it.</p>
+
+<p>These properties all fall easily out of the <code>.hgtags</code> design. While some
+users are confused by the presence of the <code>.hgtags</code> file in their
+working directories, it makes integration of the tagging mechanism
+with other parts of Mercurial (for example, synchronization with other
+repository clones) very simple. If tags existed outside the source
+tree (as they do in Git, for example), separate mechanisms would have
+to exist to audit the origin of tags and to deal with conflicts from
+(parallel) duplicate tags. Even if the latter is rare, it's nice to
+have a design where these things are not even an issue.</p>
+
+<p>To get all of this right, Mercurial only ever appends new lines to the
+<code>.hgtags</code> file. This also facilitates merging the file if the
+tags were created in parallel in different clones. The newest node id
+for any given tag always takes precedence, and adding the null node id
+(representing the empty root revision all repositories have in common)
+will have the effect of deleting the tag. Mercurial will also consider
+tags from all branches in the repository, using recency calculations
+to determine precedence among them.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>12.4. General Structure</h2>
+
+<p>Mercurial is almost completely written in Python, with only a few bits
+and pieces in C because they are critical to the performance of the
+whole application. Python was deemed a more suitable choice for most
+of the code because it is much easier to express high-level concepts
+in a dynamic language like Python. Since much of the code is not
+really critical to performance, we don't mind taking the hit in
+exchange for making the coding easier for ourselves in most parts.</p>
+
+<p>A Python module corresponds to a single file of code. Modules can
+contain as much code as needed, and are thus an important way to
+organize code. Modules may use types or call functions from other
+modules by explicitly importing the other modules. A directory
+containing an <code>__init__.py</code> module is said to be a package,
+and will expose all contained modules and packages to the Python
+importer.</p>
+
+<p>Mercurial by default installs two packages into the Python path:
+<code>mercurial</code> and <code>hgext</code>. The <code>mercurial</code> package
+contains the core code required to run Mercurial, while <code>hgext</code>
+contains a number of extensions that were deemed useful enough to be
+delivered alongside the core. However, they must still be enabled by
+hand in a configuration file if desired (which we will discuss later.)</p>
+
+<p>To be clear, Mercurial is a command-line application. This means that
+we have a simple interface: the user calls the <code>hg</code> script with a
+command. This command (like <code>log</code>, <code>diff</code> or <code>commit</code>)
+may take a number of options and arguments; there are also some
+options that are valid for all commands. Next, there are three
+different things that can happen to the interface.</p>
+
+<ul>
+
+  <li><code>hg</code> will often output something the user asked for or show
+  status messages</li>
+
+  <li><code>hg</code> can ask for further input through command-line prompts</li>
+
+  <li><code>hg</code> may launch an external program (such as an editor for the
+  commit message or a program to help merging code conflicts)</li>
+
+</ul>
+
+<div class="figure" id="fig.hg.importgraph">
+  <img src="../images/mercurial/modules.png" alt="[Import Graph]" />
+  <p>Figure&nbsp;12.3: Import Graph</p>
+</div>
+
+<p>The start of this process can neatly be observed from the import graph
+in <a href="#fig.hg.importgraph">Figure&nbsp;12.3</a>. All command-line arguments are
+passed to a function in the dispatch module. The first thing that
+happens is that a <code>ui</code> object is instantiated. The <code>ui</code>
+class will first try to find configuration files in a number of
+well-known places (such as your home directory), and save the
+configuration options in the <code>ui</code> object. The configuration files
+may also contain paths to extensions, which must also be loaded at
+this point. Any global options passed on the command-line are also
+saved to the <code>ui</code> object at this point.</p>
+
+<p>After this is done, we have to decide whether to create a repository
+object. While most commands require a local repository (represented
+by the <code>localrepo</code> class from the <code>localrepo</code> module), some
+commands may work on remote repositories (either HTTP, SSH, or some
+other registered form), while some commands can do their work without
+referring to any repository. The latter category includes the
+<code>init</code> command, for example, which is used to initialize a new
+repository.</p>
+
+<p>All core commands are represented by a single function in the
+<code>commands</code> module; this makes it really easy to find the code for
+any given command. The commands module also contains a hashtable that
+maps the command name to the function and describes the options that
+it takes. The way this is done also allows for sharing common sets of
+options (for example, many commands have options that look like the
+ones the <code>log</code> command uses). The options description allows the
+dispatch module to check the given options for any command, and to
+convert any values passed in to the type expected by the command
+function. Almost every function also gets the <code>ui</code> object and the
+<code>repository</code> object to work with.</p>
+
+</div>
+
+<div class="sect">
+<h2>12.5. Extensibility</h2>
+
+<p>One of the things that makes Mercurial powerful is the ability to
+write extensions for it. Since Python is a relatively easy language to
+get started with, and Mercurial's API is mostly quite well-designed
+(although certainly under-documented in places), a number of people
+actually first learned Python because they wanted to extend Mercurial.</p>
+
+<div class="subsect">
+<h3>12.5.1. Writing Extensions</h3>
+
+<p>Extensions must be enabled by adding a line to one of the
+configuration files read by Mercurial on startup; a key is provided
+along with the path to any Python module. There are several ways to
+add functionality:</p>
+
+<ul>
+
+  <li>adding new commands;</li>
+
+  <li>wrapping existing commands;</li>
+
+  <li>wrapping the repository used;</li>
+
+  <li>wrap any function in Mercurial; and</li>
+
+  <li>add new repository types.</li>
+
+</ul>
+
+<p>Adding new commands can be done simply by adding a hashtable called
+<code>cmdtable</code> to the extension module. This will get picked up by
+the extension loader, which will add it to the commands table
+considered when a command is dispatched. Similarly, extensions can
+define functions called <code>uisetup</code> and <code>reposetup</code> which are
+called by the dispatching code after the UI and repository have been
+instantiated. One common behavior is to use a <code>reposetup</code>
+function to wrap the repository in a repository subclass provided by
+the extension. This allows the extension to modify all kinds of basic
+behavior. For example, one extension I have written hooks into the
+uisetup and sets the <code>ui.username</code> configuration property based on the
+SSH authentication details available from the environment.</p>
+
+<p>More extreme extensions can be written to add repository types. For
+example, the <code>hgsubversion</code> project (not included as part of
+Mercurial) registers a repository type for Subversion
+repositories. This makes it possible to clone from a Subversion
+repository almost as if it were a Mercurial repository. It's even
+possible to push back to a Subversion repository, although there are a
+number of edge cases because of the impedance mismatch between the two
+systems. The user interface, on the other hand, is completely
+transparent.</p>
+
+<p>For those who want to fundamentally change Mercurial, there is
+something commonly called "monkeypatching" in the world of dynamic
+languages. Because extension code runs in the same address space as
+Mercurial, and Python is a fairly flexible language with extensive
+reflection capabilities, it's possible (and even quite easy) to modify
+any function or class defined in Mercurial. While this can result in
+kind of ugly hacks, it's also a very powerful mechanism. For example,
+the <code>highlight</code> extension that lives in <code>hgext</code> modifies the
+built-in webserver to add syntax highlighting to pages in the
+repository browser that allow you to inspect file contents.</p>
+
+<p>There's one more way to extend Mercurial, which is much simpler:
+<em>aliases</em>. Any configuration file can define an alias as a new
+name for an existing command with a specific group of options already
+set. This also makes it possible to give shorter names to any
+commands. Recent versions of Mercurial also include the ability to
+call a shell command as an alias, so that you can design complicated
+commands using nothing but shell scripting.</p>
+
+</div>
+
+<div class="subsect">
+<h3>12.5.2. Hooks</h3>
+
+<p>Version control systems have long provided hooks as a way for VCS
+events to interact with the outside world. Common usage includes
+sending off a notification to a <a href="integration.html">continuous integration
+system</a> or updating the
+working directory on a web server so that changes become
+world-visible. Of course, Mercurial also includes a subsystem to
+invoke hooks like this.</p>
+
+<p>In fact, it again contains two variants. One is more like traditional
+hooks in other version control systems, in that it invokes scripts in
+the shell. The other is more interesting, because it allows users to
+invoke Python hooks by specifying a Python module and a function name
+to call from that module. Not only is this faster because it runs in
+the same process, but it also hands off <code>repo</code> and <code>ui</code> objects, meaning
+you can easily initiate more complex interactions inside the VCS.</p>
+
+<p>Hooks in Mercurial can be divided in to pre-command, post-command,
+controlling, and miscellaneous hooks. The first two are trivially
+defined for any command by specifying a pre-<em>command</em> or
+post-<em>command</em> key in the hooks section of a configuration
+file. For the other two types, there's a predefined set of events. The
+difference in controlling hooks is that they are run right before
+something happens, and may not allow that event to progress further.
+This is commonly used to validate changesets in some way on a central
+server; because of Mercurial's distributed nature, no such checks can
+be enforced at commit time. For example, the Python project uses a
+hook to make sure some aspects of coding style are enforced throughout
+the code base&mdash;if a changeset adds code in a style that is not
+allowed, it will be rejected by the central repository.</p>
+
+<p>Another interesting use of hooks is a pushlog, which is used by
+Mozilla and a number of corporate organizations. A pushlog
+records each push (since a push may contain any number of
+changesets) and records who initiated that push and when, providing
+a kind of audit trail for the repository.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>12.6. Lessons Learned</h2>
+
+<p>One of the first decisions Matt made when he started to develop
+Mercurial was to develop it in Python. Python has been great for the
+extensibility (through extensions and hooks) and is very easy to code
+in. It also takes a lot of the work out of being compatible across
+different platforms, making it relatively easy for Mercurial to work
+well across the three major OSes. On the other hand, Python is slow
+compared to many other (compiled) languages; in particular,
+interpreter startup is relatively slow, which is particularly bad for
+tools that have many shorter invocations (such as a VCS) rather than
+longer running processes.</p>
+
+<p>An early choice was made to make it hard to modify changesets after
+committing. Because it's impossible to change a revision without
+modifying its identity hash, "recalling" changesets after having
+published them on the public Internet is a pain, and Mercurial makes
+it hard to do so. However, changing unpublished revisions should
+usually be fine, and the community has been trying to make this easier
+since soon after the release. There are extensions that try to solve
+the problem, but they require learning steps that are not very
+intuitive to users who have previously used basic Mercurial.</p>
+
+<p>Revlogs are good at reducing disk seeks, and the layered architecture
+of changelog, manifest and filelogs has worked very well. Committing
+is fast and relatively little disk space is used for revisions.
+However, some cases like file renames aren't very efficient due to
+the separate storage of revisions for each file; this will eventually
+be fixed, but it will require a somewhat hacky layering violation.
+Similarly, the per-file DAG used to help guide filelog storage isn't
+used a lot in practice, such that some code used to administrate
+that data could be considered to be overhead.</p>
+
+<p>Another core focus of Mercurial has been to make it easy to learn.  We
+try to provide most of the required functionality in a small set of
+core commands, with options consistent across commands. The intention
+is that Mercurial can mostly be learned progressively, especially for
+those users who have used another VCS before; this philosophy extends
+to the idea that extensions can be used to customize Mercurial even
+more for a particular use case. For this reason, the developers also
+tried to keep the UI in line with other VCSs, Subversion in
+particular.  Similarly, the team has tried to provide good
+documentation, available from the application itself, with
+cross-references to other help topics and commands. We try hard to
+provide useful error messages, including hints of what to try instead
+of the operation that failed.</p>
+
+<p>Some smaller choices made can be surprising to new users. For example,
+handling tags (as discussed in a previous section) by putting them in
+a separate file inside the working directory is something many users
+dislike at first, but the mechanism has some very desirable properties
+(though it certainly has its shortcomings as well). Similarly, other
+VCSs have opted to send only the checked out changeset and any
+ancestors to a remote host by default, whereas Mercurial sends every
+committed changeset the remote doesn't have. Both approaches make some
+amount of sense, and it depends on the style of development which one
+is the best for you.</p>
+
+<p>As in any software project, there are a lot of trade-offs to be made.
+I think Mercurial made good choices, though of course with the benefit
+of 20/20 hindsight some other choices might have been more appropriate.
+Historically, Mercurial seems to be part of a first generation of
+distributed version control systems mature enough to be ready for
+general use. I, for one, am looking forward to seeing what the next
+generation will look like.</p>
+
+</div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

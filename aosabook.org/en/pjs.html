@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: pjs.html 1355 2012-05-02 16:59:54Z amy $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications (Volume 2): Processing.js</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar2.jpg"
+           alt="The Architecture of Open Source Applications (Volume 2)"</img></a>
+        <h1>Processing.js</h1>
+        <p><a href="intro2.html#kamermans-mike">Mike Kamermans</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span8 offset2">
+        
+<p>Originally developed by Ben Fry and Casey Reas, the Processing
+programming language started as an open source programming language
+(based on Java) to help the electronic arts and visual design
+communities learn the basics of computer programming in a visual
+context. Offering a highly simplified model for 2D and 3D graphics
+compared to most programming languages, it quickly became well-suited
+for a wide range of activities, from teaching programming through
+writing small visualisations to creating multi-wall art installations,
+and became able to perform a wide variety of tasks, from simply reading in a
+sequence of strings to acting as the de facto IDE for programming and
+operating the popular "Arduino" open source hardware prototyping
+boards. Continuing to gain popularity, Processing has firmly taken
+its place as an easy to learn, widely used programming language for
+all things visual, and so much more.</p>
+
+<p>The basic Processing program, called a "sketch", consists of two
+functions: <code>setup</code> and <code>draw</code>. The first is the main program
+entry point, and can contain any amount of initialization
+instructions. After finishing <code>setup</code>, Processing programs can do
+one of two things: 1) call <code>draw</code>, and
+schedule another call to <code>draw</code> at a fixed
+interval upon completion; or 2) call <code>draw</code>, and
+wait for input events from the user. By default, Processing does the
+former; calling <code>noLoop</code> results in the latter. This allows for two modes to
+present sketches, namely a fixed framerate graphical environment, and
+an interactive, event-based updating graphical environment. In both
+cases, user events are monitored and can be handled either in their
+own event handlers, or for certain events that set persistent global
+values, directly in the <code>draw</code> function.</p>
+
+<p>Processing.js is a sister project of Processing, designed to bring
+it to the web without the need for Java or plugins. It started as an
+attempt by John Resig to see if the Processing language could be
+ported to the web, by using the&mdash;at the time brand new&mdash;HTML5
+<code>&lt;canvas&gt;</code> element as a graphical context,
+with a proof of concept library released to the public in
+2008. Written with the idea in mind that "your code should just
+work", Processing.js has been refined over the years to make 
+data visualisations, digital art, interactive animations, educational
+graphs, video games, etc. work using web standards and without any
+plugins. You write code using the Processing language, either in the
+Processing IDE or your favourite editor of choice, include it on a web
+page using a <code>&lt;canvas&gt;</code> element, and
+Processing.js does the rest, rendering everything in the
+<code>&lt;canvas&gt;</code> element and letting users
+interact with the graphics in the same way they would with a normal
+standalone Processing program.</p>
+
+<section>
+<h2>17.1. How Does It Work?</h2>
+
+<p>Processing.js is a bit unusual as an open source project, in that the
+code base is a single file called <code>processing.js</code>
+which contains the code for Processing, the single object that makes up
+the entire library. In terms of how the code is structured, we
+constantly shuffle things around inside this object as we try to clean
+it up a little bit with every release. Its design is relatively
+straightforward, and its function can be described in a single
+sentence: it rewrites Processing source code into pure JavaScript
+source code, and every Processing API function call is mapped to a
+corresponding function in the JavaScript Processing object, which
+effects the same thing on a <code>&lt;canvas&gt;</code>
+element as the Processing call would effect on a Java Applet canvas.</p>
+
+<p>For speed, we have two separate code paths for 2D and 3D functions,
+and when a sketch is loaded, either one or the other is used for
+resolving function wrappers so that we don't add bloat to running
+instances. However, in terms of data structures and code flow, knowing
+JavaScript means you can read <code>processing.js</code>, with the possible
+exception of the syntax parser.</p>
+
+<section>
+<h3>Unifying Java and JavaScript</h3>
+
+<p>Rewriting Processing source code into JavaScript source code means
+that you can simply tell the browser to execute the rewritten source,
+and if you rewrote it correctly, things just work. But, making sure
+the rewrite is correct has taken, and still occasionally takes, quite
+a bit of effort. Processing syntax is based on Java, which means that
+Processing.js has to essentially transform Java source code into
+JavaScript source code. Initially, this was achieved by treating the
+Java source code as a string, and iteratively replacing substrings of
+Java with their JavaScript equivalents. (For those interested in an
+early incarnation of the parser, it can be found at
+<a href="https://github.com/jeresig/processing-js/blob/51d280c516c0530cd9e63531076dfa147406e6b2/processing.js">here</a>,
+running from line 37 to line 266.) For a small syntax set, this is
+fine, but as time went on and complexity added to complexity, this
+approach started to break down. Consequently, the parser was
+completely rewritten to build an Abstract Syntax Tree (AST) instead,
+first breaking down the Java source code into functional blocks, and
+then mapping each of those blocks to their corresponding JavaScript
+syntax. The result is that, at the cost of readability, Processing.js
+now effectively contains an on-the-fly Java-to-JavaScript
+transcompiler.  (Readers are welcome to peruse
+<a href="https://github.com/jeresig/processing-js/blob/v1.3.0/processing.js#L17649">this code</a>,
+up to line 19217.)</p>
+
+<p>Here is the code for a Processing sketch:</p>
+
+<pre>
+    void setup() {
+      size(200,200);
+      noCursor();
+      noStroke();
+      smooth(); }
+
+    void draw() {
+      fill(255,10);
+      rect(-1,-1,width+1,height+1);
+      float f = frameCount*PI/frameRate;
+      float d = 10+abs(60*sin(f));
+      fill(0,100,0,50);
+      ellipse(mouseX, mouseY, d,d); }
+</pre>
+
+<p>And here is its Processing.js conversion:</p>
+
+<pre>
+    function($p) {
+        function setup() {
+            $p.size(200, 200);
+            $p.noCursor();
+            $p.noStroke();
+            $p.smooth(); }
+        $p.setup = setup;
+
+        function draw() {
+            $p.fill(255, 10);
+            $p.rect(-1, -1, $p.width + 1, $p.height + 1);
+            var f = $p.frameCount * $p.PI / $p.__frameRate;
+            var d = 10 + $p.abs(60 * $p.sin(f));
+            $p.fill(0, 100, 0, 50);
+            $p.ellipse($p.mouseX, $p.mouseY, d, d); }
+        $p.draw = draw; }
+</pre>
+
+<p>This sounds like a great thing, but there are a few problems when
+converting Java syntax to JavaScript syntax:</p>
+
+<ol>
+
+<li>
+Java programs are isolated entities. JavaScript programs share
+  the world with a web page.
+</li>
+
+<li>
+Java is strongly typed. JavaScript is not.
+</li>
+
+<li>
+Java is a class/instance based object-oriented language. JavaScript is not.
+</li>
+
+<li>
+Java has distinct variables and methods. JavaScript does not.
+</li>
+
+<li>
+Java allows method overloading. JavaScript does not.
+</li>
+
+<li>
+Java allows importing compiled code. JavaScript has no idea what
+  that even means.
+</li>
+
+</ol>
+
+<p>Dealing with these problems has been a tradeoff between what users
+need, and what we can do given web technologies. The following
+sections will discuss each of these issues in greater detail.</p>
+
+</section>
+
+</section>
+
+<section>
+<h2>17.2. Significant Differences</h2>
+
+<section>
+<h4>Java programs have their own threads; JavaScript can lock up your browser.</h4>
+
+<p>Java programs are isolated entities, running in their own thread in
+the greater pool of applications on your system. JavaScript programs,
+on the other hand, live inside a browser, and compete with each other
+in a way that desktop applications don't. When a Java program loads a
+file, the program waits until the resource is done loading, and
+operation resumes as intended. In a setting where the program is an
+isolated entity on its own, this is fine. The operating system stays
+responsive because it's responsible for thread scheduling, and even if
+the program takes an hour to load all its data, you can still use your
+computer. On a web page, this is not how things work. If you have a
+JavaScript "program" waiting for a resource to be done loading, it
+will lock its process until that resource is available. If you're
+using a browser that uses one process per tab, it will lock up your tab,
+and the rest of the browser is still usable. If you're using a browser
+that doesn't, your entire browser will seem frozen. So, regardless of
+what the process represents, the page the script runs on won't be
+usable until the resource is done loading, and it's entirely possible
+that your JavaScript will lock up the entire browser.</p>
+
+<p>This is unacceptable on the modern web, where resources are
+transferred asynchronously, and the page is expected to function
+normally while resources are loaded in the background. While this is
+great for traditional web pages, for web applications this is a real
+brain twister: how do you make JavaScript idle, waiting for a resource
+to load, when there is no explicit mechanism to make JavaScript idle?
+While there is no explicit threading in JavaScript, there is an event
+model, and there is an <code>XMLHTTPRequest</code> object for requesting arbitrary
+(not just XML or HTML) data from arbitrary URLS. This object comes
+with several different status events, and we can use it to
+asynchronously get data while the browser stays responsive. Which is
+great in programs in which you control the source code: you make it
+simply stop after scheduling the data request, and make it pick up
+execution when the data is available. However, this is near impossible
+for code that was written based on the idea of synchronous resource
+loading. Injecting "idling" in programs that are supposed to run at a
+fixed framerate is not an option, so we have to come up with
+alternative approaches.</p>
+
+<p>For some things, we decided to force synchronous waiting
+anyway. Loading a file with strings, for instance, uses a synchronous
+<code>XMLHTTPRequest</code>, and will halt execution of the page until the data is
+available. For other things, we had to get creative. Loading images,
+for instance, uses the browser's built-in mechanism for loading
+images; we build a new <code>Image</code> in JavaScript, set its <code>src</code>
+attribute to the image URL, and the browser does the rest, notifying
+us that the image is ready through the <code>onload</code> event. This
+doesn't even rely on an <code>XMLHTTPRequest</code>, it simply exploits the
+browser's capabilities.</p>
+
+<p>To make matters easier when you already know which images you are
+loading, we added preload directives so that the sketch does not start
+execution until preloading is complete. A user can indicate any number
+of images to preload via a comment block at the start of the sketch;
+Processing.js then tracks outstanding image loading. The <code>onload</code>
+event for an image tells us that it is done transferring and is
+considered ready to be rendered (rather than simply having been
+downloaded but not decoded to a pixel array in memory yet), after
+which we can populate the corresponding Processing <code>PImage</code>
+object with the correct values (<code>width</code>, <code>height</code>, pixel
+data, etc.) and clear the image from the list. Once the list is empty,
+the sketch gets executed, and images used during its lifetime will not
+require waiting.</p>
+
+<p>Here is an example of preload directives:</p>
+
+<pre>
+    /* @pjs preload="./worldmap.jpg"; */
+
+    PImage img;
+
+    void setup() {
+      size(640,480);
+      noLoop();
+      img = loadImage("worldmap.jpg"); }
+
+    void draw() {
+      image(img,0,0); }
+</pre>
+
+<p>For other things, we've had to build more complicated "wait for me"
+systems. Fonts, unlike images, do not have built-in browser loading
+(or at least not a system as functional as image loading). While it is
+possible to load a font using a CSS <code>@font-face</code> rule and rely on
+the browser to make it all happen, there are no JavaScript events that
+can be used to determine that a font finished loading. We are slowly
+seeing events getting added to browsers to generate JavaScript events
+for font download completion, but these events come "too early", as
+the browser may need anywhere from a few to a few hundred more
+milliseconds to actually parse the font for use on the page after
+download. Thus, acting on these events will still lead to either no
+font being applied, or the wrong font being applied if there is a
+known fallback font. Rather than relying on these events, we embed
+a tiny TrueType font that only contains the letter "A" with
+impossibly small metrics, and instruct the browser to load this font
+via an <code>@font-face</code> rule with a data URI that contains the font's
+bytecode as a BASE64 string. This font is so small that we can rely on
+it being immediately available. For any other font load
+instruction we compare text metrics between the desired font and this
+tiny font. A hidden <code>&lt;div&gt;</code> is set up with text styled using the desired
+font, with our tiny font as fallback. As long as the text in that <code>&lt;div&gt;</code>
+is impossibly small, we know the desired font is not available yet,
+and we simply poll at set intervals until the
+text has sensible metrics.</p>
+
+</section>
+
+<section>
+<h4>Java is strongly typed; JavaScript is not.</h4>
+
+<p>In Java, the number 2 and the number 2.0 are different values, and
+they will do different things during mathematical operations. For
+instance, the code <code>i = 1/2</code> will result in <code>i</code> being 0,
+because the numbers are treated as integers, whereas <code>i = 1/2.0</code>,
+<code>i = 1.0/2</code>, and even <code>i = 1./2.</code> will all result in
+<code>i</code> being 0.5, because the numbers are considered decimal
+fractions with a non-zero integer part, and a zero fractional part. Even if
+the intended data type is a floating point number, if the arithmetic
+uses only integers, the result will be an integer. This lets you write
+fairly creative math statements in Java, and consequently in
+Processing, but these will generate potentially wildly different
+results when ported to Processing.js, as JavaScript only knows
+"numbers". As far as JavaScript is concerned, 2 and 2.0 are the same
+number, and this can give rise to very interesting bugs when running a
+sketch using Processing.js.</p>
+
+<p>This might sound like a big issue, and at first we were convinced it
+would be, but you can't argue with real world feedback: it turns out
+this is almost never an issue for people who put their sketches online
+using Processing.js. Rather than solving this in some cool and
+creative way, the resolution of this problem was actually remarkably
+straightforward; we didn't solve it, and as a design choice, we don't
+intend to ever revisit that decision. Short of adding a symbol table
+with strong typing so that we can fake types in JavaScript and switch
+functionality based on type, this incompatibility cannot properly be
+solved without leaving much harder to find edge case bugs, and so
+rather than adding bulk to the code and slowdown to execution, we left
+this quirk in. It is a well-documented quirk, and "good code" won't
+try to take advantage of Java's implicit number type casting. That
+said, sometimes you will forget, and the result can be quite
+interesting.</p>
+
+</section>
+
+<section>
+<h4>Java is a class/instance-based object-oriented language, with separate variable and method spaces; JavaScript is not.</h4>
+
+<p>JavaScript uses prototype objects, and the inheritance model that
+comes with it. This means all objects are essentially key/value pairs
+where each key is a string, and values are either primitives, arrays,
+objects, or functions. On the inheritance side, prototypes can extend
+other prototypes, but there is no real concept of "superclass" and
+"subclass". In order to make "proper" Java-style object-oriented code
+work, we had to implement classical inheritance for JavaScript in
+Processing.js, without making it super slow (we think we succeeded in
+that respect). We also had to come up with a way to prevent variable
+names and function names from stepping on each other. Because of the
+key/value nature of JavaScript objects, defining a variable called
+<code>line</code>, followed by a function like <code>line(x1,y1,x2,y2)</code> will leave
+you with an object that uses whatever was declared last for a
+key. JavaScript first sets <code>object.line = "some value"</code> for you, and
+then sets <code>object.line = function(x1,y1,x2,y2){&hellip;}</code>, overriding what
+you thought your variable <code>line</code> was.</p>
+
+<p>It would have slowed down the library a lot to create separate
+administration for variables and methods/functions, so again the
+documentation explains that it's a bad idea to use variables and
+functions with the same name. If everyone wrote "proper" code, this
+wouldn't be much of a problem, as you want to name variables and
+functions based on what they're for, or what they do, but the real
+world does things differently. Sometimes your code won't work, and
+it's because we decided that having your code break due to a naming
+conflict is preferable to your code always working, but always being
+slow. A second reason for not implementing variable and function
+separation was that this could break JavaScript code used inside
+Processing sketches. Closures and the scope chain for JavaScript rely
+on the key/value nature of objects, so driving a wedge in that by
+writing our own administration would have also severely impacted
+performance in terms of Just-In-Time compilation and compression based
+on functional closures.</p>
+
+</section>
+
+<section>
+<h4>Java allows method overloading; JavaScript does not.</h4>
+
+<p>One of Java's more powerful features is that you can define a
+function, let's say <code>add(int,int)</code>, and then define another function
+with the same name, but a different number of arguments, e.g. <code>add(int,int,int)</code>, or with different argument types, e.g. <code>add(ComplexNumber,ComplexNumber)</code>. Calling <code>add</code> with two or three integer arguments will
+automatically call the appropriate function, and calling <code>add</code> with
+floats or Car objects will generate an error. JavaScript, on the other
+hand, does not support this. In JavaScript, a function is a property,
+and you can dereference it (in which case JavaScript will give you a
+value based on type coercion, which in this case returns <code>true</code> when
+the property points to a function definition, or <code>false</code> when it
+doesn't), or you can call it as a function using the execution
+operators (which you will know as parentheses with zero or more
+arguments between them). If you define a function as <code>add(x,y)</code> and then
+call it as <code>add(1,2,3,4,5,6)</code>, JavaScript is okay with that. It will set <code>x</code>
+to 1 and <code>y</code> to 2 and simply ignore the rest of the arguments. In order
+to make overloading work, we rewrite functions with the same name but
+different argument count to a numbered function, so that
+<code>function(a,b,c)</code> in the source becomes <code>function$3(a,b,c)</code> in the
+rewritten code, and <code>function(a,b,c,d)</code> becomes <code>function$4(a,b,c,d)</code>,
+ensuring the correct code paths.</p>
+
+<p>We also mostly solved overloading of functions with the same number
+but differently typed arguments, as long as the argument types can be
+seen as <em>different</em> by JavaScript. JavaScript can tell the functional
+type of properties using the <code>typeof</code> operator, which will return
+either <code>number</code>, <code>string</code>, <code>object</code> or <code>function</code> depending on what a
+ property represents. Declaring <code>var x = 3</code> followed by <code>x = '6'</code> will
+cause <code>typeof x</code> to report <code>number</code> after the initial declaration, and
+<code>string</code> after reassignment. As long as functions with the same
+argument count differ in argument type, we rename them and switch
+based on the result of the typeof operation. This does not work when
+the functions take arguments of type <code>object</code>, so for these functions
+we have an additional check involving the <code>instanceof</code> operator
+(which returns the name of the function that was used to create the
+object) to make function overloading work. In fact, the only place
+where we cannot successfully transcompile overloaded functions is
+where the argument count is the same between functions, and the
+argument types are different numerical types. As JavaScript only has
+one numerical type, declaring functions such as <code>add(int x, int y)</code>,
+<code>add(float x, float y)</code> and <code>add(double x, double y)</code> will
+clash. Everything else, however, will work just fine.</p>
+
+</section>
+
+<section>
+<h4>Java allows importing compiled code.</h4>
+
+<p>Sometimes, plain Processing is not enough, and additional
+functionality is introduced in the form of a Processing library. These
+take the form of a <code>.jarchive</code> with compiled Java code, and offer
+things like networking, audio, video, hardware interfacing and other
+exotic functions not covered by Processing itself.</p>
+
+<p>This is a problem, because compiled Java code is Java byte code. This
+has given us many headaches: how do we support library imports without
+writing a Java byte code decompiler? After about a year of
+discussions, we settled on what may seem the simplest solution. Rather
+than trying to also cover Processing libraries, we decided to support
+the import keyword in sketches, and create a Processing.js Library
+API, so that library developers can write a JavaScript version of
+their library (where feasible, given the web's nature), so that if
+they write a package that is used via <code>import processing.video</code>,
+native Processing will pick the <code>.jarchive</code>, and Processing.js
+will instead pick processing.video.js, thus ensuring that things
+"just work". This functionality is slated for Processing.js 1.4, and
+library imports is the last major feature that is still missing from
+Processing.js (we currently support the <code>import</code> keyword only in the
+sense that it is removed from the source code before conversion), and
+will be the last major step towards parity.</p>
+
+</section>
+
+<section>
+<h3>Why Pick JavaScript if It Can't Do Java?</h3>
+
+<p>This is not an unreasonable question, and it has multiple answers. The
+most obvious one is that JavaScript comes with the browser. You don't
+"install" JavaScript yourself, there's no plugin to download first;
+it's just there. If you want to port something to the web, you're
+stuck with JavaScript. Although, given the flexibility of JavaScript,
+"stuck with" is really not doing justice to how powerful the language
+is. So, one reason to pick JavaScript is "because it's already
+there". Pretty much every device that is of interest comes with a
+JavaScript-capable browser these days. The same cannot be said for
+Java, which is being offered less and less as a preinstalled
+technology, if it is available at all.</p>
+
+<p>However, the proper answer is that it's not really true that
+JavaScript "can't do" the things that Java does; it <em>can</em>, it would
+just be slower. Even though out of the box JavaScript can't do some of
+the things Java does, it's still a Turing-complete programming
+language and it can be made to emulate any other programming language,
+at the cost of speed. We could, technically, write a full Java
+interpreter, with a <code>String</code> heap, separate variable and method models,
+class/instance object-orientation with rigid class hierarchies,
+and everything else under the Sun (or, these days, Oracle), but that's
+not what we're in it for: Processing.js is about offering a
+Processing-to-the-web conversion, in as little code as is necessary
+for that. This means that even though we decided not to make it do
+certain Java things, our library has one huge benefit: it can cope
+with embedded JavaScript really, really well.</p>
+
+<p>In fact, during a meeting between the Processing.js and Processing
+people at Bocoup in Boston, in 2010, Ben Fry asked John Resig why he
+used regular expression replacement and only partial conversion
+instead of doing a proper parser and compiler. John's response was
+that it was important to him that people be able to mix Processing
+syntax (Java) and JavaScript without having to choose between
+them. That initial choice has been crucial in shaping the philosophy
+of Processing.js ever since. We've worked hard to keep it true in our
+code, and we can see a clear payoff when we look at all the "purely
+web" users of Processing.js, who never used Processing, and will
+happily mix Processing and JavaScript syntax without a problem.</p>
+
+<p>The following example shows how JavaScript and Processing work together.</p>
+
+<pre>
+    // JavaScript (would throw an error in native Processing)
+    var cs = { x: 50,
+               y: 0,
+               label: "my label",
+               rotate: function(theta) {
+                         var nx = this.x*cos(theta) - this.y*sin(theta);
+                         var ny = this.x*sin(theta) + this.y*cos(theta);
+                         this.x = nx; this.y = ny; }};
+
+    // Processing
+    float angle = 0;
+
+    void setup() {
+      size(200,200);
+      strokeWeight(15); }
+
+    void draw() {
+      translate(width/2,height/2);
+      angle += PI/frameRate;
+      while(angle&gt;2*PI) { angle-=2*PI; }
+      jQuery('#log').text(angle); // JavaScript (error in native Processing)
+      cs.rotate(angle);           // legal JavaScript as well as Processing
+      stroke(random(255));
+      point(cs.x, cs.y); }
+</pre>
+
+<p>A lot of things in Java are promises: strong typing is a content
+promise to the compiler, visibility is a promise on who will call
+methods and reference variables, interfaces are promises that
+instances contain the methods the interface describes, etc. Break
+those promises and the compiler complains. But, if you don't&mdash;and
+this is a one of the most important thoughts for Processing.js&mdash;then
+you don't need the additional code for those promises in order for a
+program to work. If you stick a number in a variable, and your code
+treats that variable as if it has a number in it, then at the end of
+the day <code>var varname</code> is just as good as <code>int varname</code>. Do you need
+typing? In Java, you do; in JavaScript, you don't, so why force it in?
+The same goes for other code promises. If the Processing compiler
+doesn't complain about your code, then we can strip all the explicit
+syntax for your promises and it'll still work the same.</p>
+
+<p>This has made Processing.js a ridiculously useful library for data
+visualisation, media presentation and even entertainment. Sketches in
+native Processing work, but sketches that mix Java and JavaScript also
+work just fine, as do sketches that use pure JavaScript by treating
+Processing.js as a glorified canvas drawing framework. In an effort to
+reach parity with native Processing, without forcing Java-only syntax,
+the project has been taken in by an audience as wide as the web
+itself. We've seen activity all over the web using
+Processing.js. Everyone from IBM to Google has built visualisations,
+presentations and even games with Processing.js&mdash;Processing.js is
+making a difference.</p>
+
+<p>Another great thing about converting Java syntax to JavaScript while
+leaving JavaScript untouched is that we've enabled something we
+hadn't even thought about ourselves: Processing.js will work with
+anything that will work with JavaScript. One of the really interesting
+things that we're now seeing, for instance, is that people are using
+CoffeeScript (a wonderfully simple, Ruby-like programming language
+that transcompiles to JavaScript) in combination with Processing.js,
+with really cool results. Even though we set out to build "Processing
+for the web" based on parsing Processing syntax, people took what we
+did and used it with brand new syntaxes. They could never have done
+that if we had made Processing.js simply be a Java interpreter. By
+sticking with code conversion rather than writing a code interpreter,
+Processing.js has given Processing a reach on the web far beyond what
+it would have had if it had stayed Java-only, or even if it had kept a
+Java-only syntax, with execution on the web taken care of by
+JavaScript. The uptake of our code not just by end users, but also by
+people who try to integrate it with their own technologies, has been
+both amazing and inspiring. Clearly we're doing something right, and
+the web seems happy with what we're doing.</p>
+
+</section>
+
+<section>
+<h3>The Result</h3>
+
+<p>As we are coming up to Processing.js 1.4.0, our work has resulted in a
+library that will run any sketch you give it, provided it does not
+rely on compiled Java library imports. If you can write it in
+Processing, and it runs, you can put it on a webpage and it will just
+run. Due to the differences in hardware access and low level
+implementations of different parts of the rendering pipeline there
+will be timing differences, but in general a sketch that runs at 60
+frames per seconds in the Processing IDE will run at 60 frames per
+second on a modern computer, with a modern browser. We have reached a
+point where bug reports have started to die down, and most work is no
+longer about adding feature support, but more about bug fixing and
+code optimization.</p>
+
+<p>Thanks to the efforts of many developers working to resolve over 1800
+bug reports, Processing sketches run using Processing.js "just
+work". Even sketches that rely on library imports can be made to work,
+provided that the library code is at hand. Under favourable circumstances,
+the library is written in a way that lets you rewrite it to pure
+Processing code with a few search-replace operations. In this case the
+code can be made to work online virtually immediately. When the
+library does things that cannot be implemented in pure Processing, but
+can be implemented using plain JavaScript, more work is required to
+effectively emulate the library using JavaScript code, but porting is
+still possible. The only instances of Processing code that cannot be
+ported are those that rely on functionality that is inherently
+unavailable to browsers, such as interfacing directly with hardware
+devices (such as webcams or Arduino boards) or performing unattended
+disk writes, though even this is changing. Browsers are constantly adding
+functionality to allow for more elaborate applications, and limiting
+factors today may disappear a year from now, so that hopefully in the not
+too distant future, even sketches that are currently impossible to run
+online will become portable.</p>
+
+</section>
+
+</section>
+
+<section>
+<h2>17.3. The Code Components</h2>
+
+<p>Processing.js is presented and developed as a large, single file, but
+architecturally it represents three different components: 1) the
+launcher, responsible for converting Processing source to
+Processing.js flavoured JavaScript and executing it, 2) static
+functionality that can be used by all sketches, and 3) sketch
+functionality that has to be tied to individual instances.</p>
+
+<section>
+<h3>The Launcher</h3>
+
+<p>The launcher component takes care of three things: code preprocessing,
+code conversion, and sketch execution.</p>
+
+<section>
+<h4>Preprocessing</h4>
+
+<p>In the preprocessing step, Processing.js directives are split off from
+the code, and acted upon. These directives come in two flavours:
+settings and load instructions. There is a small number of directives,
+keeping with the "it should just work" philosophy, and the only
+settings that sketch authors can change are related to page
+interaction. By default a sketch will keep running if the page is not
+in focus, but the <code>pauseOnBlur = true</code> directive sets up a sketch in
+such a way that it will halt execution when the page the sketch is
+running on is not in focus, resuming execution when the page is in
+focus again. Also by default, keyboard input is only routed to a
+sketch when it is focussed. This is especially important when people
+run multiple sketches on the same page, as keyboard input intended for
+one sketch should not be processed by another. However, this
+functionality can be disabled, routing keyboard events to every sketch
+that is running on a page, using the <code>globalKeyEvents = true</code> directive.</p>
+
+<p>Load instructions take the form of the aforementioned image preloading
+and font preloading. Because images and fonts can be used by multiple
+sketches, they are loaded and tracked globally, so that different
+sketches don't attempt multiple loads for the same resource.</p>
+
+</section>
+
+<section>
+<h4>Code Conversion</h4>
+
+<p>The code conversion component decomposes the source code into AST
+nodes, such as statements and expressions, methods, variables,
+classes, etc. This AST then expanded to JavaScript source code that
+builds a sketch-equivalent program when executed. This converted
+source code makes heavy use of the Processing.js instance framework
+for setting up class relations, where classes in the Processing source
+code become JavaScript prototypes with special functions for
+determining superclasses and bindings for superclass functions and
+variables.</p>
+
+</section>
+
+<section>
+<h4>Sketch Execution</h4>
+
+<p>The final step in the launch process is sketch execution, which
+consists of determining whether or not all preloading has finished,
+and if it has, adding the sketch to the list of running instances
+and triggering its JavaScript <code>onLoad</code> event so that any sketch
+listeners can take the appropriate action. After this the Processing
+chain is run through: <code>setup</code>, then <code>draw</code>, and if the
+sketch is a looping sketch, setting up an interval call to <code>draw</code>
+with an interval length that gets closest to the desired framerate for
+the sketch.</p>
+
+</section>
+
+</section>
+
+<section>
+<h3>Static Library</h3>
+
+<p>Much of Processing.js falls under the "static library" heading,
+representing constants, universal functions, and universal data
+types. A lot of these actually do double duty, being defined as global
+properties, but also getting aliased by instances for quicker code
+paths. Global constants such as key codes and color mappings are
+housed in the Processing object itself, set up once, and then
+referenced when instances are built via the Processing
+constructor. The same applies to self-contained helper functions,
+which lets us keep the code as close to "write once, run anywhere" as
+we can without sacrificing performance.</p>
+
+<p>Processing.js has to support a large number of complex data types, not
+just in order to support the data types used in Processing, but also
+for its internal workings. These, too, are defined in the Processing
+constructor:</p>
+
+<ul>
+
+<li>
+<code>Char</code>, an internal object used to overcome some of the behavioural quirks of Java's <code>char</code> datatype.
+</li>
+
+<li>
+<code>PShape</code>, which represents shape objects.
+</li>
+
+<li>
+<code>PShapeSVG</code>, an extension for <code>PShape</code> objects, which is built from and represents SVG XML.
+
+<p>For <code>PShapeSVG</code>, we implemented our own
+SVG-to-<code>&lt;canvas&gt;</code>-instructions code. Since
+Processing does not implement full SVG support, the code we saved by
+not relying on an external SVG library means that we can account for
+every line of code relating to SVG imports. It only parses what it has
+to, and doesn't waste space with code that follows the spec, but is
+unused because native Processing does not support it.</p>
+
+</li>
+
+<li><code>XMLElement</code>, an XML document object.
+
+<p>For <code>XMLElement</code>, too, we implemented our own code, relying on the
+browser to first load the XML element into a Node-based structure,
+then traveling the node structure to build a leaner object. Again,
+this means we don't have any dead code sitting in Processing.js,
+taking up space and potentially causing bugs because a patch
+accidentally makes use of a function that shouldn't be there.</p>
+
+</li>
+
+<li>
+<code>PMatrix2D</code> and <code>PMatrix3D</code>, which perform matrix operations in 2D and 3D mode.
+</li>
+
+<li>
+<code>PImage</code>, which represents an image resource.
+
+<p>This is effectively a wrapper of the Image object, with some
+additional functions and properties so that its API matches the
+Processing API.</p>
+</li>
+
+<li>
+<code>PFont</code>, which represents a font resource.
+
+<p>There is no Font object defined for JavaScript (at least for now), so
+rather than actually storing the font as an object, our <code>PFont</code>
+implementation loads a font via the browser, computes its metrics
+based on how the browser renders text with it, and then caches the
+resultant <code>PFont</code> object. For speed, <code>PFont</code>s have a reference to the
+canvas that was used to determine the font properties, in case
+<code>textWidth</code> must be calculated, but because we track <code>PFont</code> objects based
+on name/size pair, if a sketch uses a lot of distinct text sizes, or
+fonts in general, this will consume too much memory. As such, <code>PFont</code>s
+will clear their cached canvas and instead call a generic <code>textWidth</code>
+computation function when the cache grows too large. As a secondary
+memory preservation strategy, if the font cache continues to grow
+after clearing the cached canvas for each <code>PFont</code>, font caching is
+disabled entirely, and font changes in the sketch simply build new
+throwaway <code>PFont</code> objects for every change in font name, text size or
+text leading.</p>
+</li>
+
+<li>
+<code>DrawingShared</code>, <code>Drawing2D</code>, and <code>Drawing3D</code>, which house all the graphics functions.
+
+<p>The <code>DrawingShared</code> object is actually the biggest speed trap in
+Processing.js. It determines if a sketch is
+launching in 2D or 3D mode, and then rebinds all graphics functions
+to either the <code>Drawing2D</code> or <code>Drawing3D</code> object. This ensures short code
+path for graphics instructions, as 2D Processing sketches cannot used
+3D functions, and vice versa. By only binding one of the two sets of
+graphics functions, we gain speed from not having to switch on the
+graphics mode in every function to determine the code path, and we
+save space by not binding the graphics functions that are guaranteed
+not to be used.</p>
+</li>
+
+<li>
+<code>ArrayList</code>, a container that emulates Java's <code>ArrayList</code>.
+</li>
+
+<li>
+<code>HashMap</code>, a container that emulates Java's <code>HashMap</code>.
+
+<p><code>ArrayList</code>, and <code>HashMap</code> in particular, are special data structures
+because of how Java implements them. These containers rely on the Java
+concepts of equality and hashing, and all objects in Java have an
+<code>equals</code> and a <code>hashCode</code> method that allow them to be
+stored in lists and maps.</p>
+
+<p>For non-hashing containers, objects are resolved based on equality
+rather than identity. Thus, <code>list.remove(myobject)</code> iterates through the
+list looking for an element for which <code>element.equals(myobject)</code>, rather
+than <code>element == myobject</code>, is true. Because all objects must have an
+<code>equals</code> method, we implemented a "virtual equals" function on
+the JavaScript side of things. This function takes two objects as
+arguments, checks whether either of them implements their own
+<code>equals</code> function, and if so, falls through to that function.
+If they don't, and the passed objects are primitives,
+primitive equality is checked. If they're not, then there is no
+equality.</p>
+
+<p>For hashing containers, things are even more interesting, as hashing
+containers act as shortcut trees. The container actually wraps a
+variable number of lists, each tied to a specific hash code. Objects
+are found based on first finding the container that matches their hash
+code, in which the object is then searched for based on equality
+evaluation. As all objects in Java have a <code>hashCode</code> method, we also
+wrote a "virtual hashcode" function, which takes a single object as
+an argument. The function checks whether the object implements its own
+<code>hashCode</code> function, and if so falls through to that function.
+If it doesn't, the hash code is computed based on the same
+hashing algorithm that is used in Java.</p>
+</li>
+
+</ul>
+
+<section>
+<h4>Administration</h4>
+
+<p>The final piece of functionality in the static code library is the
+instance list of all sketches that are currently running on the
+page. This instance list stores sketches based on the canvas they have
+been loaded in, so that users can call
+<code>Processing.getInstanceById('canvasid')</code> and get a reference to their
+sketch for page interaction purposes.</p>
+
+</section>
+
+</section>
+
+<section>
+<h3>Instance Code</h3>
+
+<p>Instance code takes the form of <code>p.functor = function(arg, &hellip;)</code>
+definitions for the Processing API, and <code>p.constant = &hellip;</code> for sketch
+state variables (where <code>p</code> is our reference to the sketch being set
+up). Neither of these are located in dedicated code blocks. Rather,
+the code is organized based on function, so that instance code
+relating to PShape operations is defined near the PShape object, and
+instance code for graphics functions are defined near, or in, the
+Drawing2D and Drawing3D objects.</p>
+
+<p>In order to keep things fast, a lot of code that could be written as
+static code with an instance wrapper is actually implemented as purely
+instance code. For instance, the <code>lerpColor(c1, c2, ratio)</code> function,
+which determines the color corresponding to the linear interpolation
+of two colors, is defined as an instance function. Rather than having
+<code>p.lerpColor(c1, c2, ratio)</code> acting as a wrapper for some static function
+<code>Processing.lerpColor(c1, c2, ratio)</code>, the fact that nothing else in
+Processing.js relies on <code>lerpColor</code> means that code execution is
+faster if we write it as a pure instance function. While this does
+"bloat" the instance object, most functions for which we insist on an
+instance function rather than a wrapper to the static library are
+small. Thus, at the expense of memory we create really fast code
+paths. While the full Processing object will take up a one-time memory
+slice worth around 5 MB when initially set up, the prerequisite code
+for individual sketches only takes up about 500 KB.</p>
+
+</section>
+
+</section>
+
+<section>
+<h2>17.4. Developing Processing.js</h2>
+
+<p>Processing.js is worked on intensively, which we can only do because
+our development approach sticks to a few basic rules. As these rules
+influence the architecture of Processing.js, it's worth having a brief
+look at them before closing this chapter.</p>
+
+<section>
+<h3>Make It Work</h3>
+
+<p>Writing code that works sounds like a tautological premise; you write
+code, and by the time you're done your code either works, because
+that's what you set out to do, or it doesn't, and you're not done
+yet. However, "make it work" comes with a corollary: Make it work, 
+and when you're done, prove it.</p>
+
+<p>If there is one thing above all other things that has allowed
+Processing.js to grow at the pace it has, it is the presence of
+tests. Any ticket that requires touching the code, be it either by
+writing new code or rewriting old code, cannot be marked as resolved
+until there is a unit or reference test that allows others to verify
+not only that the code works the way it should, but also that it
+breaks when it should. For most code, this typically involves a unit
+test&mdash;a short bit of code that calls a function and simply tests
+whether the function returns the correct values, for both legal and
+illegal function calls. Not only does this allow us to test code
+contributions, it also lets us perform regression tests.</p>
+
+<p>Before any code is accepted and merged into our stable development
+branch, the modified Processing.js library is validated against an
+ever-growing battery of unit tests. Big fixes and performance tests in
+particular are prone to passing their own unit tests, but 
+breaking parts that worked fine before the rewrite. Having tests for
+every function in the API, as well as internal functions, means that
+as Processing.js grows, we don't accidentally break compatibility with
+previous versions. Barring destructive API changes, if none of the
+tests failed before a code contribution or modification, none of the
+tests are allowed to fail with the new code in.</p>
+
+<p>The following is an example of a unit test verifying inline object 
+creation.</p>
+
+<pre>
+    interface I {
+      int getX();
+      void test(); }
+
+    I i = new I() {
+      int x = 5;
+      public int getX() {
+        return x; }
+      public void test() {
+        x++; }};
+
+    i.test();
+
+    _checkEqual(i.getX(), 6);
+    _checkEqual(i instanceof I, true);
+    _checkEqual(i instanceof Object, true);
+</pre>
+
+<p>In addition to regular code unit tests, we also have visual reference
+(or "ref") tests. As Processing.js is a port of a visual programming
+language, some tests cannot be performed using just unit
+tests. Testing to see whether an ellipse gets drawn on the correct
+pixels, or whether a single-pixel-wide vertical line is drawn crisp or
+smoothed cannot be determined without a visual reference. Because all
+mainstream browsers implement the
+<code>&lt;canvas&gt;</code> element and Canvas2D API with
+subtle differences, these things can only be tested by running code in
+a browser and verifying that the resulting sketch looks the same as
+what native Processing generates. To make life easier for developers,
+we use an automated test suite for this, where new test cases are run
+through Processing, generating "what it should look like" data to be
+used for pixel comparison. This data is then stored as a comment
+inside the sketch that generated it, forming a test, and these tests
+are then run by Processing.js on a visual reference test page which
+executes each test and performs pixel comparisons between "what it
+should look like" and "what it looks like". If the pixels are off, the
+test fails, and the developer is presented with three images:
+what it should look like, how Processing.js
+rendered it, and the difference between the two, marking
+problem areas as red pixels, and correct areas as white. Much like
+unit tests, these tests must pass before any code contribution can be
+accepted.</p>
+
+</section>
+
+<section>
+<h3>Make It Fast</h3>
+
+<p>In an open source project, making things work is only the first step
+in the life of a function. Once things work, you want to make sure
+things work fast. Based on the "if you can't measure it, you can't
+improve it" principle, most functions in Processing.js don't just come
+with unit or ref tests, but also with performance (or "perf")
+tests. Small bits of code that simply call a function, without testing
+the correctness of the function, are run several hundred times in a
+row, and their run time is recorded on a special performance test web
+page. This lets us quantify how well (or not!) Processing.js performs
+in browsers that support HTML5's
+<code>&lt;canvas&gt;</code> element. Every time an
+optimization patch passes unit and ref testing, it is run through our
+performance test page. JavaScript is a curious beast, and beautiful
+code can, in fact, run several orders of magnitude slower than code
+that contains the same lines several times over, with inline code
+rather than function calls. This makes performance testing crucial. We
+have been able to speed up certain parts of the library by three
+orders of magnitude simply by discovering hot loops during perf
+testing, reducing the number of function calls by inlining code, and
+by making functions return the moment they know what their return
+value should be, rather than having only a single return at the very
+end of the function.</p>
+
+<p>Another way in which we try to make Processing.js fast is by looking
+at what runs it. As Processing.js is highly dependent on the
+efficiency of JavaScript engines, it makes sense to also look at which
+features various engines offer to speed things up. Especially now that
+browsers are starting to support hardware accelerated graphics,
+instant speed boosts are possible when engines offer new and more
+efficient data types and functions to perform the low level operations that
+Processing.js depends on. For instance, JavaScript technically has no
+static typing, but graphics hardware programming environments do. By
+exposing the data structures used to talk to the hardware directly to
+JavaScript, it is possible to significantly speed up sections of code
+if we know that they will only use specific values.</p>
+
+</section>
+
+<section>
+<h3>Make It Small</h3>
+
+<p>There are two ways to make code small. First, write compact code. If
+you're manipulating a variable multiple times, compact it to a single
+manipulation (if possible). If you access an object variable multiple
+times, cache it. If you call a function multiple times, cache the
+result. Return once you have all the information you need, and
+generally apply all the tricks a code optimiser would apply
+yourself. JavaScript is a particularly nice language for this, since
+it comes with an incredible amount of flexibility. For example, rather
+than using:</p>
+
+<pre>
+if ((result = functionresult)!==null) {
+  var = result;
+} else {
+  var = default;
+}
+</pre>
+
+<p>in JavaScript this becomes:</p>
+
+<pre>
+var = functionresult || default
+</pre>
+
+<p>There is also another form of small code, and that's in terms of
+runtime code. Because JavaScript lets you change function bindings on
+the fly, running code becomes much smaller if you can say "bind the
+function for line2D to the function call for <code>line</code>" once you
+know that a program runs in 2D rather than 3D mode, so that you don't
+have to perform:</p>
+
+<pre>
+if(mode==2D) { line2D() } else { line3D() }
+</pre>
+
+<p>for every function call that might be either in 2D or 3D mode.</p>
+
+<p>Finally, there is the process of minification. There are a number of
+good systems that let you compress your JavaScript code by
+renaming variables, stripping whitespace, and applying certain code
+optimisations that are hard to do by hand while still keeping the code
+readable. Examples of these are the YUI minifier and Google's closure
+compiler. We use these technologies in Processing.js to offer end
+users bandwidth convenience&mdash;minification after stripping comments
+can shrink the library by as much as 50%, and taking advantage of
+modern browser/server interaction for gzipped content, we can offer
+the entire Processing.js library in gzipped form in 65 KB.</p>
+
+</section>
+
+<section>
+<h3>If All Else Fails, Tell People</h3>
+
+<p>Not everything that can currently be done in Processing can be done in
+the browser. Security models prevent certain things like saving files
+to the hard disk and performing USB or serial port I/O, and a lack of
+typing in JavaScript can have unexpected consequences (such as all
+math being floating point math). Sometimes we're faced with the choice
+between adding an incredible amount of code to enable an edge case, or
+mark the ticket as a "wontfix" issue. In such cases, a new ticket gets
+filed, typically titled "Add documentation that explains why&hellip;".</p>
+
+<p>In order to make sure these things aren't lost, we have documentation
+for people who start using Processing.js with a Processing
+background, and for people who start using Processing.js with a JavaScript
+background, covering the differences between what is expected, and
+what actually happens. Certain things just deserve special mention,
+because no matter how much work we put into Processing.js, there are
+certain things we cannot add without sacrificing usability. A good
+architecture doesn't just cover the way things are, it also covers
+why; without that, you'll just end up having the same discussions
+about what the code looks like and whether it should be different
+every time the team changes.</p>
+
+</section>
+
+</section>
+
+<section>
+<h2>17.5. Lessons Learned</h2>
+
+<p>The most important lesson we learned while writing Processing.js is
+that when porting a language, what matters is that the result is
+correct, not whether or not the code used in your port is similar to
+the original. Even though Java and JavaScript syntax are fairly similar,
+and modifying Java code to legal JavaScript code is
+fairly easy, it often pays to look at what JavaScript can natively
+do and exploit that to get the same functional result. Taking
+advantage of the lack of typing by recycling variables, using certain
+built-in functions that are fast in JavaScript but slow in Java, or
+avoiding patterns that are fast in Java but slow in JavaScript means
+your code may look radically different, but has the exact same
+effect. You often hear people say not to reinvent the wheel, but that
+only applies to working with a single programming language. When
+you're porting, reinvent as many wheels as you need to obtain the
+performance you require.</p>
+
+<p>Another important lesson is to return early, return often, and branch
+as little as possible. An if/then statement followed by a return can
+be made (sometimes drastically) faster by using an if-return/return
+construction instead, using the return statement as a conditional
+shortcut. While it's conceptually pretty to aggregate your entire
+function state before calling the ultimate return statement for that
+function, it also means your code path may traverse code that is
+entirely unrelated to what you will be returning. Don't waste cycles;
+return when you have all the information you need.</p>
+
+<p>A third lesson concerns testing your code. In Processing.js we had the
+benefit of starting with very good documentation outlining how
+Processing was "supposed" to work, and a large set of test cases, most
+of which started out as "known fail". This allowed us to do two things:
+1) write code against tests, and 2) create tests before writing
+code. The usual process, in which code is written and then test
+cases are written for that code, actually creates biased tests. Rather than
+testing whether or not your code does what it should do, according to
+the specification, you are only testing whether your code is
+bug-free. In Processing.js, we instead start by creating test cases
+based on what the functional requirements for some function or set of
+functions is, based on the documentation for it. With these unbiased
+tests, we can then write code that is functionally complete, rather
+than simply bug-free but possibly deficient.</p>
+
+<p>The last lesson is also the most general one: apply the rules of agile
+development to individual fixes as well. No one benefits from you
+retreating into dev mode and not being heard from for three days
+straight while you write the perfect solution. Rather, get your
+solutions to the point where they work, and not even necessarily for
+all test cases, then ask for feedback. Working alone, with a test
+suite for catching errors, is no guarantee of good or complete
+code. No amount of automated testing is going to point out that you
+forgot to write tests for certain edge cases, or that there is a
+better algorithm than the one you picked, or that you could have
+reordered your statements to make the code better suited for JIT
+compilation. Treat fixes like releases: present fixes early, update
+often, and work feedback into your improvements.</p>
+
+</section>
+<section>      
+ <!-- Footer
+      ================================================== -->
+      <footer class="footer">
+        <hr>
+        <p class="pull-right">This work is made available under
+            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
+            Commons Attribution 3.0 Unported</a> license.  Please see
+            the <a href="intro1.html#license">full description of the
+            license</a> for details.</a>
+            <p><a href="#">Back to top</a><br/>
+        <a href="index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
+      </footer>
+</section>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

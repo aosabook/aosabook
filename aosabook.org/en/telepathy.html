@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: telepathy.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Telepathy</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Telepathy</h1>
+        <p><a href="intro1.html#madeley-danielle">Danielle Madeley</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Telepathy<sup class="footnote"><a href="#footnote-1">1</a></sup> is a
+modular framework for real-time communications that handles voice, video, text, file
+transfer, and so on. What's unique about Telepathy is not that it abstracts the
+details of various instant messaging protocols, but that it provides the idea
+of communications as a service, in much the same way that printing is a
+service, available to many applications at once. To achieve this Telepathy
+makes extensive use of the D-Bus messaging bus and a modular design.</p>
+
+<p>Communications as a service is incredibly useful, because it allows us
+to break communications out of a single application. This enables lots
+of interesting use cases: being able to see a contact's
+presence in your email application; start communicating with
+her; launching a file transfer to a contact straight from your file
+browser; or providing contact-to-contact collaboration within
+applications, known in Telepathy as <em>Tubes</em>.</p>
+
+<p>Telepathy was created by Robert McQueen in 2005 and since that time
+has been developed and maintained by several companies and individual
+contributors including Collabora, the company co-founded by McQueen.</p>
+
+<div class="box">
+  <p class="boxtitle">The D-Bus Message Bus</p>
+
+<p>D-Bus is an asynchronous message bus for interprocess communication
+that forms the backbone of most GNU/Linux systems including the GNOME
+and KDE desktop environments.  D-Bus is a primarily a shared bus
+architecture: applications connect to a bus (identified by a socket
+address) and can either transmit a targeted message to another
+application on the bus, or broadcast a signal to all bus
+members. Applications on the bus have a bus address, similar to an IP
+address, and can claim a number of well-known names, like DNS names,
+for example <code>org.freedesktop.Telepathy.AccountManager</code>.  All
+processes communicate via the D-Bus daemon, which handles message
+passing, and name registration.</p>
+
+<p>From the user's perspective, there are two buses available on every
+system.  The system bus is a bus that allows the user to communicate
+with system-wide components (printers, bluetooth, hardware management,
+etc.)  and is shared by all users on the system.  The session bus is
+unique to that user&mdash;i.e., there is a session bus per logged-in
+user&mdash;and is used for the user's applications to communicate with
+each other.  When a lot of traffic is to be transmitted over the bus,
+it's also possible for applications to create their own private bus,
+or to create a peer-to-peer, unarbitrated bus with no
+<code>dbus-daemon</code>.</p>
+
+<p>Several libraries implement the D-Bus protocol and can communicate
+with the D-Bus daemon, including libdbus, GDBus, QtDBus, and
+python-dbus. These libraries are responsible for sending and receiving
+D-Bus messages, marshalling types from the language's type system into
+D-Bus' type format and publishing objects on the bus.  Usually, the
+libraries also provide convenience APIs for listing connected
+applications and activatable applications, and requesting well-known
+names on the bus.  At the D-Bus level, all of these are done by making
+method calls on an object published by <code>dbus-daemon</code> itself.</p>
+
+<p>For more information on D-Bus, see
+<code class="url">http://www.freedesktop.org/wiki/Software/dbus</code>.</p>
+
+</div>
+
+<div class="sect">
+<h2>20.1. Components of the Telepathy Framework</h2>
+
+<p>Telepathy is modular, with each module communicating with the others
+via a D-Bus messaging bus. Most usually via the user's session bus. This
+communication is detailed in the Telepathy
+specification<sup class="footnote"><a href="#footnote-2">2</a></sup>.
+The components of the Telepathy framework are as shown in
+<a href="#fig.telepathy.components">Figure&nbsp;20.1</a>:</p>
+
+<ul>
+
+  <li>A Connection Manager provides the interface between Telepathy
+  and the individual communication services. For instance, there is
+  a Connection Manager for XMPP, one for SIP, one for IRC, and so
+  on.  Adding support for a new protocol to Telepathy is simply a
+  matter of writing a new Connection Manager.</li>
+
+  <li>The Account Manager service is responsible for storing the
+  user's communications accounts and establishing a connection to
+  each account via the appropriate Connection Manager when
+  requested.</li>
+
+  <li>The Channel Dispatcher's role is to listen for incoming
+  channels signalled by each Connection Manager and dispatch them to
+  clients that indicate their ability to handle that type of
+  channel, such as text, voice, video, file transfer, tubes.  The
+  Channel Dispatcher also provides a service so that applications,
+  most importantly applications that are not Telepathy clients, can
+  request outgoing channels and have them handled locally by the
+  appropriate client. This allows an application, such as an email
+  application, to request a text chat with a contact, and have your
+  IM client show a chat window.</li>
+
+  <li>Telepathy clients handle or observe communications
+  channels. They include both user interfaces like IM and VoIP
+  clients and services such the chat logger. Clients register
+  themselves with the Channel Dispatcher, giving a list of channel
+  types they wish to handle or observe.</li>
+
+</ul>
+
+<p>Within the current implementation of Telepathy, the Account Manager
+and the Channel Dispatcher are both provided by a single process known
+as Mission Control.</p>
+
+<div class="figure" id="fig.telepathy.components">
+  <img src="../images/telepathy/telepathy-components.png" alt="[Example Telepathy Components]" />
+  <p>Figure&nbsp;20.1: Example Telepathy Components</p>
+</div>
+
+<p>This modular design was based on Doug McIlroy's philosophy, "Write
+programs that do one thing and do it well," and has several important
+advantages:</p>
+
+<ul>
+
+  <li><em>Robustness:</em> a fault in one component won't crash the
+  entire service.</li>
+
+  <li><em>Ease of development:</em> components can be replaced within
+  a running system without affecting others. It's possible to test a
+  development version of one module against another known to be
+  good.</li>
+
+  <li><em>Language independence:</em> components can be written in any
+  language that has a D-Bus binding. If the best
+  implementation of a given communications protocol is in a certain
+  language, you are able to write your Connection Manager in that
+  language, and still have it available to all Telepathy clients.
+  Similarly, if you wish to develop your user interface in a certain
+  language, you have access to all available protocols.</li>
+
+  <li><em>License independence:</em> components can be under different
+  software licenses that would be incompatible if everything was
+  running as one process.</li>
+
+  <li><em>Interface independence:</em> multiple user interfaces can be
+  developed on top of the same Telepathy components. This allows native
+  interfaces for desktop environments and hardware devices
+  (e.g., GNOME, KDE, Meego, Sugar).</li>
+
+  <li><em>Security:</em> Components run in separate address spaces and
+  with very limited privileges.  For example, a typical
+  Connection Manager only needs access to the network and the D-Bus
+  session bus, making it possible to use something like SELinux to
+  limit what a component can access.</li>
+
+</ul>
+
+<p>The Connection Manager manages a number of Connections, where each
+Connection represents a logical connection to a communications
+service. There is one Connection per configured account.
+A Connection will contain multiple Channels. Channels are the
+mechanism through which communications are carried out. A channel
+might be an IM conversation, voice or video call, file transfer or
+some other stateful operation.  Connections and channels are discussed
+in detail in <a href="#sec.telepathy.ccc">Section&nbsp;20.3</a>.</p>
+
+</div>
+
+<div class="sect">
+<h2>20.2. How Telepathy uses D-Bus</h2>
+
+<p>Telepathy components communicate via a D-Bus messaging bus, which is
+usually the user's session bus.  D-Bus provides features common to
+many IPC systems: each service publishes objects which have
+a strictly namespaced object path, like
+<code>/org/freedesktop/Telepathy/AccountManager</code><sup class="footnote"><a href="#footnote-3">3</a></sup>.  Each object implements a number of
+interfaces. Again strictly namespaced, these have forms like
+<code>org.freedesktop.DBus.Properties</code> and <code>ofdT.Connection</code>.
+Each interface provides methods, signals and properties that you can
+call, listen to, or request.</p>
+
+<div class="figure" id="fig.telepathy.conceptual">
+  <img src="../images/telepathy/bus-hierarchy-conceptual.png" alt="[Conceptual Representation of Objects Published by a D-Bus Service]" />
+  <p>Figure&nbsp;20.2: Conceptual Representation of Objects Published by a D-Bus Service</p>
+</div>
+
+<div class="box">
+  <p class="boxtitle">Publishing D-Bus Objects</p>
+
+<p>Publishing D-Bus objects is handled entirely by the D-Bus library
+being used. In effect it is a mapping from a D-Bus object path to the
+software object implementing those interfaces.  The paths of objects
+being published by a service are exposed by the optional
+<code>org.freedesktop.DBus.Introspectable</code> interface.</p>
+
+<p>When a service receives an incoming method call with a given
+destination path (e.g., <code>/ofdT/AccountManager</code>), the D-Bus
+library is responsible for locating the software object providing that
+D-Bus object and then making the appropriate method call on that
+object.</p>
+
+</div>
+
+<p>The interfaces, methods, signal and properties provided by Telepathy
+are detailed in an XML-based D-Bus IDL that has been expanded to
+include more information.  The specification can be parsed to generate
+documentation and language bindings.</p>
+
+<p>Telepathy services publish a number of objects onto the bus. Mission
+Control publishes objects for the Account Manager and Channel
+Dispatcher so that their services can be accessed. Clients publish a
+Client object that can be accessed by the Channel Dispatcher. Finally,
+Connection Managers publish a number of objects: a service object that
+can be used by the Account Manager to request new connections, an
+object per open connection, and an object per open channel.</p>
+
+<p>Although D-Bus objects do not have a type (only interfaces), Telepathy
+simulates types several ways. The object's path tells us whether the
+object is a connection, channel, client, and so on, though generally
+you already know this when you request a proxy to it. Each object
+implements the base interface for that type, e.g.,
+<code>ofdT.Connection</code> or <code>ofdT.Channel</code>.  For channels this is
+sort of like an abstract base class.  Channel objects then have a
+concrete class defining their channel type.  Again, this is
+represented by a D-Bus interface. The channel type can be learned by
+reading the <code>ChannelType</code> property on the Channel interface.</p>
+
+<p>Finally, each object implements a number of optional interfaces
+(unsurprisingly also represented as D-Bus interfaces), which depend on
+the capabilities of the protocol and the Connection Manager.  The
+interfaces available on a given object are available via the
+<code>Interfaces</code> property on the object's base class.</p>
+
+<p>For Connection objects of type <code>ofdT.Connection</code>, the optional
+interfaces have names like <code>ofdT.Connection.Interface.Avatars</code>
+(if the protocol has a concept of avatars),
+<code>odfT.Connection.Interface.ContactList</code> (if the protocol provides
+a contact roster&mdash;not all do) and
+<code>odfT.Connection.Interface.Location</code> (if a protocol provides
+geolocation information).  For Channel objects, of type
+<code>ofdT.Channel</code>, the concrete classes have interface names of the
+form <code>ofdT.Channel.Type.Text</code>, <code>odfT.Channel.Type.Call</code> and
+<code>odfT.Channel.Type.FileTransfer</code>. Like Connections, optional
+interface have names likes <code>odfT.Channel.Interface.Messages</code> (if
+this channel can send and receive text messages) and
+<code>odfT.Channel.Interface.Group</code> (if this channel is to a group
+containing multiple contacts, e.g., a multi-user chat).  So, for
+example, a text channel implements at least the <code>ofdT.Channel</code>,
+<code>ofdT.Channel.Type.Text</code> and <code>Channel.Interface.Messages</code>
+interfaces.  If it's a multi-user chat, it will also implement
+<code>odfT.Channel.Interface.Group</code>.</p>
+
+<div class="box">
+  <p class="boxtitle">Why an Interfaces Property and not D-Bus Introspection?</p>
+
+<p>You might wonder why each base class implements an <code>Interfaces</code>
+property, instead of relying on D-Bus' introspection capabilities to
+tell us what interfaces are available.  The answer is that different
+channel and connection objects may offer different interfaces to each
+other, depending on the capabilities of the channel or connection, but
+that most of the implementations of D-Bus introspection assume that
+all objects of the same object class will have the same interfaces.
+For example, in <code>telepathy-glib</code>, the D-Bus interfaces listed by
+D-Bus introspection are retrieved from the object interfaces a class
+implements, which is statically defined at compile time.  We work
+around this by having D-Bus introspection provide data for all the
+interfaces that could exist on an object, and use the
+<code>Interfaces</code> property to indicate which ones actually do.</p>
+
+</div>
+
+<p>Although D-Bus itself provides no sanity checking that connection
+objects only have connection-related interfaces and so forth (since
+D-Bus has no concept of types, only arbitrarily named interfaces), we
+can use the information contained within the Telepathy specification
+to provide sanity checking within the Telepathy language bindings.</p>
+
+<div class="box">
+  <p class="boxtitle">Why and How the Specification IDL was Expanded</p>
+
+<p>The existing D-Bus specification IDL defines the names, arguments,
+access restrictions and D-Bus type signatures of methods, properties
+and signals. It provides no support for documentation, binding hints
+or named types.</p>
+
+<p>To resolve these limitations, a new XML namespace was added to provide
+the required information. This namespace was designed to be generic so
+that it could be used by other D-Bus APIs. New elements were added to
+include inline documentation, rationales, introduction and deprecation
+versions and potential exceptions from methods.</p>
+
+<p>D-Bus type signatures are the low-level type notation of what is
+serialized over the bus. A D-Bus type signature may look like
+<code>(ii)</code> (which is a structure containing two int32s), or it may be
+more complex.  For example, <code>a{sa(usuu)}</code>, is a map from string
+to an array of structures containing uint32, string, uint32, uint32
+(<a href="#fig.telepathy.dbustypes">Figure&nbsp;20.3</a>).  These types, while
+descriptive of the data format, provide no semantic meaning to the
+information contained in the type.</p>
+
+<p>In an effort to provide semantic clarity for programmers and
+strengthen the typing for language bindings, new elements were added
+to name simple types, structs, maps, enums, and flags, providing their
+type signature, as well as documentation.  Elements were also added in
+order to simulate object inheritance for D-Bus objects.</p>
+
+</div>
+
+<div class="figure" id="fig.telepathy.dbustypes">
+  <img src="../images/telepathy/telepathy-types-unpacked.png" alt="[D-Bus Types (ii) and a{sa(usuu)}]" />
+  <p>Figure&nbsp;20.3: D-Bus Types (ii) and a{sa(usuu)}</p>
+</div>
+
+<div class="subsect">
+<h3>20.2.1. Handles</h3>
+
+<p>Handles are used in Telepathy to represent identifiers (e.g., contacts
+and room names). They are an unsigned integer value assigned by the
+connection manager, such that the tuple (connection, handle type,
+handle) uniquely refers to a given contact or room.</p>
+
+<p>Because different communications protocols normalize identifiers in
+different ways (e.g., case sensitivity, resources), handles provide a
+way for clients to determine if two identifiers are the same. They can
+request the handle for two different identifiers, and if the handle
+numbers match, then the identifiers refer to the same contact or room.</p>
+
+<p>Identifier normalization rules are different for each protocol, so it
+is a mistake for clients to compare identifier strings to compare
+identifiers. For example, <code>escher@tuxedo.cat/bed</code> and
+<code>escher@tuxedo.cat/litterbox</code> are two instances of the same
+contact (<code>escher@tuxedo.cat</code>) in the XMPP protocol, and therefore
+have the same handle. It is possible for clients to request channels
+by either identifier or handle, but they should only ever use handles
+for comparison.</p>
+
+</div>
+
+<div class="subsect">
+<h3>20.2.2. Discovering Telepathy Services</h3>
+
+<p>Some services, such as the Account Manager and the Channel Dispatcher,
+which always exist, have well known names that are defined in the
+Telepathy specification. However, the names of Connection Managers and
+clients are not well-known, and must be discovered.</p>
+
+<p>There's no service in Telepathy responsible for the registration of
+running Connection Managers and Clients. Instead, interested parties
+listen on the D-Bus for the announcement of a new service.  The D-Bus
+bus daemon will emit a signal whenever a new named D-Bus service
+appears on the bus. The names of Clients and Connection Managers begin
+with known prefixes, defined by the specification, and new names can
+be matched against these.</p>
+
+<p>The advantage of this design is that it's completely stateless. When a
+Telepathy component is starting up, it can ask the bus daemon (which
+has a canonical list, based on its open connections) what services are
+currently running.  For instance, if the Account Manager crashes, it
+can look to see what connections are running, and reassociate those
+with its account objects.</p>
+
+<div class="box">
+  <p class="boxtitle">Connections are Services Too</p>
+
+<p>As well as the Connection Managers themselves, the connections are
+also advertised as D-Bus services. This hypothetically allows for the
+Connection Manager to fork each connection off as a separate process,
+but to date no Connection Manager like this has been implemented.
+More practically, it allows all running connections to be discovered
+by querying the D-Bus bus daemon for all services beginning with
+<code>ofdT.Connection</code>.</p>
+
+</div>
+
+<p>The Channel Dispatcher also uses this method to discover Telepathy
+clients. These begin with the name <code>ofdT.Client</code>, e.g.,
+<code>ofdT.Client.Logger</code>.</p>
+
+</div>
+
+<div class="subsect">
+<h3>20.2.3. Reducing D-Bus Traffic</h3>
+
+<p>Original versions of the Telepathy specification created an excessive
+amount of D-Bus traffic in the form of method calls requesting
+information desired by lots of consumers on the bus. Later versions of
+the Telepathy have addressed this through a number of optimizations.</p>
+
+<p>Individual method calls were replaced by D-Bus properties. The
+original specification included separate method calls for object
+properties: <code>GetInterfaces</code>, <code>GetChannelType</code>,
+etc. Requesting all the properties of an object required several
+method calls, each with its own calling overhead. By using D-Bus
+properties, everything can be requested at once using the standard
+<code>GetAll</code> method.</p>
+
+<p>Furthermore, quite a number of properties on a channel are immutable
+for the lifetime of the channel. These include things like the
+channel's type, interfaces, who it's connected to and the requestor.
+For a file transfer channel, for example, it also includes things like
+the file size and its content type.</p>
+
+<p>A new signal was added to herald the creation of channels (both
+incoming and in response to outgoing requests) that includes a hash
+table of the immutable properties.  This can be passed directly to the
+channel proxy constructor (see <a href="#sec.telepathy.readiness">Section&nbsp;20.4</a>),
+which saves interested clients from having to request this information
+individually.</p>
+
+<p>User avatars are transmitted across the bus as byte arrays. Although
+Telepathy already used tokens to refer to avatars, allowing clients to
+know when they needed a new avatar and to save downloading unrequired
+avatars, each client had to individually request the avatar via a
+<code>RequestAvatar</code> method that returned the avatar as its reply.
+Thus, when the Connection Manager signalled that a contact had updated
+its avatar, several individual requests for the avatar would be made,
+requiring the avatar to be transmitted over the message bus several
+times.</p>
+
+<p>This was resolved by adding a new method which did not return the
+avatar (it returns nothing). Instead, it placed the avatar in a
+request queue.  Retrieving the avatar from the network would result in
+a signal, <code>AvatarRetrieved</code>, that all interested clients could
+listen to. This means the avatar data only needs to be transmitted
+over the bus once, and will be available to all the interested
+clients. Once the client's request was in the queue, all further
+client requests can be ignored until the emission of the
+<code>AvatarRetrieved</code>.</p>
+
+<p>Whenever a large number of contacts need to be loaded (i.e., when
+loading the contact roster), a significant amount of information needs
+to be requested: their aliases, avatars, capabilities, and group
+memberships, and possibly their location, address, and telephone numbers.
+Previously in Telepathy this would require one method call per
+information group (most API calls, such as <code>GetAliases</code> already
+took a list of contacts), resulting in half a dozen or more method calls.</p>
+
+<p>To solve this, the <code>Contacts</code> interface was introduced.  It
+allowed information from multiple interfaces to be returned via a
+single method call. The Telepathy specification was expanded to
+include Contact Attributes: namespaced properties returned by the
+<code>GetContactAttributes</code> method that shadowed method calls used to
+retrieve contact information. A client calls
+<code>GetContactAttributes</code> with a list of contacts and interfaces it
+is interested in, and gets back a map from contacts to a map of
+contact attributes to values.</p>
+
+<p>A bit of code will make this clearer.  The request looks like this:</p>
+
+<pre>
+connection[CONNECTION_INTERFACE_CONTACTS].GetContactAttributes(
+  [ 1, 2, 3 ], # contact handles
+  [ "ofdT.Connection.Interface.Aliasing",
+    "ofdT.Connection.Interface.Avatars",
+    "ofdT.Connection.Interface.ContactGroups",
+    "ofdT.Connection.Interface.Location"
+  ],
+  False # don't hold a reference to these contacts
+)
+</pre>
+
+<p class="continue">and the reply might look like this:</p>
+
+<pre>
+{ 1: { 'ofdT.Connection.Interface.Aliasing/alias': 'Harvey Cat',
+       'ofdT.Connection.Interface.Avatars/token': hex string,
+       'ofdT.Connection.Interface.Location/location': location,
+       'ofdT.Connection.Interface.ContactGroups/groups': [ 'Squid House' ],
+       'ofdT.Connection/contact-id': 'harvey@nom.cat'
+     },
+  2: { 'ofdT.Connection.Interface.Aliasing/alias': 'Escher Cat',
+       'ofdT.Connection.Interface.Avatars/token': hex string,
+       'ofdT.Connection.Interface.Location/location': location,
+       'ofdT.Connection.Interface.ContactGroups/groups': [],
+       'ofdT.Connection/contact-id': 'escher@tuxedo.cat'
+     },
+  3: { 'ofdT.Connection.Interface.Aliasing/alias': 'Cami Cat',
+        &#8942;    &#8942;    &#8942;
+     }
+}
+</pre>
+
+</div>
+
+</div>
+
+<div class="sect" id="sec.telepathy.ccc">
+<h2>20.3. Connections, Channels and Clients</h2>
+
+<div class="subsect">
+<h3>20.3.1. Connections</h3>
+
+<p>A Connection is created by the Connection Manager to establish a
+connection to a single protocol/account. For example, connecting to
+the XMPP accounts <code>escher@tuxedo.cat</code> and <code>cami@egg.cat</code>
+would result in two Connections, each represented by a D-Bus
+object. Connections are typically set up by the Account Manager, for
+the currently enabled accounts.</p>
+
+<p>The Connection provides some mandatory functionality for managing and
+monitoring the connection status and for requesting channels. It can
+then also provide a number of optional features, depending on the
+features of the protocol. These are provided as optional D-Bus
+interfaces (as discussed in the previous section) and listed by the
+Connection's <code>Interfaces</code> property.</p>
+
+<p>Typically Connections are managed by the Account Manager, created
+using the properties of the respective accounts. The Account Manager
+will also synchronize the user's presence for each account to its
+respective connection and can be asked to provide the connection path
+for a given account.</p>
+
+</div>
+
+<div class="subsect">
+<h3>20.3.2. Channels</h3>
+
+<p>Channels are the mechanism through which communications are carried
+out.  A channel is typically an IM conversation, voice or video call
+or file transfer, but channels are also used to provide some stateful
+communication with the server itself, (e.g., to search for chat rooms
+or contacts). Each channel is represented by a D-Bus object.</p>
+
+<p>Channels are typically between two or more users, one of whom is
+yourself. They typically have a target identifier, which is either
+another contact, in the case of one-to-one communication; or a room
+identifier, in the case of multi-user communication (e.g., a chat
+room). Multi-user channels expose the <code>Group</code> interface, which
+lets you track the contacts who are currently in the channel.</p>
+
+<p>Channels belong to a Connection, and are requested from the Connection
+Manager, usually via the Channel Dispatcher; or they are created by
+the Connection in response to a network event (e.g., incoming chat),
+and handed to the Channel Dispatcher for dispatching.</p>
+
+<p>The type of channel is defined by the channel's <code>ChannelType</code>
+property. The core features, methods, properties, and signals that are
+needed for this channel type (e.g., sending and receiving text
+messages) are defined in the appropriate <code>Channel.Type</code> D-Bus
+interface, for instance <code>Channel.Type.Text</code>. Some channel types
+may implement optional additional features (e.g., encryption) which
+appear as additional interfaces listed by the channel's
+<code>Interfaces</code> property.  An example text channel that connects the
+user to a multi-user chatroom might have the interfaces shown in
+<a href="#tbl.telepathy.textchannel">Table&nbsp;20.1</a>.</p>
+
+<div class="table" id="tbl.telepathy.textchannel">
+  <table>
+    <tr>
+      <th>Property</th>
+      <th>Purpose</th>
+    </tr>
+    <tr>
+      <td><code>odfT.Channel</code></td>
+      <td>Features common to all channels</td>
+    </tr>
+    <tr>
+      <td><code>odfT.Channel.Type.Text</code></td>
+      <td>The Channel Type, includes features common to text channels</td>
+    </tr>
+    <tr>
+      <td><code>odfT.Channel.Interface.Messages</code></td>
+      <td>Rich-text messaging</td>
+    </tr>
+    <tr>
+      <td><code>odfT.Channel.Interface.Group</code></td>
+      <td>List, track, invite and approve members in this channel</td>
+    </tr>
+    <tr>
+      <td><code>odfT.Channel.Interface.Room</code></td>
+      <td>Read and set properties such as the chatroom's subject</td>
+    </tr>
+  </table>
+  <p>Table 20.1: Example Text Channel</p>
+</div>
+
+<div class="box">
+  <p class="boxtitle">Contact List Channels: A Mistake</p>
+
+<p>In the first versions of the Telepathy specification, contact lists
+were considered a type of channel. There were several server-defined
+contact lists (subscribed users, publish-to users, blocked users),
+that could be requested from each Connection. The members of the list
+were then discovered using the <code>Group</code> interface, like for a
+multi-user chat.</p>
+
+<p>Originally this would allow for channel creation to occur only once
+the contact list had been retrieved, which takes time on some
+protocols. A client could request the channel whenever it liked, and
+it would be delivered once ready, but for users with lots of contacts
+this meant the request would occasionally time out.  Determining the
+subscription/publish/blocked status of a client required checking
+three channels.</p>
+
+<p>Contact Groups (e.g., Friends) were also exposed as channels, one
+channel per group. This proved extremely difficult for client
+developers to work with.  Operations like getting the list of groups a
+contact was in required a significant amount of code in the client.
+Further, with the information only available via channels, properties
+such as a contact's groups or subscription state could not be
+published via the Contacts interface.</p>
+
+<p>Both channel types have since been replaced by interfaces on the
+Connection itself which expose contact roster information in ways more
+useful to client authors, including subscription state of a contact
+(an enum), groups a contact is in, and contacts in a group.  A signal
+indicates when the contact list has been prepared.</p>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>20.3.3. Requesting Channels, Channel Properties and Dispatching</h3>
+
+<p>Channels are requested using a map of properties you wish the desired
+channel to possess. Typically, the channel request will include the
+channel type, target handle type (contact or room) and target.
+However, a channel request may also include properties such as the
+filename and filesize for file transfers, whether to initially include
+audio and video for calls, what existing channels to combine into a
+conference call, or which contact server to conduct a contact search
+on.</p>
+
+<p>The properties in the channel request are properties defined by
+interfaces of the Telepathy spec, such as the <code>ChannelType</code>
+property (<a href="#tbl.telepathy.channelrequest">Table&nbsp;20.2</a>).
+They are qualified with the namespace of the interface they come from
+Properties which can be included in channel requests are marked as
+<em>requestable</em> in the Telepathy spec.</p>
+
+<div class="table" id="tbl.telepathy.channelrequest">
+  <table>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.ChannelType</code></td>
+      <td><code>ofdT.Channel.Type.Text</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetHandleType</code></td>
+      <td><code>Handle_Type_Contact</code> (1)</td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetID</code></td>
+      <td><code>escher@tuxedo.cat</code></td>
+    </tr>
+  </table>
+  <p>Table 20.2: Example Channel Requests</p>
+</div>
+
+<p>The more complicated example in <a href="tbl.telepathy.transfer#tbl.telepathy.transfer">Table&nbsp;20.3</a>
+requests a file transfer channel. Notice how the requested properties
+are qualified by the interface from which they come.  (For brevity,
+not all required properties are shown.)</p>
+
+<div class="table" id="tbl.telepathy.transfer">
+  <table>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.ChannelType</code></td>
+      <td><code>ofdT.Channel.Type.FileTransfer</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetHandleType</code></td>
+      <td><code>Handle_Type_Contact</code> (1)</td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetID</code></td>
+      <td><code>escher@tuxedo.cat</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.Type.FileTransfer.Filename</code></td>
+      <td><code>meow.jpg</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.Type.FileTransfer.ContentType</code></td>
+      <td><code>image/jpeg</code></td>
+    </tr>
+  </table>
+  <p>Table 20.3: File Transfer Channel Request</p>
+</div>
+
+<p>Channels can either be <em>created</em> or <em>ensured</em>. Ensuring a
+channel means creating it only if it does not already exist. Asking to
+create a channel will either result in a completely new and separate
+channel being created, or in an error being generated if multiple
+copies of such a channel cannot exist. Typically you wish to ensure
+text channels and calls (i.e., you only need one conversation open with
+a person, and in fact many protocols do not support multiple separate
+conversations with the same contact), and wish to create file
+transfers and stateful channels.</p>
+
+<p>Newly created channels (requested or otherwise) are announced by a
+signal from the Connection. This signal includes a map of the
+channel's <em>immutable</em> properties. These are the properties which
+are guaranteed not to change throughout the channel's lifetime.
+Properties which are considered immutable are marked as such in the
+Telepathy spec, but typically include the channel's type, target
+handle type, target, initiator (who created the channel) and
+interfaces.  Properties such as the channel's state are obviously not
+included.</p>
+
+<div class="box">
+  <p class="boxtitle">Old-School Channel Requesting</p>
+
+<p>Channels were originally requested simply by type, handle type and
+target handle.  This wasn't sufficiently flexible because not all
+channels have a target (e.g., contact search channels), and some
+channels require additional information included in the initial
+channel request (e.g., file transfers, requesting voicemails and
+channels for sending SMSes).</p>
+
+<p>It was also discovered that two different behaviors might be desired
+when a channel was requested (either to create a guaranteed unique
+channel, or simply ensure a channel existed), and until this time the
+Connection had been responsible for deciding which behavior would
+occur.  Hence, the old method was replaced by the newer, more
+flexible, more explicit ones.</p>
+
+</div>
+
+<p>Returning a channel's immutable properties when you create or ensure
+the channel makes it much faster to create a proxy object for the
+channel. This is information we now don't have to request.  The map in
+<a href="#tbl.telepathy.immutable">Table&nbsp;20.4</a> shows the immutable properties
+that might be included when we request a text channel (i.e., using the
+channel request in <a href="#tbl.telepathy.transfer">Table&nbsp;20.3</a>). Some
+properties (including <code>TargetHandle</code> and <code>InitiatorHandle</code>)
+have been excluded for brevity.</p>
+
+<div class="table" id="tbl.telepathy.immutable">
+  <table>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.ChannelType</code></td>
+      <td><code>Channel.Type.Text</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.Interfaces</code></td>
+      <td><code>{[} Channel.Interface.Messages, Channel.Interface.Destroyable, Channel.Interface.ChatState {]}</code> </td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetHandleType</code></td>
+      <td><code>Handle_Type_Contact</code> (1)</td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetID</code></td>
+      <td><code>escher@tuxedo.cat</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.InitiatorID</code></td>
+      <td><code>danielle.madeley@collabora.co.uk</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.Requested</code></td>
+      <td><code>True</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.Interface.Messages.SupportedContentTypes</code></td>
+      <td><code>{[} text/html, text/plain {]}</code></td>
+    </tr>
+  </table>
+  <p>Table 20.4: Example Immutable Properties Returned by a New Channel</p>
+</div>
+
+<p>The requesting program typically makes a request for a channel to the
+Channel Dispatcher, providing the account the request is for, the
+channel request, and optionally the name of a the desired handler
+(useful if the program wishes to handle the channel itself).  Passing
+the name of an account instead of a connection means that the Channel
+Dispatcher can ask the Account Manager to bring an account online if
+required.</p>
+
+<p>Once the request is complete, the Channel Dispatcher will either pass
+the channel to the named Handler, or locate an appropriate Handler
+(see below for discussion on Handlers and other clients). Making the
+name of the desired Handler optional makes it possible for programs
+that have no interest in communication channels beyond the initial
+request to request channels and have them handled by the best program
+available (e.g., launching a text chat from your email client).</p>
+
+<div class="figure" id="fig.telepathy.request">
+  <img src="../images/telepathy/dispatching-model.png" alt="[Channel Request and Dispatching]" />
+  <p>Figure&nbsp;20.4: Channel Request and Dispatching</p>
+</div>
+
+<p>The requesting program makes a channel request to the Channel
+Dispatcher, which in turn forwards the request to the appropriate
+Connection. The Connection emits the NewChannels signal which is
+picked up by the Channel Dispatcher, which then finds the appropriate
+client to handle the channel.  Incoming, unrequested channels are
+dispatched in much the same way, with a signal from the Connection
+that is picked up by the Channel Dispatcher, but obviously without the
+initial request from a program.</p>
+
+</div>
+
+<div class="subsect">
+<h3>20.3.4. Clients</h3>
+
+<p>Clients handle or observe incoming and outgoing communications
+channels. A client is anything that is registered with the Channel
+Dispatcher.  There are three types of clients (though a single client
+may be two, or all three, types if the developer wishes):</p>
+
+<ul>
+
+  <li><em>Observers</em>: Observe channels without interacting with
+  them. Observers tend to be used for chat and activity logging
+  (e.g., incoming and outgoing VoIP calls).</li>
+
+  <li><em>Approvers</em>: Responsible for giving users an opportunity to
+  accept or reject an incoming channel.</li>
+
+  <li><em>Handlers</em>: Actually interact with the channel. That might be
+  acknowledging and sending text messages, sending or receiving a
+  file, etc. A Handler tends to be associated with a user interface.</li>
+
+</ul>
+
+<p>Clients offer D-Bus services with up to three interfaces:
+<code>Client.Observer</code>, <code>Client.Approver</code>, and
+<code>Client.Handler</code>. Each interface provides a method that the
+Channel Dispatcher can call to inform the client about a channel to
+observe, approve or handle.</p>
+
+<p>The Channel Dispatcher dispatches the channel to each group of clients
+in turn. First, the channel is dispatched to all appropriate
+Observers.  Once they have all returned, the channel is dispatched to
+all the appropriate Approvers. Once the first Approver has approved or
+rejected the channel, all other Approvers are informed and the channel
+is finally dispatched to the Handler.  Channel dispatching is done in
+stages because Observers might need time to get set up before the
+Handler begins altering the channel.</p>
+
+<p>Clients expose a channel filter property which is a list of filters
+read by the Channel Dispatcher so that it knows what sorts of channels
+a client is interested in. A filter must include at least the channel
+type, and target handle type (e.g., contact or room) that the client
+is interested in, but it can contain more properties. Matching is done
+against the channel's immutable properties, using simple equality for
+comparison.  The filter in <a href="#tbl.telepathy.filter">Table&nbsp;20.5</a>
+matches all one-to-one text channels.</p>
+
+<div class="table" id="tbl.telepathy.filter">
+  <table>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.ChannelType</code></td>
+      <td><code>Channel.Type.Text</code></td>
+    </tr>
+    <tr>
+      <td><code>ofdT.Channel.TargetHandleType</code></td>
+      <td><code>Handle_Type_Contact</code> (1)</td>
+    </tr>
+  </table>
+  <p>Table 20.5: Example Channel Filter</p>
+</div>
+
+<p>Clients are discoverable via D-Bus because they publish services
+beginning with the well-known name <code>ofdT.Client</code> (for example
+<code>ofdT.Client.Empathy.Chat</code>).  They can also optionally install a
+file which the Channel Dispatcher will read specifying the channel
+filters. This allows the Channel Dispatcher to start a client if it is
+not already running.  Having clients be discoverable in this way makes
+the choice of user interface configurable and changeable at any time
+without having to replace any other part of Telepathy.</p>
+
+<div class="box">
+  <p class="boxtitle">All or Nothing</p>
+
+<p>It is possible to provide a filter indicating you are interested in
+all channels, but in practice this is only useful as an example of
+observing channels. Real clients contain code that is specific to
+channel types.</p>
+
+<p>An empty filter indicates a Handler is not interested in any channel
+types. However it is still possible to dispatch a channel to this
+handler if you do so by name.  Temporary Handlers which are created on
+demand to handle a specific channel use such a filter.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>20.4. The Role of Language Bindings</h2>
+
+<p>As Telepathy is a D-Bus API, and thus can driven by any programming
+language that supports D-Bus.  Language bindings are not required for
+Telepathy, but they can be used to provide a convenient way to use it.</p>
+
+<p>Language bindings can be split into two groups: low-level bindings
+that include code generated from the specification, constants, method
+names, etc.; and high-level bindings, which are hand-written code that
+makes it easier for programmers to do things using Telepathy.
+Examples of high-level bindings are the GLib and Qt4 bindings.
+Examples of low-level bindings are the Python bindings and the
+original libtelepathy C bindings, though the GLib and Qt4 bindings
+include a low-level binding.</p>
+
+<div class="subsect">
+<h3>20.4.1. Asynchronous Programming</h3>
+
+<p>Within the language bindings, all method calls that make requests over
+D-Bus are asynchronous: the request is made, and the reply is given in
+a callback. This is required because D-Bus itself is asynchronous.</p>
+
+<p>Like most network and user interface programming, D-Bus requires the
+use of an event loop to dispatch callbacks for incoming signals and
+method returns. D-Bus integrates well with the GLib mainloop used by
+the GTK+ and Qt toolkits.</p>
+
+<p>Some D-Bus language bindings (such as dbus-glib) provide a
+pseudo-synchronous API, where the main loop is blocked until the
+method reply is returned.  Once upon a time this was exposed via the
+telepathy-glib API bindings. Unfortunately using pseudo-synchronous
+API turns out to be fraught with problems, and was eventually removed
+from telepathy-glib.</p>
+
+<div class="box">
+  <p class="boxtitle">Why Pseudo-Synchronous D-Bus Calls Don't Work</p>
+
+<p>The pseudo-synchronous interface offered by dbus-glib and other D-Bus
+bindings is implemented using a request-and-block technique. While
+blocking, only the D-Bus socket is polled for new I/O and any D-Bus
+messages that are not the response to the request are queued for later
+processing.</p>
+
+This causes several major and inescapable problems:
+
+<ul>
+
+  <li>The caller is blocked while waiting for the request to be
+  answered.  It (and its user interface, if any) will be completely
+  unresponsive. If the request requires accessing the network, that
+  takes time; if the callee has locked up, the caller will be
+  unresponsive until the call times out.
+  <br/>
+  Threading is not a solution here because threading is just another
+  way of making your calling asynchronous. Instead you may as well
+  make asynchronous calls where the responses come in via the
+   existing event loop.</li>
+
+  <li>Messages may be reordered. Any messages received before the
+  watched-for reply will be placed on a queue and delivered to the
+  client after the reply.
+  <br/>
+  This causes problems in situations where a signal indicating a
+  change of state (i.e., the object has been destroyed) is now
+  received after the method call on that object fails (i.e., with
+  the exception <code>UnknownMethod</code>).  In this situation, it is
+  hard to know what error to display to the user.  Whereas if we
+  receive a signal first, we can cancel pending D-Bus method calls,
+  or ignore their responses.</li>
+
+  <li>Two processes making pseudo-blocking calls on each other can
+  deadlock, with each waiting for the other to respond to its query.
+  This scenario can occur with processes that are both a D-Bus
+  service and call other D-Bus services (for example, Telepathy
+  clients). The Channel Dispatcher calls methods on clients to
+  dispatch channels, but clients also call methods on the Channel
+  Dispatcher to request the opening of new channels (or equally they
+  call the Account Manager, which is part of the same process).</li>
+
+</ul>
+
+</div>
+
+<p>Method calls in the first Telepathy bindings, generated in C, simply
+used typedef callback functions. Your callback function simply had to
+implement the same type signature.</p>
+
+<pre>
+typedef void (*tp_conn_get_self_handle_reply) (
+    DBusGProxy *proxy,
+    guint handle,
+    GError *error,
+    gpointer userdata
+);
+</pre>
+
+<p class="continue">This idea is simple, and works for C, so was continued into
+the next generation of bindings.</p>
+
+<p>In recent years, people have developed a way to use scripting
+languages such as Javascript and Python, as well as a C#-like
+language called Vala, that use GLib/GObject-based APIs via a tool
+called GObject-Introspection.  Unfortunately, it's extremely difficult
+to rebind these types of callbacks into other languages, so newer
+bindings are designed to take advantage of the asynchronous callback
+features provided by the languages and GLib.</p>
+
+</div>
+
+<div class="subsect" id="sec.telepathy.readiness">
+<h3>20.4.2. Object Readiness</h3>
+
+<p>In a simple D-Bus API, such as the low-level Telepathy bindings, you
+can start making method calls or receive signals on a D-Bus object
+simply by creating a proxy object for it.  It's as simple as giving an
+object path and interface name and getting started.</p>
+
+<p>However, in Telepathy's high-level API, we want our object proxies to
+know what interface are available, we want common properties for the
+object type to be retrieved (e.g., the channel type, target,
+initiator), and we want to determine and track the object's state or
+status (e.g., the connection status).</p>
+
+<p>Thus, the concept of <em>readiness</em> exists for all proxy objects. By
+making a method call on a proxy object, you are able to asynchronously
+retrieve the state for that object and be notified when state is
+retrieved and the object is ready for use.</p>
+
+<p>Since not all clients implement, or are interested in, all the
+features of a given object, readiness for an object type is separated
+into a number of possible features.  Each object implements a
+<em>core</em> feature, which will prepare crucial information about the
+object (i.e., its <code>Interfaces</code> property and basic state), plus a
+number of optional features for additional state, which might include
+extra properties or state-tracking.  Specific examples of additional
+features you can ready on various proxies are contact info,
+capabilities, geolocation information, chat states (such as "Escher
+is typing&hellip;") and user avatars.</p>
+
+<p>For example, connection object proxies have:</p>
+
+<ul>
+
+  <li>a core feature which retrieves the interface and connection
+  status;</li>
+
+  <li>features to retrieve the requestable channel classes and
+  support contact info; and</li>
+
+  <li>a feature to establish a connection and return ready when
+  connected.</li>
+
+</ul>
+
+<p>The programmer requests that the object is readied, providing a list
+of features in which they are interested and a callback to call when
+all of those features are ready. If all the features are already
+ready, the callback can be called immediately, else the callback is
+called once all the information for those features is retrieved.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>20.5. Robustness</h2>
+
+<p>One of the key advantages of Telepathy is its robustness. The
+components are modular, so a crash in one component should not bring
+down the whole system.  Here are some of the features that make
+Telepathy robust:</p>
+
+<ul>
+
+  <li>The Account Manager and Channel Dispatcher can recover their
+  state.  When Mission Control (the single process that includes the
+  Account Manager and Channel Dispatcher) starts, it looks at the
+  names of services currently registered on the user's session bus.
+  Any Connections it finds that are associated with a known account
+  are reassociated with that account (rather than a new connection
+  being established), and running clients are queried for the list
+  of channels they're handling.</li>
+
+  <li>If a client disappears while a channel it's handling is open,
+  the Channel Dispatcher will respawn it and reissue the channel.
+  <br/>
+  If a client repeatedly crashes the Channel Dispatcher can attempt
+  to launch a different client, if available, or else it will close
+  the channel (to prevent the client repeatedly crashing on data it
+  can't handle).
+  <br/>
+  Text messages require acknowledgment before they will disappear
+  from the list of pending messages. A client is only meant to
+  acknowledge a message once it is sure the user has seen it (that
+  is, displayed the message in a focused window). This way if the
+  client crashes trying to render the message, the channel will
+  still have the previously undisplayed message in the pending
+  message queue.</li>
+
+  <li>If a Connection crashes, the Account Manager will respawn
+  it. Obviously the content of any stateful channels will be lost,
+  but it will only affect the Connections running in that process
+  and no others. Clients can monitor the state of the connections
+  and simply re-request information like the contact roster and any
+  stateless channels.</li>
+
+</ul>
+
+</div>
+
+<div class="sect">
+<h2>20.6. Extending Telepathy: Sidecars</h2>
+
+<p>Although the Telepathy specification tries to cover a wide range of
+features exported by communication protocols, some protocols are
+themselves extensible<sup class="footnote"><a href="#footnote-4">4</a></sup>.  Telepathy's developers wanted to make
+it possible extend your Telepathy connections to make use of such
+extensions without having to extend the Telepathy specification
+itself. This is done through the use of <em>sidecars</em>.</p>
+
+<p>Sidecars are typically implemented by plugins in a Connection Manager.
+Clients call a method requesting a sidecar that implements a given
+D-Bus interface.  For example, someone's implementation of XEP-0016
+privacy lists might implement an interface named
+<code>com.example.PrivacyLists</code>. The method then returns a D-Bus
+object provided by the plugin, which should implement that interface
+(and possibly others). The object exists alongside the main Connection
+object (hence the name sidecar, like on a motorcycle).</p>
+
+<div class="box">
+  <p class="boxtitle">The History of Sidecars</p>
+
+<p>In the early days of Telepathy, the One Laptop Per Child project
+needed to support custom XMPP extensions (XEPs) to share information
+between devices. These were added directly to Telepathy-Gabble (the
+XMPP Connection Manager), and exposed via undocumented interfaces on
+the Connection object.  Eventually, with more developers wanting
+support for specific XEPs which have no analogue in other
+communications protocols, it was agreed that a more generic interface
+for plugins was needed.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>20.7. A Brief Look Inside a Connection Manager</h2>
+
+<p>Most Connection Managers are written using the C/GLib language
+binding, and a number of high-level base classes have been developed
+to make writing a Connection Manager easier.  As discussed previously,
+D-Bus objects are published from software objects that implement a
+number of software interfaces that map to D-Bus
+interfaces. Telepathy-GLib provides base objects to implement the
+Connection Manager, Connection and Channel objects. It also provides
+an interface to implement a Channel Manager. Channel Managers are
+factories that can be used by the <code>BaseConnection</code> to instantiate
+and manage channel objects for publishing on the bus.</p>
+
+<p>The bindings also provide what are known as <em>mixins</em>.  These can
+be added to a class to provide additional functionality, abstract the
+specification API and provide backwards compatibility for new and
+deprecated versions of an API through one mechanism. The most commonly
+used mixin is one that adds the D-Bus properties interface to an
+object. There are also mixins to implement the
+<code>ofdT.Connection.Interface.Contacts</code> and
+<code>ofdT.Channel.Interface.Group</code> interfaces and mixins making it
+possible to implement the old and new presence interfaces, and old and
+new text message interfaces via one set of methods.</p>
+
+<div class="figure" id="fig.telepathy.manager">
+  <img src="../images/telepathy/cm.png" alt="[Example Connection Manager Architecture]" />
+  <p>Figure&nbsp;20.5: Example Connection Manager Architecture</p>
+</div>
+
+<div class="box">
+  <p class="boxtitle">Using Mixins to Solve API Mistakes<p>
+
+<p>One place where mixins have been used to solve a mistake in the
+Telepathy specification is the <code>TpPresenceMixin</code>.  The original
+interface exposed by Telepathy
+(<code>odfT.Connection.Interface.Presence</code>) was incredibly
+complicated, hard to implement for both Connections and Clients, and
+exposed functionality that was both nonexistent in most communications
+protocols, and very rarely used in others. The interface was replaced
+by a much simpler interface
+(<code>odfT.Connection.Interface.SimplePresence</code>), which exposed all
+the functionality that users cared about and had ever actually been
+implemented in the connection managers.</p>
+
+<p>The presence mixin implements both interfaces on the Connection so
+that legacy clients continue to work, but only at the functionality
+level of the simpler interface.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>20.8. Lessons Learned</h2>
+
+<p>Telepathy is an excellent example of how to build a modular, flexible
+API on top of D-Bus. It shows how you can develop an extensible,
+decoupled framework on top of D-Bus. One which requires no central
+management daemon and allows components to be restartable, without
+loss of data in any other component.  Telepathy also shows how you can
+use D-Bus efficiently and effectively, minimizing the amount of
+traffic you transmit on the bus.</p>
+
+<p>Telepathy's development has been iterative, improving its use of D-Bus
+as time goes on. Mistakes were made, and lessons have been learned.
+Here are some of the important things we learned in designing the
+architecture of Telepathy:</p>
+
+<ul>
+
+  <li><em>Use D-Bus properties; don't require dozens of small D-Bus
+  method calls to look up information.</em>  Every method call has a
+  round-trip time. Rather than making lots of individual calls
+  (e.g., <code>GetHandle</code>, <code>GetChannelType</code>,
+  <code>GetInterfaces</code>) use D-Bus properties and return all the
+  information via a single call to <code>GetAll</code>.</li>
+
+  <li><em>Provide as much information as you can when announcing new
+  objects.</em>  The first thing clients used to do when they learned
+  about a new object was to request all of its properties to learn
+  whether they were even interested in the object. By including the
+  immutable properties of an object in the signal announcing the
+  object, most clients can determine their interest in the object
+  without making any method calls. Furthermore, if they are
+  interested in the object, they do not have to bother requesting
+  any of its immutable properties.</li>
+
+  <li><em>The <code>Contacts</code> interface allows requesting information
+  from multiple interfaces at once.</em>  Rather than making numerous
+  <code>GetAll</code> calls to retrieve all the information for a contact,
+  the <code>Contacts</code> interface lets us request all the information
+  at once, saving a number of D-Bus round trips.</li>
+
+  <li><em>Don't use abstractions that don't quite fit.</em>  Exposing the
+  contact roster and contact groups as channels implementing the
+  <code>Group</code> interface seemed like a good idea because it used
+  existing abstractions rather than requiring additional
+  interfaces. However, it made implementing clients difficult and
+  was ultimately not suitable.</li>
+
+  <li><em>Ensure your API will meet your future needs.</em>  The original
+  channel requesting API was very rigid, only permitting very basic
+  channel requests. This did not meet our needs when needing to
+  request channels that required more information. This API had to
+  be replaced with one that had significantly more flexibility.</li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://telepathy.freedesktop.org/</code>, or see the
+developers' manual at <code class="url">http://telepathy.freedesktop.org/doc/book/</code></li>
+<li id="footnote-2"><code class="url">http://telepathy.freedesktop.org/spec/</code></li>
+<li id="footnote-3">From here
+on, <code>/org/freedesktop/Telepathy/</code> and
+<code>org.freedesktop.Telepathy</code> will be abbreviated to <code>ofdT</code>
+to save space.</li>
+<li id="footnote-4">E.g., the Extensible Messaging and
+ Presence Protocol (XMPP).</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: thousandparsec.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Thousand Parsec</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Thousand Parsec</h1>
+        <p><a href="intro1.html#laudicina-alan">Alan Laudicina</a> and <a href="intro1.html#mavrinac-aaron">Aaron Mavrinac</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>A vast star empire encompasses a hundred worlds, stretching a thousand
+parsecs across space. Unlike some other areas of the galaxy, few
+warriors live here; this is an intellectual people, with a rich
+cultural and academic tradition. Their magnificent planets, built turn
+by turn around great universities of science and technology, are a
+beacon of light to all in this age of peace and prosperity. Starships
+arrive from the vast reaches of the quadrant and beyond, bearing the
+foremost researchers from far and wide. They come to contribute their
+skills to the most ambitious project ever attempted by sentient
+beings: the development of a decentralized computer network to connect
+the entire galaxy, with all its various languages, cultures, and
+systems of law.</p>
+
+<p>Thousand Parsec is more than a video game: it is a framework, with a
+complete toolkit for building multiplayer, turn-based space empire
+strategy games. Its generic game protocol allows diverse
+implementations of client, server, and AI software, as well as a vast
+array of possible games. Though its size
+has made planning and execution challenging,
+forcing contributors to walk a thin line between
+excessively vertical and excessively horizontal development, it also
+makes it a rather interesting specimen when discussing the
+architecture of open source applications.</p>
+
+<p>The journalist's label for the genre Thousand Parsec games inhabit is
+"4X"&mdash;shorthand for "e<em>x</em>plore, e<em>x</em>pand,
+e<em>x</em>ploit, and e<em>x</em>terminate," the modus operandi of the
+player controlling an empire<sup class="footnote"><a href="#footnote-1">1</a></sup>.
+Typically in the 4X genre of games, players will scout to reveal the
+map (explore), create new settlements or extend the influence of
+existing ones (expand), gather and use resources in areas they control
+(exploit), and attack and eliminate rival players (exterminate). The
+emphasis on economic and technological development, micromanagement,
+and variety of routes to supremacy yield a depth and complexity of
+gameplay unparalleled within the greater strategy genre.</p>
+
+<p>From a player's perspective, three main components are involved
+in a game of Thousand Parsec. First, there is the client: this is the
+application through which the player interacts with the universe. This
+connects to a server over the network&mdash;communicating using the
+all-important protocol&mdash;to which other players' (or, in some cases,
+artificial intelligence) clients are also connected. The server stores
+the entire game state, updating clients at the start of each turn.
+Players can then perform various actions and communicate them back to
+the server, which computes the resulting state for the next turn. The
+nature of the actions a player may perform is dictated by a ruleset:
+this in essence defines the game being played, implemented and
+enforced on the server side, and actualized for the player by any
+supporting client.</p>
+
+<p>Because of the diversity of possible games, and the complexity of the
+architecture required to support this diversity, Thousand Parsec is an
+exciting project both for gamers and for developers. We hope that even
+the serious coder with little interest in the anatomy of game
+frameworks might find value in the underlying mechanics of
+client-server communication, dynamic configuration, metadata handling,
+and layered implementation, all of which have grown rather organically
+toward good design over the years in quintessential open source style.</p>
+
+<p>At its core, Thousand Parsec is primarily a set of standard
+specifications for a game protocol and other related
+functionality. This chapter discusses the framework mostly from this
+abstract viewpoint, but in many cases it is much more enlightening
+to refer to actual implementations. To this end, the authors have
+chosen the "flagship" implementations of each major component for
+concrete discussion.</p>
+
+<p>The case model client is <code>tpclient-pywx</code>, a relatively mature
+wxPython-based client which at present supports the largest set of
+features and the latest game protocol version. This is supported by
+<code>libtpclient-py</code>, a Python client helper library providing
+caching and other functionality, and <code>libtpproto-py</code>, a Python
+library which implements the latest version of the Thousand Parsec
+protocol. For the server, <code>tpserver-cpp</code>, the mature C++
+implementation supporting the latest features and protocol version, is
+the specimen. This server sports numerous rulesets, among which the
+<em>Missile and Torpedo Wars</em> milestone ruleset is exemplary for
+making the most extensive use of features and for being a
+"traditional" 4X space game.</p>
+
+<div class="sect">
+<h2>21.1. Anatomy of a Star Empire</h2>
+
+<p>In order to properly introduce the things that make up a Thousand
+Parsec universe, it makes sense first to give a quick overview of a
+game. For this, we'll examine the <em>Missile and Torpedo Wars</em>
+ruleset, the project's second milestone ruleset, which makes use of
+most of the major features in the current mainline version of the
+Thousand Parsec protocol. Some terminology will be used here which
+will not yet be familiar; the remainder of this section will elucidate
+it so that the pieces all fall into place.</p>
+
+<p><em>Missile and Torpedo Wars</em> is an advanced ruleset in that it
+implements all of the methods available in the Thousand Parsec
+framework. At the time of writing, it is the only ruleset to do so,
+and it is being quickly expanded to become a more complete and
+entertaining game.</p>
+
+<p>Upon establishing a connection to a Thousand Parsec server, the client
+probes the server for a list of game entities and proceeds to download
+the entire catalog.  This cataloger includes all of the objects,
+boards, messages, categories, designs, components, properties, players,
+and resources that make up the state of the game, all of which are
+covered in detail in this section. While this may seem like a lot for
+the client to digest at the beginning of the game&mdash;and also at the
+end of each turn&mdash;this information is absolutely vital for the
+game. Once this information has been downloaded, which generally takes on the order of a few seconds, the client now has
+everything it needs to plot the information onto its representation of
+the game universe.</p>
+
+<p>When first connected to the server, a random planet is generated and
+assigned as the new player's "home planet", and two fleets are
+automatically created there. Each fleet consists of two default Scout
+designs, consisting of a Scout Hull with an Alpha Missile Tube.  Since
+there is no Explosive component added, this default fleet is not yet
+capable of fleet-to-fleet or fleet-to-planet combat; it is, in fact, a
+sitting duck.</p>
+
+<p>At this point, it is important for a player to begin equipping fleets
+with weaponry. This is achieved by creating a weapon design using a
+Build Weapon order, and then loading the finished product onto the
+target fleet through a Load Armament order. The Build Weapon order
+converts a planet's resources&mdash;of which each planet has amounts and
+proportions assigned by a random distribution&mdash;into a finished
+product: an explosive warhead which is planted on the creating
+planet's surface. The Load Armament order then transfers this
+completed weapon onto a waiting fleet.</p>
+
+<p>Once the easily accessible surface resources of a planet are used up,
+it is important to obtain more through mining. Resources come in two
+other states: mineable and inaccessible. Using a Mine order on a
+planet, mineable resources may be converted over time into surface
+resources, which can then be used for building.</p>
+
+<div class="subsect">
+<h3>21.1.1. Objects</h3>
+
+<p>In a Thousand Parsec universe, every physical thing is an object. In
+fact, the universe itself is also an object. This design allows for a
+virtually unlimited set of elements in a game, while remaining simple
+for rulesets which require only a few types of objects. On top of the
+addition of new object types, each object can store some of its own
+specific information that can be sent and used via the Thousand Parsec
+protocol. Five basic built-in object types are currently provided by
+default: Universe, Galaxy, Star System, Planet, and Fleet.</p>
+
+<p>The Universe is the top-level object in a Thousand Parsec game, and it
+is always accessible to all players. While the Universe object does
+not actually exert much control over the game, it does store one
+vastly important piece of information: the current turn number. Also
+known as the "year" in Thousand Parsec parlance, the turn number,
+naturally, increments after the completion of each turn. It is stored
+in an unsigned 32-bit integer, allowing for games to run until year
+4,294,967,295. While not impossible in theory, the authors have not,
+to date, seen a game progress this far.</p>
+
+<p>A Galaxy is a container for a number of proximate objects&mdash;Star
+Systems, Planets and Fleets&mdash;and provides no additional
+information. A large number of Galaxies may exist in a game, each
+hosting a subsection of the Universe.</p>
+
+<p>Like the previous two objects, a Star System is primarily a container
+for lower-level objects. However, the Star System object is the first
+tier of object which is represented graphically by the client. These
+objects may contain Planets and Fleets (at least temporarily).</p>
+
+<p>A Planet is a large celestial body which may be inhabited and provide
+resource mines, production facilities, ground-based armaments, and
+more. The Planet is the first tier of object which can be owned by a
+player; ownership of a Planet is an accomplishment not to be taken
+lightly, and not owning any planets is a typical condition for
+rulesets to proclaim a player's defeat. The Planet object has a
+relatively large amount of stored data, accounting for the following:</p>
+
+<ul>
+
+  <li>The player ID of the Planet's owner (or -1 if not owned by any
+  player).</li>
+
+  <li>A list of the Planet's resources, containing the resource ID
+  (type), and the amount of surface, mineable, and inaccessible
+  resources of this type on the Planet.</li>
+
+</ul>
+
+<p>The built-in objects described above provide a good basis for many
+rulesets following the traditional 4X space game formula. Naturally,
+in keeping with good software engineering principles, object classes
+can be extended within rulesets. A ruleset designer thus has the
+ability to create new object types or store additional information in
+the existing object types as required by the ruleset, allowing for
+virtually unlimited extensibility in terms of the available physical
+objects in the game.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.1.2. Orders</h3>
+
+<p>Defined by each ruleset, orders can be attached to both Fleet and
+Planet objects. While the core server does not ship with any default
+order types, these are an essential part of even the most basic
+game. Depending on the nature of the ruleset, orders may be used to
+accomplish almost any task. In the spirit of the 4X genre, there are a
+few standard orders which are implemented in most rulesets: these are
+the Move, Intercept, Build, Colonize, Mine, and Attack orders.</p>
+
+<p>In order to fulfill the first imperative (e<em>x</em>plore) of 4X, one
+needs to be able to move about the map of the universe. This is
+typically achieved via a Move order appended to a Fleet object. In the
+flexible and extensible spirit of the Thousand Parsec framework, Move
+orders can be implemented differently depending on the nature of the
+ruleset. In <em>Minisec</em> and <em>Missile and Torpedo Wars</em>, a Move
+order typically takes a point in 3D space as a parameter. On the
+server side, the estimated time of arrival is calculated and the
+number of required turns is sent back to the client. The Move order
+also acts as a pseudo-Attack order in rulesets where teamwork is not
+implemented. For example, moving to a point occupied by an enemy fleet
+in both Minisec and Missile and Torpedo Wars is almost certain to be
+followed by a period of intense combat. Some rulesets supporting a Move
+order parameterize it differently (i.e. not using 3D points). For
+example, the <em>Risk</em> ruleset only allows single-turn moves to
+planets which are directly connected by a "wormhole".</p>
+
+<p>Typically appended to Fleet objects, the Intercept order allows an
+object to meet another (commonly an enemy fleet) within space. This
+order is similar to Move, but since two objects might be moving in
+different directions during the execution of a turn, it is impossible
+to land directly on another fleet simply using spatial coordinates, so
+a distinct order type is necessary. The Intercept order addresses this
+issue, and can be used to wipe out an enemy fleet in deep space or
+fend off an oncoming attack in a moment of crisis.</p>
+
+<p>The Build order helps to fulfill two of the 4X
+imperatives&mdash;e<em>x</em>pand and e<em>x</em>ploit. The obvious means of
+expansion throughout the universe is to build many fleets of ships and
+move them far and wide. The Build order is typically appended to
+Planet objects and is often bound to the amount of resources that a
+planet contains&mdash;and how they are exploited. If a player is lucky
+enough to have a home planet rich in resources, that player could gain
+an early advantage in the game through building.</p>
+
+<p>Like the Build order, the Colonize order helps fulfill the
+e<em>x</em>pand and e<em>x</em>ploit imperatives. Almost always appended
+to Fleet objects, the Colonize order allows the player to take over an
+unclaimed planet. This helps to expand control over planets throughout
+the universe.</p>
+
+<p>The Mine order embodies the e<em>x</em>ploit imperative. This order,
+typically appended to Planet objects and other celestial bodies,
+allows the player to mine for unused resources not immediately
+available on the surface. Doing so brings these resources to the
+surface, allowing them to be used subsequently to build and ultimately
+expand the player's grip on the universe.</p>
+
+<p>Implemented in some rulesets, the Attack order allows a player to
+explicitly initiate combat with an enemy Fleet or Planet, fulfilling
+the final 4X imperative (e<em>x</em>terminate). In team-based rulesets,
+the inclusion of a distinct Attack order (as opposed to simply using
+Move and Intercept to implicitly attack targets) is important to avoid
+friendly fire and to coordinate attacks.</p>
+
+<p>Since the Thousand Parsec framework requires ruleset developers to
+define their own order types, it is possible&mdash;even encouraged&mdash;for
+them to think outside the box and create custom orders not found
+elsewhere. The ability to pack extra data into any object allows
+developers to do very interesting things with custom order types.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.1.3. Resources</h3>
+
+<p>Resources are extra pieces of data that are packed into Objects in the
+game. Extensively used&mdash;particularly by Planet objects&mdash;resources
+allow for easy extension of rulesets. As with many of the design
+decisions in Thousand Parsec, extensibility was the driving factor in
+the inclusion of resources.</p>
+
+<p>While resources are typically implemented by the ruleset designer,
+there is one resource that is in consistent use throughout the
+framework: the Home Planet resource, which is used to identify a
+player's home planet.</p>
+
+<p>According to Thousand Parsec best practices, resources are typically
+used to represent something that can be converted into some type of
+object. For example, Minisec implements a Ship Parts resource, which
+is assigned in random quantities to each planet object in the
+universe.  When one of these planets is colonized, you can then
+convert this Ship Parts resource into actual Fleets using a Build
+order.</p>
+
+<p><em>Missile and Torpedo Wars</em> makes perhaps the most extensive use
+of resources of any ruleset to date. It is the first ruleset where the
+weapons are of a dynamic nature, meaning that they can be added to a
+ship from a planet and also removed from a ship and added back to a
+planet. To account for this, the game creates a resource type for each
+weapon that is created in the game. This allows ships to identify a
+weapon type by a resource, and move them freely throughout the
+universe. <em>Missile and Torpedo Wars</em> also keeps track of
+factories (the production capability of planets) using a Factories
+resource tied to each planet.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.1.4. Designs</h3>
+
+<p>In Thousand Parsec, both weapons and ships may be composed of various
+components. These components are combined to form the basis of a
+Design&mdash;a prototype for something which can be built and used within
+the game. When creating a ruleset, the designer has to make an almost
+immediate decision: should the ruleset allow dynamic creation of
+weapon and ship designs, or simply use a predetermined list of
+designs? On the one hand, a game using pre-packaged designs will be
+easier to develop and balance, but on the other hand, dynamic creation
+of designs adds an entirely new level of complexity, challenge, and
+fun to the game.</p>
+
+<p>User-created designs allow a game to become far more advanced. Since
+users must strategically design their own ships and their armaments, a
+stratum of variance is added to the game which can help to mitigate
+otherwise great advantages that might be conferred on a player based
+on luck (e.g., of placement) and other aspects of game strategy. These
+designs are governed by the rules of each component, outlined in the
+Thousand Parsec Component Language (TPCL, covered later in this
+chapter), and specific to each ruleset. The upshot is that no
+additional programming of functionality is necessary on the part of
+the developer to implement the design of weapons and ships;
+configuring some simple rules for each component available in the
+ruleset is sufficient.</p>
+
+<p>Without careful planning and proper balance, the great advantage of
+using custom designs can become its downfall. In the later stages of a
+game, an inordinate amount of time can be spent designing new types of
+weapons and ships to build. The creation of a good user experience on
+the client side for design manipulation is also a challenge. Since
+design manipulation can be an integral part of one game, while
+completely irrelevant to another, the integration of a design window
+into clients is a significant obstacle. Thousand Parsec's most
+complete client, tpclient-pywx, currently houses the launcher for this
+window in a relatively out-of-the-way place, in a sub-menu of the menu
+bar (which is rarely used in-game otherwise).</p>
+
+<p>The Design functionality is designed to be easily accessible to
+ruleset developers, while allowing games to expand to virtually
+unlimited levels of complexity.  Many of the existing rulesets allow
+for only predetermined designs. <em>Missile and Torpedo Wars</em>,
+however, allows for full weapon and ship design from a variety of
+components.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>21.2. The Thousand Parsec Protocol</h2>
+
+<p>One might say that the Thousand Parsec protocol is the basis upon
+which everything else in the project is built. It defines the features
+available to ruleset writers, how servers should work, and what
+clients should be able to handle. Most importantly, like an
+interstellar communications standard, it allows the various software
+components to understand one another.</p>
+
+<p>The server manages the actual state and dynamics of a game according
+to the instructions provided by the ruleset. Each turn, a player's
+client receives some of the information about the state of the game:
+objects and their ownership and current state, orders in progress,
+resource stockpiles, technological progress, messages, and everything
+else visible to that particular player. The player can then perform
+certain actions given the current state, such as issuing orders or
+creating designs, and send these back to the server to be processed
+into the computation of the next turn. All of this communication is
+framed in the Thousand Parsec protocol. An interesting and quite
+deliberate effect of this architecture is that AI clients&mdash;which are
+external to the server/ruleset and are the only means of providing
+computer players in a game&mdash;are bound by the same rules as the
+clients human players use, and thus cannot "cheat" by having unfair
+access to information or by being able to bend the rules.</p>
+
+<p>The protocol specification describes a series of frames, which are
+hierarchical in the sense that each frame (except the Header frame)
+has a base frame type to which it adds its own data. There are a
+variety of abstract frame types which are never explicitly used, but
+simply exist to describe bases for concrete frames. Frames may also
+have a specified direction, with the intent that such frames need only
+be supported for sending by one side (server or client) and receiving
+by the other.</p>
+
+<p>The Thousand Parsec protocol is designed to function either standalone
+over TCP/IP, or tunnelled through another protocol such as HTTP.  It
+also supports SSL encryption.</p>
+
+<div class="subsect">
+<h3>21.2.1. Basics</h3>
+
+<p>The protocol provides a few generic frames which are ubiquitous in
+communication between client and server. The previously mentioned
+<code>Header</code> frame simply provides a basis for all other frames via
+its two direct descendants, the <code>Request</code> and <code>Response</code>
+frames. The former is the basis for frames which initiate
+communication (in either direction), and the latter for frames which
+are prompted by these. The <code>OK</code> and <code>Fail</code> frames (both
+<code>Response</code> frames) provide the two values for Boolean logic in
+the exchange. A <code>Sequence</code> frame (also a <code>Response</code>)
+indicates to the recipient that multiple frames are to follow in
+response to its request.</p>
+
+<p>Thousand Parsec uses numerical IDs to address things. Accordingly, a
+vocabulary of frames exists to push around data via these IDs. The
+<code>Get With ID</code> frame is the basic request for things with such an
+ID; there is also a <code>Get With ID and Slot</code> frame for things which
+are in a "slot" on a parent thing which has an ID (e.g., an order on
+an object). Of course, it is often necessary to obtain sequences of
+IDs, such as when initially populating the client's state; this is
+handled using <code>Get ID Sequence</code> type requests and <code>ID
+Sequence</code> type responses. A common structure for requesting multiple
+items is a <code>Get ID Sequence</code> request and <code>ID Sequence</code>
+response, followed by a series of <code>Get With ID</code> requests and
+appropriate responses describing the item requested.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.2.2. Players and Games</h3>
+
+<p>Before a client can begin interacting with a game, some formalities
+need to be addressed. The client must first issue a <code>Connect</code>
+frame to the server, to which the server might respond with <code>OK</code>
+or <code>Fail</code>&mdash;since the <code>Connect</code> frame includes the client's
+protocol version, one reason for failure might be a version
+mismatch. The server can also respond with the <code>Redirect</code> frame,
+for moves or server pools. Next, the client must issue a <code>Login</code>
+frame, which identifies and possibly authenticates the player; players
+new to a server can first use the <code>Create Account</code> frame if the
+server allows it.</p>
+
+<p>Because of the vast variability of Thousand Parsec, the client needs
+some way to ascertain which protocol features are supported by the
+server; this is accomplished via the <code>Get Features</code> request and
+<code>Features</code> response. Some of the features the server might
+respond with include:</p>
+
+<ul>
+
+  <li>Availability of SSL and HTTP tunnelling (on this port or another
+  port).</li>
+
+  <li>Support for server-side component property calculation.</li>
+
+  <li>Ordering of ID sequences in responses (ascending vs. descending).</li>
+
+</ul>
+
+<p>Similarly, the <code>Get Games</code> request and sequence of <code>Game</code>
+responses informs the client about the nature of the active games on
+the server. A single <code>Game</code> frame contains the following
+information about a game:</p>
+
+<ul>
+
+  <li>The long (descriptive) name of the game.</li>
+
+  <li>A list of supported protocol versions.</li>
+
+  <li>The type and version of the server.</li>
+
+  <li>The name and version of the ruleset.</li>
+
+  <li>A list of possible network connection configurations.</li>
+
+  <li>A few optional items (number of players, number of objects,
+  administrator details, comment, current turn number, etc.).</li>
+
+  <li>The base URL for media used by the game.</li>
+
+</ul>
+
+<p>It is, of course, important for a player to know who he or she is up
+against (or working with, as the case may be), and there is a set of
+frames for that. The exchange follows the common item sequence pattern
+with a <code>Get Player IDs</code> request, a <code>List of Player IDs</code>
+response, and a series of <code>Get Player Data</code> requests and
+<code>Player Data</code> responses. The <code>Player Data</code> frame contains
+the player's name and race.</p>
+
+<p>Turns in the game are also controlled via the protocol. When a player
+has finished performing actions, he or she may signal readiness for
+the next turn via the <code>Finished Turn</code> request; the next turn is
+computed when all players have done so. Turns also have a time limit
+imposed by the server, so that slow or unresponsive players cannot
+hold up a game; the client normally issues a <code>Get Time Remaining</code>
+request, and tracks the turn with a local timer set to the value in
+the server's <code>Time Remaining</code> response.</p>
+
+<p>Finally, Thousand Parsec supports messages for a variety of purposes:
+game broadcasts to all players, game notifications to a single player,
+player-to-player communications. These are organized into "board"
+containers which manage ordering and visibility; following the item
+sequence pattern, the exchange consists of a <code>Get Board IDs</code>
+request, a <code>List of Board IDs</code> response, and a series of
+<code>Get Board</code> requests and <code>Board</code> responses.</p>
+
+<p>Once the client has information on a message board, it can issue
+<code>Get Message</code> requests to obtain messages on the board by slot
+(hence, <code>Get Message</code> uses the <code>Get With ID and Slot</code> base
+frame); the server responds with <code>Message</code> frames containing the
+message subject and body, the turn on which the message was generated,
+and references to any other entities mentioned in the message. In
+addition to the normal set of items encountered in Thousand Parsec
+(players, objects, and the like), there are also some special
+references including message priority, player actions, and order
+status. Naturally, the client can also add messages using the
+<code>Post Message</code> frame&mdash;a vehicle for a <code>Messsage</code>
+frame&mdash;and delete them using the <code>Remove Message</code> frame (based
+on the <code>GetMessage</code> frame).</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.2.3. Objects, Orders, and Resources</h3>
+
+<p>The bulk of the process of interacting with the universe is
+accomplished through a series of frames comprising the functionality
+for objects, orders, and resources.</p>
+
+<p>The physical state of the universe&mdash;or at least that part of it that
+the player controls or has the ability to see&mdash;must be obtained upon
+connecting, and every turn thereafter, by the client. The client
+generally issues a <code>Get Object IDs</code> request (a <code>Get ID
+Sequence</code>), to which the server replies with a <code>List of Object
+IDs</code> response. The client can then request details about individual
+objects using <code>Get Object by ID</code> requests, which are answered
+with <code>Object</code> frames containing such details&mdash;again subject to
+visibility by the player&mdash;as their type, name, size, position,
+velocity, contained objects, applicable order types, and current
+orders. The protocol also provides the <code>Get Object IDs by
+Position</code> request, which allows the client to find all objects
+within a specified sphere of space.</p>
+
+<p>The client obtains the set of possible orders following the usual item
+sequence pattern by issuing a <code>Get Order Description IDs</code> request
+and, for each ID in the <code>List of Order Description IDs</code> response,
+issuing a <code>Get Order Description</code> request and receiving a
+<code>Order Description</code> response. The implementation of the orders
+and order queues themselves has evolved markedly over the history of
+the protocol. Originally, each object had a single order queue. The
+client would issue an <code>Order</code> request (containing the order type,
+target object, and other information), receive an <code>Outcome</code>
+response detailing the expected result of the order, and, after
+completion of the order, receive a <code>Result</code> frame containing the
+actual result.</p>
+
+<p>In the second version, the <code>Order</code> frame incorporated the
+contents of the <code>Outcome</code> frame (since, based on the order
+description, this did not require the server's input), and the
+<code>Result</code> frame was removed entirely. The latest version of the
+protocol refactored the order queue out of objects, and added the
+<code>Get Order Queue IDs</code>, <code>List of Order Queue IDs</code>, <code>Get
+Order Queue</code>, and <code>Order Queue</code> frames, which work similarly to
+the message and board functionality<sup class="footnote"><a href="#footnote-2">2</a></sup>.  The <code>Get Order</code> and
+<code>Remove Order</code> frames (both <code>GetWithIDSlot</code> requests) allow
+the client to access and remove orders on a queue, respectively. The
+<code>Insert Order</code> frame now acts as a vehicle for the <code>Order</code>
+payload; this was done to allow for another frame, <code>Probe Order</code>,
+which is used by the client in some cases to obtain information for
+local use.</p>
+
+<p>Resource descriptions also follow the item sequence pattern: a
+<code>Get Resource Description IDs</code> request, a <code>List of Resource
+Description IDs</code> response, and a series of <code>Get Resource
+Description</code> requests and <code>Resource Description</code> responses.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.2.4. Design Manipulation</h3>
+
+<p>The handling of designs in the Thousand Parsec Protocol is broken down
+into the manipulation of four separate sub-categories: categories,
+components, properties, and designs.</p>
+
+<p>Categories differentiate the different design types. Two of the most
+commonly used design types are ships and weapons. Creating a category
+is simple, as it consists only of a name and description; the
+<code>Category</code> frame itself contains only these two strings. Each
+category is added by the ruleset to the Design Store using an
+<code>Add Category</code> request, a vehicle for the <code>Category</code>
+frame. The remainder of the management of categories is handled in the
+usual item sequence pattern with the <code>Get Category IDs</code> request
+and <code>List of Category IDs</code> response.</p>
+
+<p>Components consist of the different parts and modules which comprise a
+design. This can be anything from the hull of a ship or missile to the
+tube that a missile is housed in. Components are a bit more involved
+than categories. A <code>Component</code> frame contains the following
+information:</p>
+
+<ul>
+
+  <li>The name and description of the component.</li>
+
+  <li>A list of categories to which the component belongs.</li>
+
+  <li>A <code>Requirements</code> function, in Thousand Parsec Component
+  Language (TPCL).</li>
+
+  <li>A list of properties and their corresponding values.</li>
+
+</ul>
+
+<p>Of particular note is the <code>Requirements</code> function associated with
+the component. Since components are the parts that make up a ship,
+weapon, or other constructed object, it is necessary to ensure that
+they are valid when adding them to a design. The <code>Requirements</code>
+function verifies that each component added to the design conforms to
+the rules of other previously added components. For example, in
+<code>Missile and Torpedo Wars</code>, it is impossible to hold an Alpha
+Missile in a ship without an Alpha Missile Tube. This verification
+occurs on both the client side and the server side, which is why the
+entire function must appear in a protocol frame, and why a concise
+language (TPCL, covered later in the chapter) was chosen for it.</p>
+
+<p>All of a design's properties are communicated via <code>Property</code>
+frames. Each ruleset exposes a set of properties used within the
+game. These typically include things like the number of missile tubes
+of a certain type allowed on a ship, or the amount of armor included
+with a certain hull type. Like <code>Component</code> frames,
+<code>Property</code> frames make use of TPCL. A <code>Property</code> frame
+contains the following information:</p>
+
+<ul>
+
+  <li>The (display) name and description of the property.</li>
+
+  <li>A list of categories to which the property belongs.</li>
+
+  <li>The name (valid TPCL identifier) of the property.</li>
+
+  <li>The rank of the property.</li>
+
+  <li><code>Calculate</code> and <code>Requirements</code> functions, in Thousand Parsec Component Language (TPCL).</li>
+
+</ul>
+
+<p>The rank of a property is used to distinguish a hierarchy of
+dependencies. In TPCL, a function may not depend on any property which
+has a rank less than or equal to this property. This means that if one
+had an Armor property of rank 1 and an Invisibility property of rank
+0, then the Invisibility property could not directly depend on the
+Armor property. This ranking was implemented as a method of curtailing
+circular dependencies. The <code>Calculate</code> function is used to define
+how a property is displayed, differentiating the methods of
+measurement. <code>Missile and Torpedo Wars</code> uses XML to import game
+properties from a game data file. <a href="#fig.tp.prop">Figure&nbsp;21.2</a> shows an
+example property from that game data.</p>
+
+<div class="figure" id="fig.tp.prop">
+<pre>
+&lt;prop&gt;
+&lt;CategoryIDName&gt;Ships&lt;/CategoryIDName&gt;
+&lt;rank value="0"/&gt;
+&lt;name&gt;Colonise&lt;/name&gt;
+&lt;displayName&gt;Can Colonise Planets&lt;/displayName&gt;
+&lt;description&gt;Can the ship colonise planets&lt;/description&gt;
+&lt;tpclDisplayFunction&gt;
+    (lambda (design bits) (let ((n (apply + bits))) (cons n (if (= n 1) "Yes" "No")) ) )
+&lt;/tpclDisplayFunction&gt;
+&lt;tpclRequirementsFunction&gt;
+    (lambda (design) (cons #t ""))
+&lt;/tpclRequirementsFunction&gt;
+&lt;/prop&gt;
+</pre>
+<p>Figure 21.2: Example Property</p>
+</div>
+
+<p>In this example, we have a property belonging to the Ships category,
+of rank 0. This property is called Colonise, and relates to the
+ability of a ship to colonize planets. A quick look at the TPCL
+<code>Calculate</code> function (listed here as <code>tpclDisplayFunction</code>)
+reveals that this property outputs either "Yes" or "No" depending
+on whether the ship in question has said capability. Adding properties
+in this fashion gives the ruleset designer granular control over
+metrics of the game and the ability to easily compare them and output
+them in a player-friendly format.</p>
+
+<p>The actual design of ships, weapons, and other game artifacts are
+created and manipulated using the <code>Design</code> frame and related
+frames. In all current rulesets, these are used for building ships and
+weaponry using the existing pool of components and properties. Since
+the rules for designs are already handled in TPCL <code>Requirements</code>
+functions in both properties and components, the creation of a design
+is a bit simpler. A <code>Design</code> frame contains the following
+information:</p>
+
+<ul>
+
+  <li>The name and description of the design.</li>
+
+  <li>A list of categories to which the design belongs.</li>
+
+  <li>A count of the number of instances of the design.</li>
+
+  <li>The owner of the design.</li>
+
+  <li>A list of component IDs and their corresponding counts.</li>
+
+  <li>A list of properties and their corresponding display string.</li>
+
+  <li>The feedback on the design.</li>
+
+</ul>
+
+<p>This frame is a bit different from the others. Most notably, since a
+design is an owned item in the game, there is a relation to the owner
+of each design. A design also tracks the number of its instantiations
+with a counter.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.2.5. Server Administration</h3>
+
+<p>A server administration protocol extension is also available, allowing
+for remote live control of supporting servers. The standard use case
+is to connect to the server via an administration client&mdash;perhaps a
+shell-like command interface or a GUI configuration panel&mdash;to change
+settings or perform other maintenance tasks. However, other, more
+specialized uses are possible, such as behind-the-scenes management
+for single-player games.</p>
+
+<p>As with the game protocol described in the preceding sections, the
+administration client first negotiates a connection (on a port
+separate from the normal game port) and authenticates using
+<code>Connect</code> and <code>Login</code> requests. Once connected, the client
+can receive log messages from and issue commands to the server.</p>
+
+<p>Log messages are pushed to the client via <code>Log Message</code>
+frames. These contain a severity level and text; as appropriate to the
+context, the client can choose to display all, some, or none of the
+log messages it receives.</p>
+
+<p>The server may also issue a <code>Command Update</code> frame instructing
+the client to populate or update its local command set; supported
+commands are exposed to the client in the server's response to a
+<code>Get Command Description IDs</code> frame. Individual command
+descriptions must then be obtained by issuing a <code>Get Command
+Description</code> frame for each, to which the server responds with a
+<code>Command Description</code> frame.</p>
+
+<p>This exchange is functionally quite similar to (and, in fact, was
+originally based on) that of the order frames used in the main game
+protocol. It allows commands to be described to the user and vetted
+locally to some degree, minimizing network usage. The administration
+protocol was conceived at a time when the game protocol was already
+mature; rather than starting from scratch, the developers found
+existing functionality in the game protocol which did almost what was
+needed, and added the code to the same protocol libraries.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>21.3. Supporting Functionality</h2>
+
+<div class="subsect">
+<h3>21.3.1. Server Persistence</h3>
+
+<p>Thousand Parsec games, like many in the turn-based strategy genre,
+have the potential to last for quite some time. Besides often running
+far longer than the circadian rhythms of the players' species, during
+this extended period the server process might be prematurely
+terminated for any number of reasons. To allow players to pick up a
+game where they left off, Thousand Parsec servers provide persistence
+by storing the entire state of the universe (or even multiple
+universes) in a database. This functionality is also used in a related
+way for saving single-player games, which will be covered in more
+detail later in this section.</p>
+
+<p>The flagship server, <code>tpserver-cpp</code>, provides an abstract
+persistence interface and a modular plugin system to allow for various
+database back ends. At the time of writing, <code>tpserver-cpp</code> ships
+with modules for MySQL and SQLite.</p>
+
+<p>The abstract <code>Persistence</code> class describes the functionality
+allowing the server to save, update, and retrieve the various elements
+of a game (as described in the Anatomy of a Star Empire section). The
+database is updated continuously from various places in the server
+code where the game state changes, and no matter the point at which
+the server is terminated or crashes, all information to that point
+should be recovered when the server starts again from the saved data.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.3.2. Thousand Parsec Component Language</h3>
+
+<p>The Thousand Parsec Component Language (TPCL) exists to allow clients
+to create designs locally without server interaction&mdash;allowing for
+instant feedback about the properties, makeup, and validity of the
+designs. This allows the player to interactively create, for example,
+new classes of starship, by customizing structure, propulsion,
+instrumentation, defenses, armaments, and more according to available
+technology.</p>
+
+<p>TPCL is a subset of Scheme, with a few minor changes, though close
+enough to the Scheme R5RS standard that any compatible interpreter can
+be used. Scheme was originally chosen because of its simplicity, a
+host of precedents for using it as an embedded language, the
+availability of interpreters implemented in many other languages, and,
+most importantly to an open source project, vast documentation both on
+using it and on developing interpreters for it.</p>
+
+<p>Consider the following example of a <code>Requirements</code> function in
+TPCL, used by components and properties, which would be included with
+a ruleset on the server side and communicated to the client over the
+game protocol:</p>
+
+<pre>
+(lambda (design)
+  (if (&gt; (designType.MaxSize design) (designType.Size design))
+      (if (= (designType.num-hulls design) 1)
+          (cons #t "")
+          (cons #f "Ship can only have one hull")
+      )
+      (cons #f "This many components can't fit into this Hull")
+  )
+)
+</pre>
+
+<p>Readers familiar with Scheme will no doubt find this code easy to
+understand. The game (both client and server) uses it to check other
+component properties (<code>MaxSize</code>, <code>Size</code>, and
+<code>Num-Hulls</code>) to verify that this component can be added to a
+design. It first verifies that the <code>Size</code> of the component is
+within the maximum size of the design, then ensures that there are no
+other hulls in the design (the latter test tips us off that this is
+the <code>Requirements</code> function from a ship hull).</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.3.3. BattleXML</h3>
+
+<p>In war, every battle counts, from the short skirmish in deep space
+between squadrons of small lightly-armed scout craft, to the massive
+final clash of two flagship fleets in the sky above a capital
+world. On the Thousand Parsec framework, the details of combat are
+handled within the ruleset, and there is no explicit client-side
+functionality regarding combat details&mdash;typically, the player will be
+informed of the initiation and results of combat via messages, and the
+appropriate changes to the objects will take place (e.g., removal of
+destroyed ships). Though the player's focus will normally be on a
+higher level, under rulesets with complex combat mechanics, it may
+prove advantageous (or, at least, entertaining) to examine the battle
+in more detail.</p>
+
+<p>This is where BattleXML comes in. Battle data is split into two major
+parts: the media definition, which provides details about the graphics
+to be used, and the battle definition, which specifies what actually
+occurred during a battle. These are intended to be read by a battle
+viewer, of which Thousand Parsec currently has two: one in 2D and the
+other in 3D. Of course, since the nature of battles are entirely a
+feature of a ruleset, the ruleset code is responsible for actually
+producing BattleXML data.</p>
+
+<p>The media definition is tied to the nature of the viewer, and is
+stored in a directory or an archive containing the XML data and any
+graphics or model files it references. The data itself describes what
+media should be used for each ship (or other object) type, its
+animations for actions such as firing and death, and the media and
+details of its weapons. File locations are assumed to be relative to
+the XML file itself, and cannot reference parent directories.</p>
+
+<p>The battle definition is independent of the viewer and media. First,
+it describes a series of entities on each side at the start of the
+battle, with unique identifiers and information such as name,
+description, and type. Then, each round of the battle is described:
+object movement, weapons fire (with source and target), damage to
+objects, death of objects, and a log message. How much detail is used
+to describe each round of battle is dictated by the ruleset.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.3.4. Metaserver</h3>
+
+<p>Finding a public Thousand Parsec server to play on
+is much like locating a lone stealth scout in deep space&mdash;a
+daunting prospect if one doesn't know where to look. Fortunately,
+public servers can announce themselves to a metaserver, whose
+location, as a central hub, should ideally be well-known to players.</p>
+
+<p>The current implementation is <code>metaserver-lite</code>, a PHP script,
+which lives at some central place like the Thousand Parsec
+website. Supporting servers send an HTTP request specifying the update
+action and containing the type, location (protocol, host, and port),
+ruleset, number of players, object count, administrator, and other
+optional information. Server listings expire after a specified timeout
+(by default, 10 minutes), so servers are expected to update the
+metaserver periodically.</p>
+
+<p>The script can then, when called with no specified action, be used to
+embed the list of servers with details into a web site, presenting
+clickable URLs (typically with the <code>tp://</code> scheme
+name). Alternatively, the badge action presents server listings in a
+compact "badge" format.</p>
+
+<p>Clients may issue a request to a metaserver using the get action to
+obtain a list of available servers. In this case, the metaserver
+returns one or more <code>Game</code> frames for each server in the list to
+the client. In <code>tpclient-pywx</code>, the resulting list is presented
+through a server browser in the initial connection window.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.3.5. Single-Player Mode</h3>
+
+<p>Thousand Parsec is designed from the ground up to support networked
+multiplayer games. However, there is nothing preventing a player from
+firing up a local server, connecting a few AI clients, and
+hyperjumping into a custom single-player universe ready to be
+conquered. The project defines some standard metadata and
+functionality to support streamlining this process, making setup as
+easy as running a GUI wizard or double-clicking a scenario file.</p>
+
+<p>At the core of this functionality is an XML DTD specifying the format
+for metadata regarding the capabilities and properties of each
+component (e.g., server, AI client, ruleset). Component packages ship
+with one or more such XML files, and eventually all of this metadata
+is aggregated into an associative array divided into two major
+portions: servers and AI clients. Within a server's metadata will
+typically be found metadata for one or more rulesets&mdash;they are found
+here because even though a ruleset may be implemented for more than
+one server, some configuration details may differ, so
+separate metadata is needed in general for each implementation.
+Each entry for one of these components contains the following information:</p>
+
+<ul>
+
+  <li>Descriptive data, including a short (binary) name, a long
+  (descriptive) name, and a description.</li>
+
+  <li>The installed version of the component, and the earliest
+  version whose save data is compatible with the installed version.</li>
+
+  <li>The command string (if applicable) and any forced parameters
+  passed to it.</li>
+
+  <li>A set of parameters which can be specified by the player.</li>
+
+</ul>
+
+<p>Forced parameters are not player-configurable and are typically
+options which allow the components to function appropriately for a
+local, single-player context. The player parameters have their own
+format indicating such details as the name and description, the data
+type, default, and range of the value, and the format string to append
+to the main command string.</p>
+
+<p>While specialized cases are possible (e.g., preset game configurations
+for ruleset-specific clients), the typical process for constructing a
+single-player game involves selecting a set of compatible
+components. Selection of the client is implicit, as the player will
+have already launched one in order to play a game; a well-designed
+client follows a user-centric workflow to set up the remainder. The
+next natural choice to make is the ruleset, so the player is presented
+with a list&mdash;at this point, there is no need to bother with server
+details. In the event that the chosen ruleset is implemented by
+multiple installed servers (probably a rare condition), the player is
+prompted to select one; otherwise, the appropriate server is selected
+automatically. Next, the player is prompted to configure options for
+the ruleset and server, with sane defaults pulled from the
+metadata. Finally, if any compatible AI clients are installed, the
+player is prompted to configure one or more of them to play against.</p>
+
+<p>With the game so configured, the client launches the local server with
+appropriate configuration parameters (including the ruleset, its
+parameters, and any parameters it adds to the server's configuration),
+using the command string information from the metadata. Once it has
+verified that the server is running and accepting connections, perhaps
+using the administration protocol extension discussed previously, it
+launches each of the specified AI clients similarly, and verifies that
+they have successfully connected to the game. If all goes well, the
+client will then connect to the server&mdash;just as if it were connecting
+to an online game&mdash;and the player can begin exploring, trading,
+conquering, and any of a universe of other possibilities.</p>
+
+<p>An alternate&mdash;and very important&mdash;use for the single-player
+functionality is the saving and loading of games, and, more or less
+equivalently, the loading of ready-to-play scenarios. In this case,
+the save data (probably, though not necessarily, a single file) stores
+the single-player game configuration data alongside the persistence
+data for the game itself. Provided all appropriate components in
+compatible versions are installed on the player's system, launching a
+saved game or scenario is completely automatic. Scenarios in
+particular thus provide an attractive one-click entry into a
+game. Although Thousand Parsec does not currently have a dedicated
+scenario editor or a client with an edit mode, the concept is to
+provide some means of crafting the persistence data outside of the
+normal functioning of the ruleset, and verifying its consistency and
+compatibility.</p>
+
+<p>So far, the description of this functionality has been rather
+abstract. On a more concrete level, the Python client helper library,
+<code>libtpclient-py</code>, is currently home to the only full realization
+of single-player mechanics in the Thousand Parsec project. The library
+provides the <code>SinglePlayerGame</code> class, which upon instantiation
+automatically aggregates all available single-player metadata on the
+system (naturally, there are certain guidelines as to where the XML
+files should be installed on a given platform). The object can then be
+queried by the client for various information on the available
+components; servers, rulesets, AI clients, and parameters are stored
+as dictionaries (Python's associative arrays). Following the general
+game building process outlined above, a typical client might perform
+the following:</p>
+
+<ol>
+
+  <li>Query a list of available rulesets via
+  <code>SinglePlayerGame.rulesets</code>, and configure the object with
+  the chosen ruleset by setting <code>SinglePlayerGame.rname</code>.</li>
+
+  <li>Query a list of servers implementing the ruleset via
+  <code>SinglePlayerGame.list_servers_with_ruleset</code>, prompt the
+  user to select one if necessary, and configure the object with the
+  chosen (or only) server by setting <code>SinglePlayerGame.sname</code>.</li>
+
+  <li>Obtain the set of parameters for the server and ruleset via
+  <code>SinglePlayerGame.list_rparams</code> and
+  <code>SinglePlayerGame.list_sparams</code>, respectively, and prompt
+  the player to configure them.</li>
+
+  <li>Find available AI clients supporting the ruleset
+  via <code>SinglePlayerGame.list_aiclients_with_ruleset</code>, and
+  prompt the player to configure one or more of them using the
+  parameters obtained via <code>SinglePlayerGame.list_aiparams</code>.</li>
+
+  <li>Launch the game by calling <code>SinglePlayerGame.start</code>,
+  which will return a TCP/IP port to connect on if successful.</li>
+
+  <li>Eventually, end the game (and kill any launched server and AI
+  client processes) by calling <code>SinglePlayerGame.stop</code>.</li>
+
+</ol>
+
+<p>Thousand Parsec's flagship client, <code>tpclient-pywx</code>, presents a
+user-friendly wizard which follows such a procedure, initially
+prompting instead for a saved game or scenario file to load. The
+user-centric workflow developed for this wizard is an example of good
+design arising from the open source development process of the
+project: the developer initially proposed a very different process
+more closely aligned with how things were working under the hood, but
+community discussion and some collaborative development produced a
+result much more usable for the player.</p>
+
+<p>Finally, saved games and scenarios are currently implemented in
+practice in <code>tpserver-cpp</code>, with supporting functionality in
+<code>libtpclient-py</code> and an interface in <code>tpclient-pywx</code>. This
+is achieved through a persistence module using SQLite, a public domain
+open source RDBMS which requires no external process and stores
+databases in a single file. The server is configured, via a forced
+parameter, to use the SQLite persistence module if it is available,
+and as usual, the database file (living in a temporary location) is
+constantly updated throughout the game. When the player opts to save
+the game, the database file is copied to the specified location, and a
+special table is added to it containing the single player
+configuration data. It should be fairly obvious to the reader how this
+is subsequently loaded.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>21.4. Lessons Learned</h2>
+
+<p>The creation and growth of the extensive Thousand Parsec framework has
+allowed the developers plenty of opportunity to look back and assess
+the design decisions that were made along the way. The original core
+developers (Tim Ansell and Lee Begg) built the original framework from
+scratch and have shared with us some suggestions on starting a similar
+project.</p>
+
+<div class="subsect">
+<h3>21.4.1. What Worked</h3>
+
+<p>A major key to the development of Thousand Parsec was the decision to
+define and build a subset of the framework, followed by the
+implementation. This iterative and incremental design process allowed
+the framework to grow organically, with new features added
+seamlessly. This led directly to the decision to version the
+Thousand Parsec protocol, which is credited with a number of major
+successes of the framework. Versioning the protocol allowed the
+framework to grow over time, enabling new methods of gameplay along
+the way.</p>
+
+<p>When developing such an expansive framework, it is important to have a
+very short-term approach for goals and iterations. Short iterations, on the order of weeks for a minor release,
+allowed the project to move forward quickly with immediate returns
+along the way. Another success of the
+implementation was the client-server model, which allowed for the
+clients to be developed away from any game logic. The separation of
+game logic from client software was important to the overall success
+of Thousand Parsec.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.4.2. What Didn't Work</h3>
+
+<p>A major downfall of the Thousand Parsec framework was the decision to
+use a binary protocol. As you can imagine, debugging a binary protocol
+is not a fun task and this has lead to many prolonged debugging
+sessions. We would highly recommend that nobody take this path in the
+future. The protocol has also grown to have too much flexibility; when
+creating a protocol, it is important to implement only the basic
+features that are required.</p>
+
+<p>Our iterations have at times grown too large. When managing such a
+large framework on an open source development schedule, it is
+important to have a small subset of added features in each iteration
+to keep development flowing.</p>
+
+</div>
+
+<div class="subsect">
+<h3>21.4.3. Conclusion</h3>
+
+<p>Like a construction skiff inspecting the skeletal hull of a massive
+prototype battleship in an orbital construction yard, we have passed
+over the various details of the architecture of Thousand Parsec. While
+the general design criteria of flexibility and extensibility have been
+in the minds of the developers from the very beginning, it is evident
+to us, looking at the history of the framework, that only an open
+source ecosystem, teeming with fresh ideas and points of view, could
+have produced the sheer volume of possibilities while remaining
+functional and cohesive. It is a singularly ambitious project, and as
+with many of its peers on the open source landscape, much remains to
+be done; it is our hope and expectation that over time, Thousand
+Parsec will continue to evolve and expand its capabilities while new
+and ever more complex games are developed upon it. After all, a
+journey of a thousand parsecs begins with a single step.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1">Some excellent commercial
+examples of Thousand Parsec's inspiration include <em>VGA Planets</em>
+and <em>Stars!</em>, as well as the <em>Master of Orion</em>,
+<em>Galactic Civilizations</em>, and <em>Space Empires</em> series. For
+readers unfamiliar with these titles, the <em>Civilization</em> series
+is a popular example of the same gameplay style, albeit in a
+different setting. A number of real-time 4X games also exist, such
+as <em>Imperium Galactica</em> and <em>Sins of a Solar Empire</em>.</li>
+<li id="footnote-2">Actually, it's the other
+way around: messages and boards were derived from orders in the
+second version of the protocol.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: packaging.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Python Packaging</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Python Packaging</h1>
+        <p><a href="intro1.html#ziade-tarek">Tarek Ziad&eacute;</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<div class="sect">
+<h2>14.1. Introduction</h2>
+
+<p>There are two schools of thought when it comes to installing
+applications.  The first, common to Windows and Mac OS X, is that
+applications should be self-contained, and their installation should
+not depend on anything else.  This philosophy simplifies the
+management of applications: each application is its own standalone
+"appliance", and installing and removing them should not disturb the
+rest of the OS.  If the application needs an uncommon library, that
+library is included in the application's distribution.</p>
+
+<p>The second school, which is the norm for Linux-based systems, treats
+software as a collection of small self-contained units called
+<em>packages</em>. Libraries are bundled into packages, any given
+library package might depend on other packages.
+Installing an application might involve finding and installing
+particular versions of dozens of other libraries.  These dependencies
+are usually fetched from a central repository that contains thousands
+of packages.  This philosophy is why Linux distributions use complex
+package management systems like <code>dpkg</code> and <code>RPM</code> to track
+dependencies and prevent installation of two applications that use
+incompatible versions of the same library.</p>
+
+<p>There are pros and cons to each approach.  Having a highly modular
+system where every piece can be updated or replaced makes management
+easier, because each library is present in a single place, and all
+applications that use it benefit when it is updated.  For instance, a
+security fix in a particular library will reach all applications that
+use it at once, whereas if an application ships with its own library,
+that security fix will be more complex to deploy, especially if
+different applications use different versions of the library.</p>
+
+<p>But that modularity is seen as a drawback by some developers, because
+they're not in control of their applications and dependencies.  It is
+easier for them to provide a standalone software appliance to be sure
+that the application environment is stable and not subject to
+"dependency hell" during system upgrades.</p>
+
+<p>Self-contained applications also make the developer's life easier when
+she needs to support several operating systems.  Some projects go so
+far as to release portable applications that remove <em>any</em>
+interaction with the hosting system by working in a self-contained
+directory, even for log files.</p>
+
+<p>Python's packaging system was intended to make the second
+philosophy&mdash;multiple dependencies for each install&mdash;as developer-,
+admin-, packager-, and user-friendly as possible. Unfortunately it had
+(and has) a variety of flaws which caused or allowed all kinds of
+problems: unintuitive version schemes, mishandled data files,
+difficulty re-packaging, and more.  Three years ago I and a group of
+other Pythoneers decided to reinvent it to address these problems.  We
+call ourselves the Fellowship of the Packaging, and this chapter
+describes the problems we have been trying to fix, and what our
+solution looks like.</p>
+
+<div class="box">
+  <p class="boxtitle">Terminology</p>
+
+<p>In Python a <em>package</em> is a directory containing Python
+files. Python files are called <em>modules</em>.  That definition makes
+the usage of the word "package" a bit vague since it is also used by
+many systems to refer to a <em>release</em> of a project.</p>
+
+<p>Python developers themselves are sometimes vague about this.  One way
+to remove this ambiguity is to use the term "Python packages" when
+we talk about a directory containing Python modules.  The term
+"release" is used to define one version of a project, and the term
+"distribution" defines a source or a binary distribution of a
+release as something like a tarball or zip file.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>14.2. The Burden of the Python Developer</h2>
+
+<p>Most Python programmers want their programs to be usable in any
+environment.  They also usually want to use a mix of standard Python
+libraries and system-dependent libraries.  But unless you package your
+application separately for every existing packaging system, you are
+doomed to provide Python-specific releases&mdash;a Python-specific release
+is a release aimed to be installed within a Python installation no
+matter what the underlying Operating System is&mdash;and hope that:</p>
+
+<ul>
+
+  <li>packagers for every target system will be able to repackage
+  your work,</li>
+
+  <li>the dependencies you have will themselves be repackaged in
+  every target system, and</li>
+
+  <li>system dependencies will be clearly described.</li>
+
+</ul>
+
+<p>Sometimes, this is simply impossible.  For example, Plone (a
+full-fledged Python-powered CMS) uses hundreds of small pure Python
+libraries that are not always available as packages in every packaging
+system out there.  This means that Plone <em>must</em> ship everything
+that it needs in a portable application. To do this, it uses
+<code>zc.buildout</code>, which collects all its dependencies and creates a
+portable application that will run on any system within a single
+directory. It is effectively a binary release, since any piece of C
+code will be compiled in place.</p>
+
+<p>This is a big win for developers: they just have to describe their
+dependencies using the Python standards described below
+and use <code>zc.buildout</code> to
+release their application.  But as discussed earlier, this type of
+release sets up a fortress within the system, which most Linux sysadmins
+will hate.  Windows admins won't mind, but those managing
+CentOS or Debian will, because those systems base their management on
+the assumption that every file in the system is registered,
+classified, and known to admin tools.</p>
+
+<p>Those admins will want to repackage your application according to
+their own standards.  The question we need to answer is, "Can Python
+have a packaging system that can be automatically translated into
+other packaging systems?"  If so, one application or library can be
+installed on any system without requiring extra packaging work.  Here,
+"automatically" doesn't necessarily mean that the work should be
+fully done by a script: <code>RPM</code> or <code>dpkg</code> packagers will tell
+you that's impossible&mdash;they always need to add some specifics in the
+projects they repackage.  They'll also tell you that they
+often have a hard time re-packaging a piece of code because its
+developers were not aware of a few basic packaging rules.</p>
+
+<p>Here's one example of what you can do to annoy packagers using the
+existing Python packaging system: release a library called
+"MathUtils" with the version name "Fumanchu".  The brilliant
+mathematician who wrote the library have found it amusing to use
+his cats' names for his project versions.  But how can a packager know
+that "Fumanchu" is his second cat's name, and that the first one was
+called "Phil", so that the "Fumanchu" version comes after the
+"Phil" one?</p>
+
+<p>This may sound extreme, but it can happen with today's tools and
+standards.  The worst thing is that tools like <code>easy_install</code> or
+<code>pip</code> use their own non-standard registry to keep track of
+installed files, and will sort the "Fumanchu" and "Phil" versions
+alphanumerically.</p>
+
+<p>Another problem is how to handle data files.  For example, what if
+your application uses an SQLite database?  If you put it inside your
+package directory, your application might fail because the system
+forbids you to write in that part of the tree.  Doing this will
+also compromise the assumptions Linux systems make about where
+application data is for backups (<code>/var</code>).</p>
+
+<p>In the real world, system administrators need to be able to place your
+files where they want without breaking your application, and you need
+to tell them what those files are.  So let's rephrase the question: is
+it possible to have a packaging system in Python that can provide all
+the information needed to repackage an application with any
+third-party packaging system out there without having to read the
+code, and make everyone happy?</p>
+
+</div>
+
+<div class="sect">
+<h2>14.3. The Current Architecture of Packaging</h2>
+
+<p>The <code>Distutils</code> package that comes with the Python standard
+library is riddled with the problems described above.  Since it's the
+standard, people either live with it and its flaws, or use more
+advanced tools like <code>Setuptools</code>, which add features on the top of it,
+or <code>Distribute</code>, a fork of <code>Setuptools</code>. There's also <code>Pip</code>,
+a more advanced installer, that relies on <code>Setuptools</code>.</p>
+
+<p>However, these newer tools are all based on <code>Distutils</code> and inherit its
+problems.  Attempts were made to fix <code>Distutils</code> in place, but
+the code is so deeply used by other tools that any change to it, even
+its internals, is a potential regression in the whole Python packaging
+ecosystem.</p>
+
+<p>We therefore decided to freeze <code>Distutils</code> and start the
+development of <code>Distutils2</code> from the same code base, without
+worrying too much about backward compatibility.  To understand what
+changed and why, let's have a closer look at <code>Distutils</code>.</p>
+
+<div class="subsect" id="sec.packaging.flaws">
+<h3>14.3.1. Distutils Basics and Design Flaws</h3>
+
+<p><code>Distutils</code> contains commands, each of which is a class with a
+<code>run</code> method that can be called with some options.  <code>Distutils</code>
+also provides a <code>Distribution</code> class that contains global values
+every command can look at.</p>
+
+<p>To use <code>Distutils</code>, a developer adds a single Python module to a
+project, conventionally called <code>setup.py</code>. This module contains a
+call to <code>Distutils</code>' main entry point: the <code>setup</code> function.  This
+function can take many options, which are held by a
+<code>Distribution</code> instance and used by commands.  Here's an example
+that defines a few standard options like the name and version of the
+project, and a list of modules it contains:</p>
+
+<pre>
+from distutils.core import setup
+
+setup(name='MyProject', version='1.0', py_modules=['mycode.py'])
+</pre>
+
+<p class="continue">This module can then be used to run <code>Distutils</code> commands like
+<code>sdist</code>, which creates a source distribution in an archive and
+places it in a <code>dist</code> directory:</p>
+
+<pre>
+$ python setup.py sdist
+</pre>
+
+<p class="continue">Using the same script, you can install the project using the
+<code>install</code> command:</p>
+
+<pre>
+$ python setup.py install
+</pre>
+
+<code>Distutils</code> provides other commands such as:
+
+<ul>
+
+  <li><code>upload</code> to upload a distribution into an online repository.</li>
+
+  <li><code>register</code> to register the metadata of a project in an online
+  repository without necessary uploading a distribution,</li>
+
+  <li><code>bdist</code> to creates a binary distribution, and</li>
+
+  <li><code>bdist_msi</code> to create a <code>.msi</code> file for Windows.</li>
+
+</ul>
+
+<p class="continue">It will also let you get information about the project via other
+command line options.</p>
+
+<p>So installing a project or getting information about it is always done
+by invoking <code>Distutils</code> through this file. For example, to find
+out the name of the project:</p>
+
+<pre>
+$ python setup.py --name
+MyProject
+</pre>
+
+<p class="continue"><code>setup.py</code> is therefore how everyone interacts with the project,
+whether to build, package, publish, or install it. The developer
+describes the content of his project through options passed to a
+function, and uses that file for all his packaging tasks. The file is
+also used by installers to install the project on a target system.</p>
+
+<div class="figure" id="fig.packaging.setup">
+  <img src="../images/packaging/setup-py.png" alt="[Setup]" />
+  <p>Figure&nbsp;14.1: Setup</p>
+</div>
+
+<p>Having a single Python module used for packaging, releasing,
+<em>and</em> installing a project is one of <code>Distutils</code>' main
+flaws.  For example, if you want to get the <code>name</code> from the <code>lxml</code>
+project, <code>setup.py</code> will do a lot of things besides returning a
+simple string as expected:</p>
+
+<pre>
+$ python setup.py --name
+Building lxml version 2.2.
+NOTE: Trying to build without Cython, pre-generated 'src/lxml/lxml.etree.c'
+needs to be available.
+Using build configuration of libxslt 1.1.26
+Building against libxml2/libxslt in the following directory: /usr/lib/lxml
+</pre>
+
+<p class="continue">It might even fail to work on some projects, since
+developers make the assumption that <code>setup.py</code> is used only to
+install, and that other <code>Distutils</code> features are only used by
+them during development.  The multiple roles of the <code>setup.py</code>
+script can easily cause confusion.</p>
+
+</div>
+
+<div class="subsect">
+<h3>14.3.2. Metadata and PyPI</h3>
+
+<p>When <code>Distutils</code> builds a distribution, it creates a
+<code>Metadata</code> file that follows the standard described in
+PEP 314<sup class="footnote"><a href="#footnote-1">1</a></sup>.  It contains a
+static version of all the usual metadata, like the name of the project
+or the version of the release.  The main metadata fields are:</p>
+
+<ul>
+
+  <li><code>Name</code>: The name of the project.</li>
+
+  <li><code>Version</code>: The version of the release.</li>
+
+  <li><code>Summary</code>: A one-line description.</li>
+
+  <li><code>Description</code>: A detailed description.</li>
+
+  <li><code>Home-Page</code>: The URL of the project.</li>
+
+  <li><code>Author</code>: The author name.</li>
+
+  <li><code>Classifiers</code>: Classifiers for the project. Python provides a list
+  of classifiers for the license, the maturity of the release (beta,
+  alpha, final), etc.</li>
+
+  <li><code>Requires</code>, <code>Provides</code>, and <code>Obsoletes</code>:
+  Used to define dependencies with modules.</li>
+
+</ul>
+
+<p class="continue">These fields are for the most part easy to map to equivalents in other
+packaging systems.</p>
+
+<p>The Python Package Index (PyPI)<sup class="footnote"><a href="#footnote-2">2</a></sup>, a central repository of packages like CPAN, is able to
+register projects and publish releases via <code>Distutils</code>'
+<code>register</code> and <code>upload</code> commands.  <code>register</code> builds
+the <code>Metadata</code> file and sends it to PyPI, allowing people and
+tools&mdash;like installers&mdash;to browse them via web pages or via web
+services.</p>
+
+<div class="figure" id="fig.packaging.pypi">
+  <img src="../images/packaging/pypi.png" alt="[The PyPI Repository]" />
+  <p>Figure&nbsp;14.2: The PyPI Repository</p>
+</div>
+
+<p>You can browse projects by <code>Classifiers</code>, and get the author name
+and project URL.  Meanwhile, <code>Requires</code> can be used to define
+dependencies on Python modules.  The <code>requires</code> option can be
+used to add a <code>Requires</code> metadata element to the project:</p>
+
+<pre>
+from distutils.core import setup
+
+setup(name='foo', version='1.0', requires=['ldap'])
+</pre>
+
+<p>Defining a dependency on the <code>ldap</code> module is purely declarative:
+no tools or installers ensure that such a module exists.  This would be
+satisfactory if Python defined requirements at the module level
+through a <code>require</code> keyword like Perl does.  Then it would
+just be a matter of the installers browsing the dependencies at PyPI
+and installing them; that's basically what CPAN does.  But that's not
+possible in Python since a module named <code>ldap</code> can exist in any
+Python project. Since <code>Distutils</code> allows people to release
+projects that can contain several packages and modules, this metadata
+field is not useful at all.</p>
+
+<p>Another flaw of <code>Metadata</code> files is that they are created by a
+Python script, so they are specific to the platform they are executed
+in.  For example, a project that provides features specific to Windows
+could define its <code>setup.py</code> as:</p>
+
+<pre>
+from distutils.core import setup
+
+setup(name='foo', version='1.0', requires=['win32com'])
+</pre>
+
+<p class="continue">But this assumes that the project only works under Windows, even if it
+provides portable features.  One way to solve this is to make the
+<code>requires</code> option specific to Windows:</p>
+
+<pre>
+from distutils.core import setup
+import sys
+</pre>
+<pre>
+if sys.platform == 'win32':
+    setup(name='foo', version='1.0', requires=['win32com'])
+else:
+    setup(name='foo', version='1.0')
+</pre>
+
+<p class="continue">This actually makes the issue worse. Remember, the script is used to
+build source archives that are then released to the world via PyPI.
+This means that the static <code>Metadata</code> file sent to PyPI is
+dependent on the platform that was used to compile it.  In other
+words, there is no way to indicate statically in the metadata field
+that it is platform-specific.</p>
+
+</div>
+
+<div class="subsect">
+<h3>14.3.3. Architecture of PyPI</h3>
+
+<div class="figure" id="fig.packaging.workflow">
+  <img src="../images/packaging/pypi-workflow.png" alt="[PyPI Workflow]" />
+  <p>Figure&nbsp;14.3: PyPI Workflow</p>
+</div>
+
+<p>As indicated earlier, PyPI is a central index of Python projects where
+people can browse existing projects by category or register their own
+work.  Source or binary distributions can be uploaded and added to an
+existing project, and then downloaded for installation or study.  PyPI
+also offers web services that can be used by tools like installers.</p>
+
+<div class="subsubsect">
+<h4>Registering Projects and Uploading Distributions</h4>
+
+<p>Registering a project to PyPI is done with the <code>Distutils</code>
+<code>register</code> command.  It builds a POST request containing the
+metadata of the project, whatever its version is.  The request
+requires an Authorization header, as PyPI uses Basic Authentication to
+make sure every registered project is associated with a user that has
+first registered with PyPI.  Credentials are kept in the local
+<code>Distutils</code> configuration or typed in the prompt every time a
+<code>register</code> command is invoked.  An example of its use is:</p>
+
+<pre>
+$ python setup.py register
+running register
+Registering MPTools to http://pypi.python.org/pypi
+Server response (200): OK
+</pre>
+
+<p class="continue">Each registered project gets a web page with an HTML version of the
+metadata, and packagers can upload distributions to PyPI using
+<code>upload</code>:</p>
+
+<pre>
+$ python setup.py sdist upload
+running sdist
+&hellip;
+running upload
+Submitting dist/mopytools-0.1.tar.gz to http://pypi.python.org/pypi
+Server response (200): OK
+</pre>
+
+<p>It's also possible to point users to another location via the
+<code>Download-URL</code> metadata field rather than uploading files directly to PyPI.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Querying PyPI</h4>
+
+<p>Besides the HTML pages PyPI publishes for web users, it provides two
+services that tools can use to browse the content: the Simple Index
+protocol and the XML-RPC APIs.</p>
+
+<p>The Simple Index protocol starts at
+<code class="url">http://pypi.python.org/simple/</code>, a plain HTML page that contains
+relative links to every registered project:</p>
+
+<pre>
+&lt;html&gt;&lt;head&gt;&lt;title&gt;Simple Index&lt;/title&gt;&lt;/head&gt;&lt;body&gt;
+&#8942;    &#8942;    &#8942;
+&lt;a href='MontyLingua/'&gt;MontyLingua&lt;/a&gt;&lt;br/&gt;
+&lt;a href='mootiro_web/'&gt;mootiro_web&lt;/a&gt;&lt;br/&gt;
+&lt;a href='Mopidy/'&gt;Mopidy&lt;/a&gt;&lt;br/&gt;
+&lt;a href='mopowg/'&gt;mopowg&lt;/a&gt;&lt;br/&gt;
+&lt;a href='MOPPY/'&gt;MOPPY&lt;/a&gt;&lt;br/&gt;
+&lt;a href='MPTools/'&gt;MPTools&lt;/a&gt;&lt;br/&gt;
+&lt;a href='morbid/'&gt;morbid&lt;/a&gt;&lt;br/&gt;
+&lt;a href='Morelia/'&gt;Morelia&lt;/a&gt;&lt;br/&gt;
+&lt;a href='morse/'&gt;morse&lt;/a&gt;&lt;br/&gt;
+&#8942;    &#8942;    &#8942;
+&lt;/body&gt;&lt;/html&gt;
+</pre>
+
+<p class="continue">For example, the MPTools project has a <code>MPTools/</code> link, which
+means that the project exists in the index.  The site it points at
+contains a list of all the links related to the project:</p>
+
+<ul>
+
+  <li>links for every distribution stored at PyPI</li>
+
+  <li>links for every Home URL defined in the <code>Metadata</code>, for
+  each version of the project registered</li>
+
+  <li>links for every Download-URL defined in the <code>Metadata</code>, for
+  each version as well.</li>
+
+</ul>
+
+<p class="continue">The page for MPTools contains:</p>
+
+<pre>
+&lt;html&gt;&lt;head&gt;&lt;title&gt;Links for MPTools&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;&lt;h1&gt;Links for MPTools&lt;/h1&gt;
+&lt;a href="../../packages/source/M/MPTools/MPTools-0.1.tar.gz"&gt;MPTools-0.1.tar.gz&lt;/a&gt;&lt;br/&gt;
+&lt;a href="http://bitbucket.org/tarek/mopytools" rel="homepage"&gt;0.1 home_page&lt;/a&gt;&lt;br/&gt;
+&lt;/body&gt;&lt;/html&gt;
+</pre>
+
+<p class="continue">Tools like installers that want to find distributions of a project can
+look for it in the index page, or simply check if
+<code class="url">http://pypi.python.org/simple/PROJECT_NAME/</code> exists.</p>
+
+<p>This protocol has two main limitations.  First, PyPI is a single
+server right now, and while people usually have local copies of its
+content, we have experienced several downtimes in the past two years
+that have paralyzed developers that are constantly working with
+installers that browse PyPI to get all the dependencies a project
+requires when it is built. For instance, building a Plone application
+will generate several hundreds queries at PyPI to get all the required
+bits, so PyPI may act as a single point of failure.</p>
+
+<p>Second, when the distributions are not stored at PyPI and a
+Download-URL link is provided in the Simple Index page, installers
+have to follow that link and hope that the location will be up and
+will really contain the release. These indirections weakens any Simple
+Index-based process.</p>
+
+<p>The Simple Index protocol's goal is to give to installers a list of
+links they can use to install a project. The project metadata is not
+published there; instead, there are XML-RPC methods to get extra
+information about registered projects:</p>
+
+<pre>
+&gt;&gt;&gt; import xmlrpclib
+&gt;&gt;&gt; import pprint
+&gt;&gt;&gt; client = xmlrpclib.ServerProxy('http://pypi.python.org/pypi')
+&gt;&gt;&gt; client.package_releases('MPTools')
+['0.1']
+&gt;&gt;&gt; pprint.pprint(client.release_urls('MPTools', '0.1'))
+[{'comment_text': &amp;rquot;,
+'downloads': 28,
+'filename': 'MPTools-0.1.tar.gz',
+'has_sig': False,
+'md5_digest': '6b06752d62c4bffe1fb65cd5c9b7111a',
+'packagetype': 'sdist',
+'python_version': 'source',
+'size': 3684,
+'upload_time': &lt;DateTime '20110204T09:37:12' at f4da28&gt;,
+'url': 'http://pypi.python.org/packages/source/M/MPTools/MPTools-0.1.tar.gz'}]
+&gt;&gt;&gt; pprint.pprint(client.release_data('MPTools', '0.1'))
+{'author': 'Tarek Ziade',
+'author_email': 'tarek@mozilla.com',
+'classifiers': [],
+'description': 'UNKNOWN',
+'download_url': 'UNKNOWN',
+'home_page': 'http://bitbucket.org/tarek/mopytools',
+'keywords': None,
+'license': 'UNKNOWN',
+'maintainer': None,
+'maintainer_email': None,
+'name': 'MPTools',
+'package_url': 'http://pypi.python.org/pypi/MPTools',
+'platform': 'UNKNOWN',
+'release_url': 'http://pypi.python.org/pypi/MPTools/0.1',
+'requires_python': None,
+'stable_version': None,
+'summary': 'Set of tools to build Mozilla Services apps',
+'version': '0.1'}
+</pre>
+
+<p class="continue">The issue with this approach is that some of the data that the XML-RPC
+APIs are publishing could have been stored as static files and
+published in the Simple Index page to simplify the work of client
+tools.  That would also avoid the extra work PyPI has to do to handle
+those queries.  It's fine to have non-static data like the number of
+downloads per distribution published in a specialized web service, but
+it does not make sense to have to use two different services to get
+all static data about a project.</p>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>14.3.4. Architecture of a Python Installation</h3>
+
+<p>If you install a Python project using <code>python setup.py install</code>,
+<code>Distutils</code>&mdash;which is included in the standard library&mdash;will
+copy the files onto your system.</p>
+
+<ul>
+
+  <li><em>Python packages</em> and modules will land in the Python
+  directory that is loaded when the interpreter starts: under the
+  latest Ubuntu they will wind up in
+  <code>/usr/local/lib/python2.6/dist-packages/</code> and under Fedora in
+  <code>/usr/local/lib/python2.6/sites-packages/</code>.</li>
+
+  <li><em>Data files</em> defined in a project can land anywhere
+  on the system.</li>
+
+  <li>The <em>executable script</em> will land in a <code>bin</code> directory
+  on the system. Depending on the platform, this could be
+  <code>/usr/local/bin</code> or in a bin directory specific to the Python
+  installation.</li>
+
+</ul>
+
+<p>Ever since Python 2.5, the metadata file is copied alongside the modules
+and packages as <code>project-version.egg-info</code>. For example, the
+<code>virtualenv</code> project could have a
+<code>virtualenv-1.4.9.egg-info</code> file.  These metadata files can be
+considered a database of installed projects, since it's possible to
+iterate over them and build a list of projects with their versions.
+However, the <code>Distutils</code> installer does not record the list of
+files it installs on the system.  In other words, there is no way to
+remove all files that were copied in the system.  This is a shame
+since the <code>install</code> command has a <code>--record</code> option that can
+be used to record all installed files in a text file. However, this
+option is not used by default and <code>Distutils</code>' documentation
+barely mentions it.</p>
+
+</div>
+
+<div class="subsect">
+<h3>14.3.5. Setuptools, Pip and the Like</h3>
+
+<p>As mentioned in the introduction, some projects tried to fix some of
+the problems with <code>Distutils</code>, with varying degrees of success.</p>
+
+<div class="subsubsect">
+<h4>The Dependencies Issue</h4>
+
+<p>PyPI allowed developers to publish Python projects that could include
+several modules organized into Python packages. But at the same time,
+projects could define module-level dependencies via <code>Require</code>.
+Both ideas are reasonable, but their combination is not.</p>
+
+<p>The right thing to do was to have project-level dependencies, which is
+exactly what <code>Setuptools</code> added as a feature on the top of
+<code>Distutils</code>.  It also provided a script called
+<code>easy_install</code> to automatically fetch and install dependencies
+by looking for them on PyPI.  In practice, module-level dependency was
+never really used, and people jumped on <code>Setuptools</code>' extensions.
+But since these features were added in options specific to
+<code>Setuptools</code>, and ignored by <code>Distutils</code> or PyPI,
+<code>Setuptools</code> effectively created its own standard and became a
+hack on a top of a bad design.</p>
+
+<p><code>easy_install</code> therefore needs to download the archive of the
+project and run its <code>setup.py</code> script again to get the metadata
+it needs, and it has to do this again for every dependency. The
+dependency graph is built bit by bit after each download.</p>
+
+<p>Even if the new metadata was accepted by PyPI and browsable online,
+<code>easy_install</code> would still need to download all archives
+because, as said earlier, metadata published at PyPI is specific to
+the platform that was used to upload it, which can differ from the
+target platform.  But this ability to install a project and its
+dependencies was good enough in 90% of the cases and was a great
+feature to have. So <code>Setuptools</code> became widely used, although it
+still suffers from other problems:</p>
+
+<ul>
+
+  <li>If a dependency install fails, there is no rollback and the
+  system can end up in a broken state.</li>
+
+  <li>The dependency graph is built on the fly during installation, so
+  if a dependency conflict is encountered the system can end up in a
+  broken state as well.</li>
+
+</ul>
+
+</div>
+
+<div class="subsubsect">
+<h4>The Uninstall Issue</h4>
+
+<p><code>Setuptools</code> did not provide an uninstaller, even though its
+custom metadata could have contained a file listing the installed
+files.  <code>Pip</code>, on the other hand, extended <code>Setuptools</code>'
+metadata to record installed files, and is therefore able to
+uninstall.  But that's yet another custom set of metadata, which means
+that a single Python installation may contain up to four different
+flavours of metadata for each installed project:</p>
+
+<ul>
+
+  <li><code>Distutils</code>' <code>egg-info</code>, which is a single metadata
+  file.</li>
+
+  <li><code>Setuptools</code>' <code>egg-info</code>, which is a directory
+  containing the metadata and extra <code>Setuptools</code> specific
+  options.</li>
+
+  <li><code>Pip</code>'s <code>egg-info</code>, which is an extended version of
+  the previous.</li>
+
+  <li>Whatever the hosting packaging system creates.</li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>14.3.6. What About Data Files?</h3>
+
+<p>In <code>Distutils</code>, data files can be installed anywhere on the
+system.  If you define some package data files in <code>setup.py</code>
+script like this:</p>
+
+<pre>
+setup(&hellip;,
+  packages=['mypkg'],
+  package_dir={'mypkg': 'src/mypkg'},
+  package_data={'mypkg': ['data/*.dat']},
+  )
+</pre>
+
+<p class="continue">then all files with the <code>.dat</code> extension in the <code>mypkg</code>
+project will be included in the distribution and eventually installed
+along with the Python modules in the Python installation.</p>
+
+<p>For data files that need to be installed outside the Python distribution,
+there's another option that stores files in the archive but puts them in defined
+locations:</p>
+
+<pre>
+setup(&hellip;,
+    data_files=[('bitmaps', ['bm/b1.gif', 'bm/b2.gif']),
+                ('config', ['cfg/data.cfg']),
+                ('/etc/init.d', ['init-script'])]
+    )
+</pre>
+
+<p class="continue">This is terrible news for OS packagers for several reasons:</p>
+
+<ul>
+
+  <li>Data files are not part of the metadata, so packagers need to read
+  <code>setup.py</code> and sometimes dive into the project's code.</li>
+
+  <li>The developer should not be the one deciding where data files
+  should land on a target system.</li>
+
+  <li>There are no categories for these data files: images, <code>man</code>
+  pages, and everything else are all treated the same way.</li>
+
+</ul>
+
+<p>A packager who needs to repackage a project with such a file has no
+choice but to patch the <code>setup.py</code> file so that it works as
+expected for her platform.  To do that, she must review the code
+and change every line that uses those files, since the developer made
+an assumption about their location.  <code>Setuptools</code> and <code>Pip</code>
+did not improve this.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>14.4. Improved Standards</h2>
+
+<p>So we ended up with with a mixed up and confused packaging
+environment, where everything is driven by a single Python module,
+with incomplete metadata and no way to describe everything a project
+contains.  Here's what we're doing to make things better.</p>
+
+<div class="subsect">
+<h3>14.4.1. Metadata</h3>
+
+<p>The first step is to fix our <code>Metadata</code> standard.  PEP 345
+defines a new version that includes:</p>
+
+<ul>
+
+  <li>a saner way to define versions</li>
+
+  <li>project-level dependencies</li>
+
+  <li>a static way to define platform-specific values</li>
+
+</ul>
+
+<div class="subsubsect">
+<h4>Version</h4>
+
+<p>One goal of the metadata standard is to make sure that all tools that
+operate on Python projects are able to classify them the same
+way. For versions, it means that every tool should be able to know
+that "1.1" comes after "1.0". But if project have custom
+versioning schemes, this becomes much harder.</p>
+
+<p>The only way to ensure consistent versioning is to publish a standard
+that projects will have to follow.  The scheme we chose is a
+classical sequence-based scheme.  As defined in PEP 386, its format
+is:</p>
+
+<pre>
+N.N[.N]+[{a|b|c|rc}N[.N]+][.postN][.devN]
+</pre>
+
+<p class="continue">where:</p>
+
+<ul>
+
+  <li><em>N</em> is an integer. You can use as many Ns as you want and
+  separate them by dots, as long as there are at least two
+  (MAJOR.MINOR).</li>
+
+  <li><em>a</em>, <em>b</em>, <em>c</em> and <em>rc</em> are <em>alpha</em>,
+  <em>beta</em> and <em>release candidate</em> markers. They are followed
+  by an integer. Release candidates have two markers because we wanted
+  the scheme to be compatible with Python, which uses <em>rc</em>. But
+  we find <em>c</em> simpler.</li>
+
+  <li><em>dev</em> followed by a number is a dev marker.</li>
+
+  <li><em>post</em> followed by a number is a post-release marker.</li>
+
+</ul>
+
+<p class="continue">Depending on the project release process, dev or post markers can be used for
+all intermediate versions between two final releases. Most process use
+dev markers.</p>
+
+<p>Following this scheme, PEP 386 defines a strict ordering:</p>
+
+<ul>
+
+  <li>alpha &lt; beta &lt; rc &lt; final</li>
+
+  <li>dev &lt; non-dev &lt; post, where non-dev can be a alpha, beta,
+  rc or final</li>
+
+</ul>
+
+<p class="continue">Here's a full ordering example:</p>
+
+<pre>
+1.0a1 &lt; 1.0a2.dev456 &lt; 1.0a2 &lt; 1.0a2.1.dev456
+  &lt; 1.0a2.1 &lt; 1.0b1.dev456 &lt; 1.0b2 &lt; 1.0b2.post345
+    &lt; 1.0c1.dev456 &lt; 1.0c1 &lt; 1.0.dev456 &lt; 1.0
+      &lt; 1.0.post456.dev34 &lt; 1.0.post456
+</pre>
+
+<p class="continue">The goal of this scheme is to make it easy for other packaging systems
+to translate Python projects' versions into their own schemes.  PyPI
+now rejects any projects that upload PEP 345 metadata with version numbers
+that don't follow PEP 386.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Dependencies</h4>
+
+<p>PEP 345 defines three new fields that replace PEP 314 <code>Requires</code>,
+<code>Provides</code>, and <code>Obsoletes</code>. Those fields are
+<code>Requires-Dist</code>, <code>Provides-Dist</code>, and <code>Obsoletes-Dist</code>,
+and can be used multiple times in the metadata.</p>
+
+<p>For <code>Requires-Dist</code>, each entry contains a string naming some
+other <code>Distutils</code> project required by this distribution.  The
+format of a requirement string is identical to that of a
+<code>Distutils</code> project name (e.g., as found in the <code>Name</code> field)
+optionally followed by a version declaration within parentheses.
+These <code>Distutils</code> project names should correspond to names as
+found at PyPI, and version declarations must follow the rules
+described in PEP 386. Some example are:</p>
+
+<pre>
+Requires-Dist: pkginfo
+Requires-Dist: PasteDeploy
+Requires-Dist: zope.interface (&gt;3.5.0)
+</pre>
+
+<p class="continue"><code>Provides-Dist</code> is used to define extra names contained in the
+project.  It's useful when a project wants to merge with another
+project. For example the ZODB project can include the
+<code>transaction</code> project and state:</p>
+
+<pre>
+Provides-Dist: transaction
+</pre>
+
+<p class="continue"><code>Obsoletes-Dist</code> is useful to mark another project as an obsolete
+version:</p>
+
+<pre>
+Obsoletes-Dist: OldName
+</pre>
+
+</div>
+
+<div class="subsubsect">
+<h4>Environment Markers</h4>
+
+<p>An environment marker is a marker that can be added at the end of a
+field after a semicolon to add a condition about the execution
+environment.  Some examples are:</p>
+
+<pre>
+Requires-Dist: pywin32 (&gt;1.0); sys.platform == 'win32'
+Obsoletes-Dist: pywin31; sys.platform == 'win32'
+Requires-Dist: foo (1,!=1.3); platform.machine == 'i386'
+Requires-Dist: bar; python_version == '2.4' or python_version == '2.5'
+Requires-External: libxslt; 'linux' in sys.platform
+</pre>
+
+<p>The micro-language for environment markers is deliberately kept simple
+enough for non-Python programmers to understand: it compares strings
+with the <code>==</code> and <code>in</code> operators (and their opposites), and
+allows the usual Boolean combinations.  The fields in PEP 345 that can
+use this marker are:</p>
+
+<ul>
+
+  <li><code>Requires-Python</code></li>
+
+  <li><code>Requires-External</code></li>
+
+  <li><code>Requires-Dist</code></li>
+
+  <li><code>Provides-Dist</code></li>
+
+  <li><code>Obsoletes-Dist</code></li>
+
+  <li><code>Classifier</code></li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>14.4.2. What's Installed?</h3>
+
+<p>Having a single installation format shared among all Python tools is
+mandatory for interoperability. If we want Installer A to detect that
+Installer B has previously installed project Foo, they both need to
+share and update the same database of installed projects.</p>
+
+<p>Of course, users should ideally use a single installer in their
+system, but they may want to switch to a newer installer that has
+specific features. For instance, Mac OS X ships <code>Setuptools</code>, so
+users automatically have the <code>easy_install</code> script. If they
+want to switch to a newer tool, they will need it to be backward
+compatible with the previous one.</p>
+
+<p>Another problem when using a Python installer on a platform that has a
+packaging system like RPM is that there is no way to inform the system
+that a project is being installed. What's worse, even if the Python
+installer could somehow ping the central packaging system, we would
+need to have a mapping between the Python metadata and the system
+metadata. The name of the project, for instance, may be different for
+each. That can occur for several reasons. The most common one is
+a conflict name: another project outside the Python land already uses
+the same name for the RPM. Another cause is that the name used include
+a <code>python</code> prefix that breaks the convention of the platform.
+For example, if you name your project <code>foo-python</code>, there are high
+chances that the Fedora RPM will be called <code>python-foo</code>.</p>
+
+<p>One way to avoid this problem is to leave the global Python
+installation alone, managed by the central packaging system, and work
+in an isolated environment.  Tools like <code>Virtualenv</code> allows this.</p>
+
+<p>In any case, we do need to have a single installation format in Python
+because interoperability is also a concern for other packaging systems
+when they install themselves Python projects.  Once a third-party
+packaging system has registered a newly installed project in its
+own database on the system, it needs to generate the right metadata
+for the Python installaton itself, so projects appear to be installed
+to Python installers or any APIs that query the Python installation.</p>
+
+<p>The metadata mapping issue can be addressed in that case: since an RPM
+knows which Python projects it wraps, it can generate the proper
+Python-level metadata. For instance, it knows that
+<code>python26-webob</code> is called <code>WebOb</code> in the PyPI ecosystem.</p>
+
+<p>Back to our standard: PEP 376 defines a standard for installed
+packages whose format is quite similar to those used by
+<code>Setuptools</code> and <code>Pip</code>.  This structure is a directory with
+a <code>dist-info</code> extension that contains:</p>
+
+<ul>
+
+  <li><code>METADATA</code>: the metadata, as described in PEP 345, PEP 314
+  and PEP 241.</li>
+
+  <li><code>RECORD</code>: the list of installed files in a csv-like format.</li>
+
+  <li><code>INSTALLER</code>: the name of the tool used to install the
+  project.</li>
+
+  <li><code>REQUESTED</code>: the presence of this file indicates that the
+  project installation was explicitly requested (i.e., not installed
+  as a dependency).</li>
+
+</ul>
+
+<p class="continue">Once all tools out there understand this format, we'll be able to
+manage projects in Python without depending on a particular installer
+and its features.  Also, since PEP 376 defines the metadata as a
+directory, it will be easy to add new files to extend it.  As a matter
+of fact, a new metadata file called <code>RESOURCES</code>, described in the
+next section, might be added in a near future without modifying
+PEP 376. Eventually, if this new file turns out to be useful for all
+tools, it will be added to the PEP.</p>
+
+</div>
+
+<div class="subsect">
+<h3>14.4.3. Architecture of Data Files</h3>
+
+<p>As described earlier, we need to let the packager decide where to put
+data files during installation without breaking the developer's
+code. At the same time, the developer must be able to work with data
+files without having to worry about their location.  Our solution is
+the usual one: indirection.</p>
+
+<div class="subsubsect">
+<h4>Using Data Files</h4>
+
+<p>Suppose your <code>MPTools</code> application needs to work with a
+configuration file.  The developer will put that file in a Python
+package and use <code>__file__</code> to reach it:</p>
+
+<pre>
+import os
+
+here = os.path.dirname(__file__)
+cfg = open(os.path.join(here, 'config', 'mopy.cfg'))
+</pre>
+
+<p class="continue">This implies that configuration files are installed like code, and
+that the developer <em>must</em> place it alongside her code: in this
+example, in a subdirectory called <code>config</code>.</p>
+
+<p>The new architecture of data files we have designed
+uses the project tree as the root
+of all files, and allows access to any file in the tree, whether it is
+located in a Python package or a simple directory.  This allowed
+developers to create a dedicated directory for data files and access
+them using <code>pkgutil.open</code>:</p>
+
+<pre>
+import os
+import pkgutil
+
+# Open the file located in config/mopy.cfg in the MPTools project
+cfg = pkgutil.open('MPTools', 'config/mopy.cfg')
+</pre>
+
+<p class="continue"><code>pkgutil.open</code> looks for the project metadata and see if it
+contains a <code>RESOURCES</code> file. This is a simple map of files to
+locations that the system may contain:</p>
+
+<pre>
+config/mopy.cfg {confdir}/{distribution.name}
+</pre>
+
+<p class="continue">Here the <code>{confdir}</code> variable points to the
+system's configuration directory, and <code>{distribution.name}</code>
+contains the name of the Python project as found in the metadata.</p>
+
+<div class="figure" id="fig.packaging.findfile">
+  <img src="../images/packaging/find-file.png" alt="[Finding a File]" />
+  <p>Figure&nbsp;14.4: Finding a File</p>
+</div>
+
+<p>As long as this <code>RESOURCES</code> metadata file is created at
+installation time, the API will find the location of <code>mopy.cfg</code>
+for the developer.  And since <code>config/mopy.cfg</code> is the path
+relative to the project tree, it means that we can also offer a
+development mode where the metadata for the project are generated
+in-place and added in the lookup paths for <code>pkgutil</code>.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Declaring Data Files</h4>
+
+<p>In practice, a project can define where data files should land by
+defining a mapper in their <code>setup.cfg</code> file.  A mapper is a
+list of <code>(glob-style pattern, target)</code> tuples. Each pattern
+points to one of several files in the project tree, while the target
+is an installation path that may contain variables in brackets.  For
+example, <code>MPTools</code>'s <code>setup.cfg</code> could look like this:</p>
+
+<pre>
+[files]
+resources =
+        config/mopy.cfg {confdir}/{application.name}/
+        images/*.jpg    {datadir}/{application.name}/
+</pre>
+
+<p class="continue">The <code>sysconfig</code> module will provide and document a specific list
+of variables that can be used, and default values for each platform.
+For example <code>{confdir}</code> is <code>/etc</code> on Linux.  Installers can
+therefore use this mapper in conjunction with <code>sysconfig</code> at
+installation time to know where the files should be placed.
+Eventually, they will generate the <code>RESOURCES</code> file mentioned
+earlier in the installed metadata so <code>pkgutil</code> can find back the
+files.</p>
+
+<div class="figure" id="fig.packaging.installer">
+  <img src="../images/packaging/installer.png" alt="[Installer]" />
+  <p>Figure&nbsp;14.5: Installer</p>
+</div>
+
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>14.4.4. PyPI Improvements</h3>
+
+<p>I said earlier that PyPI was effectively a single point of
+failure. PEP 380 addresses this problem by defining a mirroring
+protocol so that users can fall back to alternative servers when PyPI
+is down. The goal is to allow members of the community to run mirrors
+around the world.</p>
+
+<div class="figure" id="fig.packaging.mirroring">
+  <img src="../images/packaging/mirroring.png" alt="[Mirroring]" />
+  <p>Figure&nbsp;14.6: Mirroring</p>
+</div>
+
+<p>The mirror list is provided as a list of host names of the form
+<code>X.pypi.python.org</code>, where <code>X</code> is in the sequence
+<code>a,b,c,&hellip;,aa,ab,&hellip;</code>.  <code>a.pypi.python.org</code> is the master
+server and mirrors start with b. A CNAME record
+<code>last.pypi.python.org</code> points to the last host name so clients
+that are using PyPI can get the list of the mirrors by looking at the
+CNAME.</p>
+
+<p>For example, this call tells use that the last mirror is
+<code>h.pypi.python.org</code>, meaning that PyPI currently has 6 mirrors (b
+through h):</p>
+
+<pre>
+&gt;&gt;&gt; import socket
+&gt;&gt;&gt; socket.gethostbyname_ex('last.pypi.python.org')[0]
+'h.pypi.python.org'
+</pre>
+
+<p class="continue">Potentially, this protocol allows clients to redirect requests to the
+nearest mirror by localizing the mirrors by their IPs, and also fall
+back to the next mirror if a mirror or the master server is down.  The
+mirroring protocol itself is more complex than a simple rsync because
+we wanted to keep downloads statistics accurate and provide minimal
+security.</p>
+
+<div class="subsubsect">
+<h4>Synchronization</h4>
+
+<p>Mirrors must reduce the amount of data transferred between the central
+server and the mirror. To achieve that, they <em>must</em> use the
+<code>changelog</code> PyPI XML-RPC call, and only refetch the packages that
+have been changed since the last time.  For each package P, they
+<em>must</em> copy documents <code>/simple/P/</code> and <code>/serversig/P</code>.</p>
+
+<p>If a package is deleted on the central server, they <em>must</em> delete
+the package and all associated files. To detect modification of
+package files, they may cache the file's ETag, and may request
+skipping it using the <code>If-None-Match</code> header.  Once the
+synchronization is over, the mirror changes its <code>/last-modified</code>
+to the current date.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Statistics Propagation</h4>
+
+<p>When you download a release from any of the mirrors, the protocol
+ensures that the download hit is transmitted to the master PyPI
+server, then to other mirrors.  Doing this ensures that people or
+tools browsing PyPI to find out how many times a release was downloaded
+will get a value summed across all mirrors.</p>
+
+<p>Statistics are grouped into daily and weekly CSV files in the
+<code>stats</code> directory at the central PyPI itself.  Each mirror needs
+to provide a <code>local-stats</code> directory that contains its own
+statistics. Each file provides the number of downloads for each
+archive, grouped by use agents.  The central server visits mirrors
+daily to collect those statistics, and merge them back into the global
+<code>stats</code> directory, so each mirror must keep <code>/local-stats</code>
+up-to-date at least once a day.</p>
+
+</div>
+
+<div class="subsubsect">
+<h4>Mirror Authenticity</h4>
+
+<p>With any distributed mirroring system, clients may want to verify that
+the mirrored copies are authentic.  Some of the possible threats
+include:</p>
+
+<ul>
+
+  <li>the central index may be compromised</li>
+
+  <li>the mirrors might be tampered with</li>
+
+  <li>a man-in-the-middle attack between the central index and the end
+  user, or between a mirror and the end user</li>
+
+</ul>
+
+<p class="continue">To detect the first attack, package authors need to sign their
+packages using PGP keys, so that users can verify that the package
+comes from the author they trust.  The mirroring protocol itself only
+addresses the second threat, though some attempt is made to detect
+man-in-the-middle attacks.</p>
+
+<p>The central index provides a DSA key at the URL <code>/serverkey</code>, in
+the PEM format as generated by <code>openssl dsa -pubout</code><sup class="footnote"><a href="#footnote-3">3</a></sup>. This URL must not be mirrored,
+and clients must fetch the official <code>serverkey</code> from PyPI
+directly, or use the copy that came with the PyPI client
+software. Mirrors should still download the key so that they can
+detect a key rollover.</p>
+
+<p>For each package, a mirrored signature is provided at
+<code>/serversig/package</code>.  This is the DSA signature of the parallel
+URL <code>/simple/package</code>, in DER form, using SHA-1 with
+DSA<sup class="footnote"><a href="#footnote-4">4</a></sup>.</p>
+
+<p>Clients using a mirror need to perform the following steps to verify a
+package:</p>
+
+<ol>
+
+  <li>Download the <code>/simple</code> page, and compute its SHA-1 hash.</li>
+
+  <li>Compute the DSA signature of that hash.</li>
+
+  <li>Download the corresponding <code>/serversig</code>, and compare it
+  byte for byte with the value computed in step 2.</li>
+
+  <li>Compute and verify (against the <code>/simple</code> page) the MD5
+  hashes of all files they download from the mirror.</li>
+
+</ol>
+
+<p>Verification is not needed when downloading from central index, and
+clients should not do it to reduce the computation overhead.</p>
+
+<p>About once a year, the key will be replaced with a new one. Mirrors
+will have to re-fetch all <code>/serversig</code> pages. Clients using
+mirrors need to find a trusted copy of the new server key. One way to
+obtain one is to download it from
+<code class="url">https://pypi.python.org/serverkey</code>.  To detect man-in-the-middle
+attacks, clients need to verify the SSL server certificate, which will
+be signed by the CACert authority.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>14.5. Implementation Details</h2>
+
+<p>The implementation of most of the improvements described in the previous
+section are taking place in <code>Distutils2</code>.  The <code>setup.py</code>
+file is not used anymore, and a project is completely described in
+<code>setup.cfg</code>, a static <code>.ini</code>-like file.  By doing this, we
+make it easier for packagers to change the behavior of a project
+installation without having to deal with Python code.  Here's an
+example of such a file:</p>
+
+<pre>
+[metadata]
+name = MPTools
+version = 0.1
+author = Tarek Ziade
+author-email = tarek@mozilla.com
+summary = Set of tools to build Mozilla Services apps
+description-file = README
+home-page = http://bitbucket.org/tarek/pypi2rpm
+project-url: Repository, http://hg.mozilla.org/services/server-devtools
+classifier = Development Status :: 3 - Alpha
+    License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)
+</pre>
+
+<pre>
+[files]
+packages =
+        mopytools
+        mopytools.tests
+
+extra_files =
+        setup.py
+        README
+        build.py
+        _build.py
+
+resources =
+    etc/mopytools.cfg {confdir}/mopytools
+</pre>
+
+<p class="continue"><code>Distutils2</code> use this configuration file to:</p>
+
+<ul>
+
+  <li>generate <code>META-1.2</code> metadata files that can be used for various
+  actions, like registering at PyPI.</li>
+
+  <li>run any package management command, like <code>sdist</code>.</li>
+
+  <li>install a <code>Distutils2</code>-based project.</li>
+
+</ul>
+
+<p class="continue"><code>Distutils2</code> also implements <code>VERSION</code> via its <code>version</code>
+module.</p>
+
+<p>The <code>INSTALL-DB</code> implementation will find its way to the standard library
+in Python 3.3 and will be in the <code>pkgutil</code> module. In the
+interim, a version of this module exists in <code>Distutils2</code> for
+immediate use.  The provided APIs will let us browse an installation
+and know exactly what's installed.</p>
+
+<p>These APIs are the basis for some neat <code>Distutils2</code> features:</p>
+
+<ul>
+
+  <li>installer/uninstaller</li>
+
+  <li>dependency graph view of installed projects</li>
+
+</ul>
+
+</div>
+
+<div class="sect">
+<h2>14.6. Lessons learned</h2>
+
+<div class="subsect">
+<h3>14.6.1. It's All About PEPs</h3>
+
+<p>Changing an architecture as wide and complex as Python packaging
+needs to be carefully done by changing standards through a
+PEP process. And changing or adding a new PEP takes in my
+experience around a year.</p>
+
+<p>One mistake the community made along the way was to deliver tools
+that solved some issues by extending the Metadata and the way Python
+applications were installed without trying to change the impacted
+PEPs.</p>
+
+<p>In other words, depending on the tool you used, the standard library
+<code>Distutils</code> or <code>Setuptools</code>, applications were installed
+differently. The problems were solved for one part of the community
+that used these new tools, but added more problems for the rest of
+the world.
+OS Packagers for instance, had to face several Python standards:
+the official documented standard and the de-facto standard imposed by
+<code>Setuptools</code>.</p>
+
+<p>But in the meantime, <code>Setuptols</code> had the opportunity to experiment
+in a realistic scale (the whole community) some innovations in a
+very fast pace, and the feedback was invaluable. We were able to
+write down new PEPs with more confidence in what worked and what did not,
+and maybe it would have been impossible to do so differently.
+So it's all about detecting when some third-party tools are contributing
+innovations that are solving problems and that should ignite a PEP
+change.</p>
+
+</div>
+
+<div class="subsect">
+<h3>14.6.2. A Package that Enters the Standard Library Has One Foot in the Grave</h3>
+
+<p>I am paraphrasing Guido van Rossum in the section title, but that's
+one aspect of the batteries-included philosophy of Python that
+impacts a lot our efforts.</p>
+
+<p><code>Distutils</code> is part of the standard library and <code>Distutils2</code>
+will soon be. A package that's in the standard library is very hard to
+make evolve. There are of course deprecation processes, where you can kill
+or change an API after 2 minor versions of Python. But once an API is
+published, it's going to stay there for years.</p>
+
+<p>So any change you make in a package in the standard library that is
+not a bug fix, is a potential disturbance for the eco-system. So when
+you're doing important changes, you have to create a new package.</p>
+
+<p>I've learned it the hard way with <code>Distutils</code> since I had to eventually
+revert all the changes I had done in it for more that a year and create
+<code>Distutils2</code>. In the future, if our standards change again in a drastic
+way, there are high chances that we will start a standalone <code>Distutils3</code>
+project first, unless the standard library is released on its own at some point.</p>
+
+</div>
+
+<div class="subsect">
+<h3>14.6.3. Backward Compatibility</h3>
+
+<p>Changing the way packaging works in Python is a very long process: the
+Python ecosystem contains so many projects based on older packaging
+tools that there is and will be a lot of resistance to change.
+(Reaching consensus on some of the topics discussed in this chapter
+took several years, rather than the few months I originally
+expected.)  As with Python 3, it will take years before all projects
+switch to the new standard.</p>
+
+<p>That's why everything we are doing has to be backward-compatible with
+all previous tools, installations and standards, which makes the
+implementation of <code>Distutils2</code> a wicked problem.</p>
+
+<p>For example, if a project that uses the new standards depends on
+another project that don't use them yet, we can't stop the installation
+process by telling the end-user that the dependency is in an unknown
+format!</p>
+
+<p>For example, the <code>INSTALL-DB</code> implementation contains compatibility code
+to browse projects installed by the original <code>Distutils</code>,
+<code>Pip</code>, <code>Distribute</code>, or <code>Setuptools</code>.
+<code>Distutils2</code> is also able to install projects created by the
+original <code>Distutils</code> by converting their metadata on the fly.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>14.7. References and Contributions</h2>
+
+<p>Some sections in this paper were directly taken from the various PEP
+documents we wrote for packaging. You can find the original documents
+at <code class="url">http://python.org</code>:</p>
+
+<ul>
+
+  <li>PEP 241: Metadata for Python Software Packages 1.0: <code class="url">http://python.org/peps/pep-0214.html</code></li>
+
+  <li>PEP 314: Metadata for Python Software Packages 1.1: <code class="url">http://python.org/peps/pep-0314.html</code></li>
+
+  <li>PEP 345: Metadata for Python Software Packages 1.2: <code class="url">http://python.org/peps/pep-0345.html</code></li>
+
+  <li>PEP 376: Database of Installed Python Distributions: <code class="url">http://python.org/peps/pep-0376.html</code></li>
+
+  <li>PEP 381: Mirroring infrastructure for PyPI: <code class="url">http://python.org/peps/pep-0381.html</code></li>
+
+  <li>PEP 386: Changing the version comparison module in Distutils: <code class="url">http://python.org/peps/pep-0386.html</code></li>
+
+</ul>
+
+<p>I would like to thank all the people that are working on packaging;
+you will find their name in every PEP I've mentioned. I would also
+like to give a special thank to all members of The Fellowship of the
+Packaging.  Also, thanks to Alexis Metaireau, Toshio Kuratomi, Holger
+Krekel and Stefane Fermigier for their feedback on this chapter.</p>
+
+<p>The projects that were discussed in this chapter are:</p>
+
+<ul>
+
+  <li><code>Distutils</code>: <code class="url">http://docs.python.org/distutils</code></li>
+
+  <li><code>Distutils2</code>: <code class="url">http://packages.python.org/Distutils2</code></li>
+
+  <li><code>Distribute</code>: <code class="url">http://packages.python.org/distribute</code></li>
+
+  <li><code>Setuptools</code>: <code class="url">http://pypi.python.org/pypi/setuptools</code></li>
+
+  <li><code>Pip</code>: <code class="url">http://pypi.python.org/pypi/pip</code></li>
+
+  <li><code>Virtualenv</code>: <code class="url">http://pypi.python.org/pypi/virtualenv</code></li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1">The Python Enhancement Proposals, or PEPs, that we
+refer to are summarized at the end of this chapter</li>
+<li id="footnote-2">Formerly known as the
+CheeseShop.</li>
+<li id="footnote-3">I.e.,
+RFC 3280 SubjectPublicKeyInfo,
+with the algorithm 1.3.14.3.2.12.</li>
+<li id="footnote-4">I.e., as a RFC 3279 Dsa-Sig-Value, created by algorithm
+  1.2.840.10040.4.3.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
