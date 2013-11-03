@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: vtk.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: VTK</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>VTK</h1>
+        <p><a href="intro1.html#geveci-berk">Berk Geveci</a> and <a href="intro1.html#schroeder-will">Will Schroeder</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>The Visualization Toolkit (VTK) is a widely used software system for
+data processing and visualization. It is used in scientific computing,
+medical image analysis, computational geometry, rendering, image
+processing and informatics. In this chapter we provide a brief
+overview of VTK, including some of the basic design patterns that make
+it a successful system.</p>
+
+<p>To really understand a software system it is essential to not only
+understand what problem it solves, but also the particular culture in
+which it emerged. In the case of VTK, the software was ostensibly
+developed as a 3D visualization system for scientific data. But the
+cultural context in which it emerged adds a significant back story to
+the endeavor, and helps explains why the software was designed and
+deployed as it was.</p>
+
+<p>At the time VTK was conceived and written, its initial authors (Will
+Schroeder, Ken Martin, Bill Lorensen) were researchers at GE Corporate
+R&amp;D. We were heavily invested in a precursor system known as LYMB
+which was a Smalltalk-like environment implemented in the C
+programming language. While this was a great system for its time, as
+researchers we were consistently frustrated by two major barriers when
+trying to promote our work: 1) IP issues and 2) non-standard,
+proprietary software. IP issues were a problem because trying to
+distribute the software outside of GE was nearly impossible once the
+corporate lawyers became involved. Second, even if we were deploying
+the software inside of GE, many of our customers balked at learning a
+proprietary, non-standard system since the effort to master it did not
+transition with an employee once she left the company, and it did not
+have the widespread support of a standard tool set. Thus in the end
+the primary motivation for VTK was to develop an open standard, or
+<em>collaboration platform</em> through which we could easily transition
+technology to our customers. Thus choosing an open source license for
+VTK was probably the most important design decision that we made.</p>
+
+<p>The final choice of a non-reciprocal, permissive license (i.e., BSD
+not GPL) in hindsight was an exemplary decision made by the authors
+because it ultimately enabled the service and consulting based
+business that became Kitware. At the time we made the decision we were
+mostly interested in reduced barriers to collaborating with academics,
+research labs, and commercial entities. We have since discovered that
+reciprocal licenses are avoided by many organizations because of the
+potential havoc they can wreak. In fact we would argue that reciprocal
+licenses do much to slow the acceptance of open source software, but
+that is an argument for another time. The point here is: one of the
+major design decisions to make relative to any software system is the
+choice of copyright license. It's important to review the goals of the
+project and then address IP issues appropriately.</p>
+
+<div class="sect">
+<h2>24.1. What Is VTK?</h2>
+
+<p>VTK was initially conceived as a scientific data visualization
+system. Many people outside of the field naively consider
+visualization a particular type of geometric rendering: examining
+virtual objects and interacting with them. While this is indeed part
+of visualization, in general data visualization includes the whole
+process of transforming data into sensory input, typically images, but
+also includes tactile, auditory, and other forms. The data forms not
+only consist of geometric and topological constructs, including such
+abstractions as meshes or complex spatial decompositions, but
+attributes to the core structure such as scalars (e.g., temperature or
+pressure), vectors (e.g., velocity), tensors (e.g., stress and strain)
+plus rendering attributes such as surface normals and texture
+coordinate.</p>
+
+<p>Note that data representing spatial-temporal information is generally
+considered part of scientific visualization. However there are more
+abstract data forms such as marketing demographics, web pages,
+documents and other information that can only be represented through
+abstract (i.e., non-spatial temporal) relationships such as
+unstructured documents, tables, graphs, and trees. These abstract data
+are typically addressed by methods from information
+visualization. With the help of the community, VTK is now capable of
+both scientific and information visualization.</p>
+
+<p>As a visualization system, the role of VTK is to take data in these
+forms and ultimately transform them into forms comprehensible by the
+human sensory apparatus. Thus one of the core requirements of VTK is
+its ability to create data flow pipelines that are capable of
+ingesting, processing, representing and ultimately rendering
+data. Hence the toolkit is necessarily architected as a flexible
+system and its design reflects this on many levels. For example, we
+purposely designed VTK as a toolkit with many interchangeable
+components that can be combined to process a wide variety of data.</p>
+
+</div>
+
+<div class="sect">
+<h2>24.2. Architectural Features</h2>
+
+<p>Before getting too far into the specific architectural features of
+VTK, there are high-level concepts that have significant impact on
+developing and using the system. One of these is VTK's hybrid wrapper
+facility. This facility automatically generates language bindings to
+Python, Java, and Tcl from VTK's C++ implementation (additional
+languages could be and have been added). Most high-powered developers
+will work in C++. User and application developers may use C++ but
+often the interpreted languages mentioned above are preferred. This
+hybrid compiled/interpreted environment combines the best of both
+worlds: high performance compute-intensive algorithms and flexibility
+when prototyping or developing applications. In fact this approach to
+multi-language computing has found favor with many in the scientific
+computing community and they often use VTK as a template for
+developing their own software.</p>
+
+<p>In terms of software process, VTK has adopted CMake to control the
+build; CDash/CTest for testing; and CPack for cross-platform
+deployment. Indeed VTK can be compiled on almost any computer
+including supercomputers which are often notoriously primitive
+development environments. In addition, web pages, wiki, mailing lists
+(user and developer), documentation generation facilities (i.e.,
+Doxygen) and a bug tracker (Mantis) round out the development tools.</p>
+
+<div class="subsect">
+<h3>24.2.1. Core Features</h3>
+
+<p>As VTK is an object-oriented system, the access of class and instance
+data members is carefully controlled in VTK. In general, all data
+members are either protected or private. Access to them is through
+<code>Set</code> and <code>Get</code> methods, with special variations for Boolean
+data, modal data, strings and vectors. Many of these methods are
+actually created by inserting macros into the class header files. So
+for example:</p>
+
+<pre>
+vtkSetMacro(Tolerance,double);
+vtkGetMacro(Tolerance,double);
+</pre>
+
+<p class="continue">become on expansion:</p>
+
+<pre>
+virtual void SetTolerance(double);
+virtual double GetTolerance();
+</pre>
+
+<p>There are many reasons for using these macros beyond simply code
+clarity. In VTK there are important data members controlling
+debugging, updating an object's modified time (MTime), and properly
+managing reference counting. These macros correctly manipulate these
+data and their use is highly recommended. For example, a particularly
+pernicious bug in VTK occurs when the object's MTime is not managed
+properly. In this case code may not execute when it should, or may
+execute too often.</p>
+
+<p>One of the strengths of VTK is its relatively simplistic means of
+representing and managing data. Typically various data arrays of
+particular types (e.g., <code>vtkFloatArray</code>) are used to represent
+contiguous pieces of information. For example, a list of three XYZ
+points would be represented with a <code>vtkFloatArray</code> of nine
+entries (x,y,z, x,y,z, etc.) There is the notion of a tuple in these
+arrays, so a 3D point is a 3-tuple, whereas a symmetric 3&times;3
+tensor matrix is represented by a 6-tuple (where symmetry space
+savings are possible). This design was adopted purposely because in
+scientific computing it is common to interface with systems
+manipulating arrays (e.g., Fortran) and it is much more efficient to
+allocate and deallocate memory in large contiguous chunks. Further,
+communication, serializing and performing IO is generally much more
+efficient with contiguous data. These core data arrays (of various
+types) represent much of the data in VTK and have a variety of
+convenience methods for inserting and accessing information, including
+methods for fast access, and methods that automatically allocate
+memory as needed when adding more data. Data arrays are subclasses of
+the <code>vtkDataArray</code> abstract class meaning that generic virtual
+methods can be used to simplify coding. However, for higher
+performance static, templated functions are used which switch based on
+type, with subsequent, direct access into the contiguous data arrays.</p>
+
+<p>In general C++ templates are not visible in the public class API;
+although templates are used widely for performance reasons. This goes
+for STL as well: we typically employ the
+PIMPL<sup class="footnote"><a href="#footnote-1">1</a></sup>
+design pattern to hide the complexities of a template implementation
+from the user or application developer. This has served us
+particularly well when it comes to wrapping the code into interpreted
+code as described previously. Avoiding the complexity of the templates
+in the public API means that the VTK implementation, from the
+application developer point of view, is mostly free of the
+complexities of data type selection. Of course under the hood the code
+execution is driven by the data type which is typically determined at
+run time when the data is accessed.</p>
+
+<p>Some users wonder why VTK uses reference counting for memory
+management versus a more user-friendly approach such as garbage
+collection. The basic answer is that VTK needs complete control over
+when data is deleted, because the data sizes can be huge. For example,
+a volume of byte data 1000&times;1000&times;1000 in size is a
+gigabyte in size. It is not a good idea to leave such data lying
+around while the garbage collector decides whether or not it is time
+to release it. In VTK most classes (subclasses of <code>vtkObject</code>)
+have the built-in capability for reference counting. Every object
+contains a reference count that it initialized to one when the object
+is instantiated.  Every time a use of the object is registered, the
+reference count is increased by one. Similarly, when a use of the
+object is unregistered (or equivalently the object is deleted) the
+reference count is reduced by one. Eventually the object's reference
+count is reduced to zero, at which point it self destructs.  A typical
+example looks like the following:</p>
+
+<pre>
+vtkCamera *camera = vtkCamera::New();   //reference count is 1
+camera-&gt;Register(this);                 //reference count is 2
+camera-&gt;Unregister(this);               //reference count is 1
+renderer-&gt;SetActiveCamera(camera);      //reference count is 2
+renderer-&gt;Delete();                     //ref count is 1 when renderer is deleted
+camera-&gt;Delete();                       //camera self destructs
+</pre>
+
+<p>There is another important reason why reference counting is important
+to VTK&mdash;it provides the ability to efficiently copy data. For
+example, imagine a data object D1 that consists of a number of data
+arrays: points, polygons, colors, scalars and texture coordinates. Now
+imagine processing this data to generate a new data object D2 which is
+the same as the first plus the addition of vector data (located on the
+points). One wasteful approach is to completely (deep) copy D1 to
+create D2, and then add the new vector data array to
+D2. Alternatively, we create an empty D2 and then pass the arrays from
+D1 to D2 (shallow copy), using reference counting to keep track of
+data ownership, finally adding the new vector array to D2. The latter
+approach avoids copying data which, as we have argued previously, is
+essential to a good visualization system. As we will see later in this
+chapter, the data processing pipeline performs this type of operation
+routinely, i.e., copying data from the input of an algorithm to the
+output, hence reference counting is essential to VTK.</p>
+
+<p>Of course there are some notorious problems with reference
+counting. Occasionally reference cycles can exist, with objects in the
+cycle referring to each other in a mutually supportive
+configuration. In this case, intelligent intervention is required, or
+in the case of VTK, the special facility implemented in
+<code>vtkGarbageCollector</code> is used to manage objects which are
+involved in cycles. When such a class is identified (this is
+anticipated during development), the class registers itself with the
+garbage collector and overloads its own <code>Register</code> and
+<code>UnRegister</code> methods. Then a subsequent object deletion (or
+unregister) method performs a topological analysis on the local
+reference counting network, searching for detached islands of mutually
+referencing objects. These are then deleted by the garbage collector.</p>
+
+<p>Most instantiation in VTK is performed through an object factory
+implemented as a static class member. The typical syntax appears as
+follows:</p>
+
+<pre>
+vtkLight *a = vtkLight::New();
+</pre>
+
+<p>What is important to recognize here is what is actually instantiated
+may not be a <code>vtkLight</code>, it could be a subclass of
+<code>vtkLight</code> (e.g., <code>vtkOpenGLLight</code>). There are a variety of
+motivations for the object factory, the most important being
+application portability and device independence. For example, in the
+above we are creating a light in a rendered scene. In a particular
+application on a particular platform, <code>vtkLight::New</code> may result
+in an OpenGL light, however on different platforms there is potential
+for other rendering libraries or methods for creating a light in the
+graphics system. Exactly what derived class to instantiate is a
+function of run-time system information. In the early days of VTK
+there were a myriad of options including gl, PHIGS, Starbase, XGL, and
+OpenGL. While most of these have now vanished, new approaches have
+appeared including DirectX and GPU-based approaches. Over time, an
+application written with VTK has not had to change as developers have
+derived new device specific subclasses to <code>vtkLight</code> and other
+rendering classes to support evolving technology. Another important
+use of the object factory is to enable the run-time replacement of
+performance-enhanced variations. For example, a <code>vtkImageFFT</code> may
+be replaced with a class that accesses special-purpose hardware or a
+numerics library.</p>
+
+</div>
+
+<div class="subsect">
+<h3>24.2.2. Representing Data</h3>
+
+<p>One of the strengths of VTK is its ability to represent complex forms
+of data. These data forms range from simple tables to complex
+structures such as finite element meshes. All of these data forms are
+subclasses of <code>vtkDataObject</code> as shown in
+<a href="#fig.vtk.dataclass">Figure&nbsp;24.1</a> (note this is a partial inheritance
+diagram of the many data object classes).</p>
+
+<div class="figure" id="fig.vtk.dataclass">
+  <img src="../images/vtk/dataclasses.png" alt="[Data Object Classes]" />
+  <p>Figure&nbsp;24.1: Data Object Classes</p>
+</div>
+
+<p>One of the most important characteristics of <code>vtkDataObject</code> is
+that it can be processed in a visualization pipeline (next
+subsection). Of the many classes shown, there are just a handful that
+are typically used in most real world applications. <code>vtkDataSet</code>
+and derived classes are used for scientific visualization
+(<a href="#fig.vtk.dataset">Figure&nbsp;24.2</a>). For example, <code>vtkPolyData</code> is
+used to represent polygonal meshes; <code>vtkUnstructuredGrid</code> to
+represent meshes, and <code>vtkImageData</code> represents 2D and 3D pixel
+and voxel data.</p>
+
+<div class="figure" id="fig.vtk.dataset">
+  <img src="../images/vtk/dataset.png" alt="[Data Set Classes]" />
+  <p>Figure&nbsp;24.2: Data Set Classes</p>
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>24.2.3. Pipeline Architecture</h3>
+
+<p>VTK consists of several major subsystems. Probably the subsystem most
+associated with visualization packages is the data flow/pipeline
+architecture. In concept, the pipeline architecture consists of three
+basic classes of objects: objects to represent data (the
+<code>vtkDataObject</code>s discussed above), objects to process, transform,
+filter or map data objects from one form into another
+(<code>vtkAlgorithm</code>); and objects to execute a pipeline
+(<code>vtkExecutive</code>) which controls a connected graph of interleaved
+data and process objects (i.e., the
+pipeline). <a href="#fig.vtk.pipeline">Figure&nbsp;24.3</a> depicts a typical pipeline.</p>
+
+<div class="figure" id="fig.vtk.pipeline">
+  <img src="../images/vtk/pipeline.png" alt="[Typical Pipeline]" />
+  <p>Figure&nbsp;24.3: Typical Pipeline</p>
+</div>
+
+<p>While conceptually simple, actually implementing the pipeline
+architecture is challenging. One reason is that the representation of
+data can be complex. For example, some datasets consist of hierarchies
+or grouping of data, so executing across the data requires non-trivial
+iteration or recursion. To compound matters, parallel
+processing (whether using shared-memory or scalable, distributed
+approaches) require partitioning data into pieces, where pieces may be
+required to overlap in order to consistently compute boundary
+information such as derivatives.</p>
+
+<p>The algorithm objects also introduce their own special
+complexity. Some algorithms may take multiple inputs and/or produce
+multiple outputs of different types. Some can operate locally on data
+(e.g., compute the center of a cell) while others require global
+information, for example to compute a histogram. In all cases, the
+algorithms treat their inputs as immutable, algorithms only read their
+input in order to produce their output. This is because data may be
+available as input to multiple algorithms, and it is not a good idea
+for one algorithm to trample on the input of another.</p>
+
+<p>Finally the executive can be complicated depending on the particulars
+of the execution strategy. In some cases we may wish to cache
+intermediate results between filters. This minimizes the amount of
+recomputation that must be performed if something in the pipeline
+changes. On the other hand, visualization data sets can be huge, in
+which case we may wish to release data when it is no longer needed for
+computation. Finally, there are complex execution strategies, such as
+multi-resolution processing of data, which require the pipeline to
+operate in iterative fashion.</p>
+
+<p>To demonstrate some of these concepts and further explain the pipeline
+architecture, consider the following C++ example:</p>
+
+<pre>
+vtkPExodusIIReader *reader = vtkPExodusIIReader::New();
+reader-&gt;SetFileName("exampleFile.exo");
+
+vtkContourFilter *cont = vtkContourFilter::New();
+cont-&gt;SetInputConnection(reader-&gt;GetOutputPort());
+cont-&gt;SetNumberOfContours(1);
+cont-&gt;SetValue(0, 200);
+
+vtkQuadricDecimation *deci = vtkQuadricDecimation::New();
+deci-&gt;SetInputConnection(cont-&gt;GetOutputPort());
+deci-&gt;SetTargetReduction( 0.75 );
+
+vtkXMLPolyDataWriter *writer = vtkXMLPolyDataWriter::New();
+writer-&gt;SetInputConnection(deci-&gt;GetOuputPort());
+writer-&gt;SetFileName("outputFile.vtp");
+writer-&gt;Write();
+</pre>
+
+<p class="continue">In this example, a reader object reads a large unstructured grid (or
+mesh) data file. The next filter generates an isosurface from the
+mesh. The <code>vtkQuadricDecimation</code> filter reduces the size of the
+isosurface, which is a polygonal dataset, by decimating it (i.e.,
+reducing the number of triangles representing the isocontour). Finally
+after decimation the new, reduced data file is written back to
+disk. The actual pipeline execution occurs when the <code>Write</code>
+method is invoked by the writer (i.e., upon demand for the data).</p>
+
+<p>As this example demonstrates, VTK's pipeline execution mechanism is
+demand driven. When a sink such as a writer or a mapper (a data
+rendering object) needs data, it asks its input. If the input filter
+already has the appropriate data, it simply returns the execution
+control to the sink. However, if the input does not have the
+appropriate data, it needs to compute it. Consequently, it must first
+ask its input for data. This process will continue upstream along the
+pipeline until a filter or source that has "appropriate data" or the
+beginning of the pipeline is reached, at which point the filters will
+execute in correct order and the data will flow to the point in the
+pipeline at which it was requested.</p>
+
+<p>Here we should expand on what "appropriate data" means. By default,
+after a VTK source or filter executes, its output is cached by the
+pipeline in order to avoid unnecessary executions in the future. This
+is done to minimize computation and/or I/O at the cost of memory, and
+is configurable behavior. The pipeline caches not only the data
+objects but also the metadata about the conditions under which these
+data objects were generated. This metadata includes a time stamp
+(i.e., ComputeTime) that captures when the data object was
+computed. So in the simplest case, the "appropriate data" is one that
+was computed after all of the pipeline objects upstream from it were
+modified. It is easier to demonstrate this behavior by considering the
+following examples. Let's add the following to the end of the previous
+VTK program:</p>
+
+<pre>
+vtkXMLPolyDataWriter *writer2 = vtkXMLPolyDataWriter::New();
+writer2-&gt;SetInputConnection(deci-&gt;GetOuputPort());
+writer2-&gt;SetFileName("outputFile2.vtp");
+writer2-&gt;Write();
+</pre>
+
+<p>As explained previously, the first <code>writer-&gt;Write</code>
+call causes the execution of the entire pipeline. When
+<code>writer2-&gt;Write()</code> is called, the pipeline will
+realize that the cached output of the decimation filter is up to date
+when it compares the time stamp of the cache with the modification
+time of the decimation filter, the contour filter and the
+reader. Therefore, the data request does not have to propagate past
+<code>writer2</code>. Now, let's consider the following change.</p>
+
+<pre>
+cont-&gt;SetValue(0, 400);
+
+vtkXMLPolyDataWriter *writer2 = vtkXMLPolyDataWriter::New();
+writer2-&gt;SetInputConnection(deci-&gt;GetOuputPort());
+writer2-&gt;SetFileName("outputFile2.vtp");
+writer2-&gt;Write();
+</pre>
+
+<p>Now the pipeline executive will realize that the contour filter was
+modified after the outputs of the contour and decimation filters were
+last executed. Thus, the cache for these two filters are stale and
+they have to be re-executed. However, since the reader was not
+modified prior to the contour filter its cache is valid and hence the
+reader does not have to re-execute.</p>
+
+<p>The scenario described here is the simplest example of a demand-driven
+pipeline. VTK's pipeline is much more sophisticated. When a filter or
+a sink requires data, it can provide additional information to request
+specific data subsets. For example, a filter can perform out-of-core
+analysis by streaming pieces of data. Let's change our previous
+example to demonstrate.</p>
+
+<pre>
+vtkXMLPolyDataWriter *writer = vtkXMLPolyDataWriter::New();
+writer-&gt;SetInputConnection(deci-&gt;GetOuputPort());
+writer-&gt;SetNumberOfPieces(2);
+
+writer-&gt;SetWritePiece(0);
+writer-&gt;SetFileName("outputFile0.vtp");
+writer-&gt;Write();
+
+writer-&gt;SetWritePiece(1);
+writer-&gt;SetFileName("outputFile1.vtp");
+writer-&gt;Write();
+</pre>
+
+<p>Here the writer asks the upstream pipeline to load and process data in
+two pieces each of which are streamed independently. You may have
+noticed that the simple execution logic described previously will not
+work here. By this logic when the <code>Write</code> function is called for
+the second time, the pipeline should not re-execute because nothing
+upstream changed. Thus to address this more complex case, the
+executives have additional logic to handle piece requests such as
+this. VTK's pipeline execution actually consists of multiple
+passes. The computation of the data objects is actually the last
+pass. The pass before then is a request pass. This is where sinks and
+filters can tell upstream what they want from the forthcoming
+computation. In the example above, the writer will notify its input
+that it wants piece 0 of 2. This request will actually propagate all
+the way to the reader. When the pipeline executes, the reader will
+then know that it needs to read a subset of the data. Furthermore,
+information about which piece the cached data corresponds to is stored
+in the metadata for the object. The next time a filter asks for data
+from its input, this metadata will be compared with the current
+request. Thus in this example the pipeline will re-execute in order to
+process a different piece request.</p>
+
+<p>There are several more types of request that a filter can make. These
+include requests for a particular time step, a particular structured
+extent or the number of ghost layers (i.e., boundary layers for
+computing neighborhood information). Furthermore, during the request
+pass, each filter is allowed to modify requests from downstream. For
+example, a filter that is not able to stream (e.g., the streamline
+filter) can ignore the piece request and ask for the whole data.</p>
+
+</div>
+
+<div class="subsect">
+<h3>24.2.4. Rendering Subsystem</h3>
+
+<p>At first glance VTK has a simple object-oriented rendering model with
+classes corresponding to the components that make up a 3D scene. For
+example, <code>vtkActor</code>s are objects that are rendered by a
+<code>vtkRenderer</code> in conjunction with a <code>vtkCamera</code>, with
+possibly multiple <code>vtkRenderer</code>s existing in a
+<code>vtkRenderWindow</code>. The scene is illuminated by one or more
+<code>vtkLight</code>s. The position of each <code>vtkActor</code> is controlled
+by a <code>vtkTransform</code>, and the appearance of an actor is specified
+through a <code>vtkProperty</code>. Finally, the geometric representation of
+an actor is defined by a <code>vtkMapper</code>. Mappers play an important
+role in VTK, they serve to terminate the data processing pipeline, as
+well as interface to the rendering system. Consider this example where
+we decimate data and write the result to a file, and then visualize
+and interact with the result by using a mapper:</p>
+
+<pre>
+vtkOBJReader *reader = vtkOBJReader::New();
+reader-&gt;SetFileName("exampleFile.obj");
+
+vtkTriangleFilter *tri = vtkTriangleFilter::New();
+tri-&gt;SetInputConnection(reader-&gt;GetOutputPort());
+
+vtkQuadricDecimation *deci = vtkQuadricDecimation::New();
+deci-&gt;SetInputConnection(tri-&gt;GetOutputPort());
+deci-&gt;SetTargetReduction( 0.75 );
+
+vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+mapper-&gt;SetInputConnection(deci-&gt;GetOutputPort());
+
+vtkActor *actor = vtkActor::New();
+actor-&gt;SetMapper(mapper);
+
+vtkRenderer *renderer = vtkRenderer::New();
+renderer-&gt;AddActor(actor);
+
+vtkRenderWindow *renWin = vtkRenderWindow::New();
+renWin-&gt;AddRenderer(renderer);
+
+vtkRenderWindowInteractor *interactor = vtkRenderWindowInteractor::New();
+interactor-&gt;SetRenderWindow(renWin);
+
+renWin-&gt;Render();
+</pre>
+
+<p>Here a single actor, renderer and render window are created with the
+addition of a mapper that connects the pipeline to the rendering
+system. Also note the addition of a <code>vtkRenderWindowInteractor</code>,
+instances of which capture mouse and keyboard events and translate
+them into camera manipulations or other actions. This translation
+process is defined via a <code>vtkInteractorStyle</code> (more on this
+below). By default many instances and data values are set behind the
+scenes. For example, an identity transform is constructed, as well as a
+single default (head) light and property.</p>
+
+<p>Over time this object model has become more sophisticated. Much of the
+complexity has come from developing derived classes that specialize on
+an aspect of the rendering process. <code>vtkActor</code>s are now
+specializations of <code>vtkProp</code> (like a prop found on stage), and
+there are a whole slew of these props for rendering 2D overlay
+graphics and text, specialized 3D objects, and even for supporting
+advanced rendering techniques such as volume rendering or GPU
+implementations (see <a href="#fig.vtk.painter">Figure&nbsp;24.4</a>).</p>
+
+<p>Similarly, as the data model supported by VTK has grown, so have the
+various mappers that interface the data to the rendering
+system. Another area of significant extension is the transformation
+hierarchy. What was originally a simple linear 4&times;4
+transformation matrix, has become a powerful hierarchy that supports
+non-linear transformations including thin-plate spline
+transformation. For example, the original <code>vtkPolyDataMapper</code> had
+device-specific subclasses (e.g., <code>vtkOpenGLPolyDataMapper</code>). In
+recent years it has been replaced with a sophisticated graphics
+pipeline referred to as the "painter" pipeline illustrated in
+<a href="#fig.vtk.painter">Figure&nbsp;24.4</a>.</p>
+
+<div class="figure" id="fig.vtk.painter">
+  <img src="../images/vtk/painter.png" alt="[Display Classes]" />
+  <p>Figure&nbsp;24.4: Display Classes</p>
+</div>
+
+<p>The painter design supports a variety of techniques for rendering data
+that can be combined to provide special rendering effects. This
+capability greatly surpasses the simple <code>vtkPolyDataMapper</code> that
+was initially implemented in 1994.</p>
+
+<p>Another important aspect of a visualization system is the selection
+subsystem. In VTK there is a hierarchy of "pickers", roughly
+categorized into objects that select <code>vtkProp</code>s based on
+hardware-based methods versus software methods (e.g., ray-casting); as
+well as objects that provide different levels of information after a
+pick operations. For example, some pickers provide only a location in
+XYZ world space without indicating which <code>vtkProp</code> they have
+selected; others provide not only the selected <code>vtkProp</code> but a
+particular point or cell that make up the mesh defining the prop
+geometry.</p>
+
+</div>
+
+<div class="subsect">
+<h3>24.2.5. Events and Interaction</h3>
+
+<p>Interacting with data is an essential part of visualization. In VTK
+this occurs in a variety of ways. At its simplest level, users can
+observe events and respond appropriately through commands (the
+command/observer design pattern). All subclasses of <code>vtkObject</code>
+maintain a list of observers which register themselves with the
+object. During registration, the observers indicate which particular
+event(s) they are interested in, with the addition of an associated
+command that is invoked if and when the event occurs. To see how this
+works, consider the following example in which a filter (here a
+polygon decimation filter) has an observer which watches for the three
+events <code>StartEvent</code>, <code>ProgressEvent</code>, and
+<code>EndEvent</code>. These events are invoked when the filter begins to
+execute, periodically during execution, and then on completion of
+execution. In the following the <code>vtkCommand</code> class has an
+<code>Execute</code> method that prints out the appropriate information
+relative to the time it take to execute the algorithm:</p>
+
+<pre>
+class vtkProgressCommand : public vtkCommand
+{
+  public:
+    static vtkProgressCommand *New() { return new vtkProgressCommand; }
+    virtual void Execute(vtkObject *caller, unsigned long, void *callData)
+    {
+      double progress = *(static_cast&lt;double*&gt;(callData));
+      std::cout &lt;&lt; "Progress at " &lt;&lt; progress&lt;&lt; std::endl;
+    }
+};
+
+vtkCommand* pobserver = vtkProgressCommand::New();
+
+vtkDecimatePro *deci = vtkDecimatePro::New();
+deci-&gt;SetInputConnection( byu-&gt;GetOutputPort() );
+deci-&gt;SetTargetReduction( 0.75 );
+deci-&gt;AddObserver( vtkCommand::ProgressEvent, pobserver );
+</pre>
+
+<p>While this is a primitive form of interaction, it is a foundational
+element to many applications that use VTK. For example, the simple
+code above can be easily converted to display and manage a GUI
+progress bar. This Command/Observer subsystem is also central to the
+3D widgets in VTK, which are sophisticated interaction objects for
+querying, manipulating and editing data and are described below.</p>
+
+<p>Referring to the example above, it is important to note that events in
+VTK are predefined, but there is a back door for user-defined
+events. The class <code>vtkCommand</code> defines the set of enumerated
+events (e.g., <code>vtkCommand::ProgressEvent</code> in the above example)
+as well as a user event. The <code>UserEvent</code>, which is simply an integral
+value, is typically used as a starting offset value into a set of
+application user-defined events. So for example
+<code>vtkCommand::UserEvent+100</code> may refer to a specific event outside
+the set of VTK defined events.</p>
+
+<p>From the user's perspective, a VTK widget appears as an actor in a
+scene except that the user can interact with it by manipulating
+handles or other geometric features (the handle manipulation and
+geometric feature manipulation is based on the picking functionality
+described earlier.) The interaction with this widget is fairly
+intuitive: a user grabs the spherical handles and moves them, or grabs
+the line and moves it. Behind the scenes, however, events are emitted
+(e.g., <code>InteractionEvent</code>) and a properly programmed application
+can observe these events, and then take the appropriate action. For
+example they often trigger on the <code>vtkCommand::InteractionEvent</code>
+as follows:</p>
+
+<pre>
+vtkLW2Callback *myCallback = vtkLW2Callback::New();
+  myCallback-&gt;PolyData = seeds;    // streamlines seed points, updated on interaction
+  myCallback-&gt;Actor = streamline;  // streamline actor, made visible on interaction
+
+vtkLineWidget2 *lineWidget = vtkLineWidget2::New();
+  lineWidget-&gt;SetInteractor(iren);
+  lineWidget-&gt;SetRepresentation(rep);
+  lineWidget-&gt;AddObserver(vtkCommand::InteractionEvent,myCallback);
+</pre>
+
+<p>VTK widgets are actually constructed using two objects: a subclass of
+<code>vtkInteractorObserver</code> and a subclass of <code>vtkProp</code>. The
+<code>vtkInteractorObserver</code> simply observes user interaction in the
+render window (i.e., mouse and keyboard events) and processes
+them. The subclasses of <code>vtkProp</code> (i.e., actors) are simply
+manipulated by the <code>vtkInteractorObserver</code>. Typically such
+manipulation consists of modifying the <code>vtkProp</code>'s geometry
+including highlighting handles, changing cursor appearance, and/or
+transforming data. Of course, the particulars of the widgets require
+that subclasses are written to control the nuances of widget behavior,
+and there are more than 50 different widgets currently in the system.</p>
+
+</div>
+
+<div class="subsect">
+<h3>24.2.6. Summary of Libraries</h3>
+
+<p>VTK is a large software toolkit. Currently the system consists of
+approximately 1.5 million lines of code (including comments but not
+including automatically generated wrapper software), and approximately
+1000 C++ classes. To manage the complexity of the system and reduce
+build and link times the system has been partitioned into dozens of
+subdirectories. <a href="#tbl.vtk.dirs">Table&nbsp;24.1</a> lists these subdirectories,
+with a brief summary describing what capabilities the library
+provides.</p>
+
+<div class="table" id="tbl.vtk.dirs">
+  <table>
+    <tr>
+      <td><code>Common</code></td>
+      <td>core VTK classes</td>
+    </tr>
+    <tr>
+      <td><code>Filtering</code></td>
+      <td>classes used to manage pipeline dataflow</td>
+    </tr>
+    <tr>
+      <td><code>Rendering</code></td>
+      <td>rendering, picking, image viewing, and interaction</td>
+    </tr>
+    <tr>
+      <td><code>VolumeRendering</code></td>
+      <td>volume rendering techniques</td>
+    </tr>
+    <tr>
+      <td><code>Graphics</code></td>
+      <td>3D geometry processing</td>
+    </tr>
+    <tr>
+      <td><code>GenericFiltering</code></td>
+      <td> non-linear 3D geometry processing</td>
+    </tr>
+    <tr>
+      <td><code>Imaging</code></td>
+      <td>imaging pipeline</td>
+    </tr>
+    <tr>
+      <td><code>Hybrid</code></td>
+      <td>classes requiring both graphics and imaging functionality</td>
+    </tr>
+    <tr>
+      <td><code>Widgets</code></td>
+      <td>sophisticated interaction</td>
+    </tr>
+    <tr>
+      <td><code>IO</code></td>
+      <td>VTK input and output</td>
+    </tr>
+    <tr>
+      <td><code>Infovis</code></td>
+      <td>information visualization</td>
+    </tr>
+    <tr>
+      <td><code>Parallel</code></td>
+      <td>parallel processing (controllers and communicators)</td>
+    </tr>
+    <tr>
+      <td><code>Wrapping</code></td>
+      <td>support for Tcl, Python, and Java wrapping</td>
+    </tr>
+    <tr>
+      <td><code>Examples</code></td>
+      <td>extensive, well-documented examples</td>
+    </tr>
+  </table>
+  <p>Table 24.1: VTK Subdirectories</p>
+</div>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>24.3. Looking Back/Looking Forward</h2>
+
+<p>VTK has been an enormously successful system. While the first line of code was written in
+1993, at the time of this writing VTK is still growing strong and if anything
+the pace of development is increasing.<sup class="footnote"><a href="#footnote-2">2</a></sup> In this section
+we talk about some lessons learned and future challenges.</p>
+
+<div class="subsect">
+<h3>24.3.1. Managing Growth</h3>
+
+<p>One of the most surprising aspects to the VTK adventure has been the
+project's longevity. The pace of development is due to several major
+reasons:</p>
+
+<ul>
+
+  <li>New algorithms and capabilities continue to be added. For
+  example, the informatics subsystem (Titan, primarily developed by
+  Sandia National Labs and Kitware) is a recent significant
+  addition. Additional charting and rendering classes are also being
+  added, as well as capabilities for new scientific dataset
+  types. Another important addition were the 3D interaction
+  widgets. Finally, the on-going evolution of GPU-based rendering and
+  data processing is driving new capabilities in VTK.</li>
+
+  <li>The growing exposure and use of VTK is a self-perpetuating
+  process that adds even more users and developers to the
+  community. For example, ParaView is the most popular scientific
+  visualization application built on VTK and is highly regarded in the
+  high-performance computing community. 3D Slicer is a major
+  biomedical computing platform that is largely built on VTK and
+  received millions of dollars per year in funding.</li>
+
+  <li>VTK's development process continues to evolve. In recent years
+  the software process tools CMake, CDash, CTest, and CPack have been
+  integrated into the VTK build environment. More recently, the VTK
+  code repository has moved to Git and a more sophisticated work
+  flow. These improvements ensure that VTK remains on the leading edge
+  of software development in the scientific computing community.</li>
+
+</ul>
+
+<p>While growth is exciting, validates the creation of the software
+system, and bodes well for the future of VTK, it can be extremely
+difficult to manage well. As a result, the near term future of VTK
+focuses more on managing the growth of the community as well as the
+software. Several steps have been taken in this regard.</p>
+
+<p>First, formalized management structures are being created. An
+Architecture Review Board has been created to guide the development of
+the community and technology, focusing on high-level, strategic
+issues. The VTK community is also establishing a recognized team of
+Topic Leads to guide the technical development of particular VTK
+subsystems.</p>
+
+<p>Next, there are plans to modularize the toolkit further, partially in
+response to workflow capabilities introduced by git, but also to
+recognize that users and developers typically want to work with small
+subsystems of the toolkit, and do not want to build and link against
+the entire package. Further, to support the growing community, it's
+important that contributions of new functionality and subsystems are
+supported, even if they are not necessarily part of the core of the
+toolkit. By creating a loose, modularized collection of modules it is
+possible to accommodate the large number of contributions on the
+periphery while maintaining core stability.</p>
+
+</div>
+
+<div class="subsect">
+<h3>24.3.2. Technology Additions</h3>
+
+<p>Besides the software process, there are many technological innovations
+in the development pipeline.</p>
+
+<ul>
+
+  <li>Co-processing is a capability where the visualization engine is
+  integrated into the simulation code, and periodically generates data
+  extracts for visualization. This technology greatly reduces the need
+  to output large amounts of complete solution data.</li>
+
+  <li>The data processing pipeline in VTK is still too
+  complex. Methods are under way to simplify and refactor this
+  subsystem.</li>
+
+  <li>The ability to directly interact with data is increasingly
+  popular with users. While VTK has a large suite of widgets, many
+  more interaction techniques are emerging including
+  touch-screen-based and 3D methods. Interaction will continue its
+  development at a rapid pace.</li>
+
+  <li>Computational chemistry is increasing in importance to materials
+  designers and engineers. The ability to visualize and interact with
+  chemistry data is being added to VTK.</li>
+
+  <li>The rendering system in VTK has been criticized for being too
+  complex, making it difficult to derive new classes or support new
+  rendering technology. In addition, VTK does not directly support the
+  notion of a scene graph, again something that many users have
+  requested.</li>
+
+  <li>Finally new forms of data are constantly emerging. For example,
+  in the medical field hierarchical volumetric datasets of varying
+  resolution (e.g., confocal microscopy with local magnification).</li>
+
+</ul>
+
+</div>
+
+<div class="subsect">
+<h3>24.3.3. Open Science</h3>
+
+<p>Finally Kitware and more generally the VTK community are committed to
+Open Science. Pragmatically this is a way of saying we will promulgate
+open data, open publication, and open source&mdash;the features necessary
+to ensure that we are creating reproducible scientific systems. While
+VTK has long been distributed as an open source and open data system,
+the documentation process has been lacking. While there are decent books
+[<a href="bib1.html#bib:vtk:userguide">Kit10</a>,<a href="bib1.html#bib:vtk:toolkit">SML06</a>]
+there have been a variety of ad hoc ways to collect technical publications
+including new source code contributions. We are improving the
+situation by developing new publishing mechanisms like the <em>VTK
+Journal</em><sup class="footnote"><a href="#footnote-3">3</a></sup>
+that enable of articles consisting of documentation, source code,
+data, and valid test images. The journal also enables automated
+reviews of the code (using VTK's quality software testing process) as
+well as human reviews of the submission.</p>
+
+</div>
+
+<div class="subsect">
+<h3>24.3.4. Lessons Learned</h3>
+
+<p>While VTK has been successful there are many things we didn't do
+right:</p>
+
+<ul>
+
+  <li><em>Design Modularity</em>: We did a good job choosing the
+  modularity of our classes. For example, we didn't do something as
+  silly as creating an object per pixel, rather we created the
+  higher-level <code>vtkImageClass</code> that under the hood treats data arrays of
+  pixel data. However in some cases we made our classes too high level
+  and too complex, in many instances we've had to refactor them into
+  smaller pieces, and are continuing this process. One prime example
+  is the data processing pipeline.  Initially, the pipeline was
+  implemented implicitly through interaction of the data and algorithm
+  objects. We eventually realized that we had to create an explicit
+  pipeline executive object to coordinate the interaction between data
+  and algorithms, and to implement different data processing
+  strategies.</li>
+
+  <li><em>Missed Key Concepts</em>: Once of our biggest regrets is not
+  making widespread use of C++ iterators. In many cases the traversal
+  of data in VTK is akin to the scientific programming language
+  Fortran. The additional flexibility of iterators would have been a
+  significant benefit to the system. For example, it is very
+  advantageous to process a local region of data, or only data
+  satisfying some iteration criterion.</li>
+
+  <li><em>Design Issues</em>: Of course there is a long list of design
+  decisions that are not optimal. We have struggled with the data
+  execution pipeline, having gone through multiple generations each
+  time making the design better. The rendering system too is complex
+  and hard to derive from. Another challenge resulted from the initial
+  conception of VTK: we saw it as a read-only visualization system for
+  viewing data. However, current customers often want it to be capable
+  of editing data, which requires significantly different data
+  structures.</li>
+
+</ul>
+
+<p>One of the great things about an open source system like VTK is that
+many of these mistakes can and will be rectified over time. We have an
+active, capable development community that is improving the system
+every day and we expect this to continue into the foreseeable future.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="row">
+  <div class="span12">
+    <div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://en.wikipedia.org/wiki/Opaque_pointer</code>.</li>
+<li id="footnote-2">See the latest VTK code
+analysis at <code class="url">http://www.ohloh.net/p/vtk/analyses/latest</code>.</li>
+<li id="footnote-3"><code class="url">http://www.midasjournal.org/?journal=35</code></li>
+</ol>
+    </div>
+  </div>
+</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

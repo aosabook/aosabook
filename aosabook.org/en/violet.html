@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: violet.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Violet</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Violet</h1>
+        <p><a href="intro1.html#horstmann-cay">Cay Horstmann</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>In 2002, I wrote an undergraduate textbook on object-oriented design
+and patterns [<a href="bib1.html#bib:horstmann:oodp">Hor05</a>].
+As with so many books, this one
+was motivated by frustration with the canonical curriculum.
+Frequently, computer science students learn how to design a single
+class in their first programming course, and then have no further
+training in object-oriented design until their senior level software
+engineering course. In that course, students rush through a couple of
+weeks of UML and design patterns, which gives no more than an illusion
+of knowledge. My book supports a semester-long course for students
+with a background in Java programming and basic data structures
+(typically from a Java-based CS1/CS2 sequence). The book covers object-oriented
+design principles and design patterns in the context of familiar
+situations. For example, the Decorator design pattern is introduced
+with a Swing <code>JScrollPane</code>, in the hope that this example is more
+memorable than the canonical Java streams example.</p>
+
+<div class="figure" id="fig.vio.diagram">
+  <img src="../images/violet/object-sample.png" alt="[A Violet Object Diagram]" />
+  <p>Figure&nbsp;22.1: A Violet Object Diagram</p>
+</div>
+
+<p>I needed a light subset of UML for the book: class diagrams, sequence
+diagrams, and a variant of object diagrams that shows Java object
+references (<a href="#fig.vio.diagram">Figure&nbsp;22.1</a>).  I also wanted students to
+draw their own diagrams. However, commercial offerings such as
+Rational Rose were not only expensive but also cumbersome to learn and
+use [<a href="bib1.html#bib:shumba:ratrose">Shu05</a>],
+and the open source alternatives
+available at the time were too limited or buggy to be
+useful<sup class="footnote"><a href="#footnote-1">1</a></sup>, in which
+diagrams are specified by textual declarations rather than the more
+common point-and-click interface.}.  In particular, sequence
+diagrams in ArgoUML were seriously broken.</p>
+
+<p>I decided to try my hand at implementing the simplest editor that is
+(a) useful to students and (b) an example of an extensible framework
+that students can understand and modify. Thus, Violet was born.</p>
+
+<div class="sect">
+<h2>22.1. Introducing Violet</h2>
+
+<p>Violet is a lightweight UML editor, intended for students, teachers,
+and authors who need to produce simple UML diagrams quickly. It is
+very easy to learn and use. It draws class, sequence, state, object
+and use-case diagrams. (Other diagram types have since been
+contributed.) It is open-source and cross-platform software. In its
+core, Violet uses a simple but flexible graph framework that takes
+full advantage of the Java 2D graphics API.</p>
+
+<p>The Violet user interface is purposefully simple. You don't have to go
+through a tedious sequence of dialogs to enter attributes and
+methods. Instead, you just type them into a text field. With a few
+mouse clicks, you can quickly create attractive and useful diagrams.</p>
+
+<p>Violet does not try to be an industrial-strength UML program. Here are
+some features that Violet does <em>not</em> have:</p>
+
+<ul>
+
+  <li>Violet does not generate source code from UML diagrams or UML
+  diagrams from source code.</li>
+
+  <li>Violet does not carry out any semantic checking of models; you
+  can use Violet to draw contradictory diagrams.</li>
+
+  <li>Violet does not generate files that can be imported into other
+  UML tools, nor can it read model files from other tools.</li>
+
+  <li>Violet does not attempt to lay out diagrams automatically,
+  except for a simple "snap to grid" facility.</li>
+
+</ul>
+
+<p class="continue">(Attempting to address some of these limitations makes good student
+projects.)</p>
+
+<p>When Violet developed a cult following of designers who wanted
+something more than a cocktail napkin but less than an
+industrial-strength UML tool, I published the code on SourceForge
+under the GNU General Public License. Starting in 2005, Alexandre de Pellegrin
+joined the project by providing an Eclipse plugin and a prettier user
+interface. He has since made numerous architectural changes and is now
+the primary maintainer of the project.</p>
+
+<p>In this article, I discuss some of the original architectural choices
+in Violet as well as its evolution. A part of the article is focused
+on graph editing, but other parts&mdash;such as the use of JavaBeans
+properties and persistence, Java WebStart and plugin
+architecture&mdash;should be of general interest.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.2. The Graph Framework</h2>
+
+<p>Violet is based on a general graph editing framework that can render
+and edit nodes and edges of arbitrary shapes. The Violet UML editor
+has nodes for classes, objects, activation bars (in sequence
+diagrams), and so on, and edges for the various edge shapes in UML
+diagrams. Another instance of the graph framework might display
+entity-relationship diagrams or railroad diagrams.</p>
+
+<div class="figure" id="fig.vio.editor">
+  <img src="../images/violet/Ch8-06.png" alt="[A Simple Instance of the Editor Framework]" />
+  <p>Figure&nbsp;22.2: A Simple Instance of the Editor Framework</p>
+</div>
+
+<p>In order to illustrate the framework, let us consider an editor for
+very simple graphs, with black and white circular nodes and straight
+edges (<a href="#fig.vio.editor">Figure&nbsp;22.2</a>).
+The <code>SimpleGraph</code> class specifies prototype objects for the node
+and edge types, illustrating the prototype pattern:</p>
+
+<pre>
+public class SimpleGraph extends AbstractGraph
+{
+  public Node[] getNodePrototypes()
+  {
+    return new Node[]
+    {
+      new CircleNode(Color.BLACK),
+      new CircleNode(Color.WHITE)
+    };
+  }
+  public Edge[] getEdgePrototypes()
+  {
+    return new Edge[]
+    {
+      new LineEdge()
+    };
+  }
+}
+</pre>
+
+<p>Prototype objects are used to draw the node and edge buttons at the
+top of <a href="#fig.vio.editor">Figure&nbsp;22.2</a>. They are cloned whenever the
+user adds a new node or edge instance to the graph.
+<code>Node</code> and <code>Edge</code> are interfaces with the following
+key methods:</p>
+
+<ul>
+
+  <li>Both interfaces have a <code>getShape</code> method that returns a
+  Java2D <code>Shape</code> object of the node or edge shape.</li>
+
+  <li>The <code>Edge</code> interface has methods that yield the nodes at
+  the start and end of the edge.</li>
+
+  <li>The <code>getConnectionPoint</code> method in the Node interface type
+  computes an optimal attachment point on the boundary of a node (see
+  <a href="#fig.vio.connection">Figure&nbsp;22.3</a>).</li>
+
+  <li>The <code>getConnectionPoints</code> method of the <code>Edge</code>
+  interface yields the two end points of the edge. This method is
+  needed to draw the "grabbers" that mark the currently selected edge.</li>
+
+  <li>A node can have children that move together with the parent. A number
+  of methods are provided for enumerating and managing children.</li>
+
+</ul>
+
+<div class="figure" id="fig.vio.connection">
+  <img src="../images/violet/Ch8-07.png" alt="[Finding a Connection Point on the Boundary of the Node Shape]" />
+  <p>Figure&nbsp;22.3: Finding a Connection Point on the Boundary of the Node Shape</p>
+</div>
+
+<p>Convenience classes <code>AbstractNode</code> and <code>AbstractEdge</code>
+implement a number of these methods, and classes
+<code>RectangularNode</code> and <code>SegmentedLineEdge</code> provide complete
+implementations of rectangular nodes with a title string and edges
+that are made up of line segments.</p>
+
+<p>In the case of our simple graph editor, we would need to supply
+subclasses <code>CircleNode</code> and <code>LineEdge</code> that provide a
+<code>draw</code> method, a <code>contains</code> method, and the
+<code>getConnectionPoint</code> method that describes the shape of the node
+boundary.
+The code is given below,
+and <a href="#fig.vio.classdiag">Figure&nbsp;22.4</a> shows a class diagram of these classes
+(drawn, of course, with Violet).</p>
+
+<pre>
+public class CircleNode extends AbstractNode
+{
+  public CircleNode(Color aColor)
+  {
+    size = DEFAULT_SIZE;
+    x = 0;
+    y = 0;
+    color = aColor;
+  }
+
+  public void draw(Graphics2D g2)
+  {
+    Ellipse2D circle = new Ellipse2D.Double(x, y, size, size);
+    Color oldColor = g2.getColor();
+    g2.setColor(color);
+    g2.fill(circle);
+    g2.setColor(oldColor);
+    g2.draw(circle);
+  }
+
+  public boolean contains(Point2D p)
+  {
+    Ellipse2D circle = new Ellipse2D.Double(x, y, size, size);
+    return circle.contains(p);
+  }
+
+  public Point2D getConnectionPoint(Point2D other)
+  {
+    double centerX = x + size / 2;
+    double centerY = y + size / 2;
+    double dx = other.getX() - centerX;
+    double dy = other.getY() - centerY;
+    double distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance == 0) return other;
+    else return new Point2D.Double(
+      centerX + dx * (size / 2) / distance,
+      centerY + dy * (size / 2) / distance);
+  }
+
+  private double x, y, size, color;
+  private static final int DEFAULT_SIZE = 20;
+}
+
+public class LineEdge extends AbstractEdge
+{
+  public void draw(Graphics2D g2)
+  { g2.draw(getConnectionPoints()); }
+
+  public boolean contains(Point2D aPoint)
+  {
+    final double MAX_DIST = 2;
+    return getConnectionPoints().ptSegDist(aPoint) &lt; MAX_DIST;
+  }
+}
+</pre>
+
+<div class="figure" id="fig.vio.classdiag">
+  <img src="../images/violet/SimpleGraph-in-Violet.png" alt="[Class Diagram for a Simple Graph]" />
+  <p>Figure&nbsp;22.4: Class Diagram for a Simple Graph</p>
+</div>
+
+<p>In summary, Violet provides a simple framework for producing graph
+editors.  To obtain an editor instance, define node and edge classes
+and provide methods in a graph class that yield prototype node and
+edge objects.</p>
+
+<p>Of course, there are other graph frameworks available, such as
+JGraph [<a href="bib1.html#bib:alder:jgraph">Ald02</a>] and
+JUNG<sup class="footnote"><a href="#footnote-2">2</a></sup>. However, those
+frameworks are considerably more complex, and they provide frameworks
+for drawing graphs, not for applications that draw graphs.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.3. Use of JavaBeans Properties</h2>
+
+<p>In the golden days of client-side Java, the JavaBeans specification
+was developed in order to provide portable mechanisms for editing GUI
+components in visual GUI builder environments. The vision was that a
+third-party GUI component could be dropped into any GUI builder, where
+its properties could be configured in the same way as the standard
+buttons, text components, and so on.</p>
+
+<p>Java does not have native properties. Instead, JavaBeans properties
+can be discovered as pairs of getter and setter methods, or specified
+with companion BeanInfo classes. Moreover, <em>property editors</em> can
+be specified for visually editing property values. The JDK even
+contains a few basic property editors, for example for the type
+<code>java.awt.Color</code>.</p>
+
+<p>The Violet framework makes full use of the
+JavaBeans specification. For example, the <code>CircleNode</code> class can
+expose a color property simply by providing two methods:</p>
+
+<pre>
+public void setColor(Color newValue)
+public Color getColor()
+</pre>
+
+<p class="continue">No further work is necessary. The graph editor can now edit node
+colors of circle nodes (<a href="#fig.vio.circlecolors">Figure&nbsp;22.5</a>).</p>
+
+<div class="figure" id="fig.vio.circlecolors">
+  <img src="../images/violet/Ch8-11.png" alt="[Editing Circle Colors with the default JavaBeans Color Editor]" />
+  <p>Figure&nbsp;22.5: Editing Circle Colors with the default JavaBeans Color Editor</p>
+</div>
+
+</div>
+
+<div class="sect">
+<h2>22.4. Long-Term Persistence</h2>
+
+<p>Just like any editor program, Violet must save the user's creations in
+a file and reload them later. I had a look at the XMI
+specification<sup class="footnote"><a href="#footnote-3">3</a></sup>
+which was designed as a common interchange format for UML models. I
+found it cumbersome, confusing, and hard to consume. I don't think I
+was the only one&mdash;XMI had a reputation for poor interoperability even
+with the simplest models
+[<a href="bib1.html#bib:persson:osstools">PGL+05</a>].</p>
+
+<p>I considered simply using Java serialization, but it is difficult to
+read old versions of a serialized object whose implementation has
+changed over time.  This problem was also anticipated by the JavaBeans
+architects, who developed a standard XML format for long-term
+persistence<sup class="footnote"><a href="#footnote-4">4</a></sup>.  A
+Java object&mdash;in the case of Violet, the UML diagram&mdash;is serialized
+as a sequence of statements for constructing and modifying it. Here is
+an example:</p>
+
+<pre>
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;java version="1.0" class="java.beans.XMLDecoder"&gt;
+ &lt;object class="com.horstmann.violet.ClassDiagramGraph"&gt;
+  &lt;void method="addNode"&gt;
+   &lt;object id="ClassNode0" class="com.horstmann.violet.ClassNode"&gt;
+    &lt;void property="name"&gt;&hellip;&lt;/void&gt;
+   &lt;/object&gt;
+   &lt;object class="java.awt.geom.Point2D$Double"&gt;
+    &lt;double&gt;200.0&lt;/double&gt;
+    &lt;double&gt;60.0&lt;/double&gt;
+   &lt;/object&gt;
+  &lt;/void&gt;
+  &lt;void method="addNode"&gt;
+   &lt;object id="ClassNode1" class="com.horstmann.violet.ClassNode"&gt;
+    &lt;void property="name"&gt;&hellip;&lt;/void&gt;
+   &lt;/object&gt;
+   &lt;object class="java.awt.geom.Point2D$Double"&gt;
+    &lt;double&gt;200.0&lt;/double&gt;
+    &lt;double&gt;210.0&lt;/double&gt;
+   &lt;/object&gt;
+  &lt;/void&gt;
+  &lt;void method="connect"&gt;
+   &lt;object class="com.horstmann.violet.ClassRelationshipEdge"&gt;
+    &lt;void property="endArrowHead"&gt;
+     &lt;object class="com.horstmann.violet.ArrowHead" field="TRIANGLE"/&gt;
+    &lt;/void&gt;
+   &lt;/object&gt;
+   &lt;object idref="ClassNode0"/&gt;
+   &lt;object idref="ClassNode1"/&gt;
+  &lt;/void&gt;
+ &lt;/object&gt;
+&lt;/java&gt;
+</pre>
+
+<p>When the <code>XMLDecoder</code> class reads this file, it executes these
+statements (package names are omitted for simplicity).</p>
+
+<pre>
+ClassDiagramGraph obj1 = new ClassDiagramGraph();
+ClassNode ClassNode0 = new ClassNode();
+ClassNode0.setName(&hellip;);
+obj1.addNode(ClassNode0, new Point2D.Double(200, 60));
+ClassNode ClassNode1 = new ClassNode();
+ClassNode1.setName(&hellip;);
+obj1.addNode(ClassNode1, new Point2D.Double(200, 60));
+ClassRelationShipEdge obj2 = new ClassRelationShipEdge();
+obj2.setEndArrowHead(ArrowHead.TRIANGLE);
+obj1.connect(obj2, ClassNode0, ClassNode1);
+</pre>
+
+<p>As long as the semantics of the constructors, properties, and methods
+has not changed, a newer version of the program can read a file that
+has been produced by an older version.</p>
+
+<p>Producing such files is quite straightforward. The encoder
+automatically enumerates the properties of each object and writes
+setter statements for those property values that differ from the
+default. Most basic datatypes are handled by the Java platform;
+however, I had to supply special handlers for <code>Point2D</code>,
+<code>Line2D</code>, and <code>Rectangle2D</code>. Most importantly,
+the encoder must know that a graph can be serialized as a sequence of
+<code>addNode</code> and <code>connect</code> method calls:</p>
+
+<pre>
+encoder.setPersistenceDelegate(Graph.class, new DefaultPersistenceDelegate()
+{
+  protected void initialize(Class&lt;?&gt; type, Object oldInstance,
+    Object newInstance, Encoder out)
+  {
+    super.initialize(type, oldInstance, newInstance, out);
+    AbstractGraph g = (AbstractGraph) oldInstance;
+    for (Node n : g.getNodes())
+      out.writeStatement(new Statement(oldInstance, "addNode", new Object[]
+      {
+        n,
+        n.getLocation()
+      }));
+    for (Edge e : g.getEdges())
+      out.writeStatement(new Statement(oldInstance, "connect", new Object[]
+      {
+        e, e.getStart(), e.getEnd()
+      }));
+   }
+ });
+</pre>
+
+<p>Once the encoder has been configured, saving a graph is as simple as:</p>
+
+<pre>
+encoder.writeObject(graph);
+</pre>
+
+<p class="continue">Since the decoder simply executes statements, it requires no
+configuration.  Graphs are simply read with:</p>
+
+<pre>
+Graph graph = (Graph) decoder.readObject();
+</pre>
+
+<p>This approach has worked exceedingly well over numerous versions of
+Violet, with one exception. A recent refactoring changed
+some package names and thereby broke backwards compatibility.
+One option would have been to keep the classes in the original packages,
+even though they no longer matched the new package structure.
+Instead, the maintainer provided an XML
+transformer for rewriting the package names when reading a legacy
+file.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.5. Java WebStart</h2>
+
+<p>Java WebStart is a technology for launching an application from a web
+browser. The deployer posts a JNLP file that triggers a helper
+application in the browser which downloads and runs the Java
+program. The application can be digitally signed, in which case the
+user must accept the certificate, or it can be unsigned, in which case
+the program runs in a sandbox that is slightly more permissive than
+the applet sandbox.</p>
+
+<p>I do not think that end users can or should be trusted to judge the
+validity of a digital certificate and its security implications. One
+of the strengths of the Java platform is its security, and I feel it
+is important to play to that strength.</p>
+
+<p>The Java WebStart sandbox is sufficiently powerful to enable users to
+carry out useful work, including loading and saving files and
+printing.  These operations are handled securely and conveniently from
+the user perspective. The user is alerted that the application wants
+to access the local filesystem and then chooses the file to be read
+or written. The application merely receives a stream object, without
+having an opportunity to peek at the filesystem during the file
+selection process.</p>
+
+<p>It is annoying that the developer must write
+custom code to interact with a <code>FileOpenService</code> and a
+<code>FileSaveService</code> when the application is running under WebStart,
+and it is even more annoying that there is no WebStart API call to
+find out whether the application was launched by WebStart.</p>
+
+<p>Similarly, saving user preferences must be implemented in two ways:
+using the Java preferences API when the application runs normally, or
+using the WebStart preferences service when the application is under
+WebStart. Printing, on the other hand, is entirely transparent to the
+application programmer.</p>
+
+<p>Violet provides simple abstraction layers over these services to
+simplify the lot of the application programmer. For example, here is
+how to open a file:</p>
+
+<pre>
+FileService service = FileService.getInstance(initialDirectory);
+  // detects whether we run under WebStart
+FileService.Open open = fileService.open(defaultDirectory, defaultName,
+  extensionFilter);
+InputStream in = open.getInputStream();
+String title = open.getName();
+</pre>
+
+<p class="continue">The <code>FileService.Open</code> interface is implemented by two classes: a
+wrapper over <code>JFileChooser</code> or the JNLP <code>FileOpenService</code>.</p>
+
+<p>No such convenience is a part of the JNLP API itself, but that API has
+received little love over its lifetime and has been widely
+ignored. Most projects simply use a self-signed certificate for their
+WebStart application, which gives users no security. This is a
+shame&mdash;open source developers should embrace the JNLP sandbox as a
+risk-free way to try out a project.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.6. Java 2D</h2>
+
+<p>Violet makes intensive use of the Java2D library, one of the lesser
+known gems in the Java API. Every node and edge has a method
+<code>getShape</code> that yields a <code>java.awt.Shape</code>, the common
+interface of all Java2D shapes. This interface is implemented by
+rectangles, circles, paths, and their unions, intersections, and
+differences. The <code>GeneralPath</code> class is useful for making shapes
+that are composed of arbitrary line and quadratic/cubic curve
+segments, such as straight and curved arrows.</p>
+
+<p>To appreciate the flexibility of the Java2D API, consider the
+following code for drawing a
+shadow in the <code>AbstractNode.draw</code> method:</p>
+
+<pre>
+Shape shape = getShape();
+if (shape == null) return;
+g2.translate(SHADOW_GAP, SHADOW_GAP);
+g2.setColor(SHADOW_COLOR);
+g2.fill(shape);
+g2.translate(-SHADOW_GAP, -SHADOW_GAP);
+g2.setColor(BACKGROUND_COLOR);
+g2.fill(shape);
+</pre>
+
+<p class="continue">A few lines of code produce a shadow for any shape, even shapes that a
+developer may add at a later point.</p>
+
+<p>Of course, Violet saves bitmap images in any format that the
+<code>javax.imageio</code> package supports; that is, GIF, PNG, JPEG, and so
+on. When my publisher asked me for vector images, I noted another
+advantage of the Java 2D library. When you print to a PostScript
+printer, the Java2D operations are translated into PostScript vector
+drawing operations. If you print to a file, the result can be consumed
+by a program such as <code>ps2eps</code> and then imported into Adobe
+Illustrator or Inkscape. Here is the code, where <code>comp</code> is the
+Swing component whose <code>paintComponent</code> method paints the graph:</p>
+
+<pre>
+DocFlavor flavor = DocFlavor.SERVICE_FORMATTED.PRINTABLE;
+String mimeType = "application/postscript";
+StreamPrintServiceFactory[] factories;
+StreamPrintServiceFactory.lookupStreamPrintServiceFactories(flavor, mimeType);
+FileOutputStream out = new FileOutputStream(fileName);
+PrintService service = factories[0].getPrintService(out);
+SimpleDoc doc = new SimpleDoc(new Printable() {
+  public int print(Graphics g, PageFormat pf, int page) {
+      if (page &gt;= 1) return Printable.NO_SUCH_PAGE;
+      else {
+        double sf1 = pf.getImageableWidth() / (comp.getWidth() + 1);
+        double sf2 = pf.getImageableHeight() / (comp.getHeight() + 1);
+        double s = Math.min(sf1, sf2);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.translate((pf.getWidth() - pf.getImageableWidth()) / 2,
+            (pf.getHeight() - pf.getImageableHeight()) / 2);
+        g2.scale(s, s);
+
+        comp.paint(g);
+        return Printable.PAGE_EXISTS;
+      }
+  }
+}, flavor, null);
+DocPrintJob job = service.createPrintJob();
+PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
+job.print(doc, attributes);
+</pre>
+
+<p>At the beginning, I was concerned that there might be a performance
+penalty when using general shapes, but that has proven not to be the
+case. Clipping works well enough that only those shape operations
+that are required for updating the current viewport are actually
+executed.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.7. No Swing Application Framework</h2>
+
+<p>Most GUI frameworks have some notion of an application that manages a
+set of documents that deals with menus, toolbars, status bars,
+etc. However, this was never a part of the Java
+API. JSR 296<sup class="footnote"><a href="#footnote-5">5</a></sup> was
+supposed to supply a basic framework for Swing applications, but it is
+currently inactive.  Thus, a Swing application author has two choices:
+reinvent a good number of wheels or base itself on a third party
+framework. At the time that Violet was written, the primary choices
+for an application framework were the Eclipse and NetBeans platform,
+both of which seemed too heavyweight at the time. (Nowadays, there are
+more choices, among them JSR 296 forks such as
+GUTS<sup class="footnote"><a href="#footnote-6">6</a></sup>.)  Thus, Violet
+had to reinvent mechanisms for handling menus and internal frames.</p>
+
+<p>In Violet, you specify menu items in property files, like this:</p>
+
+<pre>
+file.save.text=Save
+file.save.mnemonic=S
+file.save.accelerator=ctrl S
+file.save.icon=/icons/16x16/save.png
+</pre>
+
+<p class="continue">A utility method creates the menu item from the prefix (here
+<code>file.save</code>). The suffixes <code>.text</code>, <code>.mnemonic</code>, and so
+on, are what nowadays would be called "convention over
+configuration".  Using resource files for describing these settings
+is obviously far superior to setting up menus with API calls because
+it allows for easy localization. I reused that mechanism in another
+open source project, the GridWorld environment for high school
+computer science
+education<sup class="footnote"><a href="#footnote-7">7</a></sup>.</p>
+
+<p>An application such as Violet allows users to open multiple
+"documents", each containing a graph. When Violet was first written,
+the multiple document interface (MDI) was still commonly used.  With
+MDI, the main frame has a menu bar, and each view of a document is
+displayed in an internal frame with a title but no menu bar. Each
+internal frame is contained in the main frame and can be resized or
+minimized by the user. There are operations for cascading and tiling
+windows.</p>
+
+<p>Many developers disliked MDI, and so this style user interface has
+gone out of fashion. For a while, a single document interface (SDI), in which an
+application displays multiple top level frames, was considered
+superior, presumably because those frames can be manipulated with the
+standard window management tools of the host operating system. When it
+became clear that having lots of top level windows isn't so great
+after all, tabbed interfaces started to appear, in which multiple
+documents are again contained in a single frame, but now all displayed
+at full size and selectable with tabs. This does not allow users
+to compare two documents side by side, but seems to have won out.</p>
+
+<p>The original version of Violet used an MDI interface. The Java API has
+a internal frames feature, but I had to add support for tiling and
+cascading.  Alexandre switched to a tabbed interface, which is
+somewhat better-supported by the Java API. It would be desirable to
+have an application framework where the document display policy was
+transparent to the developer and perhaps selectable by the user.</p>
+
+<p>Alexandre also added support for sidebars, a status bar, a welcome
+panel, and a splash screen. All this should ideally be a part of a
+Swing application framework.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.8. Undo/Redo</h2>
+
+<p>Implementing multiple undo/redo seems like a daunting task, but the
+Swing undo package
+([<a href="bib1.html#bib:topley:coreswing">Top00</a>], Chapter 9)
+gives good architectural guidance. An <code>UndoManager</code> manages a stack of
+<code>UndoableEdit</code> objects. Each of them has an <code>undo</code> method
+that undoes the effect of the edit operation, and a <code>redo</code> method
+that undoes the undo (that is, carries out the original edit
+operation). A <code>CompoundEdit</code> is a sequence of <code>UndoableEdit</code>
+operations that should be undone or redone in their entirety. You are
+encouraged to define small, atomic edit operations (such as adding or
+removing a single edge or node in the case of a graph) that are
+grouped into compound edits as necessary.</p>
+
+<p>A challenge is to define a small set of atomic operations, each of
+which can be undone easily. In Violet, they are:</p>
+
+<ul>
+
+  <li>adding or removing a node or edge</li>
+
+  <li>attaching or detaching a node's child</li>
+
+  <li>moving a node</li>
+
+  <li>changing a property of a node or edge</li>
+
+</ul>
+
+<p>Each of these operations has an obvious undo. For example the undo of
+adding a node is the node's removal. The undo of moving a node is to
+move it by the opposite vector.</p>
+
+<div class="figure" id="fig.vio.undo">
+  <img src="../images/violet/undo.png" alt="[An Undo Operation Must Undo Structural Changes in the Model]" />
+  <p>Figure&nbsp;22.6: An Undo Operation Must Undo Structural Changes in the Model</p>
+</div>
+
+<p>Note that these atomic operations are <em>not</em> the same as the
+actions in the user interface or the methods of the <code>Graph</code>
+interface that the user interface actions invoke. For example,
+consider the sequence diagram in <a href="#fig.vio.undo">Figure&nbsp;22.6</a>,
+and suppose the user drags the mouse from the activation bar to the
+lifeline on the right. When the mouse button is released, the method:</p>
+
+<pre>
+public boolean addEdgeAtPoints(Edge e, Point2D p1, Point2D p2)
+</pre>
+
+<p class="continue">is invoked. That method adds an edge, but it may also carry out other
+operations, as specified by the participating <code>Edge</code> and
+<code>Node</code> subclasses. In this case, an activation bar will be added
+to the lifeline on the right. Undoing the operation needs to remove
+that activation bar as well. Thus, the <em>model</em> (in our case, the
+graph) needs to record the structural changes that need to be
+undone. It is not enough to collect controller operations.</p>
+
+<p>As envisioned by the Swing undo package, the graph, node, and edge
+classes should send <code>UndoableEditEvent</code> notifications to an
+<code>UndoManager</code> whenever a structural edit occurs. Violet has a
+more general design where the graph itself manages listeners for the
+following interface:</p>
+
+<pre>
+public interface GraphModificationListener
+{
+  void nodeAdded(Graph g, Node n);
+  void nodeRemoved(Graph g, Node n);
+  void nodeMoved(Graph g, Node n, double dx, double dy);
+  void childAttached(Graph g, int index, Node p, Node c);
+  void childDetached(Graph g, int index, Node p, Node c);
+  void edgeAdded(Graph g, Edge e);
+  void edgeRemoved(Graph g, Edge e);
+  void propertyChangedOnNodeOrEdge(Graph g, PropertyChangeEvent event);
+}
+</pre>
+
+<p>The framework installs a listener into each graph that is a bridge to
+the undo manager. For supporting undo, adding generic listener support to
+the model is overdesigned&mdash;the graph operations could directly interact
+with the undo manager. However, I also wanted to support an experimental
+collaborative editing feature.</p>
+
+<p>If you want to support undo/redo in your application, think carefully
+about the atomic operations in your model (and not your user
+interface).  In the model, fire events when a structural change
+happens, and allow the Swing undo manager to collect and group these
+events.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.9. Plugin Architecture</h2>
+
+<p>For a programmer familiar with 2D graphics, it is not difficult to add
+a new diagram type to Violet. For example, the activity diagrams were
+contributed by a third party. When I needed to create railroad
+diagrams and ER diagrams, I found it faster to write Violet extensions
+instead of fussing with Visio or Dia. (Each diagram type took a day to
+implement.)</p>
+
+<p>These implementations do not require knowledge of the full Violet
+framework.  Only the graph, node, and edge interfaces and convenience
+implementations are needed. In order to make it easier for
+contributors to decouple themselves from the evolution of the
+framework, I designed a simple plugin architecture.</p>
+
+<p>Of course, many programs have a plugin architecture, many quite
+elaborate.  When someone suggested that Violet should support OSGi, I
+shuddered and instead implemented the simplest thing that works.</p>
+
+<p>Contributors simply produce a JAR file with their graph, node, and
+edge implementations and drop it into a <code>plugins</code> directory. When
+Violet starts, it loads those plugins, using the Java
+<code>ServiceLoader</code> class. That class was designed to load services
+such as JDBC drivers. A <code>ServiceLoader</code> loads JAR files that
+promise to provide a class implementing a given interface (in our
+case, the <code>Graph</code> interface.)</p>
+
+<p>Each JAR file must have a subdirectory <code>META-INF/services</code>
+containing a file whose name is the fully qualified classname of the
+interface (such as <code>com.horstmann.violet.Graph</code>), and that
+contains the names of all implementing classes, one per line.
+The <code>ServiceLoader</code> constructs a class loader for the plugin
+directory, and loads all plugins:</p>
+
+<pre>
+ServiceLoader&lt;Graph&gt; graphLoader = ServiceLoader.load(Graph.class, classLoader);
+for (Graph g : graphLoader) // ServiceLoader&lt;Graph&gt; implements Iterable&lt;Graph&gt;
+  registerGraph(g);
+</pre>
+
+<p>This is a simple but useful facility of standard Java that you might
+find valuable for your own projects.</p>
+
+</div>
+
+<div class="sect">
+<h2>22.10. Conclusion</h2>
+
+<p>Like so many open source projects, Violet was born of an unmet
+need&mdash;to draw simple UML diagrams with a minimum of fuss. Violet was
+made possible by the amazing breadth of the Java SE platform, and it
+draws from a diverse set of technologies that are a part of that
+platform. In this article, I described how Violet makes use of Java
+Beans, Long-Term Persistence, Java Web Start, Java 2D, Swing
+Undo/Redo, and the service loader facility.  These technologies are
+not always as well understood as the basics of Java and Swing, but
+they can greatly simplify the architecture of a desktop
+application. They allowed me, as the initial sole developer, to
+produce a successful application in a few months of part-time work.
+Relying on these standard mechanisms also made it easier for others to
+improve on Violet and to extract pieces of it into their own projects.</p>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1">At the time, I was not aware of Diomidis Spinellis'
+admirable UMLGraph program [<a href="bib1.html#bib:spinellis:umlgraph">Spi03</a>]</li>
+<li id="footnote-2"><code class="url">http://jung.sourceforge.net</code></li>
+<li id="footnote-3"><code class="url">http://www.omg.org/technology/documents/formal/xmi.htm</code></li>
+<li id="footnote-4"><code class="url">http://jcp.org/en/jsr/detail?id=57</code></li>
+<li id="footnote-5"><code class="url">http://jcp.org/en/jsr/detail?id=296</code></li>
+<li id="footnote-6"><code class="url">http://kenai.com/projects/guts</code></li>
+<li id="footnote-7"><code class="url">http://horstmann.com/gridworld</code></li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

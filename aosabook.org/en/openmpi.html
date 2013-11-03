@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: openmpi.html 1387 2012-05-18 20:37:58Z amy $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications (Volume 2): Open MPI</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar2.jpg"
+           alt="The Architecture of Open Source Applications (Volume 2)"</img></a>
+        <h1>Open MPI</h1>
+        <p><a href="intro2.html#squyres-jeff">Jeffrey M. Squyres</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span8 offset2">
+        
+<section>
+<h2>15.1. Background</h2>
+
+<p>Open MPI [<a href="bib2.html#open-mpi-general">GFB+04</a>] is an open source software
+implementation of The Message Passing Interface (MPI) standard.
+Before the architecture and innards of Open MPI will make any sense,
+a little background on the MPI standard must be discussed.</p>
+
+<section>
+<h3>The Message Passing Interface (MPI)</h3>
+
+<p>The MPI standard is created and maintained by the <a href="http://www.mpi-forum.org/">MPI
+Forum</a>, an open group
+consisting of parallel computing experts from both industry and
+academia.  MPI defines an API that is used for a specific type of
+portable, high-performance inter-process communication (IPC):
+<em>message passing</em>.  Specifically, the MPI document describes the
+reliable transfer of discrete, typed messages between MPI processes.
+Although the definition of an "MPI process" is subject to
+interpretation on a given platform, it usually corresponds to the
+operating system's concept of a process (e.g., a POSIX process).  MPI
+is specifically intended to be implemented as middleware, meaning that
+upper-level applications call MPI functions to perform message
+passing.</p>
+
+<p>MPI defines a high-level API, meaning that it abstracts away whatever
+underlying transport is actually used to pass messages between
+processes.  The idea is that sending-process X can effectively say
+"take this array of 1,073 double precision values and send them to
+process Y".  The corresponding receiving-process Y effectively
+says "receive an array of 1,073 double precision values from process
+X."  A miracle occurs, and the array of 1,073 double precision
+values arrives in Y's waiting buffer.</p>
+
+<p>Notice what is absent in this exchange: there is no concept of a
+connection occurring, no stream of bytes to interpret, and no network
+addresses exchanged.  MPI abstracts all of that away, not only to hide
+such complexity from the upper-level application, but also to make the
+application portable across different environments and underlying
+message passing transports.  Specifically, a correct MPI application
+is source-compatible across a wide variety of platforms and network
+types.</p>
+
+<p>MPI defines not only point-to-point communication (e.g., send and
+receive), it also defines other communication patterns, such as
+<em>collective</em> communication.  Collective operations are where
+multiple processes are involved in a single communication action.
+Reliable broadcast, for example, is where one process has a message at
+the beginning of the operation, and at the end of the operation, all
+processes in a group have the message.
+MPI also defines other concepts and communications patterns that are not
+described here. (As of this writing, the most recent version
+of the MPI standard is MPI-2.2 [<a href="bib2.html#mpi-22">For09</a>].  Draft versions of
+the upcoming MPI-3 standard have been published; it may be finalized
+as early as late 2012.)</p>
+
+</section>
+
+<section>
+<h3>Uses of MPI</h3>
+
+<p>There are many implementations of the MPI standard that support a
+wide variety of platforms, operating systems, and network types.
+Some implementations are open source, some are closed source.  
+Open MPI, as its name implies, is one of the open source
+implementations.
+Typical MPI transport networks include (but are not limited to):
+various protocols over Ethernet (e.g., TCP, iWARP, UDP, raw Ethernet
+frames, etc.), shared memory, and InfiniBand.</p>
+
+<p>MPI implementations are typically used in so-called "high-performance
+computing" (HPC) environments.  MPI essentially provides the IPC for
+simulation codes, computational algorithms, and other "big number
+crunching" types of applications.  The input data sets on which these
+codes operate typically represent too much computational work for just
+one server; MPI jobs are spread out across tens, hundreds, or even
+thousands of servers, all working in concert to solve one
+computational problem.</p>
+
+<p>That is, the applications using MPI are both parallel in nature and
+highly compute-intensive.  It is not unusual for all the processor
+cores in an MPI job to run at 100% utilization.  To be clear, MPI
+jobs typically run in dedicated environments where the MPI processes
+are the <em>only</em> application running on the machine (in addition to
+bare-bones operating system functionality, of course).</p>
+
+<p>As such, MPI implementations are typically focused on providing
+extremely high performance, measured by metrics such as:</p>
+
+<ul>
+
+<li>
+Extremely low latency for short message passing.  As an example,
+  a 1-byte message can be sent from a user-level Linux process on one
+  server, through an InfiniBand switch, and received at the target
+  user-level Linux process on a different server in a little over 1
+  microsecond (i.e., 0.000001 second).
+</li>
+
+<li>
+Extremely high message network injection rate for short
+  messages.  Some vendors have MPI implementations (paired with
+  specified hardware) that can inject up to 28 million messages per
+  second into the network.
+</li>
+
+<li>
+Quick ramp-up (as a function of message size) to the maximum
+  bandwidth supported by the underlying transport.
+</li>
+
+<li>
+Low resource utilization.  All resources used by MPI (e.g.,
+  memory, cache, and bus bandwidth) cannot be used by the application.
+  MPI implementations therefore try to maintain a balance of low
+  resource utilization while still providing high performance.
+</li>
+
+</ul>
+
+</section>
+
+<section>
+<h3>Open MPI</h3>
+
+<p>The first version of the MPI standard, MPI-1.0, was published in
+1994 [<a href="bib2.html#mpi-forum-93">Mes93</a>].  
+MPI-2.0, a set of additions on top of MPI-1, was completed in
+1996 [<a href="bib2.html#mpi-geist-96">GGHL+96</a>].</p>
+
+<p>In the first decade after MPI-1 was published, a variety of MPI
+implementations sprung up.  Many were provided by vendors for their
+proprietary network interconnects.  Many other implementations arose
+from the research and academic communities.  Such implementations were
+typically "research-quality," meaning that their purpose was to
+investigate various high-performance networking concepts and provide
+proofs-of-concept of their work.  However, some were high enough
+quality that they gained popularity and a number of users.</p>
+
+<p>Open MPI represents the union of four research/academic, open source
+MPI implementations: LAM/MPI, LA/MPI (Los Alamos MPI), and FT-MPI
+(Fault-Tolerant MPI).
+The members of the PACX-MPI team joined the Open MPI group shortly
+after its inception.</p>
+
+<p>The members of these four development teams decided to collaborate
+when we had the collective realization that, aside from minor
+differences in optimizations and features, our software code bases
+were quite similar.  Each of the four code bases had their own
+strengths and weaknesses, but on the whole, they more-or-less did the
+same things.  So why compete?  Why not pool our resources, work
+together, and make an <em>even better</em> MPI implementation?</p>
+
+<p>After much discussion, the decision was made to abandon our four
+existing code bases and take only the best <em>ideas</em> from the prior
+projects.  This decision was mainly predicated upon the following
+premises:</p>
+
+<ul>
+
+<li>
+Even though many of the underlying algorithms and techniques
+  were similar among the four code bases, they each had radically
+  different implementation architectures, and would be incredible
+  difficult (if not impossible) to merge.
+</li>
+
+<li>
+Each of the four also had their own (significant) strengths and
+  (significant) weaknesses.  Specifically, there were features and
+  architecture decisions from each of the four that were desirable to
+  carry forward.  Likewise, there were poorly optimized and badly
+  designed code in each of the four that were desirable to leave
+  behind.
+</li>
+
+<li>
+The members of the four developer groups had not worked directly
+  together before.  Starting with an entirely new code base (rather
+  than advancing one of the existing code bases) put all developers on
+  equal ground.
+</li>
+
+</ul>
+
+<p>Thus, Open MPI was born.  Its first Subversion commit was on November
+22, 2003.</p>
+
+</section>
+
+</section>
+
+<section>
+<h2>15.2. Architecture</h2>
+
+<p>For a variety of reasons (mostly related to either performance or
+portability), C and C++ were the only two possibilities for the
+primary implementation language.  
+C++ was eventually discarded because different C++ compilers tend to
+lay out structs/classes in memory according to different optimization
+algorithms, leading to different on-the-wire network representations.
+C was therefore chosen as the primary implementation language, which
+influenced several architectural design decisions.</p>
+
+<p>When Open MPI was started, we knew that it would be a large, complex
+code base:</p>
+
+<ul>
+
+<li>
+In 2003, the current version of the MPI standard, MPI-2.0,
+  defined over 300 API functions.
+</li>
+
+<li>
+Each of the four prior projects were large in themselves.  For
+  example, LAM/MPI had over 1,900 files of source code, comprising
+  over 300,000 lines of code (including comments and blanks).
+</li>
+
+<li>
+We wanted Open MPI to support more features, environments, and
+  networks than all four prior projects put together.
+</li>
+
+</ul>
+
+<p>We therefore spent a good deal of time designing an architecture that
+focused on three things:</p>
+
+<ol>
+
+<li>
+Grouping similar functionality together in distinct abstraction
+  layers.
+</li>
+
+<li>
+Using run-time loadable plugins and run-time parameters to
+  choose between multiple different implementations of the same
+  behavior.
+</li>
+
+<li>
+Not allowing abstraction to get in the way of performance.
+</li>
+
+</ol>
+
+<section>
+<h3>Abstraction Layer Architecture</h3>
+
+<p>Open MPI has three main abstraction layers, shown in
+<a href="#fig.openmpi.layers">Figure 15.1</a>:</p>
+
+<ul>
+
+<li>
+<em>Open, Portable Access Layer (OPAL)</em>: OPAL is the bottom
+  layer of Open MPI's abstractions.  Its abstractions are focused on
+  individual processes (versus parallel jobs).  It provides utility and
+  glue code such as generic linked lists, string manipulation,
+  debugging controls, and other mundane&mdash;yet necessary&mdash;functionality.
+<p>
+  OPAL also provides Open MPI's core portability between different
+  operating systems, such as discovering IP interfaces, sharing
+  memory between processes on the same server, processor and memory
+  affinity, high-precision timers, etc.
+</p>
+</li>
+
+<li>
+<em>Open MPI Run-Time Environment (ORTE)</em> (pronounced
+  "or-tay"): An MPI implementation must provide not only the
+  required message passing API, but also an accompanying run-time
+  system to launch, monitor, and kill parallel jobs.  In Open MPI's
+  case, a parallel job is comprised of one or more processes that may
+  span multiple operating system instances, and are bound together to
+  act as a single, cohesive unit.
+
+<p>
+  In simple environments with little or no distributed computational
+  support, ORTE uses <code>rsh</code> or <code>ssh</code> to launch the individual
+  processes in parallel jobs.  More advanced, HPC-dedicated
+  environments typically have schedulers and resource managers for
+  fairly sharing computational resources between many users.  Such
+  environments usually provide specialized APIs to launch and regulate
+  processes on compute servers.  ORTE supports a wide variety of such
+  managed environments, such as (but not limited to): Torque/PBS
+  Pro, SLURM, Oracle Grid Engine, and LSF.
+</p>
+</li>
+
+<li>
+<em>Open MPI (OMPI)</em>: The MPI layer is the highest abstraction layer,
+  and is the only one exposed to applications.  The MPI API is
+  implemented in this layer, as are all the message passing semantics
+  defined by the MPI standard.
+
+<p>
+  Since portability is a primary requirement, the MPI layer supports a
+  wide variety of network types and underlying protocols.  Some
+  networks are similar in their underlying characteristics and
+  abstractions; some are not.
+</p>
+</li>
+
+</ul>
+
+<figure id="fig.openmpi.layers">
+  <img src="../images/openmpi/open-mpi-layers.png" />
+  <figcaption>Figure 15.1: Abstraction layer architectural view of Open MPI showing its three main layers: OPAL, ORTE, and OMPI</figcaption>
+</figure>
+
+
+<p>Although each abstraction is layered on top of the one below it, for
+performance reasons the ORTE and OMPI layers can bypass the
+underlying abstraction layers and interact directly with the operating
+system and/or hardware when needed (as depicted in
+<a href="#fig.openmpi.layers">Figure 15.1</a>).  For example, the OMPI layer uses
+OS-bypass methods to communicate with certain types of NIC hardware to
+obtain maximum networking performance.</p>
+
+<p>Each layer is built into a standalone library.  The ORTE library
+depends on the OPAL library; the OMPI library depends on the ORTE
+library.
+Separating the layers into their own libraries has acted as a
+wonderful tool for preventing abstraction violations.
+Specifically, applications will fail to link if one layer incorrectly
+attempts to use a symbol in a higher layer.
+Over the years, this abstraction enforcement mechanism has saved many
+developers from inadvertently blurring the lines between the three
+layers.</p>
+
+</section>
+
+<section>
+<h3>Plugin Architecture</h3>
+
+<p>Although the initial members of the Open MPI collaboration shared a
+similar core goal (produce a portable, high-performance
+implementation of the MPI standard), our organizational backgrounds,
+opinions, and agendas were&mdash;and still are&mdash;wildly different.
+We therefore spent a considerable amount of time designing an
+architecture that would allow us to be different, even while sharing
+a common code base.</p>
+
+<p>Run-time loadable <em>components</em> were a natural choice (a.k.a.,
+dynamic shared objects, or "DSOs", or "plugins").  Components
+enforce a common API but place few limitations on the implementation
+of that API.
+Specifically: the same interface behavior can be implemented multiple
+different ways.
+Users can then choose, at run time, which plugin(s) to use.
+This even allows third parties to independently develop and distribute
+their own Open MPI plugins outside of the core Open MPI package.
+Allowing arbitrary extensibility is quite a liberating policy, both
+within the immediate set of Open MPI developers and in the greater
+Open MPI community.</p>
+
+<p>This run-time flexibility is a key component of the Open MPI design
+philosophy and is deeply integrated throughout the entire
+architecture.
+Case in point: the Open MPI v1.5 series includes 155 plugins.
+To list just a few examples, there are plugins for different <code>memcpy()</code> 
+implementations, plugins for how to launch processes on
+remote servers, and plugins for how to communicate on different types
+of underlying networks.</p>
+
+<p>One of the major benefits of using plugins is that multiple groups of
+developers have freedom to experiment with alternate implementations
+without affecting the core of Open MPI.
+This was a critical feature, particularly in the early days of the
+Open MPI project.  Sometimes the developers didn't always know what
+was the right way to implement something, or sometimes they just
+disagreed.
+In both cases, each party would implement their solution in a
+component, allowing the rest of the developer community to easily
+compare and contrast. 
+Code comparisons can be done without components, of course, but the
+component concept helps guarantee that all implementations expose
+exactly the same external API, and therefore provide exactly the same
+required semantics.  </p>
+
+<p>As a direct result of the flexibility that it provides, the component
+concept is utilized heavily throughout all three layers of Open MPI;
+in each layer there are many different types of components.
+Each type of component is enclosed in a <em>framework</em>.
+A component belongs to exactly one framework, and a framework supports
+exactly one kind of component.
+<a href="#fig.openmpi.mca">Figure 15.2</a> is a template of Open MPI's architectural
+layout; it shows a few of Open MPI's frameworks and some of the
+components that they contain.  (The rest of Open MPI's frameworks and
+components are laid out in the same manner.)
+Open MPI's set of layers, frameworks, and components is referred to as
+the Modular Component Architecture (MCA).</p>
+
+<figure id="fig.openmpi.mca">
+  <img src="../images/openmpi/open-mpi-mca.png" />
+  <figcaption>Figure 15.2: Framework architectural view of Open MPI, showing just a few of Open MPI's frameworks and components (i.e., plugins).  Each framework contains a <em>base</em> and one or more components.  This structure is replicated in each of the layers shown in <a href="#fig.openmpi.layers">Figure 15.1</a>.  The sample frameworks listed in this figure are spread across all three layers: <code>btl</code> and <code>coll</code> are in the OMPI layer, <code>plm</code> is in the ORTE layer, and <code>timer</code> is in the OPAL layer.</figcaption>
+</figure>
+
+<p>Finally, another major advantage of using frameworks and components is
+their inherent composability.  With over 40 frameworks in Open MPI
+v1.5, giving users the ability to mix-n-match different plugins of
+different types allows them to create a software stack that is
+effectively tailored to their individual system.</p>
+
+</section>
+
+<section>
+<h3>Plugin Frameworks</h3>
+
+<p>Each framework is fully self-contained in its own subdirectory in the
+Open MPI source code tree.  The name of the subdirectory is the same
+name as the framework; for example, the <code>memory</code> framework is in
+the <code>memory</code> directory.  
+Framework directories contain at least the following three items:</p>
+
+<ol>
+
+<li>
+<em>Component interface definition:</em> A header file named 
+  <code>&lt;framework&gt;.h</code> will be located in the top-level framework
+  directory (e.g., the Memory framework contains 
+  <code>memory/memory.h</code>).  This well-known header file defines the
+  interfaces that each component in the framework must support.  This
+  header includes function pointer typedefs for the interface
+  functions, structs for marshaling these function pointers, and any
+  other necessary types, attribute fields, macros, declarations, etc.
+</li>
+
+<li>
+ <em>Base code</em>: The <code>base</code> subdirectory contains the glue
+  code that provides the core functionality of the framework.  For
+  example, the <code>memory</code> framework's base directory is <code>memory/base</code>.  
+  The base is typically comprised of logistical grunt
+  work such as finding and opening components at run-time, common
+  utility functionality that may be utilized by multiple components,
+  etc.
+</li>
+
+<li>
+<em>Components</em>: All other subdirectories in the framework
+  directory are assumed to be components.  Just like the framework,
+  the names of the components are the same names as their
+  subdirectories (e.g., the <code>memory/posix</code> subdirectory contains
+  the POSIX component in the Memory framework).
+</li>
+
+</ol>
+
+<p>Similar to how each framework defines the interfaces to which its
+components must adhere, frameworks also define other operational
+aspects, such as how they bootstrap themselves, how they pick
+components to use, and how they are shut down.  Two common examples of
+how frameworks differ in their setup are many-of-many versus one-of-many
+frameworks, and static versus dynamic frameworks.</p>
+
+<p><strong>Many-of-many frameworks.</strong></p>
+
+<p>Some frameworks have functionality that can be implemented multiple
+different ways in the same process.
+For example, Open MPI's point-to-point network framework will load
+multiple driver plugins to allow a single process to send and receive
+messages on multiple network types.</p>
+
+<p>Such frameworks will typically open all components that they can find
+and then query each component, effectively asking, "Do you want to
+run?"  
+The components determine whether they want to run by examining the
+system on which they are running.
+For example, a point-to-point network component will look to see if
+the network type it supports is both available and active on the
+system.
+If it is not, the component will reply "No, I do not want to run",
+causing the framework to close and unload that component.
+If that network type <em>is</em> available, the component will reply
+"Yes, I want to run", causing the framework to keep the component
+open for further use.</p>
+
+<p><strong>One-of-many frameworks.</strong></p>
+
+<p>Other frameworks provide functionality for which it does not make sense to
+have more than one implementation available at run-time.
+For example, the creation of a consistent checkpoint of a parallel 
+job&mdash;meaning that the job is effectively "frozen" and can be arbitrarily
+resumed later&mdash;must be performed using the same back-end
+checkpointing system for each process in the job.
+The plugin that interfaces to the desired back-end checkpointing
+system is the <em>only</em> checkpoint plugin that must be loaded in each
+process&mdash;all others are unnecessary.</p>
+
+<p><strong>Dynamic frameworks.</strong></p>
+
+<p>Most frameworks allow their components to be loaded at run-time via
+DSOs.  This is the most flexible method of finding and loading
+components; it allows features such as explicitly <em>not</em> loading
+certain components, loading third-party components that were not
+included in the main-line Open MPI distribution, etc.</p>
+
+<p><strong>Static frameworks.</strong></p>
+
+<p>Some one-of-many frameworks have additional constraints that force
+their one-and-only-one component to be selected at compile time (versus
+run time).  Statically linking one-of-many components allows direct
+invocation of its member functions (versus invocation via function
+pointer), which may be important in highly performance-sensitive
+functionality.  One example is the <code>memcpy</code> framework, which
+provides platform-optimized <code>memcpy()</code> implementations.</p>
+
+<p>Additionally, some frameworks provide functionality that may need to
+be utilized before Open MPI is fully initialized.  
+For example, the use of some network stacks require complicated memory
+registration models, which, in turn, require replacing the C library's
+default memory management routines.
+Since memory management is intrinsic to an entire process, replacing
+the default scheme can only be done pre-<code>main</code>.
+Therefore, such components must be statically linked into Open MPI
+processes so that they can be available for pre-<code>main</code> hooks, long
+before MPI has even been initialized.</p>
+
+</section>
+
+<section>
+<h3>Plugin Components</h3>
+
+<p>Open MPI plugins are divided into two parts: a <em>component</em>
+struct and a <em>module</em> struct.
+The component struct and the functions to which it refers are
+typically collectively referred to as "the component."  Similarly,
+"the module" collectively refers to the module struct and its
+functions.
+The division is somewhat analogous to C++ classes and objects.
+There is only one component per process; it describes the overall
+plugin with some fields that are common to all components (regardless
+of framework).
+If the component elects to run, it is used to generate one or more
+modules, which typically perform the bulk of the functionality
+required by the framework.</p>
+
+<p>Throughout the next few sections, we'll build up the structures
+necessary for the TCP component in the BTL (byte transfer layer)
+framework.  The BTL framework effects point-to-point message transfers;
+the TCP component, not surprisingly, uses TCP as its underlying
+transport for message passing.</p>
+
+<p><strong>Component struct.</strong></p>
+
+<p>Regardless of framework, each component contains a well-known,
+statically allocated and initialized component struct.  
+The struct must be named according to the template 
+<code>mca_&lt;framework&gt;_&lt;component&gt;_component</code>.  For example, the
+TCP network driver component's struct in the BTL framework is named
+<code>mca_btl_tcp_component</code>.</p>
+
+<p>Having templated component symbols both guarantees that there will be
+no name collisions between components, and allows the MCA core to find
+any arbitrary component struct via <code>dlsym(2)</code> (or the appropriate
+equivalent in each supported operating system).</p>
+
+<p>The base component struct contains some logistical information, such
+as the component's formal name, version, framework version adherence,
+etc.
+This data is used for debugging purposes, inventory listing, and
+run-time compliance and compatibility checking.</p>
+
+<pre>
+struct mca_base_component_2_0_0_t {
+    /* Component struct version number */
+    int mca_major_version, mca_minor_version, mca_release_version;
+
+    /* The string name of the framework that this component belongs to,
+       and the framework's API version that this component adheres to */
+    char mca_type_name[MCA_BASE_MAX_TYPE_NAME_LEN + 1];
+    int mca_type_major_version, mca_type_minor_version,  
+        mca_type_release_version;
+
+    /* This component's name and version number */
+    char mca_component_name[MCA_BASE_MAX_COMPONENT_NAME_LEN + 1];
+    int mca_component_major_version, mca_component_minor_version,
+        mca_component_release_version;
+
+    /* Function pointers */  
+    mca_base_open_component_1_0_0_fn_t mca_open_component;
+    mca_base_close_component_1_0_0_fn_t mca_close_component;
+    mca_base_query_component_2_0_0_fn_t mca_query_component;
+    mca_base_register_component_params_2_0_0_fn_t 
+        mca_register_component_params;
+};
+</pre>
+
+<p>The base component struct is the core of the TCP BTL component; it
+contains the following function pointers:</p>
+
+<ul>
+
+<li>
+<em>Open.</em> The <em>open</em> call is the initial query function
+  invoked on a component.  It allows a component to initialize itself,
+  look around the system where it is running, and determine whether it
+  wants to run.  If a component can always be run, it can provide a
+  <code>NULL</code> open function pointer.
+
+<p>
+  The TCP BTL component <em>open</em> function mainly initializes some
+  data structures and ensures that invalid parameters were not set by
+  the user.
+</p>
+</li>
+
+<li>
+ <em>Close.</em> When a framework decides that a component is no
+  longer needed, it calls the <em>close</em> function to allow the
+  component to release any resources that it has allocated.  The close
+  function is invoked on all remaining components when processes are
+  shutting down.  However, <em>close</em> can also be invoked on
+  components that are rejected at run time so that they can be closed
+  and ignored for the duration of the process.
+
+<p>
+  The TCP BTL component <em>close</em> function closes listening sockets
+  and frees resources (e.g., receiving buffers).
+</p>
+</li>
+
+<li>
+<em>Query.</em> This call is a generalized "Do you want to run?"
+  function.  Not all frameworks utilize this specific call&mdash;some
+  need more specialized query functions.
+
+<p>
+  The BTL framework does not use the generic <em>query</em> function (it
+  defines its own; see below), so the TCP BTL does not fill it in.
+</p>
+</li>
+
+<li>
+ <em>Parameter registration.</em> This function is typically the
+  first function called on a component.  It allows the component to
+  register any relevant run-time, user-settable parameters.  Run-time
+  parameters are discussed further below.
+
+<p>
+  The TCP BTL component <em>register</em> function creates a variety of
+  user-settable run-time parameters, such as one which allows the
+  user to specify which IP interface(s) to use.
+</p>
+</li>
+
+</ul>
+
+<p>The component structure can also be extended on a per-framework and/or
+per-component basis.  Frameworks typically create a new component
+struct with the component base struct as the first member.
+This nesting allows frameworks to add their own attributes and
+function pointers.  
+For example, a framework that needs a more specialized query function
+(as compared to the <em>query</em> function provided on the basic
+component) can add a function pointer in its framework-specific
+component struct.</p>
+
+<p>The MPI <code>btl</code> framework, which provides point-to-point MPI
+messaging functionality, uses this technique.</p>
+
+<pre>
+struct mca_btl_base_component_2_0_0_t {
+    /* Base component struct */
+    mca_base_component_t btl_version;
+    /* Base component data block */
+    mca_base_component_data_t btl_data;
+
+    /* btl-framework specific query functions */
+    mca_btl_base_component_init_fn_t btl_init;
+    mca_btl_base_component_progress_fn_t btl_progress;
+};
+</pre>
+
+<p>As an example of the TCP BTL framework query functions, the TCP BTL
+component <code>btl_init</code> function does several things:</p>
+
+<ul>
+
+<li>
+Creates a listening socket for each "up" IPv4 and IPv6 interface.
+</li>
+
+<li>
+Creates a module for each "up" IP interface.
+</li>
+
+<li>
+Registers the tuple <code>(IP address, port)</code> for each "up" IP
+  interface with a central repository so that other MPI processes know
+  how to contact it.
+</li>
+
+</ul>
+
+<p>Similarly, plugins can extend the framework-specific component struct
+with their own members.
+The <code>tcp</code> component in the <code>btl</code> framework does this; it
+caches many data members in its component struct.</p>
+
+<pre>
+struct mca_btl_tcp_component_t {
+    /* btl framework-specific component struct */ 
+    mca_btl_base_component_2_0_0_t super;
+
+    /* Some of the TCP BTL component's specific data members */
+    /* Number of TCP interfaces on this server */
+    uint32_t tcp_addr_count;
+    
+    /* IPv4 listening socket descriptor */
+    int tcp_listen_sd;
+
+    /* ...and many more not shown here */
+};
+</pre>
+
+<p>This struct-nesting technique is effectively a simple emulation of C++
+single inheritance: a pointer to an instance of a <code>struct
+  mca_btl_tcp_component_t</code> can be cast to any of the
+three types such that it can be used by an abstraction layer than does
+not understand the "derived" types.</p>
+
+<p>That being said, casting is generally frowned upon in Open MPI because
+it can lead to incredibly subtle, difficult-to-find bugs.  
+An exception was made for this C++-emulation technique because it has
+well-defined behaviors and helps enforce abstraction barriers.</p>
+
+<p><strong>Module struct.</strong></p>
+
+<p>Module structs are individually defined by each framework; there is
+little commonality between them.
+Depending on the framework, components generate one or more module
+struct instances to indicate that they want to be used.</p>
+
+<p>For example, in the BTL framework, one module usually corresponds to a
+single network device.  
+If an MPI process is running on a Linux server with three "up"
+Ethernet devices, the TCP BTL component will generate three TCP BTL
+modules; one corresponding to each Linux Ethernet device.
+Each module will then be wholly responsible for all sending and
+receiving to and from its Ethernet device.</p>
+
+<p><strong>Tying it all together.</strong></p>
+
+<p><a href="#fig.openmpi.component.nesting">Figure 15.3</a> shows the nesting of the
+structures in the TCP BTL component, and how it generates one module
+for each of the three Ethernet devices.</p>
+
+<figure id="fig.openmpi.component.nesting">
+  <img src="../images/openmpi/open-mpi-mca-struct-nesting.png" />
+  <figcaption>Figure 15.3: The left side shows the nesting of structures in the TCP BTL component. The right side shows how the component generates one module struct for each "up" Ethernet interface.</figcaption>
+</figure>
+
+<p>Composing BTL modules this way allows the upper-layer MPI progression
+engine both to treat all network devices equally, and to perform
+user-level channel bonding.  </p>
+
+<p>For example, consider sending a large message across the three-device
+configuration described above.  Assume that each of the three Ethernet
+devices can be used to reach the intended receiver (reachability is
+determined by TCP networks and netmasks, and some well-defined
+heuristics).
+In this case, the sender will split the large message into multiple
+fragments.  Each fragment will be assigned&mdash;in a round-robin
+fashion&mdash;to one of the TCP BTL modules (each module will therefore be
+assigned roughly one third of the fragments).
+Each module then sends its fragments over its corresponding Ethernet
+device.</p>
+
+<p>This may seem like a complex scheme, but it is surprisingly
+effective.  
+By pipelining the sends of a large message across the multiple TCP BTL
+modules, typical HPC environments (e.g., where each Ethernet device is
+on a separate PCI bus) can sustain nearly maximum bandwidth speeds
+across multiple Ethernet devices.</p>
+
+</section>
+
+<section>
+<h3>Run-Time Parameters</h3>
+
+<p>Developers commonly make decisions when writing code, such as:</p>
+
+<ul>
+<li>
+Should I use algorithm A or algorithm B?
+</li>
+<li>
+How large of a buffer should I preallocate?
+</li>
+<li>
+How long should the timeout be?
+</li>
+<li>
+At what message size should I change network protocols?
+</li>
+<li>
+&hellip;and so on.
+</li>
+</ul>
+
+<p>Users tend to assume that the developers will answer such questions in
+a way that is generally suitable for most types of systems.
+However, the HPC community is full of scientist and engineer power
+users who want to aggressively tweak their hardware and software
+stacks to eke out every possible compute cycle.
+Although these users typically do not want to tinker with the actual
+code of their MPI implementation, they <em>do</em> want to tinker by
+selecting different internal algorithms, choosing different resource
+consumption patterns, or forcing specific network protocols in
+different circumstances.</p>
+
+<p>Therefore, the MCA parameter system was included when designing Open
+MPI; the system is a flexible mechanism that allows users to change internal Open
+MPI parameter values at run time.
+Specifically, developers register string and integer MCA parameters
+throughout the Open MPI code base, along with an associated default
+value and descriptive string defining what the parameter is and how it
+is used.
+The general rule of thumb is that rather than hard-coding constants,
+developers use run-time-settable MCA parameters, thereby allowing
+power users to tweak run-time behavior.</p>
+
+<p>There are a number of MCA parameters in the base code of the three
+abstraction layers, but the bulk of Open MPI's MCA parameters are
+located in individual components.
+For example, the TCL BTL plugin has a parameter that specifies whether
+only TCPv4 interfaces, only TCPv6 interfaces, or both types of
+interfaces should be used.
+Alternatively, another TCP BTL parameter can be set to specify
+exactly which Ethernet devices to use.</p>
+
+<p>Users can discover what parameters are available via a user-level
+command line tool (<code>ompi_info</code>).
+Parameter values can be set in multiple ways: on the command line, via
+environment variables, via the Windows registry, or in system- or
+user-level INI-style files.</p>
+
+<p>The MCA parameter system complements the idea of run-time plugin
+selection flexibility, and has proved to be quite valuable to users.
+Although Open MPI developers try hard to choose reasonable defaults
+for a wide variety of situations, every HPC environment is different.
+There are inevitably environments where Open MPI's default parameter
+values will be unsuitable&mdash;and possibly even detrimental to
+performance.
+The MCA parameter system allows users to be proactive and tweak Open
+MPI's behavior for their environment.  Not only does this alleviate
+many upstream requests for changes and/or bug reports, it allows users
+to experiment with the parameter space to find the best configuration
+for their specific system.</p>
+
+</section>
+
+</section>
+
+<section>
+<h2>15.3. Lessons Learned</h2>
+
+<p>With such a varied group of core Open MPI members, it is inevitable that
+we would each learn <em>something</em>, and that as a group, we would
+learn many things.  The following list describes just a few of these
+lessons.</p>
+
+<section>
+<h3>Performance</h3>
+
+<p>Message-passing performance and resource utilization are the king
+and queen of high-performance computing.
+Open MPI was specifically designed in such a way that it could operate
+at the very bleeding edge of high performance: incredibly low
+latencies for sending short messages, extremely high short message
+injection rates on supported networks, fast ramp-ups to maximum
+bandwidth for large messages, etc.
+Abstraction is good (for many reasons), but it must be designed with
+care so that it does not get in the way of performance.  Or, put
+differently: carefully choose abstractions that lend themselves to
+shallow, performant call stacks (versus deep, feature-rich API call
+stacks).</p>
+
+<p>That being said, we also had to accept that in some cases, abstraction&mdash;not 
+architecture&mdash;must be thrown out the window.  Case in point:
+Open MPI has hand-coded assembly for some of its most
+performance-critical operations, such as shared memory locking and
+atomic operations.</p>
+
+<p>It is worth noting that
+Figures <a href="#fig.openmpi.layers">15.1</a>
+and <a href="#fig.openmpi.mca">15.2</a> show two
+different <em>architectural</em> views of Open MPI.  They do not
+represent the run-time call stacks or calling invocation layering for
+the high performance code sections.</p>
+
+<p><strong>Lesson learned:</strong></p>
+
+<p>It is acceptable (albeit undesirable) and unfortunately sometimes
+necessary to have gross, complex code in the name of performance
+(e.g., the aforementioned assembly code).
+However, it is <em>always</em> preferable to spend time trying to figure
+out how to have good abstractions to discretize and hide complexity
+whenever possible.  A few weeks of design can save literally hundreds
+or thousands of developer-hours of maintenance on tangled, subtle, spaghetti
+code.</p>
+
+</section>
+
+<section>
+<h3>Standing on the Shoulders of Giants</h3>
+
+<p>We actively tried to avoid re-inventing code in Open MPI that someone
+else has already written (when such code is compatible with Open
+MPI's BSD licensing).
+Specifically, we have no compunctions about either directly re-using
+or interfacing to someone else's code.</p>
+
+<p>There is no place for the "not invented here" religion when trying
+to solve highly complex engineering problems; it only makes good
+logistical sense to re-use external code whenever possible.
+Such re-use frees developers to focus on the problems unique to Open
+MPI; there is no sense re-solving a problem that someone else has
+solved already.</p>
+
+<p>A good example of this kind of code re-use is the GNU Libtool Libltdl
+package.  Libltdl is a small library that provides a portable API for
+opening DSOs and finding symbols in them.  Libltdl is supported on a
+wide variety of operating systems and environments, including
+Microsoft Windows.</p>
+
+<p>Open MPI <em>could</em> have provided this functionality itself&mdash;but
+why?
+Libltdl is a fine piece of software, is actively maintained, is
+compatible with Open MPI's license, and provides exactly the
+functionality that was needed.
+Given these points, there is no realistic gain for Open MPI developers
+to re-write this functionality.</p>
+
+<p><strong>Lesson learned:</strong></p>
+
+<p>When a suitable solution exists elsewhere, do not hesitate to integrate
+it and stop wasting time trying to re-invent it.</p>
+
+</section>
+
+<section>
+<h3>Optimize for the Common Case</h3>
+
+<p>Another guiding architectural principle has been to optimize for the
+common case.  
+For example, emphasis is placed on splitting many operations into two
+phases: setup and repeated action.  The assumption is that setup may
+be expensive (meaning: slow).  So do it <em>once</em> and get it over
+with.
+Optimize for the much more common case: repeated operation.</p>
+
+<p>For example, <code>malloc()</code> can be slow, especially if pages need to
+be allocated from the operating system.  So instead of allocating just
+enough bytes for a single incoming network message, allocate enough
+space for a <em>bunch</em> of incoming messages, divide the result up
+into individual message buffers, and set up a freelist to maintain
+them.  In this way, the <em>first</em> request for a message buffer may
+be slow, but <em>successive</em> requests will be much faster because
+they will just be de-queues from a freelist.</p>
+
+<p><strong>Lesson learned:</strong></p>
+
+<p>Split common operations into (at least)
+two phases: setup and repeated action.  Not only will the code perform
+better, it may be easier to maintain over time because the distinct
+actions are separated.</p>
+
+</section>
+
+<section>
+<h3>Miscellaneous</h3>
+
+<p>There are too many more lessons learned to describe in detail here;
+the following are a few more lessons that can be summed up briefly:</p>
+
+<ul>
+
+<li>
+ We were fortunate to draw upon 15+ years of HPC research and
+  make designs that have (mostly) successfully carried us for more
+  than eight years.  When embarking on a new software project,
+  <em>look to the past</em>.  Be sure to understand what has already
+  been done, <em>why</em> it was done, and what its strengths and
+  weaknesses were.
+</li>
+
+<li> The concept of components&mdash;allowing multiple different
+  implementations of the same functionality&mdash;has saved us many
+  times, both technically and politically.  Plugins are good.
+</li>
+
+<li>
+ Similarly, we continually add and remove frameworks as
+  necessary.  When developers start arguing about the "right" way to
+  implement a new feature, add a framework that fronts components that
+  implement that feature.  Or when newer ideas come along that
+  obsolete older frameworks, don't hesitate to delete such kruft.
+</li>
+
+</ul>
+
+</section>
+
+<section>
+<h3>Conclusion</h3>
+
+<p>If we had to list the three <em>most</em> important things that we've
+learned from the Open MPI project, I think they would be as follows:</p>
+
+<ul>
+
+<li>
+ One size does not fit all (users).  The run-time plugin and
+  companion MCA parameter system allow users flexibility that is
+  necessary in the world of portable software.  Complex software
+  systems cannot (always) magically adapt to a given system; providing
+  user-level controls allows a human to figure out&mdash;and override&mdash;when the software behaves sub-optimally.
+</li>
+
+<li>
+ Differences are good.  Developer disagreements are good.
+  Embrace challenges to the status quo; do not get complacent.  A
+  plucky grad student saying "Hey, check this out&hellip;" can lead to
+  the basis of a whole new feature or a major evolution of the
+  product.
+</li>
+
+<li>
+ Although outside the scope of this book, people and community
+  matter.  A lot.
+</li>
+
+</ul>
+
+</section>
+
+</section>
+<section>      
+ <!-- Footer
+      ================================================== -->
+      <footer class="footer">
+        <hr>
+        <p class="pull-right">This work is made available under
+            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
+            Commons Attribution 3.0 Unported</a> license.  Please see
+            the <a href="intro1.html#license">full description of the
+            license</a> for details.</a>
+            <p><a href="#">Back to top</a><br/>
+        <a href="index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
+      </footer>
+</section>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

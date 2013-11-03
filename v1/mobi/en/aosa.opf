@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The unique identifier in <package unique-identifier=”XYZ”> is a reference to
+  the identifier specified in <metadata> as <dc:Identifier id=”XYZ”>.
+-->
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+
+<!--
+	Metadata:
+	The required metadata element is used to provide information about the publication
+	as a whole.
+	
+	For detailed info visit: http://www.idpf.org/2007/opf/OPF_2.0_final_spec.html#Section2.2
+-->
+	
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+  
+  <!-- Title [mandatory]: The title of the publication. This is the title that will appear on the "Home" screen. -->
+  
+	<dc:title>The Architecture of Open Source Applications</dc:title>
+  
+  <!-- Language [mandatory]: the language of the publication. The language codes used are the same as in XML
+  and HTML. The full list can be found here: http://www.w3.org/International/articles/language-tags/
+  Some common language strings are:
+  "en"    English
+  "en-us" English - USA
+  "en-gb" English - United Kingdom
+  "fr"    French
+  "fr-ca" French - Canada
+  "de"    German
+  "es"    Spanish
+  -->
+	<dc:language>en-us</dc:language>
+
+  <!-- Cover [mandatory]. The cover image must be specified in <manifest> and referenced from
+  this <meta> element with a name="cover" attribute.
+  -->
+  <meta name="cover" content="My_Cover" />
+  
+  <!-- The ISBN of your book goes here -->
+  
+	<dc:identifier id="BookId" opf:scheme="ISBN">978-1-257-63801-7</dc:identifier>
+  
+  <!-- The author of the book. For multiple authors, use multiple <dc:Creator> tags.
+       Additional contributors whose contributions are secondary to those listed in
+       creator  elements should be named in contributor elements.
+  -->
+	<dc:creator>Amy Brown</dc:creator>
+ 	<dc:creator>Greg Wilson</dc:creator>
+  
+  <!-- Publisher: An entity responsible for making the resource available -->
+  
+	<dc:publisher>Lulu.com</dc:publisher>
+  
+  <!-- Subject: A topic of the content of the resource. Typically, Subject will be
+		   expressed as keywords, key phrases or classification codes that describe a topic
+		   of the resource. The BASICCode attribute should contain the subject code
+       according to the BISG specification:
+       http://www.bisg.org/what-we-do-20-73-bisac-subject-headings-2008-edition.php
+   -->
+	<dc:subject>Reference</dc:subject>
+  
+  <!-- Date: Date of publication in YYYY-MM-DD format. (Days and month can be omitted).
+       Standard to follow: http://www.w3.org/TR/NOTE-datetime
+  -->
+	<dc:date>2011-05-25</dc:date>
+
+  <!-- Description: A short description of the publication's content. -->
+  <dc:description>The authors of twenty-five open source applications explain how their software is structured, and why.</dc:description>
+	
+</metadata>
+
+<!--
+	Manifest:
+	The required manifest must provide a list of all the files that are part of the
+	publication (e.g. Content Documents, NCX table of contents, image files, CSS style sheets).
+  Kindlegen however does not require CSS and images to be specified in the manifest if they
+  are referenced from the content HTML.
+	The manifest element must contain one or more item elements with the following media-type attributes:
+  
+  text/x-oeb1-document      HTML content files
+  application/x-dtbncx+xml  NCX table of contents
+  image/jpeg                JPEG image
+  image/GIF                 GIF image
+  
+	For detailed info visit: http://www.idpf.org/2007/opf/OPF_2.0_final_spec.html#Section2.3
+-->
+
+<manifest>
+  <!-- HTML content files [mandatory] -->
+	<item id="itemtoc" media-type="application/xhtml+xml" href="toc.html"></item>
+
+	<item id="item00" media-type="application/xhtml+xml" href="intro.html"></item>
+	<item id="item01" media-type="application/xhtml+xml" href="01_asterisk.html"></item>
+	<item id="item02" media-type="application/xhtml+xml" href="02_audacity.html"></item>
+	<item id="item03" media-type="application/xhtml+xml" href="03_bash.html"></item>
+	<item id="item04" media-type="application/xhtml+xml" href="04_bdb.html"></item>
+	<item id="item05" media-type="application/xhtml+xml" href="05_cmake.html"></item>
+	<item id="item06" media-type="application/xhtml+xml" href="06_integration.html"></item>
+	<item id="item07" media-type="application/xhtml+xml" href="07_eclipse.html"></item>
+	<item id="item08" media-type="application/xhtml+xml" href="08_graphite.html"></item>
+	<item id="item09" media-type="application/xhtml+xml" href="09_hdfs.html"></item>
+	<item id="item10" media-type="application/xhtml+xml" href="10_jitsi.html"></item>
+	<item id="item11" media-type="application/xhtml+xml" href="11_llvm.html"></item>
+	<item id="item12" media-type="application/xhtml+xml" href="12_mercurial.html"></item>
+	<item id="item13" media-type="application/xhtml+xml" href="13_nosql.html"></item>
+	<item id="item14" media-type="application/xhtml+xml" href="14_packaging.html"></item>
+	<item id="item15" media-type="application/xhtml+xml" href="15_riak.html"></item>
+	<item id="item16" media-type="application/xhtml+xml" href="16_selenium.html"></item>
+	<item id="item17" media-type="application/xhtml+xml" href="17_sendmail.html"></item>
+	<item id="item18" media-type="application/xhtml+xml" href="18_snowflock.html"></item>
+	<item id="item19" media-type="application/xhtml+xml" href="19_socialcalc.html"></item>
+	<item id="item20" media-type="application/xhtml+xml" href="20_telepathy.html"></item>
+	<item id="item21" media-type="application/xhtml+xml" href="21_thousandparsec.html"></item>
+	<item id="item22" media-type="application/xhtml+xml" href="22_violet.html"></item>
+	<item id="item23" media-type="application/xhtml+xml" href="23_vistrails.html"></item>
+	<item id="item24" media-type="application/xhtml+xml" href="24_vtk.html"></item>
+
+	<item id="item25" media-type="application/xhtml+xml" href="25_wesnoth.html"></item>
+
+	<item id="itembib" media-type="application/xhtml+xml" href="bibliography.html"></item>
+
+  <!-- table of contents [mandatory] -->
+	<item id="My_Table_of_Contents" media-type="application/x-dtbncx+xml" href="aosa.ncx"/>
+  
+  <!-- cover image [mandatory] -->
+  <item id="My_Cover" media-type="image/jpeg" href="frontcoverKindle.jpg"/>
+</manifest>
+
+<!--
+	Spine:
+	Following manifest, there must be one and only one spine element, which contains one
+	or more itemref elements. Each itemref references an document designated
+	in the manifest. The order of the itemref elements organizes the associated content
+	files into the linear reading order of the publication.
+	
+	The toc attribute refers to the id ref of the NCX file specified in the manifest.
+	
+	For detailed info visit: 
+		http://www.idpf.org/2007/opf/OPF_2.0_final_spec.html#Section2.4
+		http://www.niso.org/workrooms/daisy/Z39-86-2005.html#NCX
+-->
+	
+<spine toc="My_Table_of_Contents">
+  <!-- the spine defines the linear reading order of the book -->
+	<itemref idref="itemtoc"/>
+	<itemref idref="item00"/>
+	<itemref idref="item01"/>
+	<itemref idref="item02"/>
+	<itemref idref="item03"/>
+	<itemref idref="item04"/>
+	<itemref idref="item05"/>
+	<itemref idref="item06"/>
+	<itemref idref="item07"/>
+	<itemref idref="item08"/>
+	<itemref idref="item09"/>
+	<itemref idref="item10"/>
+	<itemref idref="item11"/>
+	<itemref idref="item12"/>
+	<itemref idref="item13"/>
+	<itemref idref="item14"/>
+	<itemref idref="item15"/>
+	<itemref idref="item16"/>
+	<itemref idref="item17"/>
+	<itemref idref="item18"/>
+	<itemref idref="item19"/>
+	<itemref idref="item20"/>
+	<itemref idref="item21"/>
+	<itemref idref="item22"/>
+	<itemref idref="item23"/>
+	<itemref idref="item24"/>
+	<itemref idref="item25"/>
+	<itemref idref="itembib"/>
+</spine>
+
+<!--
+	Guide:
+	Within the package there may be one guide element, containing one or more reference elements.
+	The guide element identifies fundamental structural components of the publication, to enable
+	Reading Systems to provide convenient access to them.
+  
+  For detailed info visit: http://www.idpf.org/2007/opf/OPF_2.0_final_spec.html#Section2.6
+  
+  The Kindle reading system support two special guide items which are both mandatory.
+  type="toc"  [mandatory]: a link to the HTML table of contents
+  type="text" [mandatory]: a link to where the content of the book starts (typically after the front matter)
+	
+  Kindle reading platforms need both thede guid items to provide a consistent user enxperience to the user.
+  
+  It is good practice to include both a logical table of contents (NCX) and an HTML table of contents
+  (made of hyperlinks). The NCX enables various advanced navigation features but the HTML table of
+  contents can easily be discovered by the user by paging through the book. Both are useful.
+	
+-->
+	
+<guide>
+	<reference type="toc" title="Table of Contents" href="toc.html"></reference>
+</guide>
+
+</package>

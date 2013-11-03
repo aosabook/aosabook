@@ -1,0 +1,1436 @@
+\begin{aosachapter}{VTK}{s:vtk}{Berk Geveci and Will Schroeder}
+%% Based on EN-Revision r272
+
+%% The Visualization Toolkit (VTK) is a widely used software system for
+%% data processing and visualization. It is used in scientific computing,
+%% medical image analysis, computational geometry, rendering, image
+%% processing and informatics. In this chapter we provide a brief
+%% overview of VTK, including some of the basic design patterns that make
+%% it a successful system.
+Visualization Toolkit (VTK)は、データ処理や可視化用のソフトウェアシステムとして幅広く使われているものだ。
+科学計算や医用画像解析、計算幾何学、レンダリング、画像処理や情報科学などの分野で使われている。
+この章では、VTKの概要とその基本的な設計パターンに関して説明する。
+
+%% To really understand a software system it is essential to not only
+%% understand what problem it solves, but also the particular culture in
+%% which it emerged. In the case of VTK, the software was ostensibly
+%% developed as a 3D visualization system for scientific data. But the
+%% cultural context in which it emerged adds a significant back story to
+%% the endeavor, and helps explains why the software was designed and
+%% deployed as it was.
+何かのソフトウェアシステムについて完全に理解するには、
+単にそのソフトウェアが解決しようとしている問題が何かを理解するだけでは不十分だ。
+そのソフトウェアが生み出す文化も理解しないといけない。
+VTKに関して言うと、上っ面だけを見れば、科学データ用の3D可視化システムに過ぎない。
+しかし、それが生み出す文化を踏まえるとその背景には大きなストーリーがあり、
+なぜ開発されたのかやなぜこの形で公開されたのかなどを理解する助けになるだろう。
+
+%% At the time VTK was conceived and written, its initial authors (Will
+%% Schroeder, Ken Martin, Bill Lorensen) were researchers at GE Corporate
+%% R\&D\@. We were heavily invested in a precursor system known as LYMB
+%% which was a Smalltalk-like environment implemented in the C
+%% programming language. While this was a great system for its time, as
+%% researchers we were consistently frustrated by two major barriers when
+%% trying to promote our work: 1) IP issues and 2) non-standard,
+%% proprietary software. IP issues were a problem because trying to
+%% distribute the software outside of GE was nearly impossible once the
+%% corporate lawyers became involved. Second, even if we were deploying
+%% the software inside of GE, many of our customers balked at learning a
+%% proprietary, non-standard system since the effort to master it did not
+%% transition with an employee once she left the company, and it did not
+%% have the widespread support of a standard tool set. Thus in the end
+%% the primary motivation for VTK was to develop an open standard, or
+%% \emph{collaboration platform} through which we could easily transition
+%% technology to our customers. Thus choosing an open source license for
+%% VTK was probably the most important design decision that we made.
+VTKの元になる概念が生まれて実際に書き始めた当時、作者(Will Schroeder、Ken Martin、Bill Lorensen)
+はみなGE Corporate R\&Dの研究者だった。
+当時の私たちが使っていたのは、LYMBという先進的なシステムだった。
+これはSmalltalk風の環境で、C言語で実装されていた。
+当時としてはすばらしいシステムだったが、研究者としての私たちは二つの大きな障害に悩まされていた。
+知的所有権の問題と、非標準のプロプライエタリなソフトウェアを使っているという問題だ。
+知的所有権の問題のせいで、いったん顧問弁護士に口出しされると
+ソフトウェアをGEの外部に公開することは事実上不可能だった。
+さらに、ソフトウェアをGEの内部でだけ公開することにしたとしても、
+顧客の多くはプロプライエタリで非標準なシステムを覚えようとはしたがらないだろう。
+がんばってマスターしたところで、転職してしまえば何の役にも立たなくなる。
+さらに、標準のツールセットの恩恵を受けることもできない。
+そんな状況があったので、VTKを開発する最大の動機として「オープンな標準規格を使うこと」
+つまり「\emph{コラボレーションプラットフォーム}として開発し、
+その技術を顧客にも使ってもらいやすくすること」がうまれた。
+VTKにオープンソースライセンスを適用したことは、
+これまでの設計上の判断の中でもおそらく最も重要なものだった。
+
+%% The final choice of a non-reciprocal, permissive license (i.e., BSD
+%% not GPL) in hindsight was an exemplary decision made by the authors
+%% because it ultimately enabled the service and consulting based
+%% business that became Kitware. At the time we made the decision we were
+%% mostly interested in reduced barriers to collaborating with academics,
+%% research labs, and commercial entities. We have since discovered that
+%% reciprocal licenses are avoided by many organizations because of the
+%% potential havoc they can wreak. In fact we would argue that reciprocal
+%% licenses do much to slow the acceptance of open source software, but
+%% that is an argument for another time. The point here is: one of the
+%% major design decisions to make relative to any software system is the
+%% choice of copyright license. It's important to review the goals of the
+%% project and then address IP issues appropriately.
+最終的に、伝播性のないライセンスを選んだ(つまり、GPLではなくBSDを選んだ)
+ことは、今思えばとてもよい判断だった。そのおかげで、サービスやコンサルのビジネスもできるようになり、
+それが後のKitwareにつながったのだから。
+当時の私たちが重視していたのは、学校や研究所そして企業などが共同作業をするための障壁を下げることだった。
+多くの組織では、伝播性のあるライセンスが避けられていた。問題に巻き込まれる恐れがあったからだ。
+実際私たちも、伝播性のあるライセンスのせいでオープンソースソフトウェアの普及がなかなか進まないと思っている。
+まあ、それはまた別の話。
+言いたいのは、ソフトウェアシステムを作るときにはライセンスの選択が重要のポイントの一つになるっていうことだ。
+プロジェクトのゴールを見定めて、知的所有権の問題に適切に対応することが大切だ。
+
+%% \begin{aosasect1}{What Is VTK?}
+\begin{aosasect1}{VTKとは}
+
+%% VTK was initially conceived as a scientific data visualization
+%% system. Many people outside of the field naively consider
+%% visualization a particular type of geometric rendering: examining
+%% virtual objects and interacting with them. While this is indeed part
+%% of visualization, in general data visualization includes the whole
+%% process of transforming data into sensory input, typically images, but
+%% also includes tactile, auditory, and other forms. The data forms not
+%% only consist of geometric and topological constructs, including such
+%% abstractions as meshes or complex spatial decompositions, but
+%% attributes to the core structure such as scalars (e.g., temperature or
+%% pressure), vectors (e.g., velocity), tensors (e.g., stress and strain)
+%% plus rendering attributes such as surface normals and texture
+%% coordinate.
+VTKは、もともとは科学データの可視化システムだと考えられていた。
+外野の人間のほとんどは、可視化を単なる幾何学的なレンダリングに過ぎないと考えている。
+仮想的な物体を調べたり、それを使ったやりとりをしたりするというものだ。
+まあそれも可視化の一つの側面ではあるが、
+一般にデータの可視化といえば、データを感覚入力に変換する作業全体を意味する。
+感覚入力の典型例は画像だが、それだけではない。触覚や聴覚に対応する形式も含む。
+データの形式は、幾何学的かつ位相的な構造
+(メッシュあるいは複雑な空間分解による抽象化など)
+だけで成り立っているわけではない。コア構造
+(温度や気圧などのスカラー値、速度などのベクター値、圧力やゆがみなどのテンソル値)
+やレンダリング属性(面法線やテクスチャ座標など)にも帰属する。
+
+%% Note that data representing spatial-temporal information is generally
+%% considered part of scientific visualization. However there are more
+%% abstract data forms such as marketing demographics, web pages,
+%% documents and other information that can only be represented through
+%% abstract (i.e., non-spatial temporal) relationships such as
+%% unstructured documents, tables, graphs, and trees. These abstract data
+%% are typically addressed by methods from information
+%% visualization. With the help of the community, VTK is now capable of
+%% both scientific and information visualization.
+時空間情報を表すデータも、一般的にはサイエンティフィック・ビジュアライゼーションの一部だと考えられていることに注意しよう。
+しかし、もっと抽象的なデータ形式もある。マーケティングの統計やWebページ、そしてドキュメントやその他情報で
+抽象的な関係(構造化されていない文書や表、グラフ、ツリーなど)でしか表せないものなどだ。
+こういった抽象データは、一般的にはインフォメーション・ビジュアライゼーションで対応する。
+これらのコミュニティの助けを得て、VTKは今やサイエンティフィック・ビジュアライゼーションと
+インフォメーション・ビジュアライゼーションの両方に対応できるようになった。
+
+%% As a visualization system, the role of VTK is to take data in these
+%% forms and ultimately transform them into forms comprehensible by the
+%% human sensory apparatus. Thus one of the core requirements of VTK is
+%% its ability to create data flow pipelines that are capable of
+%% ingesting, processing, representing and ultimately rendering
+%% data. Hence the toolkit is necessarily architected as a flexible
+%% system and its design reflects this on many levels. For example, we
+%% purposely designed VTK as a toolkit with many interchangeable
+%% components that can be combined to process a wide variety of data.
+ビジュアライゼーションシステムとしてのVTKの役割は、
+これらの形式のデータを受け取って、最終的にそれを
+人間の五感で理解しやすい形式に変換することだ。
+したがって、VTKの重要な要件の一つは、データフローパイプラインを作って
+データの取り込みから処理、表現、レンダリングまでをできるようにすることになる。
+そのため、ツールキットは柔軟なシステムとして作られている必要があり、
+ツールキットの設計がいろんなレベルに影響する。
+たとえば、私たちは交換可能なコンポーネント群をまとめた形式でVTKを作ったが、これは意図的なものだ。
+このコンポーネントを組み合わせることで、さまざまなデータを処理できるようにした。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Architectural Features}
+\begin{aosasect1}{アーキテクチャの機能}
+
+%% Before getting too far into the specific architectural features of
+%% VTK, there are high-level concepts that have significant impact on
+%% developing and using the system. One of these is VTK's hybrid wrapper
+%% facility. This facility automatically generates language bindings to
+%% Python, Java, and Tcl from VTK's C++ implementation (additional
+%% languages could be and have been added). Most high-powered developers
+%% will work in C++. User and application developers may use C++ but
+%% often the interpreted languages mentioned above are preferred. This
+%% hybrid compiled/interpreted environment combines the best of both
+%% worlds: high performance compute-intensive algorithms and flexibility
+%% when prototyping or developing applications. In fact this approach to
+%% multi-language computing has found favor with many in the scientific
+%% computing community and they often use VTK as a template for
+%% developing their own software.
+VTKのアーキテクチャの詳細に深入りする前に、
+このシステムの開発と利用に大きな影響を与えた上位レベルの概念について説明する。
+そのひとつが、VTKのハイブリッドラッパー機能だ。
+この機能は、C++によるVTKの実装からPythonやJavaそしてTclなどの言語バインディングを自動生成する
+(それ以外の言語に対応することも可能だし、追加されつつある)。
+開発の主力メンバーはC++で作業する。
+ユーザーやアプリケーション開発者もC++を使うことはあるだろうが、
+たいていは先にあげたようなインタプリタ型の言語のほうをより好む。
+コンパイル型とインタプリタ型の環境を組み合わせることで、
+それぞれのいいとこどりを目指した。
+ハイパフォーマンスコンピューティングを重視したアルゴリズムも使えるし、
+プロトタイピングやアプリケーション開発のときにも柔軟に対応できる。
+実際、この方式でいろんな言語での計算処理に対応できるようにしたおかげで、
+科学計算のコミュニティの多くの人たちに喜んでもらえた。
+彼らがソフトウェアを自作するときのテンプレートとしてもVTKを使ってもらえることが多くなった。
+
+%% In terms of software process, VTK has adopted CMake to control the
+%% build; CDash/CTest for testing; and CPack for cross-platform
+%% deployment. Indeed VTK can be compiled on almost any computer
+%% including supercomputers which are often notoriously primitive
+%% development environments. In addition, web pages, wiki, mailing lists
+%% (user and developer), documentation generation facilities (i.e.,
+%% Doxygen) and a bug tracker (Mantis) round out the development tools.
+ソフトウェア開発の面から見ると、VTKはCMakeを使ってビルドを管理している。
+そして、テストにはCDash/CTestを使い、クロスプラットフォームのデプロイに関してはCPackを使っている。
+実際、VTKはありとあらゆるプラットフォームでコンパイルできる。
+あきれるほど原始的な開発環境しかないことで有名なスーパーコンピュータでもだいじょうぶだ。
+さらに、開発ツールだけではなくWebページやWiki、(ユーザー向けおよび開発者向けの)メーリングリスト、
+ドキュメント生成機能(Doxygen)、バグ追跡システム(Mantis)なども揃っている。
+
+%% \begin{aosasect2}{Core Features}
+\begin{aosasect2}{コア機能}
+
+%% As VTK is an object-oriented system, the access of class and instance
+%% data members is carefully controlled in VTK\@. In general, all data
+%% members are either protected or private. Access to them is through
+%% \code{Set} and \code{Get} methods, with special variations for Boolean
+%% data, modal data, strings and vectors. Many of these methods are
+%% actually created by inserting macros into the class header files. So
+%% for example:
+VTKはオブジェクト指向のシステムなので、クラスやインスタンスのメンバーへのアクセスはVTKがきちんと管理している。
+すべてのデータメンバーは、protectedあるいはprivateのどちらかになっている。
+これらにアクセスするには\code{Set}メソッドと\code{Get}メソッドを用い、
+Booleanデータやモデルのデータ、文字列、そしてベクター用にそれぞれ特化したバージョンが用意されている。
+これらのメソッドの多くは、実際にはマクロとしてクラスのヘッダファイルに組み込まれる。つまり、
+たとえば
+
+\begin{verbatim}
+vtkSetMacro(Tolerance,double);
+vtkGetMacro(Tolerance,double);
+\end{verbatim}
+
+%% \noindent become on expansion:
+\noindent
+これを展開すると、次のようになる。
+
+\begin{verbatim}
+virtual void SetTolerance(double);
+virtual double GetTolerance();
+\end{verbatim}
+
+%% There are many reasons for using these macros beyond simply code
+%% clarity. In VTK there are important data members controlling
+%% debugging, updating an object's modified time (MTime), and properly
+%% managing reference counting. These macros correctly manipulate these
+%% data and their use is highly recommended. For example, a particularly
+%% pernicious bug in VTK occurs when the object's MTime is not managed
+%% properly. In this case code may not execute when it should, or may
+%% execute too often.
+これらのマクロを使う理由は、単にコードをわかりやすくするというだけではない。それ以外にもいろんな理由がある。
+VTKには、デバッグを制御したりオブジェクトの変更時刻(MTime)を更新したり参照カウンタを管理したりといった
+重要なデータメンバーが存在する。マクロを使えばこういったデータを正しく操作できるので、マクロを使うことが強く推奨される。
+たとえば、VTKのバグの中でも最もやっかいなものは、オブジェクトのMTimeをきちんと管理していないときに発生するものだ。
+本来実行されるべきコードが実行されなくなったり、逆に必要以上に実行されてしまうことになる。
+
+%% One of the strengths of VTK is its relatively simplistic means of
+%% representing and managing data. Typically various data arrays of
+%% particular types (e.g., \code{vtkFloatArray}) are used to represent
+%% contiguous pieces of information. For example, a list of three XYZ
+%% points would be represented with a \code{vtkFloatArray} of nine
+%% entries (x,y,z, x,y,z, etc.) There is the notion of a tuple in these
+%% arrays, so a 3D point is a 3-tuple, whereas a symmetric $3{\times}3$
+%% tensor matrix is represented by a 6-tuple (where symmetry space
+%% savings are possible). This design was adopted purposely because in
+%% scientific computing it is common to interface with systems
+%% manipulating arrays (e.g., Fortran) and it is much more efficient to
+%% allocate and deallocate memory in large contiguous chunks. Further,
+%% communication, serializing and performing IO is generally much more
+%% efficient with contiguous data. These core data arrays (of various
+%% types) represent much of the data in VTK and have a variety of
+%% convenience methods for inserting and accessing information, including
+%% methods for fast access, and methods that automatically allocate
+%% memory as needed when adding more data. Data arrays are subclasses of
+%% the \code{vtkDataArray} abstract class meaning that generic virtual
+%% methods can be used to simplify coding. However, for higher
+%% performance static, templated functions are used which switch based on
+%% type, with subsequent, direct access into the contiguous data arrays.
+VTKの強みの一つが、データの表現や管理が比較的シンプルにできるという点だ。
+通常は、特定の型のデータ配列(\code{vtkFloatArray}など)を使って連続する情報を表す。
+たとえば、三つの三次元座標のリストを表すには、九個のエントリ(x,y,z, x,y,z, など)を持つ\code{vtkFloatArray}を使う。
+これらの配列にはタプルの概念が存在するので、三次元座標は3タプルになるし、対称な$3{\times}3$テンソルなら
+6タプルで表される(対称空間も保存できる)。この設計を選んだのは意図的なものだ。
+科学計算の世界では配列を操作するシステム(Fortranなど)とのやりとりが一般的だし、
+メモリを確保したり解放したりするときにも連続データの大きなチャンクで扱うほうがずっと効率的だからである。
+さらに、通信やシリアライズそしてIOといった操作は、一般に連続データのほうがずっと効率的になる。
+これらの(さまざまな型の)コアデータ配列がVTKのデータの大半を表す。便利なメソッドも多数用意されており、
+情報の追加や情報へのアクセスができるようになっている。高速アクセス用のメソッドもあるし、
+データの追加に合わせて必要に応じてメモリを自動的に確保するメソッドもある。
+データ配列は抽象クラス\code{vtkDataArray}のサブクラスである。
+これはつまり、汎用的な仮想メソッドを使ってシンプルにコーディングできるということだ。
+しかし、より高パフォーマンスを求める場合には、staticなテンプレート関数を使う。
+これを使えば、型に応じて実装を切り替えて連続データの配列に直接アクセスできるようになる。
+
+%% In general C++ templates are not visible in the public class API;
+%% although templates are used widely for performance reasons. This goes
+%% for STL as well: we typically employ the
+%% PIMPL\footnote{\url{http://en.wikipedia.org/wiki/Opaque\_pointer}.}
+%% design pattern to hide the complexities of a template implementation
+%% from the user or application developer. This has served us
+%% particularly well when it comes to wrapping the code into interpreted
+%% code as described previously. Avoiding the complexity of the templates
+%% in the public API means that the VTK implementation, from the
+%% application developer point of view, is mostly free of the
+%% complexities of data type selection. Of course under the hood the code
+%% execution is driven by the data type which is typically determined at
+%% run time when the data is accessed.
+一般に、C++のテンプレートはクラスの公開APIからは見えないものだ。
+しかし、パフォーマンス上の理由でテンプレートは幅広く使われている。
+STLも同様だ。私たちは通常、PIMPL\footnote{\url{http://en.wikipedia.org/wiki/Opaque\_pointer}}
+パターンに従ってテンプレートの実装を隠蔽し、ユーザーやアプリケーション開発者からは見えないようにする。
+こうしておけば、先述のようにインタプリタ型言語のコードでラップすることになったとしてもうまくいく。
+テンプレートの複雑なところを公開APIからは見えないようにするということは、
+VTKの実装をアプリケーション開発者側から見たときには
+データ型を選ぶなんてことを気にせずに済むようになるということだ。
+もちろん、裏側では実際はデータ型を見て処理を切り替えているが、
+型の判定は実行時に実際にデータにアクセスするときに行っている。
+
+%% Some users wonder why VTK uses reference counting for memory
+%% management versus a more user-friendly approach such as garbage
+%% collection. The basic answer is that VTK needs complete control over
+%% when data is deleted, because the data sizes can be huge. For example,
+%% a volume of byte data $1000{\times}1000{\times}1000$ in size is a
+%% gigabyte in size. It is not a good idea to leave such data lying
+%% around while the garbage collector decides whether or not it is time
+%% to release it. In VTK most classes (subclasses of \code{vtkObject})
+%% have the built-in capability for reference counting. Every object
+%% contains a reference count that it initialized to one when the object
+%% is instantiated.  Every time a use of the object is registered, the
+%% reference count is increased by one. Similarly, when a use of the
+%% object is unregistered (or equivalently the object is deleted) the
+%% reference count is reduced by one. Eventually the object's reference
+%% count is reduced to zero, at which point it self destructs.  A typical
+%% example looks like the following:
+VTKではなぜ参照カウンタでメモリを管理しているんだろう？
+なぜ、ガベージコレクションのようなもっとユーザーにやさしい方法を使わないんだろう？
+そんなふうに思う人もいるだろう。手短に答えると、
+VTKではデータの削除を完全に管理する必要があり、そのデータは巨大なサイズになる可能性があるからだ。
+たとえば$1000{\times}1000{\times}1000$バイトのデータのサイズはギガバイト単位になる。
+こんな巨大なデータを置きっぱなしにして、いつ解放するのかをガベージコレクタに判断させるというのは得策ではない。
+VTKでは、ほとんどのクラス(\code{vtkObject}のサブクラス)が参照カウント機能を組み込みで持っている。
+すべてのオブジェクトが参照カウンタを持っており、オブジェクトのインスタンスを作ったときにカウンタが1で初期化される。
+オブジェクトを登録して使うたびに、参照カウンタはひとつ増える。
+同様に、使っていたオブジェクトの登録を解除した場合
+(あるいはオブジェクトを削除した場合)に、参照カウンタがひとつ減る。
+最終的にオブジェクトの参照カウンタがゼロになるのは、自分自身を破棄するときだ。
+一般的な例は、このようになる。
+
+%% \begin{verbatim}
+%% vtkCamera *camera = vtkCamera::New();   //reference count is 1
+%% camera->Register(this);                 //reference count is 2
+%% camera->Unregister(this);               //reference count is 1
+%% renderer->SetActiveCamera(camera);      //reference count is 2
+%% renderer->Delete();                     //ref count is 1 when renderer is deleted
+%% camera->Delete();                       //camera self destructs
+%% \end{verbatim}
+\begin{verbatim}
+vtkCamera *camera = vtkCamera::New();   // 参照カウンタは1
+camera->Register(this);                 // 参照カウンタは2
+camera->Unregister(this);               // 参照カウンタは1
+renderer->SetActiveCamera(camera);      // 参照カウンタは2
+renderer->Delete();                     // レンダラを削除した後の参照カウンタは1
+camera->Delete();                       // カメラ自身の破棄
+\end{verbatim}
+
+%% There is another important reason why reference counting is important
+%% to VTK---it provides the ability to efficiently copy data. For
+%% example, imagine a data object D1 that consists of a number of data
+%% arrays: points, polygons, colors, scalars and texture coordinates. Now
+%% imagine processing this data to generate a new data object D2 which is
+%% the same as the first plus the addition of vector data (located on the
+%% points). One wasteful approach is to completely (deep) copy D1 to
+%% create D2, and then add the new vector data array to
+%% D2. Alternatively, we create an empty D2 and then pass the arrays from
+%% D1 to D2 (shallow copy), using reference counting to keep track of
+%% data ownership, finally adding the new vector array to D2. The latter
+%% approach avoids copying data which, as we have argued previously, is
+%% essential to a good visualization system. As we will see later in this
+%% chapter, the data processing pipeline performs this type of operation
+%% routinely, i.e., copying data from the input of an algorithm to the
+%% output, hence reference counting is essential to VTK.
+なぜそんなにもVTKにとって参照カウンタ方式が重要なのか。実はもう一つ別の理由がある。
+この方式のほうが、データを効率的にコピーできるからだ。
+たとえば、大量のデータ配列を含むデータオブジェクトD1があるとしよう。
+この中には点やポリゴン、色、スカラー、テクスチャ座標などが含まれる。
+このデータを処理して新たなデータオブジェクトD2を作ることを考える。
+このオブジェクトは、最初のデータオブジェクトに(点を指す)ベクターデータを追加したものだ。
+無駄の多いやりかたとしては、D1を完全にディープコピーしてD2を作ってから、
+新しいベクターデータの配列をD2に追加するという方法がある。
+それ以外には、まず空のD2を作ってD1からD2に配列をシャローコピーするという方法がある。
+参照カウンタを使えばデータの所有者をきちんと追えるので、あとはD2に新たなベクター配列を追加するだけだ。
+後者の手法だと、データのコピーを回避できる。既に述べたとおり、
+これは優れたビジュアライゼーションシステムに不可欠なものだ。
+この章の後半で解説するデータ処理パイプラインは、この手の操作
+(あるアルゴリズムへの入力から出力へとデータをコピーするという操作)をよく行う。
+そのため、VTKでは参照カウンタが必須になる。
+
+%% Of course there are some notorious problems with reference
+%% counting. Occasionally reference cycles can exist, with objects in the
+%% cycle referring to each other in a mutually supportive
+%% configuration. In this case, intelligent intervention is required, or
+%% in the case of VTK, the special facility implemented in
+%% \code{vtkGarbageCollector} is used to manage objects which are
+%% involved in cycles. When such a class is identified (this is
+%% anticipated during development), the class registers itself with the
+%% garbage collector and overloads its own \code{Register} and
+%% \code{UnRegister} methods. Then a subsequent object deletion (or
+%% unregister) method performs a topological analysis on the local
+%% reference counting network, searching for detached islands of mutually
+%% referencing objects. These are then deleted by the garbage collector.
+もちろん、参照カウント方式にもよく知られた問題はある。
+ときどき発生する循環参照がそのひとつだ。複数のオブジェクトがお互いに参照し合う状態になってしまうことがある。
+こんな場合には、きちんと考えた上での介入が必要になる。VTKの場合は、\code{vtkGarbageCollector}
+に組み込まれた特別な機能を使って循環参照状態のオブジェクトを管理する。
+循環参照のクラスが見つかると(開発中にはあり得ることだ)、そのクラスは自分自身をガベージコレクタに登録し、
+自身の\code{Register}メソッドと\code{UnRegister}メソッドをオーバーロードする。
+それ以降、オブジェクトの削除(あるいは登録解除)メソッドは、
+ローカルの参照カウンタネットワークでトポロジー解析をして、
+互いに参照し合うオブジェクトの孤島を探す。
+そして、それをガベージコレクタが削除する。
+
+%% Most instantiation in VTK is performed through an object factory
+%% implemented as a static class member. The typical syntax appears as
+%% follows:
+VTKでのインスタンス作成の大半は、クラスのstaticメンバーとして実装されたオブジェクトファクトリー経由で行う。
+典型的な構文は、このようになる。
+
+\begin{verbatim}
+vtkLight *a = vtkLight::New();
+\end{verbatim}
+
+%% What is important to recognize here is what is actually instantiated
+%% may not be a \code{vtkLight}, it could be a subclass of
+%% \code{vtkLight} (e.g., \code{vtkOpenGLLight}). There are a variety of
+%% motivations for the object factory, the most important being
+%% application portability and device independence. For example, in the
+%% above we are creating a light in a rendered scene. In a particular
+%% application on a particular platform, \code{vtkLight::New} may result
+%% in an OpenGL light, however on different platforms there is potential
+%% for other rendering libraries or methods for creating a light in the
+%% graphics system. Exactly what derived class to instantiate is a
+%% function of run-time system information. In the early days of VTK
+%% there were a myriad of options including gl, PHIGS, Starbase, XGL, and
+%% OpenGL\@. While most of these have now vanished, new approaches have
+%% appeared including DirectX and GPU-based approaches. Over time, an
+%% application written with VTK has not had to change as developers have
+%% derived new device specific subclasses to \code{vtkLight} and other
+%% rendering classes to support evolving technology. Another important
+%% use of the object factory is to enable the run-time replacement of
+%% performance-enhanced variations. For example, a \code{vtkImageFFT} may
+%% be replaced with a class that accesses special-purpose hardware or a
+%% numerics library.
+このとき重要なのは、ここで実際にインスタンス化されるのは\code{vtkLight}
+ではないかもしれないということだ。\code{vtkLight}のサブクラス(\code{vtkOpenGLLight}など)
+になる可能性もある。オブジェクトファクトリーを使う動機はいろいろあるが、
+中でも重要なのが、アプリケーションの可搬性を確保してデバイスに依存しなくできるということだ。
+たとえば先ほどの例では、レンダリングしたシーンの中にライトを作った。
+あるプラットフォーム上のあるアプリケーションでは\code{vtkLight::New}
+がOpenGLのライトになるかもしれないが、別のプラットフォームでは
+それ以外のレンダリングライブラリを使うことになるかもしれないし、
+そのグラフィックシステム上でライトを作る方法も違うかもしれない。
+実際にどの派生クラスのインスタンスを作るのかは、実行時のシステム情報に基づいて決める。
+初期のVTKには、glやPHIGS、Starbase、XGLそしてOpenGLなど無数のオプションがあった。
+今ではこれらの大半が削除され、DirectXやGPUベースなどの新たな方法が追加されている。
+VTKで書かれたアプリケーションは、新たなテクノロジーが登場しても書き換える必要がない。
+開発者は、新たなデバイスに対応した\code{vtkLight}のサブクラスやその他レンダリングクラスを作って
+そのテクノロジーに対応するだけでいい。
+オブジェクトファクトリーを使う重要な利点がもう一つある。
+実行時に、パフォーマンス重視の別バージョンに置き換えられるということだ。
+たとえば\code{vtkImageFFT}は、特化型のハードウェアや数値計算ライブラリを使うものに置き換えることができる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Representing Data}
+\begin{aosasect2}{データ表現}
+
+%% One of the strengths of VTK is its ability to represent complex forms
+%% of data. These data forms range from simple tables to complex
+%% structures such as finite element meshes. All of these data forms are
+%% subclasses of \code{vtkDataObject} as shown in
+%% \aosafigref{fig.vtk.dataclass} (note this is a partial inheritance
+%% diagram of the many data object classes).
+VTKの強みのひとつが、複雑な形式のデータを表せることだ。
+シンプルな表形式から有限要素メッシュのような複雑な構造まで、幅広いデータを扱える。
+これらすべてのデータ形式は\code{vtkDataObject}のサブクラスになる。その様子を\aosafigref{fig.vtk.dataclass}
+に示す(さまざまなデータオブジェクトクラスの一部だけを抜き出した継承ダイアグラムであることに注意)。
+
+%% \aosafigure{../images/vtk/dataclasses.eps}{Data Object Classes}{fig.vtk.dataclass}
+\aosafigure{../images/vtk/dataclasses.eps}{データオブジェクトクラス}{fig.vtk.dataclass}
+
+%% One of the most important characteristics of \code{vtkDataObject} is
+%% that it can be processed in a visualization pipeline (next
+%% subsection). Of the many classes shown, there are just a handful that
+%% are typically used in most real world applications. \code{vtkDataSet}
+%% and derived classes are used for scientific visualization
+%% (\aosafigref{fig.vtk.dataset}). For example, \code{vtkPolyData} is
+%% used to represent polygonal meshes; \code{vtkUnstructuredGrid} to
+%% represent meshes, and \code{vtkImageData} represents 2D and 3D pixel
+%% and voxel data.
+\code{vtkDataObject}の重要な特徴は、
+次のセクションで扱うビジュアライゼーションパイプラインで処理できるということだ。
+ここで示した数多くのクラスの中で、現実のアプリケーションで実際に使われるクラスは一部だけである。
+\code{vtkDataSet}とその派生クラス群はサイエンティフィック・ビジュアライゼーションに使う
+(\aosafigref{fig.vtk.dataset})。たとえば\code{vtkPolyData}
+は多角形メッシュ、\code{vtkUnstructuredGrid}はメッシュ、
+そして\code{vtkImageData}は二次元のピクセルや三次元のボクセルのデータを表す。
+
+%% \aosafigure[250pt]{../images/vtk/dataset.eps}{Data Set Classes}{fig.vtk.dataset}
+\aosafigure[250pt]{../images/vtk/dataset.eps}{データセットクラス}{fig.vtk.dataset}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Pipeline Architecture}
+\begin{aosasect2}{パイプラインのアーキテクチャ}
+
+%% VTK consists of several major subsystems. Probably the subsystem most
+%% associated with visualization packages is the data flow/pipeline
+%% architecture. In concept, the pipeline architecture consists of three
+%% basic classes of objects: objects to represent data (the
+%% \code{vtkDataObject}s discussed above), objects to process, transform,
+%% filter or map data objects from one form into another
+%% (\code{vtkAlgorithm}); and objects to execute a pipeline
+%% (\code{vtkExecutive}) which controls a connected graph of interleaved
+%% data and process objects (i.e., the
+%% pipeline). \aosafigref{fig.vtk.pipeline} depicts a typical pipeline.
+VTKは、いくつかの主要なサブシステムで構成されている。
+ビジュアライゼーションパッケージと最も密接に関連するサブシステムは、データフロー/パイプラインのアーキテクチャだろう。
+概念的には、パイプラインアーキテクチャは三種類のオブジェクトで構成されている。
+ある形式のデータオブジェクトを処理したり変換したりフィルタしたりして別の形式にするオブジェクト
+(\code{vtkAlgorithm})、そしてパイプラインを実行するオブジェクト(\code{vtkExecutive})だ。
+パイプラインを実行するオブジェクトは、データオブジェクトとプロセスオブジェクトを交互に連結したグラフ(パイプライン)を制御する。
+典型的なパイプラインの様子を\aosafigref{fig.vtk.pipeline}に示す。
+
+%% \aosafigure{../images/vtk/pipeline.eps}{Typical Pipeline}{fig.vtk.pipeline}
+\aosafigure{../images/vtk/pipeline.eps}{典型的なパイプライン}{fig.vtk.pipeline}
+
+%% While conceptually simple, actually implementing the pipeline
+%% architecture is challenging. One reason is that the representation of
+%% data can be complex. For example, some datasets consist of hierarchies
+%% or grouping of data, so executing across the data requires non-trivial
+%% iteration or recursion. To compound matters, parallel
+%% processing (whether using shared-memory or scalable, distributed
+%% approaches) require partitioning data into pieces, where pieces may be
+%% required to overlap in order to consistently compute boundary
+%% information such as derivatives.
+概念的には単純なものだが、パイプラインを実際に実装しようとするといろいろ大変だ。
+その理由のひとつが、データの表現方法が複雑に複雑になってしまう可能性があるということである。
+たとえば、データセットの中には階層構造やグループ構造のデータを含むものもあるので、
+データを処理するときには、込み入った反復処理や再帰処理が必要になる。
+合成に関して言うと、並列処理をするには
+(共有メモリを使うにせよスケーラブルな分散方式を使うにせよ)
+データを分割しないといけない。このとき、分割した各部分が重なるようにしておかないと、
+一貫性のある境界情報(導関数など)を計算できない。
+
+%% The algorithm objects also introduce their own special
+%% complexity. Some algorithms may take multiple inputs and/or produce
+%% multiple outputs of different types. Some can operate locally on data
+%% (e.g., compute the center of a cell) while others require global
+%% information, for example to compute a histogram. In all cases, the
+%% algorithms treat their inputs as immutable, algorithms only read their
+%% input in order to produce their output. This is because data may be
+%% available as input to multiple algorithms, and it is not a good idea
+%% for one algorithm to trample on the input of another.
+アルゴリズムオブジェクトそれ自体も、独特の複雑さがある。
+アルゴリズムによっては、複数の入力を受け取ったり複数の出力を生成したりするものもあり、
+それらの型はすべて異なるかもしれない。ローカルのデータを処理するアルゴリズム(セルの中心を計算するなど)
+もあれば、グローバルな情報を必要とするアルゴリズム(ヒストグラムの計算など)もある。
+すべての場合において、アルゴリズムは自分への入力をイミュータブルなものとして扱わないといけない。
+つまり、アルゴリズムは、入力を読むだけで出力を生成しないといけない。
+ひとつのデータが複数のアルゴリズムへの入力になることもあり得るので、
+あるアルゴリズムが別のアルゴリズムへの入力をいじってしまうわけにはいかないからだ。
+
+%% Finally the executive can be complicated depending on the particulars
+%% of the execution strategy. In some cases we may wish to cache
+%% intermediate results between filters. This minimizes the amount of
+%% recomputation that must be performed if something in the pipeline
+%% changes. On the other hand, visualization data sets can be huge, in
+%% which case we may wish to release data when it is no longer needed for
+%% computation. Finally, there are complex execution strategies, such as
+%% multi-resolution processing of data, which require the pipeline to
+%% operate in iterative fashion.
+パイプラインの実行も、実行戦略によっては複雑になり得る。
+場合によっては、フィルタとフィルタの間の中間結果をキャッシュしたくなることもあるかもしれない。
+そうすれば、パイプラインが変更されたときに必要となる再計算の量を減らせる。
+一方、ビジュアライゼーションデータセットは巨大なものになる可能性がある。
+そんな場合は、その後の計算に不要となったデータはその場で解放したくなることだろう。
+さらに、パイプラインの実行にはいろいろ複雑な方法がある。
+たとえばデータを多重分解処理する場合などは、パイプラインを繰り返し処理しないといけない。
+
+%% To demonstrate some of these concepts and further explain the pipeline
+%% architecture, consider the following C++ example:
+これらの考えかたのいくつかを示すため、そしてパイプラインのアーキテクチャについて
+さらに深く知るために、こんなC++の例を考えよう。
+
+\begin{verbatim}
+vtkPExodusIIReader *reader = vtkPExodusIIReader::New();
+reader->SetFileName("exampleFile.exo");
+
+vtkContourFilter *cont = vtkContourFilter::New();
+cont->SetInputConnection(reader->GetOutputPort());
+cont->SetNumberOfContours(1);
+cont->SetValue(0, 200);
+
+vtkQuadricDecimation *deci = vtkQuadricDecimation::New();
+deci->SetInputConnection(cont->GetOutputPort());
+deci->SetTargetReduction( 0.75 );
+
+vtkXMLPolyDataWriter *writer = vtkXMLPolyDataWriter::New();
+writer->SetInputConnection(deci->GetOuputPort());
+writer->SetFileName("outputFile.vtp");
+writer->Write();
+\end{verbatim}
+
+%% \noindent In this example, a reader object reads a large unstructured grid (or
+%% mesh) data file. The next filter generates an isosurface from the
+%% mesh. The \code{vtkQuadricDecimation} filter reduces the size of the
+%% isosurface, which is a polygonal dataset, by decimating it (i.e.,
+%% reducing the number of triangles representing the isocontour). Finally
+%% after decimation the new, reduced data file is written back to
+%% disk. The actual pipeline execution occurs when the \code{Write}
+%% method is invoked by the writer (i.e., upon demand for the data).
+\noindent
+この例では、リーダーオブジェクトが巨大な非構造化グリッド(あるいはメッシュ)のデータファイルを読み込む。
+次のフィルタは、メッシュから等値面を生成する。
+\code{vtkQuadricDecimation}フィルタは等値面のサイズを削減する。
+等値面は多角形のデータセットなので、その数を減らしていく
+(つまり、同じ高さの三角形の数を減らす)。
+最終的に、削減後の新しいデータファイルをディスクに書き出す。
+実際にパイプラインが実行されるのは、ライターが\code{Write}
+メソッドを実行したとき(データを書き込もうとしたとき)だ。
+
+%% As this example demonstrates, VTK's pipeline execution mechanism is
+%% demand driven. When a sink such as a writer or a mapper (a data
+%% rendering object) needs data, it asks its input. If the input filter
+%% already has the appropriate data, it simply returns the execution
+%% control to the sink. However, if the input does not have the
+%% appropriate data, it needs to compute it. Consequently, it must first
+%% ask its input for data. This process will continue upstream along the
+%% pipeline until a filter or source that has "appropriate data" or the
+%% beginning of the pipeline is reached, at which point the filters will
+%% execute in correct order and the data will flow to the point in the
+%% pipeline at which it was requested.
+この例が示すように、VTKのパイプラインは要求駆動で実行される仕組みになっている。
+ライターやマッパー(データレンダリングオブジェクト)などの受信側でデータが必要になると、
+入力が欲しいというリクエストを出す。入力フィルタが既に適切なデータを持っている場合は、
+単に実行の制御を受信側に戻すだけだ。
+しかし、入力フィルタに適切なデータがない場合は、データを算出する必要がある。
+そのため、まずはデータがあるかどうかを入力フィルタにたずねることになる。
+このプロセスを上流に向けてさかのぼって、フィルタあるいはソースが「適切なデータ」
+を持っているところかあるいはパイプラインの開始地点に達するまで続ける。
+そこから適切な順番でのフィルタの実行が始まり、リクエストがあった時点までデータがパイプライン上を流れる。
+
+%% Here we should expand on what "appropriate data" means. By default,
+%% after a VTK source or filter executes, its output is cached by the
+%% pipeline in order to avoid unnecessary executions in the future. This
+%% is done to minimize computation and/or I/O at the cost of memory, and
+%% is configurable behavior. The pipeline caches not only the data
+%% objects but also the metadata about the conditions under which these
+%% data objects were generated. This metadata includes a time stamp
+%% (i.e., ComputeTime) that captures when the data object was
+%% computed. So in the simplest case, the "appropriate data" is one that
+%% was computed after all of the pipeline objects upstream from it were
+%% modified. It is easier to demonstrate this behavior by considering the
+%% following examples. Let's add the following to the end of the previous
+%% VTK program:
+「適切なデータ」とは何か、はっきりさせておこう。
+デフォルトでは、VTKのソースあるいはフィルタを実行すると、
+その出力をパイプラインがキャッシュすることになっている。
+将来無駄な再計算をせずに済ませるようにするためだ。
+このおかげで、計算や入出力によるメモリのコストを抑えられる。また、キャッシュの挙動は設定で変更できる。
+パイプラインがキャッシュするのはデータオブジェクトだけではない。
+データオブジェクトを生成したときの条件に関するメタデータもキャッシュの対象になる。
+このメタデータにはタイムスタンプ(ComputeTime)が含まれており、これがデータオブジェクトを計算した時刻を表す。
+つまり、最も単純に考えた場合の「適切なデータ」とは、
+パイプラインの上流にあるすべてのオブジェクトの更新時刻よりもあとで計算されたデータだということになる。
+この振る舞いを示すには、こんな例を考えてみればいい。
+先ほどのVTKの例の最後に、こんなコードを追加してみよう。
+
+\begin{verbatim}
+vtkXMLPolyDataWriter *writer2 = vtkXMLPolyDataWriter::New();
+writer2->SetInputConnection(deci->GetOuputPort());
+writer2->SetFileName("outputFile2.vtp");
+writer2->Write();
+\end{verbatim}
+
+%% As explained previously, the first \code{writer-{\textgreater}Write}
+%% call causes the execution of the entire pipeline. When
+%% \code{writer2-{\textgreater}Write()} is called, the pipeline will
+%% realize that the cached output of the decimation filter is up to date
+%% when it compares the time stamp of the cache with the modification
+%% time of the decimation filter, the contour filter and the
+%% reader. Therefore, the data request does not have to propagate past
+%% \code{writer2}. Now, let's consider the following change.
+先述のとおり、最初の\code{writer-{\textgreater}Write}の呼び出しでパイプライン全体が実行される。
+\code{writer2-{\textgreater}Write()}が呼ばれたときには、decimationフィルタがキャッシュした出力が
+最新であることをパイプラインが把握している。キャッシュのタイムスタンプを、
+decimationフィルタやcontourフィルタそしてリーダーの最終更新時刻と比較すればわかることだ。
+したがって、このデータリクエストを過去の\code{writer2}に渡す必要はない。
+では、コードをこんなふうに変更したらどうなるだろう。
+
+\begin{verbatim}
+cont->SetValue(0, 400);
+
+vtkXMLPolyDataWriter *writer2 = vtkXMLPolyDataWriter::New();
+writer2->SetInputConnection(deci->GetOuputPort());
+writer2->SetFileName("outputFile2.vtp");
+writer2->Write();
+\end{verbatim}
+
+%% Now the pipeline executive will realize that the contour filter was
+%% modified after the outputs of the contour and decimation filters were
+%% last executed. Thus, the cache for these two filters are stale and
+%% they have to be re-executed. However, since the reader was not
+%% modified prior to the contour filter its cache is valid and hence the
+%% reader does not have to re-execute.
+この場合は、前回contorフィルタやdecimationフィルタを実行した後でcontourフィルタが変更されていることがわかる。
+したがって、これら二つのフィルタのキャッシュは無効となり、再実行しなければならなくなる。
+しかし、contourフィルタの前段階にあるリーダーには手が加えられていないので、このキャッシュは有効だ。
+リーダーは再実行する必要がない。
+
+%% The scenario described here is the simplest example of a demand-driven
+%% pipeline. VTK's pipeline is much more sophisticated. When a filter or
+%% a sink requires data, it can provide additional information to request
+%% specific data subsets. For example, a filter can perform out-of-core
+%% analysis by streaming pieces of data. Let's change our previous
+%% example to demonstrate.
+ここで示したシナリオは、要求駆動のパイプラインの中でも最もシンプルな例だ。
+VTKのパイプラインは、もっと洗練されている。
+フィルタや受信者がデータを必要とするときには、追加情報を指定して、
+特定のデータのサブセットだけを要求することができる。
+たとえば、フィルタがデータ片をストリーミングするようにして、
+out-of-core分析を実行できる。
+先ほどの例をこのように変更してみよう。
+
+\begin{verbatim}
+vtkXMLPolyDataWriter *writer = vtkXMLPolyDataWriter::New();
+writer->SetInputConnection(deci->GetOuputPort());
+writer->SetNumberOfPieces(2);
+
+writer->SetWritePiece(0);
+writer->SetFileName("outputFile0.vtp");
+writer->Write();
+
+writer->SetWritePiece(1);
+writer->SetFileName("outputFile1.vtp");
+writer->Write();
+\end{verbatim}
+
+%% Here the writer asks the upstream pipeline to load and process data in
+%% two pieces each of which are streamed independently. You may have
+%% noticed that the simple execution logic described previously will not
+%% work here. By this logic when the \code{Write} function is called for
+%% the second time, the pipeline should not re-execute because nothing
+%% upstream changed. Thus to address this more complex case, the
+%% executives have additional logic to handle piece requests such as
+%% this. VTK's pipeline execution actually consists of multiple
+%% passes. The computation of the data objects is actually the last
+%% pass. The pass before then is a request pass. This is where sinks and
+%% filters can tell upstream what they want from the forthcoming
+%% computation. In the example above, the writer will notify its input
+%% that it wants piece 0 of 2. This request will actually propagate all
+%% the way to the reader. When the pipeline executes, the reader will
+%% then know that it needs to read a subset of the data. Furthermore,
+%% information about which piece the cached data corresponds to is stored
+%% in the metadata for the object. The next time a filter asks for data
+%% from its input, this metadata will be compared with the current
+%% request. Thus in this example the pipeline will re-execute in order to
+%% process a different piece request.
+ここでは、ライターがパイプラインの上流に対してデータを要求するときに、
+二つに分割して受け取るようにしている。それぞれを個別に読み込んで処理し、
+別々にパイプラインを流す。先ほど説明したような単純なロジックが、
+ここではうまくいかないことに気付いた人もいるかもしれない。
+あの単純なロジックだと、\code{Write}関数が二度目に呼ばれたときに
+パイプラインを再実行しない。上流は何も変わっていないからだ。
+こんな複雑なケースに対応するには、リクエストを処理するロジックに
+もう少し手を加えないといけないことになる。
+VTKにおけるパイプラインの実行は、複数のパスで構成されている。
+データオブジェクトの算出は、その中でも最後のパスになる。
+その前段にあるのが、リクエストパスだ。
+リクエストパスでは、受信者やフィルタから上流に対して、
+その後の計算結果の中で自分が欲しいものを伝えることができる。
+先ほどの例の場合、ライター側では、入力が欲しがっているのは2つあるデータのうちの0番のほうであることがわかる。
+このリクエストは、実際にはリーダーまでたらいまわしされる。
+パイプラインを実行すると、リーダーは、実際に必要なのがデータの一部であるということを知る。
+さらに、キャッシュされているデータのどの部分が
+オブジェクトのメタデータに格納されているのかという情報も知る。
+次にフィルタが入力からデータを要求されたときは、
+このメタデータをリクエストと比較する。
+この例の場合は、パイプラインを再実行して、別の部分を受け取るリクエストを処理する。
+
+%% There are several more types of request that a filter can make. These
+%% include requests for a particular time step, a particular structured
+%% extent or the number of ghost layers (i.e., boundary layers for
+%% computing neighborhood information). Furthermore, during the request
+%% pass, each filter is allowed to modify requests from downstream. For
+%% example, a filter that is not able to stream (e.g., the streamline
+%% filter) can ignore the piece request and ask for the whole data.
+フィルタからできるリクエストには、それ以外にもいくつかの種類がある。
+時間ステップをリクエストしたり、構造化された範囲をリクエストしたり、
+ゴースト層(隣接情報を計算するときの、境界層)の数をリクエストしたりといったものだ。
+さらに、リクエストパスを処理する間に、各フィルタでリクエストに手を加えて下流に流すこともできる。
+たとえば、ストリームができないフィルタ(streamlineフィルタなど)
+は、部分的なリクエストを無視してデータ全体を要求したりできる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Rendering Subsystem}
+\begin{aosasect2}{レンダリングサブシステム}
+
+%% At first glance VTK has a simple object-oriented rendering model with
+%% classes corresponding to the components that make up a 3D scene. For
+%% example, \code{vtkActor}s are objects that are rendered by a
+%% \code{vtkRenderer} in conjunction with a \code{vtkCamera}, with
+%% possibly multiple \code{vtkRenderer}s existing in a
+%% \code{vtkRenderWindow}. The scene is illuminated by one or more
+%% \code{vtkLight}s. The position of each \code{vtkActor} is controlled
+%% by a \code{vtkTransform}, and the appearance of an actor is specified
+%% through a \code{vtkProperty}. Finally, the geometric representation of
+%% an actor is defined by a \code{vtkMapper}. Mappers play an important
+%% role in VTK, they serve to terminate the data processing pipeline, as
+%% well as interface to the rendering system. Consider this example where
+%% we decimate data and write the result to a file, and then visualize
+%% and interact with the result by using a mapper:
+ぱっと見た限り、VTKはシンプルなオブジェクト指向のレンダリングモデルを採用しており、
+3Dシーンを構成する各部品に対応するクラス群で構成されている。
+たとえば、{vtkActor}は\code{vtkRenderer}と\code{vtkCamera}でレンダリングするオブジェクトで、
+\code{vtkRenderWindow}の中には複数の\code{vtkRenderer}が存在することもある。
+シーンを彩るのは\code{vtkLight}だ。
+各\code{vtkActor}の位置を制御するのが\code{vtkTransform}で、
+アクターの見た目を指定するには\code{vtkProperty}を使う。
+最後に、アクターの幾何学的表現を定義するのが\code{vtkMapper}だ。
+マッパーはVTKの中でも重要な役割を果たすものだ。
+データ処理パイプラインの最後をまとめ、レンダリングシステムへのインターフェイスとなる。
+こんな例を考えてみよう。データを削減して結果をファイルに書き出し、
+マッパーを使って結果を可視化してやりとりするものだ。
+
+\begin{verbatim}
+vtkOBJReader *reader = vtkOBJReader::New();
+reader->SetFileName("exampleFile.obj");
+
+vtkTriangleFilter *tri = vtkTriangleFilter::New();
+tri->SetInputConnection(reader->GetOutputPort());
+
+vtkQuadricDecimation *deci = vtkQuadricDecimation::New();
+deci->SetInputConnection(tri->GetOutputPort());
+deci->SetTargetReduction( 0.75 );
+
+vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+mapper->SetInputConnection(deci->GetOutputPort());
+
+vtkActor *actor = vtkActor::New();
+actor->SetMapper(mapper);
+
+vtkRenderer *renderer = vtkRenderer::New();
+renderer->AddActor(actor);
+
+vtkRenderWindow *renWin = vtkRenderWindow::New();
+renWin->AddRenderer(renderer);
+
+vtkRenderWindowInteractor *interactor = vtkRenderWindowInteractor::New();
+interactor->SetRenderWindow(renWin);
+
+renWin->Render();
+\end{verbatim}
+
+%% Here a single actor, renderer and render window are created with the
+%% addition of a mapper that connects the pipeline to the rendering
+%% system. Also note the addition of a \code{vtkRenderWindowInteractor},
+%% instances of which capture mouse and keyboard events and translate
+%% them into camera manipulations or other actions. This translation
+%% process is defined via a \code{vtkInteractorStyle} (more on this
+%% below). By default many instances and data values are set behind the
+%% scenes. For example, an identity transform is constructed, as well as a
+%% single default (head) light and property.
+この例では、アクターとレンダラーそしてレンダーウィンドウをひとつずつ作り、
+さらにマッパーを追加する。これは、パイプラインをレンダリングシステムにつなぐものだ。
+さらに、\code{vtkRenderWindowInteractor}を追加していることにも注目しよう。
+これはマウスとキーボードの入力をキャプチャするインスタンスで、
+それをカメラの操作などのアクションに変換する。
+この変換プロセスの定義は\code{vtkInteractorStyle}で行う(詳細は後述する)。
+デフォルトで、いろんなインスタンスやデータの値が裏側で設定される。
+たとえばIDの変換が行われるし、デフォルトのライト(ヘッドライト)がひとつ作られ、そのプロパティも設定される。
+
+%% Over time this object model has become more sophisticated. Much of the
+%% complexity has come from developing derived classes that specialize on
+%% an aspect of the rendering process. \code{vtkActor}s are now
+%% specializations of \code{vtkProp} (like a prop found on stage), and
+%% there are a whole slew of these props for rendering 2D overlay
+%% graphics and text, specialized 3D objects, and even for supporting
+%% advanced rendering techniques such as volume rendering or GPU
+%% implementations (see \aosafigref{fig.vtk.painter}).
+時を経て、このオブジェクトモデルもだんだん洗練されてきた。
+派生クラスを作ってレンダリングプロセスの特別な処理を開発するときなどは、少し複雑になる。
+\code{vtkActor}は\code{vtkProp}を特化したもの(つまり、ステージ上にあるプロパティ)
+であり、こういったプロパティを大量に使って、2Dオーバーレイグラフィックスやテキスト、
+そして3Dオブジェクトのレンダリングを行う。
+さらには、ボリュームレンダリングやGPUの実装を使うなどの、
+より高度なレンダリングテクニックにも対応する(\aosafigref{fig.vtk.painter}を参照)。
+
+%% Similarly, as the data model supported by VTK has grown, so have the
+%% various mappers that interface the data to the rendering
+%% system. Another area of significant extension is the transformation
+%% hierarchy. What was originally a simple linear $4{\times}4$
+%% transformation matrix, has become a powerful hierarchy that supports
+%% non-linear transformations including thin-plate spline
+%% transformation. For example, the original \code{vtkPolyDataMapper} had
+%% device-specific subclasses (e.g., \code{vtkOpenGLPolyDataMapper}). In
+%% recent years it has been replaced with a sophisticated graphics
+%% pipeline referred to as the ``painter'' pipeline illustrated in
+%% \aosafigref{fig.vtk.painter}.
+オブジェクトモデルと同様に、VTKがサポートするデータモデルも成長してきた。
+データとレンダリングシステムとの橋渡しをするマッパーにも、いろいろなものが出てきた。
+大きな拡張点は、変換の階層だ。当初は、単純にリニアな$4{\times}4$の変換行列を使っていた。
+これが強力な階層構造になり、非リニアな変換にも対応するようになった。シンプレートスプライン変換などだ。
+たとえば、最初の\code{vtkPolyDataMapper}にはデバイスごとのサブクラス(\code{vtkOpenGLPolyDataMapper}など)があった。
+最近は、より洗練されたグラフィックスパイプライン(「ペインター」パイプライン)で置き換えられた。
+その様子を\aosafigref{fig.vtk.painter}に示す。
+
+%% \aosafigure{../images/vtk/painter.eps}{Display Classes}{fig.vtk.painter}
+\aosafigure{../images/vtk/painter.eps}{ディスプレイクラス}{fig.vtk.painter}
+
+%% The painter design supports a variety of techniques for rendering data
+%% that can be combined to provide special rendering effects. This
+%% capability greatly surpasses the simple \code{vtkPolyDataMapper} that
+%% was initially implemented in 1994.
+ペインター方式は、さまざまなデータレンダリングテクニックに対応しており、
+それらを組み合わせて特殊なエフェクトを提供できる。
+この機能のおかげで、1994年に実装されたシンプルな\code{vtkPolyDataMapper}
+をはるかにしのぐものになった。
+
+%% Another important aspect of a visualization system is the selection
+%% subsystem. In VTK there is a hierarchy of "pickers", roughly
+%% categorized into objects that select \code{vtkProp}s based on
+%% hardware-based methods versus software methods (e.g., ray-casting); as
+%% well as objects that provide different levels of information after a
+%% pick operations. For example, some pickers provide only a location in
+%% XYZ world space without indicating which \code{vtkProp} they have
+%% selected; others provide not only the selected \code{vtkProp} but a
+%% particular point or cell that make up the mesh defining the prop
+%% geometry.
+さらにもうひとつ、ビジュアライゼーションシステムの重要な側面がある。
+選択サブシステムだ。VTKには「ピッカー」の階層がある。
+これは、ハードウェアベースの方法あるいはソフトウェアの方法(レイキャスティングなど)にもとづいて
+\code{vtkProp}を選ぶオブジェクトをおおざっぱにまとめたり、
+ピック操作の後のさまざまなレベルの情報を提供するオブジェクトをまとめたりする。
+たとえば、ピッカーの中にはXYZ空間での位置しか提供しないものもある。これは、どの\code{vtkProp}を選んでいるかは示さない。
+また、別のピッカーは、単に選ばれている\code{vtkProp}だけでなくそのプロパティのジオメトリを定義する
+メッシュを作る点あるいはセルを提供するものもある。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Events and Interaction}
+\begin{aosasect2}{イベントとインタラクション}
+
+%% Interacting with data is an essential part of visualization. In VTK
+%% this occurs in a variety of ways. At its simplest level, users can
+%% observe events and respond appropriately through commands (the
+%% command/observer design pattern). All subclasses of \code{vtkObject}
+%% maintain a list of observers which register themselves with the
+%% object. During registration, the observers indicate which particular
+%% event(s) they are interested in, with the addition of an associated
+%% command that is invoked if and when the event occurs. To see how this
+%% works, consider the following example in which a filter (here a
+%% polygon decimation filter) has an observer which watches for the three
+%% events \code{StartEvent}, \code{ProgressEvent}, and
+%% \code{EndEvent}. These events are invoked when the filter begins to
+%% execute, periodically during execution, and then on completion of
+%% execution. In the following the \code{vtkCommand} class has an
+%% \code{Execute} method that prints out the appropriate information
+%% relative to the time it take to execute the algorithm:
+データを使ったインタラクションは、ビジュアライゼーションに不可欠なものだ。
+VTKでは、いろんな方法によるインタラクションが発生する。
+いちばん単純なレベルだと、何かのイベントが発生したことに気付いたユーザーが
+何らかのコマンドを実行することができる(command/observerパターン)。
+\code{vtkObject}のすべてのサブクラスは、
+自分自身を登録しているobserverとそのオブジェクトのリストを保持している。
+登録のときにobserverは、どのイベントを知りたいかを示す。
+さらに、そのイベントが発生したときに実行したい関連コマンドを指定することもある。
+その動きを見るために、こんな例を考えてみよう。あるフィルタ
+(ここではpolygon decimationフィルタ)がひとつのobserverを持っており、
+このobserverは\code{StartEvent}と\code{ProgressEvent}そして\code{EndEvent}
+の三つのイベントを監視している。これらのイベントが発生するのはそれぞれこんな場合だ。
+\code{StartEvent}はフィルタの実行が始まったとき、
+と\code{ProgressEvent}実行中に定期的に、
+そして\code{EndEvent}は実行完了時となる。
+次の例では\code{vtkCommand}クラスに\code{Execute}メソッドがあり、
+このアルゴリズムを実行するときに適切な関連情報を表示する。
+
+\begin{verbatim}
+class vtkProgressCommand : public vtkCommand
+{
+  public:
+    static vtkProgressCommand *New() { return new vtkProgressCommand; }
+    virtual void Execute(vtkObject *caller, unsigned long, void *callData)
+    {
+      double progress = *(static_cast<double*>(callData));
+      std::cout << "Progress at " << progress<< std::endl;
+    }
+};
+
+vtkCommand* pobserver = vtkProgressCommand::New();
+
+vtkDecimatePro *deci = vtkDecimatePro::New();
+deci->SetInputConnection( byu->GetOutputPort() );
+deci->SetTargetReduction( 0.75 );
+deci->AddObserver( vtkCommand::ProgressEvent, pobserver );
+\end{verbatim}
+
+%% While this is a primitive form of interaction, it is a foundational
+%% element to many applications that use VTK\@. For example, the simple
+%% code above can be easily converted to display and manage a GUI
+%% progress bar. This Command/Observer subsystem is also central to the
+%% 3D widgets in VTK, which are sophisticated interaction objects for
+%% querying, manipulating and editing data and are described below.
+これは基本的なインタラクション形式だが、VTKを使う多くのアプリケーションで
+基本となるものだ。たとえば、先ほどのシンプルなコードに手を加えて、
+GUIのプログレスバーを表示させるのも簡単なことだ。
+このCommand/Observerサブシステムは、VTKの3Dウィジェットのでも重要な役割を果たしており、
+データの問い合わせや操作、編集などをよくできたインタラクションでできる。
+詳しくは後述する。
+
+%% Referring to the example above, it is important to note that events in
+%% VTK are predefined, but there is a back door for user-defined
+%% events. The class \code{vtkCommand} defines the set of enumerated
+%% events (e.g., \code{vtkCommand::ProgressEvent} in the above example)
+%% as well as a user event. The \code{UserEvent}, which is simply an integral
+%% value, is typically used as a starting offset value into a set of
+%% application user-defined events. So for example
+%% \code{vtkCommand::UserEvent+100} may refer to a specific event outside
+%% the set of VTK defined events.
+この例で重要なのは、VTKのイベントが事前に定義されているけれどもユーザー定義イベント用の裏口も用意されているという点だ。
+\code{vtkCommand}クラスが、イベントの列挙(この例の場合は\code{vtkCommand::ProgressEvent}など)
+とユーザーイベントを定義している。
+\code{UserEvent}は単なる整数値で、一般的にはこれを開始オフセットとして
+アプリケーション内でのユーザー定義イベントを扱う。
+つまり、たとえば\code{vtkCommand::UserEvent+100}は、
+VTKで定義しているイベントとは別の何かのイベントを指すことになる。
+
+%% From the user's perspective, a VTK widget appears as an actor in a
+%% scene except that the user can interact with it by manipulating
+%% handles or other geometric features (the handle manipulation and
+%% geometric feature manipulation is based on the picking functionality
+%% described earlier.) The interaction with this widget is fairly
+%% intuitive: a user grabs the spherical handles and moves them, or grabs
+%% the line and moves it. Behind the scenes, however, events are emitted
+%% (e.g., \code{InteractionEvent}) and a properly programmed application
+%% can observe these events, and then take the appropriate action. For
+%% example they often trigger on the \code{vtkCommand::InteractionEvent}
+%% as follows:
+ユーザーからは、VTKのウィジェットはシーンの中のアクターとして見える。
+ただ、通常のアクターとは違って、ハンドルやその他の幾何学的な機能を操作したりしてユーザーが操作できる
+(ハンドルの操作や幾何学的機能の操作は、先ほど説明したピッキング機能に基づいたものだ)。
+ウィジェットの操作は極めて直感的にできる。球状のハンドルをつかんで移動したり、直線をつかんで移動したりといったものだ。
+しかし、その裏側では、いろんなイベント(\code{InteractionEvent}など)を発行している。
+適切に書かれたアプリケーションはそのイベントを捕捉できるし、それにあわせて適切なアクションをとれる。
+たとえば、こんな感じで\code{vtkCommand::InteractionEvent}を引き起こすことがよくある。
+
+%% \begin{verbatim}
+%% vtkLW2Callback *myCallback = vtkLW2Callback::New();
+%%   myCallback->PolyData = seeds;    // streamlines seed points, updated on interaction
+%%   myCallback->Actor = streamline;  // streamline actor, made visible on interaction
+
+%% vtkLineWidget2 *lineWidget = vtkLineWidget2::New();
+%%   lineWidget->SetInteractor(iren);
+%%   lineWidget->SetRepresentation(rep);
+%%   lineWidget->AddObserver(vtkCommand::InteractionEvent,myCallback);
+%% \end{verbatim}
+\begin{verbatim}
+vtkLW2Callback *myCallback = vtkLW2Callback::New();
+  myCallback->PolyData = seeds;    // ストリームラインのシードポイントで、対話的に更新される
+  myCallback->Actor = streamline;  // ストリームラインのアクターで、インタラクションで見えるようになる
+
+vtkLineWidget2 *lineWidget = vtkLineWidget2::New();
+  lineWidget->SetInteractor(iren);
+  lineWidget->SetRepresentation(rep);
+  lineWidget->AddObserver(vtkCommand::InteractionEvent,myCallback);
+\end{verbatim}
+
+%% VTK widgets are actually constructed using two objects: a subclass of
+%% \code{vtkInterac\-torObserver} and a subclass of \code{vtkProp}. The
+%% \code{vtkInteractorObserver} simply observes user interaction in the
+%% render window (i.e., mouse and keyboard events) and processes
+%% them. The subclasses of \code{vtkProp} (i.e., actors) are simply
+%% manipulated by the \code{vtkInteractorObserver}. Typically such
+%% manipulation consists of modifying the \code{vtkProp}'s geometry
+%% including highlighting handles, changing cursor appearance, and/or
+%% transforming data. Of course, the particulars of the widgets require
+%% that subclasses are written to control the nuances of widget behavior,
+%% and there are more than 50 different widgets currently in the system.
+VTKのウィジェットは、実際のところは二つのオブジェクトで構成されている。
+\code{vtkInterac\-torObserver}のサブクラスと\code{vtkProp}のサブクラスだ。
+\code{vtkInteractorObserver}は、単純にレンダーウィンドウ上でのユーザーのインタラクション
+(マウスやキーボードのイベントなど)を観察してそれを処理する。
+\code{vtkProp}のサブクラス(アクター)は、\code{vtkInteractorObserver}が操作する。
+一般に、この手の操作は、\code{vtkProp}のジオメトリを変更(ハンドルを強調させるなど)したり
+カーソルの見た目を変更したり、データを変換したりといったものになる。
+もちろん、ウィジェットを操作するには、これらのサブクラスが
+ウィジェットの振る舞いの細かい点を制御できるようにしておかないといけない。
+現時点で、システムには50以上のウィジェットが存在する。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Summary of Libraries}
+\begin{aosasect2}{ライブラリのまとめ}
+
+%% VTK is a large software toolkit. Currently the system consists of
+%% approximately 1.5 million lines of code (including comments but not
+%% including automatically generated wrapper software), and approximately
+%% 1000 C++ classes. To manage the complexity of the system and reduce
+%% build and link times the system has been partitioned into dozens of
+%% subdirectories. \aosatblref{tbl.vtk.dirs} lists these subdirectories,
+%% with a brief summary describing what capabilities the library
+%% provides.
+VTKは大規模なソフトウェアツールキットだ。
+現時点でのシステム全体のコードは、約150万行(コメントを含む。
+ただし、ラッパーソフトウェアが自動生成したコードは含まない)
+であり、C++のクラス数は1000前後になる。
+こんな込み入ったシステムを管理するため、そしてビルドやリンクにかかる時間を減らすため、
+このシステムは多数のサブディレクトリで構成されている。
+\aosatblref{tbl.vtk.dirs}にサブディレクトリの一覧をまとめた。
+各サブディレクトリのライブラリがどんな機能を提供するのかも簡単に示している。
+
+\begin{table}\centering
+  \begin{tabular}{ |ll| }
+    \hline
+    %% \code{Common} & core VTK classes \\
+    %% \code{Filtering} & classes used to manage pipeline dataflow \\
+    %% \code{Rendering} & rendering, picking, image viewing, and interaction \\
+    %% \code{VolumeRendering} & volume rendering techniques \\
+    %% \code{Graphics} & 3D geometry processing \\
+    %% \code{GenericFiltering} &  non-linear 3D geometry processing \\
+    %% \code{Imaging} & imaging pipeline \\
+    %% \code{Hybrid} & classes requiring both graphics and imaging functionality \\
+    %% \code{Widgets} & sophisticated interaction \\
+    %% \code{IO} & VTK input and output \\
+    %% \code{Infovis} & information visualization \\
+    %% \code{Parallel} & parallel processing (controllers and communicators) \\
+    %% \code{Wrapping} & support for Tcl, Python, and Java wrapping \\
+    %% \code{Examples} & extensive, well-documented examples \\
+    \code{Common} & VTKコアクラス \\
+    \code{Filtering} & パイプラインデータフローの管理に使うクラス \\
+    \code{Rendering} & レンダリング、ピッキング、画像の表示、そしてインタラクション \\
+    \code{VolumeRendering} & ボリュームレンダリング \\
+    \code{Graphics} & 3Dジオメトリ処理 \\
+    \code{GenericFiltering} &  ノンリニア3Dジオメトリ処理 \\
+    \code{Imaging} & 画像パイプライン \\
+    \code{Hybrid} & グラフィック機能とイメージング機能の両方を必要とするクラス \\
+    \code{Widgets} & 洗練されたインタラクション \\
+    \code{IO} & VTKの入出力 \\
+    \code{Infovis} & 情報の可視化 \\
+    \code{Parallel} & 並列処理(コントローラとコミュニケータ) \\
+    \code{Wrapping} & TclやPythonそしてJava用のラッパー \\
+    \code{Examples} & ドキュメントつきの豊富なサンプル \\
+    \hline
+  \end{tabular}
+  %% \caption{VTK Subdirectories}
+  \caption{VTKのサブディレクトリ}
+  \label{tbl.vtk.dirs}
+\end{table}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Looking Back/Looking Forward}
+\begin{aosasect1}{ふりかえり/今後の展望}
+
+%% VTK has been an enormously successful system. While the first line of code was written in
+%% 1993, at the time of this writing VTK is still growing strong and if anything
+%% the pace of development is increasing.\footnote{See the latest VTK code
+%% analysis at \url{http://www.ohloh.net/p/vtk/analyses/latest}.} In this section
+%% we talk about some lessons learned and future challenges.
+VTKは、これまでに大きな成功を収めてきた。最初の一行が書かれたのは1993年だが、
+この章の執筆時点でもまだVTKは着々と成長を続けており、
+むしろ、どちらかといえば開発の速度は上がっている。
+\footnote{VTKの最新のコード分析が\url{http://www.ohloh.net/p/vtk/analyses/latest}で見られる。}
+このセクションでは、これまでに学んだ教訓や今後の目標についてまとめよう。
+
+%% \begin{aosasect2}{Managing Growth}
+\begin{aosasect2}{プロジェクトの発展}
+
+%% One of the most surprising aspects to the VTK adventure has been the
+%% project's longevity. The pace of development is due to several major
+%% reasons:
+VTKプロジェクトで最も驚くべきなのは、ここまで長い間生き延びてきたことだ。
+開発のペースは、これらの主要な要因に左右される。
+
+\begin{aosaitemize}
+
+  %% \item New algorithms and capabilities continue to be added. For
+  %% example, the informatics subsystem (Titan, primarily developed by
+  %% Sandia National Labs and Kitware) is a recent significant
+  %% addition. Additional charting and rendering classes are also being
+  %% added, as well as capabilities for new scientific dataset
+  %% types. Another important addition were the 3D interaction
+  %% widgets. Finally, the on-going evolution of GPU-based rendering and
+  %% data processing is driving new capabilities in VTK.
+  \item 日々追加され続ける、新たなアルゴリズムや新たな機能。
+  たとえば、最近追加された新たな機能として、インフォマティクスサブシステムがある
+  (Titan。主にSandia National LabsとKitwareが開発している)。
+  チャートやレンダリングのクラスも追加されたし、新たな科学データ型にも対応した。
+  もうひとつ重要な追加機能が、3Dインタラクションウィジェットだ。
+  さらに、現在進行中なのが、GPUベースのレンダリングやデータ処理機能で、
+  これらによってVTKに新たな機能をもたらそうとしている。
+
+  %% \item The growing exposure and use of VTK is a self-perpetuating
+  %% process that adds even more users and developers to the
+  %% community. For example, ParaView is the most popular scientific
+  %% visualization application built on VTK and is highly regarded in the
+  %% high-performance computing community. 3D Slicer is a major
+  %% biomedical computing platform that is largely built on VTK and
+  %% received millions of dollars per year in funding.
+  \item VTKの日々の露出や実際の利用例が増え続けるという自己永続的な流れによる、
+  ユーザーや開発者の増加。たとえば、ParaViewはサイエンティフィック・ビジュアライゼーション
+  アプリケーションの中でも最も人気のあるものだが、これはVTKを使って書かれており、
+  ハイパフォーマンスコンピューティングの世界で高い評価を得ている。
+  3D Slicerは有名な生物医学コンピューティングプラットフォームだが、
+  これも大半はVTKを使って書かれている。このプラットフォームは、年間何百万ドルもの資金援助を得ている。
+
+  %% \item VTK's development process continues to evolve. In recent years
+  %% the software process tools CMake, CDash, CTest, and CPack have been
+  %% integrated into the VTK build environment. More recently, the VTK
+  %% code repository has moved to Git and a more sophisticated work
+  %% flow. These improvements ensure that VTK remains on the leading edge
+  %% of software development in the scientific computing community.
+  \item 日々成長し続けるVTKの開発プロセス。
+  最近は、CMakeやCDash、CTest、そしてCPackなどのツールがVTKのビルド環境に組み込まれた。
+  さらにVTKのコードリポジトリはGitに移行し、より洗練されたワークフローが確立された。
+  これらの改善のおかげで、VTKは今も科学コンピューティングの世界での開発の最先端にあり続ける。
+
+\end{aosaitemize}
+
+%% While growth is exciting, validates the creation of the software
+%% system, and bodes well for the future of VTK, it can be extremely
+%% difficult to manage well. As a result, the near term future of VTK
+%% focuses more on managing the growth of the community as well as the
+%% software. Several steps have been taken in this regard.
+これらの成長はすばらしいことで、このソフトウェアシステムを作ったのが間違いでなかったと感じるし、
+VTKの将来も有望だろう。でも、このながれをきちんと管理していくのはとても難しい。
+そこで、VTKの短期的な目標として、コミュニティの成長にもソフトウェアそのものの成長と同じように注力していくことにした。
+これは、次のような何段階かの手順で進めていった。
+
+%% First, formalized management structures are being created. An
+%% Architecture Review Board has been created to guide the development of
+%% the community and technology, focusing on high-level, strategic
+%% issues. The VTK community is also establishing a recognized team of
+%% Topic Leads to guide the technical development of particular VTK
+%% subsystems.
+まず、きちんとした管理体制の構築を考えた。
+Architecture Review Boardを作り、コミュニティや技術の発展を支援するようにした。
+ここでは、上位レベルの戦略的な課題に注力する。
+VTKコミュニティはさらに、Topic Leadのチームも編成した。
+このチームは、VTKの各サブシステムに関しての技術的な発展を支援する。
+
+%% Next, there are plans to modularize the toolkit further, partially in
+%% response to workflow capabilities introduced by git, but also to
+%% recognize that users and developers typically want to work with small
+%% subsystems of the toolkit, and do not want to build and link against
+%% the entire package. Further, to support the growing community, it's
+%% important that contributions of new functionality and subsystems are
+%% supported, even if they are not necessarily part of the core of the
+%% toolkit. By creating a loose, modularized collection of modules it is
+%% possible to accommodate the large number of contributions on the
+%% periphery while maintaining core stability.
+次に、ツールキットをさらにモジュール化するという計画を立てた。
+これはgitのワークフロー機能を活用するものだが、ユーザーや開発者の要望に応えたものでもある。
+ユーザーや開発者はツールキット全体ではなく小さなサブシステムのほうが作業しやすいだろうし、
+パッケージ全体をビルドしたりリンクしたりするのも好まない。
+さらに、日々成長するコミュニティをサポートするために大切なのが、
+新機能やサブシステムへの貢献を受け入れることだ。
+たとえそれが必ずしもツールキットのコアには入らないものだとしても。
+疎結合なモジュール群による構成を作れば、
+周辺機能に関する大量の貢献を受け入れてもコアの安定性を保てる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Technology Additions}
+\begin{aosasect2}{新技術}
+
+%% Besides the software process, there are many technological innovations
+%% in the development pipeline.
+ソフトウェアの開発プロセスだけでなく、開発パイプラインの中ではいろんな技術的革新もあった。
+
+\begin{aosaitemize}
+
+  %% \item Co-processing is a capability where the visualization engine is
+  %% integrated into the simulation code, and periodically generates data
+  %% extracts for visualization. This technology greatly reduces the need
+  %% to output large amounts of complete solution data.
+  \item 共同処理機能は、ビジュアライゼーションエンジンをシミュレーションのコードに組み込み、
+  定期的にビジュアライゼーション用データを生成する機能だ。
+  この技術のおかげで、完全なソリューションデータを大量に出力しなくても済むようになった。
+
+  %% \item The data processing pipeline in VTK is still too
+  %% complex. Methods are under way to simplify and refactor this
+  %% subsystem.
+  \item VTKのデータ処理パイプラインは、まだまだ複雑すぎる。
+  このサブシステムをリファクタリングでよりシンプルにする作業が進行中だ。
+
+  %% \item The ability to directly interact with data is increasingly
+  %% popular with users. While VTK has a large suite of widgets, many
+  %% more interaction techniques are emerging including
+  %% touch-screen-based and 3D methods. Interaction will continue its
+  %% development at a rapid pace.
+  \item データとの直接のインタラクション機能は、ユーザーに広く使われるようになってきた。
+  VTKにはさまざまなウィジェット群が用意されているが、タッチスクリーンを使ったり3D方式を使ったりした
+  新たなインタラクション技法も開発中だ。インタラクションの開発は急ピッチで進められている。
+
+  %% \item Computational chemistry is increasing in importance to materials
+  %% designers and engineers. The ability to visualize and interact with
+  %% chemistry data is being added to VTK.
+  \item 計算機化学は、材料デザイナーやエンジニアの間でその重要性を増している。
+  そこで、化学データを可視化したり操作したりするための機能がVTKに追加された。
+
+  %% \item The rendering system in VTK has been criticized for being too
+  %% complex, making it difficult to derive new classes or support new
+  %% rendering technology. In addition, VTK does not directly support the
+  %% notion of a scene graph, again something that many users have
+  %% requested.
+  \item VTKレンダリングシステムは、複雑すぎるとよく批判される。
+  新たな派生クラスを作ったり新たなレンダリング技術に対応させたりするのが難しいというわけだ。
+  さらに、VTKはシーングラフを直接サポートしていない。これもまた、多くのユーザーが望んでいるものだ。
+
+  %% \item Finally new forms of data are constantly emerging. For example,
+  %% in the medical field hierarchical volumetric datasets of varying
+  %% resolution (e.g., confocal microscopy with local magnification).
+  \item 最後に、新たなデータ形式も常に追加されている。
+  たとえば医療の分野では、階層型の容積のデータセットをさまざまな解像度で対応している
+  (共焦点顕微鏡法にローカルの拡大機能をあわせたものなど)。
+
+\end{aosaitemize}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Open Science}
+\begin{aosasect2}{オープンサイエンス}
+
+%% Finally Kitware and more generally the VTK community are committed to
+%% Open Science. Pragmatically this is a way of saying we will promulgate
+%% open data, open publication, and open source---the features necessary
+%% to ensure that we are creating reproducible scientific systems. While
+%% VTK has long been distributed as an open source and open data system,
+%% the documentation process has been lacking. While there are decent
+%% books~\cite{bib:vtk:userguide,bib:vtk:toolkit} there
+%% have been a variety of ad hoc ways to collect technical publications
+%% including new source code contributions. We are improving the
+%% situation by developing new publishing mechanisms like the \emph{VTK
+%% Journal}\footnote{\url{http://www.midasjournal.org/?journal=35}}
+%% that enable of articles consisting of documentation, source code,
+%% data, and valid test images. The journal also enables automated
+%% reviews of the code (using VTK's quality software testing process) as
+%% well as human reviews of the submission.
+Kitware、もっと広い意味ではVTKコミュニティは、オープンサイエンスにもコミットしている。
+これは、私たちがオープンデータやオープンパブリケーション、オープンソースなどに関わっていることを宣伝する方法のひとつだ。
+再現可能な科学システムを作っていることを保証するために、これらは不可欠だ。
+VTKは長年オープンソースかつオープンデータシステムとして配布されてきたが、
+ドキュメンテーションプロセスが欠けていた。
+よくできた書籍~\cite{bib:vtk:userguide,bib:vtk:toolkit}はあったが、
+新たに貢献されたソースコードなども含む技術文書の収集は、アドホックな手段に頼っていた。
+この状況を改善するため、出版の仕組みも作った。\emph{VTK Journal}
+\footnote{\url{http://www.midasjournal.org/?journal=35}}
+は、ドキュメントやソースコード、データ、テストイメージなどを記事として公開できるようにしたものだ。
+このジャーナルでは、コードの自動レビュー(VTKの品質保証テストプロセスを使ったもの)
+もできるし人間による投稿のレビューもできる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Lessons Learned}
+\begin{aosasect2}{教訓}
+
+%% While VTK has been successful there are many things we didn't do
+%% right:
+VTKはこれまで無事に続いてきたが、うまくできなかったことだっていろいろある。
+
+\begin{aosadescription}
+
+  %% \item{Design Modularity}: We did a good job choosing the
+  %% modularity of our classes. For example, we didn't do something as
+  %% silly as creating an object per pixel, rather we created the
+  %% higher-level \code{vtkImageClass} that under the hood treats data arrays of
+  %% pixel data. However in some cases we made our classes too high level
+  %% and too complex, in many instances we've had to refactor them into
+  %% smaller pieces, and are continuing this process. One prime example
+  %% is the data processing pipeline.  Initially, the pipeline was
+  %% implemented implicitly through interaction of the data and algorithm
+  %% objects. We eventually realized that we had to create an explicit
+  %% pipeline executive object to coordinate the interaction between data
+  %% and algorithms, and to implement different data processing
+  %% strategies.
+  \item{モジュラー設計}: クラスのモジュール化に関しては、うまい判断ができた。
+  たとえば、ピクセルごとにオブジェクトを作るなどというばかげたことはせず、
+  より上位レベルの\code{vtkImageClass}を作って、その裏側でピクセルデータの配列を扱うようにした。
+  しかし、中にはクラスを上位レベルでまとめすぎて複雑にしてしまったこともあった。
+  結局はリファクタリングでより小さく分割することになったし、今もその作業は進んでいる。
+  その最大の例が、データ処理パイプラインだ。
+  最初は、パイプラインの実装は暗黙的なものだった。データオブジェクトとアルゴリズムオブジェクトの
+  インタラクションとして実装されていたのだ。その後、パイプライン実行用のオブジェクトを
+  明示的に作らないといけないことがわかった。このオブジェクトに
+  データとアルゴリズムのインタラクションを調整させ、
+  いろんなデータ処理戦略を実装することになった。
+
+  %% \item{Missed Key Concepts}: Once of our biggest regrets is not
+  %% making widespread use of C++ iterators. In many cases the traversal
+  %% of data in VTK is akin to the scientific programming language
+  %% Fortran\@. The additional flexibility of iterators would have been a
+  %% significant benefit to the system. For example, it is very
+  %% advantageous to process a local region of data, or only data
+  %% satisfying some iteration criterion.
+  \item{重要な概念を使いこなせなかった}: いちばん後悔していることのひとつが、
+  C++のイテレータをうまく使いこなせなかったことだ。VTKでは、データの走査の多くを
+  科学計算用のプログラミング言語であるFortran方式で行っている。
+  イテレータの柔軟性をうまく活用できていれば、システムに大きな利益をもたらしていたことだろう。
+  データの一部分だけを処理したり、条件を満たすデータだけを指定したりといったこともできたはずだ。
+
+  %% \item{Design Issues}: Of course there is a long list of design
+  %% decisions that are not optimal. We have struggled with the data
+  %% execution pipeline, having gone through multiple generations each
+  %% time making the design better. The rendering system too is complex
+  %% and hard to derive from. Another challenge resulted from the initial
+  %% conception of VTK: we saw it as a read-only visualization system for
+  %% viewing data. However, current customers often want it to be capable
+  %% of editing data, which requires significantly different data
+  %% structures.
+  \item{設計の問題}: もちろん、設計上の判断の中にも、もっとうまくできただろうというものがたくさんある。
+  データ実行パイプラインには手を焼かされ、何回もの作り直しを経て改善してきた。
+  レンダリングシステムも複雑すぎて、それを派生した何かを作るのは難しい。
+  もうひとつ難しいことがあって、これはVTKの当初の概念に由来するものだ。
+  私たちはもともと、VTKを読み込み専用のビジュアライゼーションシステムと考えていた。
+  データを見るためだけのシステムというつもりだったのだ。
+  しかし、最近のユーザーはデータの編集もしたいと思うことが多い。
+  データの編集を考えるなら、必要なデータ構造も大きく変わってくる。
+
+\end{aosadescription}
+
+%% One of the great things about an open source system like VTK is that
+%% many of these mistakes can and will be rectified over time. We have an
+%% active, capable development community that is improving the system
+%% every day and we expect this to continue into the foreseeable future.
+VTKのようなオープンソースシステムのすばらしいところは、
+こういった多くの間違いを修正していけるという点だ。
+私たちには活発で有能な開発者コミュニティがついており、日々ソフトウェアの改良を続けている。
+将来もきっとこれが続くだろう。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\end{aosachapter}
+

@@ -1,0 +1,1335 @@
+\begin{aosachapter}{SocialCalc}{s:socialcalc}{Audrey Tang}
+%% Based on EN-Revision r367
+
+%% The history of spreadsheets spans more than 30 years.  The first
+%% spreadsheet program, VisiCalc, was conceived by Dan Bricklin in 1978
+%% and shipped in 1979.  The original concept was quite straightforward:
+%% a table that spans infinitely in two dimensions, its cells populated
+%% with text, numbers, and formulas.  Formulas are composed of normal
+%% arithmetic operators and various built-in functions, and each formula
+%% can use the current contents of other cells as values.
+スプレッドシートの歴史は、かれこれ30年以上にもなる。
+Dan Bricklinが最初のスプレッドシートプログラムであるVisiCalcの構想をたてたのが1978年、
+そして実際に出荷されたのが1979年だ。当初のコンセプトは極めて単純なものだった。
+縦横両方向に好きなだけ拡張できる表があって、そのセルに
+テキストや数値や数式を入力する。ただそれだけ。
+数式は、ごく普通の算術演算子やさまざまな組み込み関数で構成されており、
+数式の中では他のセルの現在の値を利用できる。
+
+%% Although the metaphor was simple, it had many applications:
+%% accounting, inventory, and list management
+%% are just a few.  The possibilities were practically limitless.  All
+%% these uses made VisiCalc into the first ``killer app'' of the
+%% personal computer era.
+考え方自体はシンプルだけれど、適用範囲は幅広い。
+会計や在庫管理、あるいは一覧表の管理などはほんの一例に過ぎない。
+そこには無限の可能性があった。というわけで、
+VisiCalcはパソコン時代の最初の「キラーアプリ」になったのだ。
+
+%% In the decades that followed successors like Lotus 1-2-3 and Excel
+%% made incremental improvements, but the core metaphor stayed the same.
+%% Most spreadsheets were stored as on-disk files, and loaded into memory
+%% when opened for editing.  Collaboration was particularly hard under
+%% the file-based model:
+その後数十年の間にLotus 1-2-3やExcelなどの後継者が登場した。
+機能はどんどん改良されていったが、もととなるメタファーは同じままだ。
+大半のスプレッドシートはディスク上のファイルとして保存され、
+ファイルを開いたときにメモリに読み込まれて、それを編集する。
+こういったファイルベースのモデルでは、複数人でのコラボレーションは極めて難しい。
+
+\begin{aosaitemize}
+
+  %% \item Each user needed to install a version of the spreadsheet editor.
+  \item 各ユーザーが、スプレッドシートの編集ソフトをインストールする必要がある。
+
+  %% \item E-mail ping-pong, shared folders, or setting up a dedicated
+  %% version-control system all added bookkeeping overhead.
+  \item メールを使うにせよ共有フォルダを使うにせよバージョン管理システムを使うにせよ、余計なオーバーヘッドが増える。
+
+  %% \item Change tracking was limited; for example, Excel does not preserve
+  %% history for formatting changes and cell comments.
+  \item 変更履歴の追跡がしにくい。たとえば、Excelには書式の変更やセルのコメントの履歴を記録する機能がない。
+
+  %% \item Updating formatting or formulas in templates required
+  %% painstaking changes to existing spreadsheet files that used that
+  %% template.
+  \item テンプレートの書式や数式を変更すると、そのテンプレートを使っているスプレッドシートファイルにも面倒くさい変更作業が必要になる。
+
+\end{aosaitemize}
+
+%% Fortunately, a new collaboration model emerged to address these issues
+%% with elegant simplicity.  It is the wiki model, invented by Ward
+%% Cunningham in 1994, and popularized by Wikipedia in the early 2000s.
+ありがたいことに、新たなコラボレーションモデルの登場によって、
+この問題をエレガントかつシンプルに解決できるようになった。
+それがWikiである。Ward Cunninghamが1994年に発案したWikiは、
+2000年代はじめにWikipediaによって広まった。
+
+%% Instead of files, the wiki model features server-hosted pages,
+%% editable in the browser without requiring special software.  Those
+%% hypertext pages can easily link to each other, and even include
+%% portions of other pages to form a larger page.  All participants view
+%% and edit the latest version by default, with revision history
+%% automatically managed by the server.
+Wikiモデルでは、ファイルのかわりにサーバーでページをホストする。
+このページはブラウザ上で編集でき、特別なソフトウェアを入れる必要はない。
+ハイパーテキストのページなので他のページへのリンクも簡単で、
+他のページを埋め込んで大きなページを作ることさえできる。
+デフォルトでは誰もがページの表示と編集が可能で、
+編集履歴は自動的にサーバーが管理する。
+
+%% Inspired by the wiki model, Dan Bricklin started working on WikiCalc
+%% in 2005.  It aims to combine the authoring ease and multi-person
+%% editing of wikis with the familiar visual formatting and calculating
+%% metaphor of spreadsheets.
+Wikiモデルに触発されてDan BricklinはWikiCalcの開発を始めた。2005年のことである。
+その狙いは、管理しやすくて多人数で編集できるというWikiの特徴と、
+ビジュアルな書式設定や計算機能というスプレッドシートのメタファーを組み合わせることだった。
+
+%% \begin{aosasect1}{WikiCalc}
+\begin{aosasect1}{WikiCalc}
+
+%% The first version of WikiCalc (\aosafigref{fig.soc.screenshot}) had
+%% several features that set it apart from other spreadsheets at the
+%% time:
+WikiCalc (\aosafigref{fig.soc.screenshot})の最初のバージョンにはこんな機能があり、
+これらは、当時のスプレッドシートソフトウェアとは一線を画すものだった。
+
+\begin{aosaitemize}
+
+  %% \item Plain text, HTML, and wiki-style markup rendering for text data.
+  \item プレーンテキストやHTML、そしてWiki記法によるテキストデータのマークアップ。
+
+  %% \item Wiki-style text that includes commands to insert links, images,
+  %% and values from cell references.
+  \item Wiki記法には、リンクや画像を挿入したり他のセルの値を参照したりするコマンドも含まれている。
+
+  %% \item Formula cells may reference values of other WikiCalc pages
+  %% hosted on other websites.
+  \item セルの数式内で、他のウェブサイトで公開されている別のWikiCalcページの値を参照できる。
+
+  %% \item Ability to create output to be embedded in other web pages, both
+  %% static and live data.
+  \item 出力を他のウェブページに埋め込むことが可能。静的にも埋め込めるし、生きたデータとして動的に埋め込むこともできる。
+
+  %% \item Cell formatting with access to CSS style attributes and CSS
+  %% classes.
+  \item セルの書式設定で、CSSの属性やクラスにアクセスできる。
+
+  %% \item Logging of all edit operations as an audit trail.
+  \item すべての編集操作を監査証跡として記録できる。
+
+  %% \item Wiki-like retention of each new version of a page with roll-back
+  %% capability.
+  \item Wikiと同様に同一ページの各バージョンを保存でき、ロールバックも可能。
+
+\end{aosaitemize}
+
+%% \aosafigure[300pt]{../images/socialcalc/wikicalc-screenshot.eps}{WikiCalc 1.0 Interface}{fig.soc.screenshot}
+\aosafigure[300pt]{../images/socialcalc/wikicalc-screenshot.eps}{WikiCalc 1.0のインターフェイス}{fig.soc.screenshot}
+
+%% \aosafigure[250pt]{../images/socialcalc/wikicalc-components.eps}{WikiCalc Components}{fig.soc.comp}
+\aosafigure[250pt]{../images/socialcalc/wikicalc-components.eps}{WikiCalcのコンポーネント}{fig.soc.comp}
+
+%% \aosafigure[300pt]{../images/socialcalc/wikicalc-flow.eps}{WikiCalc Flow}{fig.soc.flow}
+\aosafigure[300pt]{../images/socialcalc/wikicalc-flow.eps}{WikiCalcのフロー}{fig.soc.flow}
+
+%% WikiCalc 1.0's internal architecture (\aosafigref{fig.soc.comp}) and
+%% information flow (\aosafigref{fig.soc.flow}) were deliberately simple,
+%% but nevertheless powerful.  The ability to compose a master
+%% spreadsheet from several smaller spreadsheets proved particularly
+%% handy.  For example, imagine a scenario where each salesperson keeps
+%% numbers in a spreadsheet page.  Each sales manager then rolls up their
+%% reps' numbers into a regional spreadsheet, and the VP of sales then
+%% rolls up the regional numbers into a top-level spreadsheet.
+WikiCalc 1.0の内部アーキテクチャ(\aosafigref{fig.soc.comp})と情報の流れ(\aosafigref{fig.soc.flow})
+は意図的にシンプルにしているが、それでも強力なものだった。複数の小さなスプレッドシートを組み合わせて
+マスタースプレッドシートを作る仕組みは特に有用だった。
+たとえば、各販売員が個別のスプレッドシートに売り上げを記録しているという状況を考えてみよう。
+地域のマネージャーは各メンバーの売り上げをまとめて地域ごとのスプレッドシートを作ることができるし、
+販売担当のVPは各地域の売り上げをまとめてトップレベルのスプレッドシートを作れる。
+
+%% Each time one of the individual spreadsheets is updated, all the
+%% roll-up spreadsheets can reflect the update.  If someone wants further
+%% detail, they simply click through to view the spreadsheet behind the
+%% spreadsheet.  This roll-up capability eliminates the redundant and
+%% error-prone effort of updating numbers in multiple places, and ensures
+%% all views of the information stay fresh.
+販売員が自分のスプレッドシートで売り上げを更新すると、それをとりまとめた他のスプレッドシートにも
+すぐにその更新が反映される。とりまとめたスプレッドシート上から詳細が知りたければ、
+単にクリックするだけでその元となったスプレッドシートを閲覧できる。
+この機能があるおかげで、ひとつの数値を複数の場所で管理するなどという
+冗長かつ間違えやすい状況は回避でき、すべての情報が最新であることが保証できる。
+
+%% To ensure the recalculations are up-to-date, WikiCalc adopted a
+%% thin-client design, keeping all the state information on the server
+%% side.  Each spreadsheet is represented on the browser as a
+%% \code{{\textless}table{\textgreater}} element; editing a cell will
+%% send an \code{ajaxsetcell} call to the server, and the server then
+%% tells the browser which cells need updating.
+数値機を再計算して最新状態を保つためにWikiCalcはシンクライアント方式を採用しており、
+状態に関するすべての情報をサーバー側で管理している。各スプレッドシートは、ブラウザ上では
+\code{{\textless}table{\textgreater}}要素として表示される。
+セルを編集するときには\code{ajaxsetcell}コールをサーバーに送り、
+サーバーは、更新すべきセルをブラウザに通知する。
+
+%% Unsurprisingly, this design depends on a fast connection between the
+%% browser and the server.  When the latency is high, users will start to
+%% notice the frequent appearance of ``Loading\ldots'' messages between
+%% updating a cell and seeing its new contents as shown in
+%% \aosafigref{fig.soc.load}. This is especially a problem for users
+%% interactively editing formulas by tweaking the input and expecting to
+%% see results in real time.
+当然ながら、この方式はブラウザとサーバーの間で高速な通信ができることが前提となる。
+レイテンシーが高くなると、セルの内容を更新したり新たなコンテンツを表示したりするときに
+``Loading\ldots''メッセージが頻発するようになる。ちょうど\aosafigref{fig.soc.load}のような感じだ。
+数式を対話的に編集して結果がどう変わるかをすぐ確認したいといったユーザーにとって、これは大きな問題となる。
+
+%% \aosafigure[250pt]{../images/socialcalc/wikicalc-loading.eps}{Loading Message}{fig.soc.load}
+\aosafigure[250pt]{../images/socialcalc/wikicalc-loading.eps}{読み込み中のメッセージ}{fig.soc.load}
+
+%% Moreover, because the \code{{\textless}table{\textgreater}} element
+%% had the same dimensions as the spreadsheet, a $100{\times}100$ grid
+%% would create 10,000 \code{{\textless}td{\textgreater}} DOM objects,
+%% which strains the memory resource of browsers, further limiting the
+%% size of pages.
+さらに、\code{{\textless}table{\textgreater}}要素の行と列の数がスプレッドシートと等しくなるので、
+$100{\times}100$のグリッドを作ると10,000の\code{{\textless}td{\textgreater}} DOMオブジェクトを作ることになる。
+これはブラウザのメモリリソースを大量に消費し、さらにページのサイズにも制約が発生してしまう。
+
+%% Due to these shortcomings, while WikiCalc was useful as a stand-alone
+%% server running on localhost, it was not very practical to embed as part
+%% of web-based content management systems.
+これらの欠点もあって、WikiCalcはローカルホスト上でスタンドアロンで実行するには便利だが、
+ウェブベースのコンテンツ管理システムに組み込んで使うのは非現実的だった。
+
+%% In 2006, Dan Bricklin teamed up with Socialtext to start developing
+%% SocialCalc, a ground-up rewrite of WikiCalc in Javascript based on
+%% some of the original Perl code.
+2006年に、Dan BricklinはSocialtext社と組んでSocialCalcの開発に取りかかった。
+これは、WikiCalcをJavaScriptでゼロから書き直したもので、元のPerlのコードの一部を元にしている。
+
+%% This rewrite was aimed at large, distributed collaborations, and sought
+%% to deliver a look and feel more like that of a desktop app.  Other design
+%% goals included:
+この書き直しの狙いは、大規模な分散環境でのコラボレーションを行うことであり、
+デスクトップアプリケーションに負けないような見た目や操作性を提供することであった。
+またそれ以外にも、こういった目標を掲げていた。
+
+\begin{aosaitemize}
+
+  %% \item Capable of handling hundreds of thousands of cells.
+  \item 何十万ものセルを扱えること。
+
+  %% \item Fast turnaround time for edit operations.
+  \item 編集操作の所要時間を高速化すること。
+
+  %% \item Client-side audit trail and undo/redo stack.
+  \item クライアント側で監査証跡やundo／redoスタックを持つこと。
+
+  %% \item Better use of Javascript and CSS to provide full-fledged layout
+  %% functionality.
+  \item JavaScriptとCSSを活用して、本格的なレイアウト機能を提供すること。
+
+  %% \item Cross-browser support, despite the more extensive use of
+  %% responsive Javascript.
+  \item JavaScriptを今まで以上に利用しつつも、クロスブラウザ対応を実現すること。
+
+\end{aosaitemize}
+
+%% After three years of development and various beta releases, Socialtext
+%% released SocialCalc 1.0 in 2009, successfully meeting the design
+%% goals.  Let's now take a look at the architecture of the SocialCalc
+%% system.
+三年の開発期間と数多くのベータリリースを経て、Socialtext社は2009年にSocialCalc 1.0をリリースした。
+これは、当初掲げた設計の目標をクリアしたものだった。
+さあ、SocialCalcシステムのアーキテクチャを見ていこう。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{SocialCalc}
+\begin{aosasect1}{SocialCalc}
+
+%% \aosafigure[225pt]{../images/socialcalc/socialcalc-screenshot.eps}{SocialCalc Interface}{fig.soc.action}
+\aosafigure[225pt]{../images/socialcalc/socialcalc-screenshot.eps}{SocialCalcのインターフェイス}{fig.soc.action}
+
+%% \aosafigref{fig.soc.action} and \aosafigref{fig.soc.class} show
+%% SocialCalc's interface and classes respectively.  Compared to
+%% WikiCalc, the server's role has been greatly reduced.  Its only
+%% responsibility is responding to HTTP GETs by serving entire
+%% spreadsheets serialized in the save format; once the browser receives
+%% the data, all calculations, change tracking and user interaction are
+%% now implemented in Javascript.
+\aosafigref{fig.soc.action}と\aosafigref{fig.soc.class}は、それぞれSocialCalc
+のインターフェイスとクラスを示したものだ。WikiCalcに比べてサーバー側の役割が大幅に減っている。
+サーバーの唯一の責務は、HTTP GETリクエストに応えてスプレッドシート全体を保存形式にシリアライズしたものを提供することだ。
+いったんブラウザにデータが渡ってしまった後は、すべての計算や変更の追跡そしてユーザーとの対話処理などが
+JavaScriptで行われるようになった。
+
+%% \aosafigure[325pt]{../images/socialcalc/socialcalc-class-diagram.eps}{SocialCalc Class Diagram}{fig.soc.class}
+\aosafigure[325pt]{../images/socialcalc/socialcalc-class-diagram.eps}{SocialCalcのクラス図}{fig.soc.class}
+
+%% The Javascript components were designed with a layered MVC
+%% (Model/View/Controller) style, with each class focusing on a single
+%% aspect:
+JavaScriptのコンポーネントは階層型のMVC (Model/View/Controller)形式で作られており、
+各クラスがそれぞれ一つの役割に焦点を合わせている。
+
+\begin{aosadescription}
+
+  %% \item{\emph{Sheet}} is the data model, representing an in-memory
+  %% structure of a spreadsheet.
+  %% It contains a dictionary from
+  %% coordinates to \emph{Cell} objects, each representing a single cell.
+  %% Empty cells need no entries, and hence consume no memory at all.
+  \item{\emph{Sheet}}はデータモデルで、スプレッドシートのメモリ内での構造を表す。
+  座標から\emph{Cell}オブジェクト(個々のセルを表す)までの辞書を含む。
+  空のセルのエントリは不要なので、空のセルはメモリを消費しない。
+
+  %% \item{\emph{Cell}} represents a cell's content and formats.  Some
+  %% common properties are shown in \aosatblref{tbl.soc.cellcontents}.
+  \item{\emph{Cell}}はセルの内容や書式を表す。
+  よく使うプロパティの一部を\aosatblref{tbl.soc.cellcontents}に示す。
+
+  %% \item{\emph{RenderContext}} implements the view; it is responsible
+  %% for rendering a sheet into DOM objects.
+  \item{\emph{RenderContext}}はビューを実装する。
+  シートをDOMオブジェクトとしてレンダリングする役割を果たす。
+
+  %% \item{\emph{TableControl}} is the main controller, accepting mouse
+  %% and keyboard events.
+  %% As it receives view events such as scrolling
+  %% and resizing, it updates its associated \emph{RenderContext}
+  %% object.  As it receives update events that affects the sheet's
+  %% content, it schedules new commands to the sheet's command queue.
+  \item{\emph{TableControl}}はメインコントローラーで、マウスやキーボードのイベントを受け付ける。
+  スクロールやリサイズといったビューのイベントを受け取ると、それに関連する\emph{RenderContext}オブジェクトを更新する。
+  シートの中身に影響を及ぼす更新イベントを受け取ると、新たなコマンドをシートのコマンドキューに追加する。
+
+  %% \item{\emph{SpreadSheetControl}} is the top-level UI with
+  %% toolbars, status bars, dialog boxes and color pickers.
+  \item{\emph{SpreadSheetControl}}はトップレベルのUIを管理する。
+  ツールバーやステータスバー、ダイアログボックスそしてカラーピッカーも含む。
+
+  %% \item{\emph{SpreadSheetViewer}} is an alternate top-level UI that
+  %% provides a read-only interactive view.
+  \item{\emph{SpreadSheetViewer}}はもうひとつのトップレベルUIで、読み込み専用のインタラクティブビューを提供する。
+
+\end{aosadescription}
+
+\begin{table}\centering
+  \begin{tabular}{|ll|}
+    \hline
+    \code{datatype} & \code{t} \\
+    \code{datavalue} & \code{1Q84} \\
+    \code{color} & \code{black} \\
+    \code{bgcolor} & \code{white} \\
+    \code{font} & \code{italic bold 12pt Ubuntu} \\
+    \code{comment} & \code{Ichi-Kyu-Hachi-Yon} \\
+    \hline
+  \end{tabular}
+  %% \caption{Cell Contents and Formats}
+  \caption{セルの内容と書式}
+  \label{tbl.soc.cellcontents}
+\end{table}
+
+%% We adopted a minimal class-based object system with simple
+%% composition/delegation, and make no use of inheritance or object
+%% prototypes.  All symbols are placed under the \code{SocialCalc.*}
+%% namespace to avoid naming conflicts.
+私たちが採用したのは、最小限のクラスベースのオブジェクトシステムとシンプルな
+合成/委譲の仕組みであり、継承やオブジェクトのプロトタイプは使っていない。
+すべてのシンボルは\code{SocialCalc.*}名前空間の中にあるので、名前が衝突する心配はない。
+
+%% Each update on the sheet goes through the \code{ScheduleSheetCommands}
+%% method, which takes a command string representing the edit. (Some
+%% common commands are show in \aosatblref{tbl.soc.commands}.)  The
+%% application embedding SocialCalc may define extra commands on their
+%% own, by adding named callbacks into the
+%% \code{SocialCalc.SheetCommandInfo.CmdExtensionCallbacks} object, and
+%% use the \code{startcmdextension} command to invoke them.
+シートへの更新はすべて\code{ScheduleSheetCommands}メソッドを経由する。
+このメソッドは、編集操作を表すコマンド文字列を受け取る
+(よく使われるコマンドの一部を\aosatblref{tbl.soc.commands}に示す)。
+SocialCalcを組み込んで使うアプリケーションが独自のコマンドを追加することもできる。
+名前付きコールバックを\code{SocialCalc.SheetCommandInfo.CmdExtensionCallbacks}
+オブジェクトに追加して、\code{startcmdextension}コマンドでそれを実行すればよい。
+
+\begin{table}[ht]
+\begin{minipage}[b]{0.4\linewidth}\centering
+
+\begin{verbatim}
+    set     sheet defaultcolor blue
+    set     A width 100
+    set     A1 value n 42
+    set     A2 text t Hello
+    set     A3 formula A1*2
+    set     A4 empty
+    set     A5 bgcolor green
+    merge   A1:B2
+    unmerge A1
+\end{verbatim}
+
+\end{minipage}
+\hspace{0.5cm}
+\begin{minipage}[b]{0.6\linewidth}
+\centering
+
+\begin{verbatim}
+    erase   A2
+    cut     A3
+    paste   A4
+    copy    A5
+    sort    A1:B9 A up B down
+    name    define Foo A1:A5
+    name    desc   Foo Used in formulas like SUM(Foo)
+    name    delete Foo
+    startcmdextension UserDefined args
+\end{verbatim}
+
+\end{minipage}
+%% \caption{SocialCalc Commands}
+\caption{SocialCalcのコマンド}
+\label{tbl.soc.commands}
+\end{table}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Command Run-loop}
+\begin{aosasect1}{コマンド実行ループ}
+
+%% To improve responsiveness, SocialCalc performs all recalculation and
+%% DOM updates in the background, so the user can keep making changes to
+%% several cells while the engine catches up on earlier changes in the
+%% command queue.
+反応速度を向上させるために、SocialCalcはすべての再計算やDOMの更新をバックグラウンドで行う。
+そのため、ユーザーが複数のセルを編集していたとしても、エンジンがそれをきちんと追いかけて
+変更した順にそれをコマンドキューに送る。
+
+%% \aosafigure[300pt]{../images/socialcalc/socialcalc-command-runloop.eps}{SocialCalc Command Run-loop}{fig.soc.loop}
+\aosafigure[300pt]{../images/socialcalc/socialcalc-command-runloop.eps}{SocialCalcのコマンド実行ループ}{fig.soc.loop}
+
+%% When a command is running, the \code{TableEditor} object sets its
+%% \code{busy} flag to true; subsequent commands are then pushed into the
+%% \code{deferredCommands} queue, ensuring a sequential order of
+%% execution.  As the event loop diagram in \aosafigref{fig.soc.loop}
+%% shows, the Sheet object keeps sending \code{StatusCallback} events to
+%% notify the user of the current state of command execution, through
+%% each of the four steps:
+コマンドを実行している間は、\code{TableEditor}オブジェクトの\code{busy}フラグがtrueになる。
+フラグが立っている場合、それに続くコマンドは\code{deferredCommands}キューに送られる。
+このキューに入ったコマンドは、順序通りに実行されることが保証される。
+\aosafigref{fig.soc.loop}のイベントループ図が示すとおり、
+Sheetオブジェクトは\code{StatusCallback}イベントを送出して
+コマンドの実行状況をユーザーに通知する。実行状況は、次の四段階に分かれる。
+
+\begin{aosadescription}
+
+  %% \item{\emph{ExecuteCommand}}: Sends \code{cmdstart} upon start, and
+  %%  \code{cmdend} when the command finishes execution.  If the command
+  %%  changed a cell's value indirectly, enter the \emph{Recalc} step.
+  %%  Otherwise, if the command changed the visual appearance of one or
+  %%  more on-screen cells, enter the \emph{Render} step.  If neither of
+  %%  the above applies (for example with the \code{copy} command), skip
+  %%  to the \emph{PositionCalculations} step.
+  \item{\emph{ExecuteCommand}}:
+  開始時に\code{cmdstart}を送り、コマンドの実行が完了したときに\code{cmdend}を送る。
+  そのコマンドが間接的にセルの値を変更した場合は\emph{Recalc}ステップに入る。
+  そうではなく、そのコマンドが画面上のセルの見た目を変更した場合は\emph{Render}ステップに入る。
+  どちらにもあてはまらない場合(\code{copy}コマンドなど)は\emph{PositionCalculations}ステップまで飛ぶ。
+
+\pagebreak
+
+  %% \item{\emph{Recalc}} \emph{(as{ }needed)}: Sends \code{calcstart} upon start,
+  %% \code{calcorder} every 100ms when checking the dependency chain of
+  %% cells, \code{calccheckdone} when the check finishes, and
+  %% \code{calcfinished} when all affected cells received their
+  %% re-calculated values.  This step is always followed by the \emph{Render}
+  %% step.
+  \item{\emph{Recalc}} \emph{(必要に応じて)}:
+  開始時に\code{calcstart}を送り、セルの依存関係チェインをチェックしている間は100msごとに\code{calcorder}
+  を送る。チェックが終われば\code{calccheckdone}を送り、影響するすべてのセルが再計算後の値を受け取った時点で
+  \code{calcfinished}を送る。このステップの後には必ず\emph{Render}ステップが続く。
+
+  %% \item{\emph{Render}} \emph{(as{ }needed)}: Sends \code{schedrender} upon
+  %% start, and \code{renderdone} when the
+  %% \code{{\textless}table{\textgreater}} element is updated with
+  %% formatted cells. This step is always followed by \emph{PositionCalculations}.
+  \item{\emph{Render}} \emph{(必要に応じて)}:
+  開始時に\code{schedrender}を送り、\code{{\textless}table{\textgreater}}要素が
+  新しい書式のセルで更新された時点で\code{renderdone}を送る。
+  このステップの後には必ず\emph{PositionCalculations}ステップが続く。
+
+  %% \item{\emph{PositionCalculations}}: Sends \code{schedposcalc} upon
+  %% start, and \code{doneposcalc} after updating the scrollbars, the
+  %% current editable cell cursor, and other visual components of the
+  %% \code{TableEditor}.
+  \item{\emph{PositionCalculations}}:
+  開始時に\code{schedposcalc}を送り、
+  スクロールバーや編集可能セルのカーソルなど\code{TableEditor}のビジュアルコンポーネントの更新を
+  終えた時点で\code{doneposcalc}を送る。
+
+\end{aosadescription}
+
+%% Because all commands are saved as they are executed, we naturally get
+%% an audit log of all operations.  The \code{Sheet.CreateAuditString}
+%% method provides a newline-delimited string as the audit trail, with
+%% each command in a single line.
+そのコマンドが実行されたという情報はすべて保存されるので、
+ごく自然にあらゆる操作の監査証跡が得られることになる。
+\code{Sheet.CreateAuditString}メソッドを使えば改行区切りの文字列として監査証跡が得られる。
+各コマンドが1行で表される形式だ。
+
+%% \code{ExecuteSheetCommand} also creates an undo command for each
+%% command it executes.  For example, if the cell A1 contains ``Foo''
+%% and the user executes \code{set A1 text Bar}, then an undo-command
+%% \code{set A1 text Foo} is pushed to the undo stack.  If the user
+%% clicks Undo, then the undo-command is executed to restore A1 to its
+%% original value.
+\code{ExecuteSheetCommand}はまた、各コマンドを実行するときに、その取り消し用のコマンドも作る。
+たとえばA1セルの中身が``Foo''のときにユーザーが\code{set A1 text Bar}コマンドを実行したとしよう。
+このときに作られる取り消し用コマンドは\code{set A1 text Foo}で、これがundoスタックに積まれる。
+ユーザーがUndoをクリックすると、このコマンドを実行してA1を元の状態に戻すというわけだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Table Editor}
+\begin{aosasect1}{表エディタ}
+
+%% Now let's look at the TableEditor layer.  It calculates the on-screen
+%% coordinates of its \code{RenderContext}, and manages
+%% horizontal/vertical scroll bars through two \code{TableControl}
+%% instances.
+では次に、TableEditorのレイヤーを見ていこう。
+ここでは\code{RenderContext}の画面上での座標を計算したり、
+水平方向および垂直方向のスクロールバーをふたつの\code{TableControl}
+のインスタンスで管理したりする。
+
+%% \aosafigure[225pt]{../images/socialcalc/socialcalc-parts.eps}{TableControl Instances Manage Scroll Bars}{fig.soc.parts}
+\aosafigure[225pt]{../images/socialcalc/socialcalc-parts.eps}{TableControlのインスタンスがスクロールバーを管理する}{fig.soc.parts}
+
+%% The view layer, handled by the \code{RenderContext} class, also
+%% differs from WikiCalc's design.  Instead of mapping each cell to a
+%% \code{{\textless}td{\textgreater}} element, we now simply create a
+%% fixed-size \code{{\textless}table{\textgreater}} that fits the
+%% browser's visible area, and pre-populate it with
+%% \code{{\textless}td{\textgreater}} elements.
+\code{RenderContext}クラスが扱うビューレイヤーも、WikiCalcとは異なる設計になっている。
+個々のセルを\code{{\textless}td{\textgreater}}要素にマップするのではなく、
+まずはブラウザの表示領域全体に広がる固定サイズの\code{{\textless}table{\textgreater}}
+を作って、そこに事前に\code{{\textless}td{\textgreater}}要素を埋めていったのだ。
+
+%% As the user scrolls the spreadsheet through our custom-drawn scroll
+%% bars, we dynamically update the \code{innerHTML} of the pre-drawn
+%% \code{{\textless}td{\textgreater}} elements.  This means we don't need to
+%% create or destroy any \code{{\textless}tr{\textgreater}} or
+%% \code{{\textless}td{\textgreater}} elements in many common cases,
+%% which greatly speeds up response time.
+カスタム描画したスクロールバーを使ってユーザーがスプレッドシートをスクロールさせると、
+事前に描画済みの\code{{\textless}td{\textgreater}}の\code{innerHTML}
+を動的に更新する。つまり、ほとんどの場合は
+\code{{\textless}tr{\textgreater}}や\code{{\textless}td{\textgreater}}
+を作ったり消したりすることが不要になるというわけだ。
+このおかげで、応答速度は大きく向上した。
+
+%% Because \code{RenderContext} only renders the visible region, the size
+%% of Sheet object can be arbitrarily large without affecting its
+%% performance.
+\code{RenderContext}は今見えている領域しか描画しないので、
+Sheetオブジェクトのサイズをいくら大きくしてもパフォーマンスには影響しない。
+
+%% \code{TableEditor} also contains a \code{CellHandles} object, which
+%% implements the radial fill/move/slide menu attached to the
+%% bottom-right corner to the current editable cell, known as the ECell,
+%% shown in \aosafigref{fig.soc.ecell}.
+\code{TableEditor}には\code{CellHandles}オブジェクトも含まれている。
+このオブジェクトは、現在編集可能なセル(ECell)の右下に表示されるfill/move/slide
+といったラジアルメニューを実装するものだ。その様子を\aosafigref{fig.soc.ecell}に示す。
+
+%% \aosafigure[180pt]{../images/socialcalc/socialcalc-cell-handles.eps}{Current Editable Cell, Known as the ECell}{fig.soc.ecell}
+\aosafigure[180pt]{../images/socialcalc/socialcalc-cell-handles.eps}{現在編集可能なセル(ECell)}{fig.soc.ecell}
+
+%% The input box is managed by two classes: \code{InputBox} and
+%% \code{InputEcho}.  The former manages the above-the-grid edit row,
+%% while the latter shows an updated-as-you-type preview layer,
+%% overlaying the ECell's content (\aosafigref{fig.soc.input}).
+入力ボックスを管理するクラスは\code{InputBox}と\code{InputEcho}のふたつである。
+前者はグリッド上の編集行を管理し、後者はユーザーがタイプした内容のプレビューを
+ECellの上にかぶせるレイヤーだ(\aosafigref{fig.soc.input}を参照)。
+
+%% \aosafigure[200pt]{../images/socialcalc/socialcalc-input.eps}{The Input Box is Managed by Two Classes}{fig.soc.input}
+\aosafigure[200pt]{../images/socialcalc/socialcalc-input.eps}{入力ボックスは二つのクラスで管理する}{fig.soc.input}
+
+%% Usually, the SocialCalc engine only needs to communicate to the server
+%% when opening a spreadsheet for edit, and when saving it back to
+%% server.  For this purpose, the \code{Sheet.ParseSheetSave} method
+%% parses a save format string into a \code{Sheet} object, and the
+%% \code{Sheet.CreateSheetSave} method serializes a \code{Sheet} object
+%% back into the save format.
+通常は、SocialCalcエンジンとサーバーとの通信が必要になる場面は限られている。
+スプレッドシートを編集用に開くときとそれをサーバーに保存するときだけだ。
+このために用意されているのが\code{Sheet.ParseSheetSave}で、
+これは保存フォーマット文字列をパースして\code{Sheet}オブジェクトにする。
+一方\code{Sheet.CreateSheetSave}メソッドは、\code{Sheet}
+オブジェクトをシリアライズして保存フォーマットに戻す。
+
+%% Formulas may refer to values from any remote spreadsheet with a URL.
+%% The \code{recalc} command re-fetches the externally referenced
+%% spreadsheets, parses them again with \code{Sheet.ParseSheetSave}, and
+%% stores them in a cache so the user can refer to other cells in the
+%% same remote spreadsheets without re-fetching its content.
+数式では、別の場所にあるスプレッドシートの値をURLを指定して参照することもある。
+\code{recalc}コマンドは参照先の外部スプレッドシートを再取得し、
+もう一度\code{Sheet.ParseSheetSave}でパースしてキャッシュに保存する。
+そうすれば、同じリモートスプレッドシートにある別のセルを参照するときにも
+再取得が不要になる。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Save Format}
+\begin{aosasect1}{保存フォーマット}
+
+%% The save format is in standard MIME \code{multipart/mixed} format,
+%% consisting of four \code{text/plain; charset=UTF-8} parts, each part
+%% containing newline-delimited text with colon-delimited data fields.
+%% The parts are:
+保存フォーマットは標準的なMIME \code{multipart/mixed}形式で、四つの\code{text/plain; charset=UTF-8}
+パートを組み合わせたものだ。それぞれのパートには、コロンで区切られたデータフィールドが
+改行区切りで複数行含まれている。内容は次のとおりである。
+
+\begin{aosaitemize}
+
+  %% \item The \code{meta} part lists the types of the other parts.
+  \item \code{meta}パートには、他のパートの型の一覧がある。
+
+  %% \item The \code{sheet} part lists each cell's format and content, each
+  %% column's width (if not default), the sheet's default format, followed
+  %% by a list of fonts, colors and borders used in the sheet.
+  \item \code{sheet}パートには、各セルの書式や値、各カラムの幅(デフォルト以外を使っている場合)、
+  シートのデフォルト書式の一覧が含まれ、その後にシート内で使われているフォントや色、罫線の一覧が続く。
+
+  %% \item The optional \code{edit} part saves the \code{TableEditor}'s
+  %% edit state, including ECell's last position, as well as the fixed sizes of
+  %% row/column panes.
+  \item オプションの\code{edit}パートには、\code{TableEditor}の編集状態を保存する。
+  ECellの最新の位置や行／列ペインの固定サイズなどである。
+
+ %%  \item The optional \code{audit} part contains the history of
+ %% commands executed in the previous editing session.
+  \item オプションの\code{audit}パートには、前回の編集セッションで実行したコマンドの履歴が含まれる。
+
+\end{aosaitemize}
+
+%% For example, \aosafigref{fig.soc.save} shows a spreadsheet with three
+%% cells, with \code{1874} in A1 as the ECell, the formula \code{2\^{}2*43}
+%% in A2, and the formula \code{SUM(Foo)} in A3 rendered in bold,
+%% referring to the named range \code{Foo} over \code{A1:A2}.
+\aosafigref{fig.soc.save}に示したスプレッドシートには三つのセルが含まれる。
+A1の値は\code{1874}でこれがECellであり、A2には数式\code{2\^{}2*43}が書かれている。
+またA3には数式\code{SUM(Foo)}が書かれており、ボールドになっている。
+名前で指定した範囲\code{Foo}が指すのは\code{A1:A2}だ。
+
+%% \aosafigure[180pt]{../images/socialcalc/socialcalc-2046.eps}{A Spreadsheet with Three Cells}{fig.soc.save}
+\aosafigure[180pt]{../images/socialcalc/socialcalc-2046.eps}{三つのセルからなるスプレッドシート}{fig.soc.save}
+
+%% The serialized save format for the spreadsheet looks like this:
+このスプレッドシートをシリアライズした保存フォーマットは、このようになる。
+
+\begin{verbatim}
+    socialcalc:version:1.0
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary=SocialCalcSpreadsheetControlSave
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    # SocialCalc Spreadsheet Control Save
+    version:1.0
+    part:sheet
+    part:edit
+    part:audit
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    version:1.5
+    cell:A1:v:1874
+    cell:A2:vtf:n:172:2^2*43
+    cell:A3:vtf:n:2046:SUM(Foo):f:1
+    sheet:c:1:r:3
+    font:1:normal bold * *
+    name:FOO::A1\cA2
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    version:1.0
+    rowpane:0:1:14
+    colpane:0:1:16
+    ecell:A1
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    set A1 value n 1874
+    set A2 formula 2^2*43
+    name define Foo A1:A2
+    set A3 formula SUM(Foo)
+    --SocialCalcSpreadsheetControlSave--
+\end{verbatim}
+
+%% \noindent This format is designed to be human-readable, as well as being
+%% relatively easy to generate programmatically.  This makes it possible
+%% for Drupal's Sheetnode plugin to use PHP to convert
+%% between this format and other popular spreadsheet formats, such as
+%% Excel (\code{.xls}) and OpenDocument (\code{.ods}).
+\noindent
+このフォーマットは人間が読めるように作られているが、
+同時に機械的に生成しやすいようにも作られている。
+そのおかげで、DrupalのSheetnodeを使えば、この保存フォーマットを
+Excel形式(\code{.xls})やOpenDocument形式(\code{.ods})などの他のフォーマットに変換できるようになった。
+
+%% Now that we have a good idea about how the pieces in SocialCalc fit
+%% together, let's look at two real-world examples of extending
+%% SocialCalc.
+さあ、これでSocialCalcの各パーツがどのように機能するのかがわかった。
+ここからは、SocialCalcを拡張する実例を二つ見ていこう。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Rich-text Editing}
+\begin{aosasect1}{リッチテキストの編集}
+
+%% The first example we'll look at is enhancing SocialCalc's text cells
+%% with wiki markup to display its rich-text rendering right in the
+%% table editor (\aosafigref{fig.soc.rt}).
+まず最初に見る例は、SocialCalcのテキストセルを拡張したものだ。
+Wiki記法を使って、表エディタの中でリッチテキストの表示を実現している(\aosafigref{fig.soc.rt})。
+
+%% \aosafigure[200pt]{../images/socialcalc/richtext-screenshot.eps}{Rich Text Rendering in the Table Editor}{fig.soc.rt}
+\aosafigure[200pt]{../images/socialcalc/richtext-screenshot.eps}{表エディタにおけるリッチテキストのレンダリング}{fig.soc.rt}
+
+%% We added this feature to SocialCalc right after its 1.0 release, to
+%% address the popular request of inserting images, links and text
+%% markups using a unified syntax.  Since Socialtext already has an
+%% open-source wiki platform, it was natural to re-use the syntax for
+%% SocialCalc as well.
+この機能をSocialCalcに追加したのはバージョン1.0のリリース直後のことだった。
+これは、画像やリンクの挿入そしてテキストのマークアップをすべて同じ方法でやりたいという要望に応えたものである。
+Socialtextには既にオープンソースのWikiプラットフォームが付属していたので、
+その構文をSocialCalcで使うのはごく自然な流れだった。
+
+%% To implement this, we need a custom renderer for the
+%% \code{textvalueformat} of \code{text-wiki}, and to change the default
+%% format for text cells to use it.
+この機能を実装するためには\code{text-wiki}の\code{textvalueformat}
+用のカスタムレンダラーが必要で、それを使うテキストセル側でもデフォルトフォーマットの変更が必要だった。
+
+%% What is this \code{textvalueformat}, you ask?  Read on.
+\code{textvalueformat}なんて知らないよだって？まあ続きをよんでくださいな。
+
+%% \begin{aosasect2}{Types and Formats}
+\begin{aosasect2}{型と書式}
+
+%% In SocialCalc, each cell has a \code{datatype} and a \code{valuetype}.
+%% Data cells with text or numbers correspond to text/numeric value
+%% types, and formula cells with \code{datatype="f"} may generate either
+%% numeric or text values.
+SocialCalcでは、各セルが\code{datatype}と\code{valuetype}を保持している。
+テキストや数値が入っているセルはそれぞれtext/numericの値型に対応し、
+\code{datatype="f"}である数式セルは数値あるいはテキストの値を生成する。
+
+%% Recall that on the Render step, the \code{Sheet} object generates HTML
+%% from each of its cells.  It does so by inspecting each cell's
+%% \code{valuetype}: If it begins with t, then the cell's
+%% \code{textvalueformat} attribute determines how generation is done.
+%% If it begins with \code{n}, then the \code{nontextvalueformat} attribute is
+%% used instead.
+先ほどのRenderステップを思い出してみよう。\code{Sheet}オブジェクトは個々のセルからHTMLを生成していた。
+このとき、各セルの\code{valuetype}を調べているのだ。値型が\code{t}から始まるときは、そのセルの\code{textvalueformat}
+属性を見て生成方法を判断する。
+\code{n}から始まるときは、そのかわりに\code{nontextvalueformat}属性を利用する。
+
+%% However, if the cell's \code{textvalueformat} or
+%% \code{nontextvalueformat} attribute is not defined explicitly, then a
+%% default format is looked up from its \code{valuetype}, as shown in
+%% \aosafigref{fig.soc.vformat}.
+しかし、セルの\code{textvalueformat}あるいは\code{nontextvalueformat}が明示的に定義されていない場合は、
+デフォルトの書式を\code{valuetype}から調べる。その様子は\aosafigref{fig.soc.vformat}のようになる。
+
+%% \aosafigure[300pt]{../images/socialcalc/richtext-formats.eps}{Value Types}{fig.soc.vformat}
+\aosafigure[300pt]{../images/socialcalc/richtext-formats.eps}{値型}{fig.soc.vformat}
+
+% \pagebreak
+
+%% \noindent Support for the \code{text-wiki} value format is coded in
+%% \code{SocialCalc.format\_text\_for\_display}:
+\noindent
+\code{text-wiki}の値の書式に対応するコードは\code{SocialCalc.format\_text\_for\_display}にある。
+
+\begin{verbatim}
+if (SocialCalc.Callbacks.expand_wiki && /^text-wiki/.test(valueformat)) {
+    // do general wiki markup
+    displayvalue = SocialCalc.Callbacks.expand_wiki(
+        displayvalue, sheetobj, linkstyle, valueformat
+    );
+}
+\end{verbatim}
+
+%% Instead of inlining the wiki-to-HTML expander in
+%% \code{format\_text\_for\_display}, we will define a new hook in
+%% \code{SocialCalc.Callbacks}.  This is the recommended style
+%% throughout the SocialCalc codebase; it improves modularity by making
+%% it possible to plug in different ways of expanding wikitext, as well
+%% as keeping compatibility with embedders that do not desire this
+%% feature.
+\code{format\_text\_for\_display}の中でインラインでWikiからHTMLに展開するのではなく、
+新たなフックを\code{SocialCalc.Callbacks}に定義した。
+これは、SocialCalcのコードベース全体を通して推奨されている方式である。
+Wiki記法の展開を別の方法に差し替えるのも簡単になる。
+また、SocialCalcを組み込んだアプリケーション側も、
+その機能が不要であっても互換性を保てる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Rendering Wikitext}
+\begin{aosasect2}{Wikitextのレンダリング}
+
+%% Next, we'll make use of
+%% Wikiwyg\footnote{\url{https://github.com/audreyt/wikiwyg-js}}, a
+%% Javascript library offering two-way conversions between wikitext and
+%% HTML.
+次に、Wikiwyg\footnote{\url{https://github.com/audreyt/wikiwyg-js}}を利用する。
+これはJavaScriptのライブラリで、wikitextとHTMLの相互変換を行うものだ。
+
+%% We define the \code{expand\_wiki} function by taking the cell's text,
+%% running it through Wikiwyg's wikitext parser and its HTML emitter:
+私たちは\code{expand\_wiki}関数を用意した。
+この関数はセルのテキストを受け取って、それをWikiwygの
+wikitextパーサーとHTMLエミッターに渡す。
+
+\begin{verbatim}
+var parser = new Document.Parser.Wikitext();
+var emitter = new Document.Emitter.HTML();
+SocialCalc.Callbacks.expand_wiki = function(val) {
+    // val を Wikitext から HTML に変換する
+    return parser.parse(val, emitter);
+}
+\end{verbatim}
+
+%% \pagebreak 
+%% \noindent The final step involves scheduling the \code{set sheet
+%% defaulttextvalueformat text-wiki} command right after the
+%% spreadsheet initializes:
+\pagebreak 
+\noindent
+最後のステップは、スプレッドシートの初期化直後に
+\code{set sheet defaulttextvalueformat text-wiki}コマンドを実行させるようにすることだ。
+
+
+\begin{verbatim}
+// 既に <div id="tableeditor"/> が DOM に存在するものとする
+var spreadsheet = new SocialCalc.SpreadsheetControl();
+spreadsheet.InitializeSpreadsheetControl("tableeditor", 0, 0, 0);
+spreadsheet.ExecuteCommand('set sheet defaulttextvalueformat text-wiki');
+\end{verbatim}
+
+%% \noindent Taken together, the Render step now works as shown in
+%% \aosafigref{fig.soc.render}.
+\noindent
+これらをまとめると、Renderステップでの動きは\aosafigref{fig.soc.render}のようになる。
+
+%% \aosafigure[349pt]{../images/socialcalc/richtext-flow.eps}{Render Step}{fig.soc.render}
+\aosafigure[349pt]{../images/socialcalc/richtext-flow.eps}{レンダリング手順}{fig.soc.render}
+
+%% That's all!  The enhanced SocialCalc now supports a rich set of wiki
+%% markup syntax:
+これで完了！進化したSocialCalcは、今やWiki記法にも対応するようになった。
+
+\begin{verbatim}
+*bold* _italic_ `monospace` {{unformatted}}
+> indented text
+* unordered list
+# ordered list
+"Hyperlink with label"<http://softwaregarden.com/>
+{image: http://www.socialtext.com/images/logo.png}
+\end{verbatim}
+
+%% \noindent Try entering \code{*bold* \_italic\_ `monospace`} in A1, and you'll
+%% see it rendered as rich text (\aosafigref{fig.soc.rtext}).
+\noindent
+試しに、A1に\code{*bold* \_italic\_ `monospace`}と入力してみよう。
+\aosafigref{fig.soc.rtext}のような感じでリッチテキストに変換されるはずだ。
+
+%% \aosafigure[150pt]{../images/socialcalc/richtext-example.eps}{Wikywyg Example}{fig.soc.rtext}
+\aosafigure[150pt]{../images/socialcalc/richtext-example.eps}{Wikywygの例}{fig.soc.rtext}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+% \pagebreak
+
+%% \begin{aosasect1}{Real-time Collaboration}
+\begin{aosasect1}{リアルタイムのコラボレーション}
+
+%% The next example we'll explore is multi-user, real-time editing on a
+%% shared spreadsheet.  This may seem complicated at first, but thanks to
+%% SocialCalc's modular design all it takes is for each on-line user to
+%% broadcast their commands to other participants.
+次に紹介する例は、共有スプレッドシートにおける複数ユーザーでの同時編集だ。
+一見複雑に思えるが、SocialCalcのモジュラー設計のおかげでそれほどでもなかった。
+必要なのは、各オンラインユーザーが自分のコマンドを他のメンバーにブロードキャストすることだけだ。
+
+%% To distinguish between locally-issued commands and remote commands, we
+%% add an \code{isRemote} parameter to the \code{ScheduleSheetCommands}
+%% method:
+ローカルで発行したコマンドとリモートコマンドを区別するために、
+\code{ScheduleSheetCommands}メソッドに\code{isRemote}
+パラメータを追加した。
+
+%% \begin{verbatim}
+%% SocialCalc.ScheduleSheetCommands = function(sheet, cmdstr, saveundo, isRemote) {
+%%    if (SocialCalc.Callbacks.broadcast && !isRemote) {
+%%        SocialCalc.Callbacks.broadcast('execute', {
+%%            cmdstr: cmdstr, saveundo: saveundo
+%%        });
+%%    }
+%%    // ...original ScheduleSheetCommands code here...
+%% }
+%% \end{verbatim}
+\begin{verbatim}
+SocialCalc.ScheduleSheetCommands = function(sheet, cmdstr, saveundo, isRemote) {
+   if (SocialCalc.Callbacks.broadcast && !isRemote) {
+       SocialCalc.Callbacks.broadcast('execute', {
+           cmdstr: cmdstr, saveundo: saveundo
+       });
+   }
+   // ...元からあった ScheduleSheetCommands のコードが続く...
+}
+\end{verbatim}
+
+%% \noindent Now all we need to do is to define a suitable
+%% \code{SocialCalc.Callbacks.broadcast} callback function.  Once it's
+%% in place, the same commands will be executed on all users connected
+%% to the same spreadsheet.
+\noindent
+つまり、必要なのは、適切なコールバック関数\code{SocialCalc.Callbacks.broadcast}
+を定義することだけだ。それさえできれば、同じスプレッドシートに接続するすべてのユーザーが
+同じコマンドを実行することになる。
+
+%% When this feature was first implemented for OLPC (One Laptop Per 
+%% Child\footnote{\url{http://one.laptop.org/}}) by SEETA's Sugar 
+%% Labs\footnote{\url{http://seeta.in/wiki/index.php?title=Collaboration_in_SocialCalc}}
+%% in 2009, the \code{broadcast} function was built with XPCOM calls into
+%% D-Bus/Telepathy, the standard transport for OLPC/Sugar networks (see
+%% \aosafigref{fig.soc.olpc}).
+この機能を
+OLPC(One Laptop Per Child\footnote{\url{http://one.laptop.org/}})
+用にはじめて実装したのは
+SEETAのSugar Labs\footnote{\url{http://seeta.in/wiki/index.php?title=Collaboration_in_SocialCalc}}
+で、それは2009年のことだった。このときの\code{broadcast}関数の実装は、
+D-Bus/TelepathyへのXPCOM呼び出しだった。
+D-Bus/TelepathyはOLPC/Sugarネットワークの標準のトランスポートである(\aosafigref{fig.soc.olpc}を参照)。
+
+%% \aosafigure[280pt]{../images/socialcalc/collab-olpc.eps}{OLPC Implementation}{fig.soc.olpc}
+\aosafigure[280pt]{../images/socialcalc/collab-olpc.eps}{OLPCの実装}{fig.soc.olpc}
+
+%% That worked reasonably well, enabling XO instances in the same Sugar
+%% network to collaborate on a common SocialCalc spreadsheet.  However,
+%% it is both specific to the Mozilla/XPCOM browser platform, as well as
+%% to the D-Bus/Telepathy messaging platform.
+これはそれなりにうまく機能して、同じSugarネットワーク上にあるXOのインスタンスが
+同じSocialCalcスプレッドシートを使って共同作業できるようになった。
+しかしこの方式はMozilla/XPCOMのプラットフォームでしか使えないし、
+D-Bus/Telepathyメッセージングプラットフォームでしか使えない。
+
+%% \begin{aosasect2}{Cross-browser Transport}
+\begin{aosasect2}{クロスブラウザのトランスポート}
+
+%% To make this work across browsers and operating systems, we use the
+%% \code{Web::Hippie}\footnote{\url{http://search.cpan.org/dist/Web-Hippie/}}
+%% framework, a high-level abstraction of JSON-over-WebSocket with
+%% convenient jQuery bindings, with MXHR (Multipart XML HTTP
+%% Request\footnote{\url{http://about.digg.com/blog/duistream-and-mxhr}})
+%% as the fallback transport mechanism if WebSocket is not available.
+別のブラウザや別のOSでも機能するようにするために、
+\code{Web::Hippie}\footnote{\url{http://search.cpan.org/dist/Web-Hippie/}}
+フレームワークを採用した。これはJSON-over-WebSocketを上位レベルで抽象化したものに
+便利なjQueryバインディングを追加したものである。そして、WebSocketが使えないときに使う
+代替の撮らん図ポートとしてMXHR
+(Multipart XML HTTP Request\footnote{\url{http://about.digg.com/blog/duistream-and-mxhr}})
+を用意した。
+
+%% For browsers with Adobe Flash plugin installed but without native
+%% WebSocket support, we use the
+%% \code{web\_socket.js}\footnote{\url{https://github.com/gimite/web-socket-js}}
+%% project's Flash emulation of WebSocket, which is often faster and more reliable
+%% than MXHR.  The operation flow is shown in \aosafigref{fig.soc.collab}.
+Adobe Flashプラグインは入っているけれどもWebSocketにはネイティブで対応していないという
+ブラウザ向けには、\code{web\_socket.js}\footnote{\url{https://github.com/gimite/web-socket-js}}
+プロジェクトが作ったFlashによるWebSocketエミュレーションを使った。
+たいていの場合、こちらのほうがMXHRよりも高速だし安定していた。
+処理フローは\aosafigref{fig.soc.collab}のようになる。
+
+%% \aosafigure{../images/socialcalc/collab-flow.eps}{Cross-Browser Flow}{fig.soc.collab}
+\aosafigure{../images/socialcalc/collab-flow.eps}{クロスブラウザのフロー}{fig.soc.collab}
+
+\pagebreak
+
+%% The client-side \code{SocialCalc.Callbacks.broadcast} function is
+%% defined as:
+クライアント側の\code{SocialCalc.Callbacks.broadcast}関数の定義は、このようになる。
+
+\begin{verbatim}
+var hpipe = new Hippie.Pipe();
+
+SocialCalc.Callbacks.broadcast = function(type, data) {
+    hpipe.send({ type: type, data: data });
+};
+
+$(hpipe).bind("message.execute", function (e, d) {
+    var sheet = SocialCalc.CurrentSpreadsheetControlObject.context.sheetobj;
+    sheet.ScheduleSheetCommands(
+        d.data.cmdstr, d.data.saveundo, true // isRemote = true
+    );
+    break;
+});
+\end{verbatim}
+
+%% \noindent Although this works quite well, there are still two remaining issues
+%% to resolve.
+\noindent
+これは非常にうまく機能したが、実はまだ二つの問題が残っていた。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Conflict Resolution}
+\begin{aosasect2}{衝突の解決}
+
+%% The first one is a race-condition in the order of commands executed:
+%% If users A and B simultaneously perform an operation affecting the
+%% same cells, then receive and execute commands broadcast from the other
+%% user, they will end up in different states, as shown in
+%% \aosafigref{fig.soc.conflict}.
+最初の問題は、コマンドを順に実行するときに発生するレースコンディションだ。
+あるユーザーAと別のユーザーBが、同じセルを同時に操作したとする。
+お互いが実行したコマンドは相手にもブロードキャストされ、
+\aosafigref{fig.soc.conflict}に示すように最終的にはお互いの状態が異なってしまう。
+
+%% \aosafigure{../images/socialcalc/collab-conflict.eps}{Race Condition Conflict}{fig.soc.conflict}
+\aosafigure{../images/socialcalc/collab-conflict.eps}{レースコンディションの衝突}{fig.soc.conflict}
+
+%% We can resolve this with SocialCalc's built-in undo/redo mechanism, as
+%% shown in \aosafigref{fig.soc.resolve}.
+この問題を解決するために使ったのがSocialCalcに組み込まれている
+undo/redoの仕組みだ。\aosafigref{fig.soc.resolve}に示すように利用した。
+
+%% \aosafigure{../images/socialcalc/collab-resolution.eps}{Race Condition Conflict Resolution}{fig.soc.resolve}
+\aosafigure{../images/socialcalc/collab-resolution.eps}{レースコンディションの衝突の解決}{fig.soc.resolve}
+
+%% The process used to resolve the conflict is as follows.  When a client
+%% broadcasts a command, it adds the command to a Pending queue.  When a client
+%% receives a command, it checks the remote command against the Pending queue.
+衝突を回避するための手順は次のとおりだ。
+あるクライアントがコマンドをブロードキャストするときには、そのコマンドをペンディングキューに追加する。
+あるクライアントがコマンドを受信するときには、リモートコマンドをペンディングキューと比べてチェックする。
+
+%% If the Pending queue is empty, then the command is simply executed as a remote
+%% action. If the remote command matches a command in the Pending queue, then the
+%% local command is removed from the queue.
+ペンディングキューが空の場合は、受信したコマンドをリモートアクションとしてシンプルに実行する。
+リモートコマンドと同じコマンドがペンディングキューにあった場合は、
+ローカルコマンドをキューから取り除く。
+
+%% Otherwise, the client checks if there are any queued commands that conflict
+%% with the received command.  If there are conflicting commands, the client first
+%% \code{Undo}es those commands and marks them for later \code{Redo}.  After
+%% undoing the conflicting commands (if any), the remote command is executed as
+%% usual.
+それ以外の場合は、キューに入っているコマンドの中で今受信したコマンドと衝突するものがあるかどうかを調べる。
+衝突するコマンドが見つかったら、クライアントはまずそのコマンドを\code{Undo}して、
+後で\code{Redo}するよう印をつけておく。衝突するコマンドをいったん取り消せば、
+リモートコマンドをいつもどおり実行できる。
+
+%% When a marked-for-redo command is received from the server, the client will
+%% execute it again, then remove it from the queue.
+\code{Redo}マークがついたコマンドをサーバーから受信した場合は、
+クライアントはそれをもう一度実行する。そしてキューから削除する。
+
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Remote Cursors}
+\begin{aosasect2}{リモートカーソル}
+
+%% Even with race conditions resolved, it is still suboptimal to
+%% accidentally overwrite the cell another user is currently editing.  A
+%% simple improvement is for each client to broadcast its cursor position
+%% to other users, so everyone can see which cells are being worked on.
+レースコンディションの問題が解決できたとしても、
+別のユーザーがいま編集中のセルを不意に上書きしてしまう問題を完全に防げるわけではない。
+単純な改良方法としては、すべてのクライアントが自分のカーソルの位置を他のユーザーに
+ブロードキャストするというものがある。
+そうすれば、誰が今どのセルを編集しているのかを誰もが見られるようになる。
+
+%% To implement this idea, we add another \code{broadcast} handler to the
+%% \code{MoveECellCallback} event:
+このアイデアを実装するために、\code{MoveECellCallback}
+イベントに別の\code{broadcast}ハンドラを追加した。
+
+%% \begin{verbatim}
+%% editor.MoveECellCallback.broadcast = function(e) {
+%%     hpipe.send({
+%%         type: 'ecell',
+%%         data: e.ecell.coord
+%%     });
+%% };
+
+%% $(hpipe).bind("message.ecell", function (e, d) {
+%%     var cr = SocialCalc.coordToCr(d.data);
+%%     var cell = SocialCalc.GetEditorCellElement(editor, cr.row, cr.col);
+%%     // ...decorate cell with styles specific to the remote user(s) on it...
+%% });
+%% \end{verbatim}
+\begin{verbatim}
+editor.MoveECellCallback.broadcast = function(e) {
+    hpipe.send({
+        type: 'ecell',
+        data: e.ecell.coord
+    });
+};
+
+$(hpipe).bind("message.ecell", function (e, d) {
+    var cr = SocialCalc.coordToCr(d.data);
+    var cell = SocialCalc.GetEditorCellElement(editor, cr.row, cr.col);
+    // ...そこを編集しているリモートユーザーがわかるようにセルの書式を変える...
+});
+\end{verbatim}
+
+%% To mark cell focus in spreadsheets, it's common to use colored
+%% borders.  However, a cell may already define its own \code{border}
+%% property, and since \code{border} is mono-colored, it can only
+%% represent one cursor on the same cell.
+スプレッドシート上で作業中のセルに印をつける方法として一般的なのは、
+色つきの枠線で囲むことだ。しかし、もともとそのセルには\code{border}
+プロパティを設定してある可能性もある。また、\code{border}は単色なので、
+これだとひとつのセルの上に複数のカーソルがある場合に対応できない。
+
+%% Therefore, on browsers with support for CSS3, we use the \code{box-shadow}
+%% property to represent multiple peer cursors in the same cell:
+そこで、CSS3に対応しているブラウザ上では
+\code{box-shadow}プロパティを使って同一セル上の複数のカーソルを表すようにした。
+
+%% \begin{verbatim}
+%% /* Two cursors on the same cell */
+%% box-shadow: inset 0 0 0 4px red, inset 0 0 0 2px green;
+%% \end{verbatim}
+\begin{verbatim}
+/* ふたつのカーソルが同一セル上にある場合 */
+box-shadow: inset 0 0 0 4px red, inset 0 0 0 2px green;
+\end{verbatim}
+
+%% \aosafigref{fig.soc.borders} shows how the screen would look with four
+%% people editing on the same spreadsheet.
+\aosafigref{fig.soc.borders}は、四人で同じスプレッドシートを編集したらどうなるかを示す図だ。
+
+%% \aosafigure[150pt]{../images/socialcalc/collab-borders.eps}{Four Users Editing One Spreadsheet}{fig.soc.borders}
+\aosafigure[150pt]{../images/socialcalc/collab-borders.eps}{四人のユーザーによる同時編集}{fig.soc.borders}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Lessons Learned}
+\begin{aosasect1}{教訓}
+
+We delivered SocialCalc 1.0 on October 19th, 2009, the 30th
+anniversary of the initial release of VisiCalc.  The experience of
+collaborating with my colleagues at Socialtext under Dan Bricklin's
+guidance was very valuable to me, and I'd like to share some lessons
+I learned during that time.
+
+%% \begin{aosasect2}{Chief Designer with a Clear Vision}
+\begin{aosasect2}{明確なビジョンを持ったチーフデザイナー}
+
+In \cite{bib:brooks:design}, Fred Brooks argues that when building
+complex systems, the conversation is much more direct if we focus on a
+coherent \emph{design concept}, rather than derivative
+representations. According to Brooks, the formulation of such a
+coherent design concept is best kept in a single person's mind:
+
+\begin{quotation}
+
+  \noindent
+  Since conceptual integrity is the most important attribute of a
+  great design, and since that comes from one or a few minds working
+  \emph{uno animo}, the wise manager boldly entrusts each design task to a
+  gifted chief designer.
+
+\end{quotation}
+
+In the case of SocialCalc, having Tracy Ruggles as our chief
+user-experience designer was the key for the project to converge
+toward a shared vision.  Since the underlying SocialCalc engine was
+so malleable, the temptation of feature creep was very real. Tracy's
+ability to communicate using design sketches really helped us
+present features in a way that feels intuitive to users.
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Wikis for Project Continuity}
+\begin{aosasect2}{プロジェクトの継続性のためのWiki}
+
+Before I joined the SocialCalc project, there was already over two
+years' worth of ongoing design and development, but I was able to
+catch up and start contributing in less than a week, simply due to
+the fact that \emph{everything is in the wiki}. From the earliest
+design notes to the most up-to-date browser support matrix, the
+entire process was chronicled in wiki pages and SocialCalc
+spreadsheets.
+
+Reading through the project's workspace brought me quickly to the same
+page as others, without the usual hand-holding overhead
+typically associated with orienting a new team member.
+
+This would not be possible in traditional open source projects, where
+most conversation takes place on IRC and mailing lists and the wiki
+(if present) is only used for documentations and links to development
+resources.  For a newcomer, it's much more difficult to reconstruct
+context from unstructured IRC logs and mail archives.
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Embrace Time Zone Differences}
+\begin{aosasect2}{タイムゾーンの違いを受け入れる}
+
+David Heinemeier Hansson, creator of Ruby on Rails, once remarked on
+the benefit of distributed teams when he first joined 37signals. "The
+seven time zones between Copenhagen and Chicago actually meant that
+we got a lot done with few interruptions." With nine time zones
+between Taipei and Palo Alto, that was true for us during
+SocialCalc's development as well.
+
+We often completed an entire Design-Development-QA feedback cycle
+within a 24-hour day, with each aspect taking one person's 8-hour
+work day in their local daytime.  This asynchronous style of
+collaboration compelled us to produce self-descriptive artifacts
+(design sketch, code and tests), which in turn greatly improved our
+trust in each other.
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Optimize for Fun}
+\begin{aosasect2}{楽しくやろうよ}
+
+In my 2006 keynote for the CONISLI conference~\cite{bib:tang:fun}, I
+summarized my experience leading a distributed team implementing the
+Perl 6 language into a few observations.  Among them, \emph{Always
+ have a Roadmap}, \emph{Forgiveness {\textgreater} Permission},
+\emph{Remove deadlocks}, \emph{Seek ideas, not consensus}, and
+\emph{Sketch ideas with code} are particularly relevant for small
+distributed teams.
+
+When developing SocialCalc, we took great care in distributing
+knowledge among team members with collaborative code ownership, so
+nobody would become a critical bottleneck.
+
+Furthermore, we pre-emptively resolved disputes by actually coding up
+alternatives to explore the design space, and were not afraid of
+replacing fully-working prototypes when a better design arrived.
+
+These cultural traits helped us foster a sense of anticipation and
+camaraderie despite the absence of face-to-face interaction, kept
+politics to a minimum, and made working on SocialCalc a lot of fun.
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Drive Development with Story Tests}
+\begin{aosasect2}{ストーリーテスト駆動開発}
+
+Prior to joining Socialtext, I've advocated the ``interleave tests
+with the specification'' approach, as can be seen in the Perl 6
+specification\footnote{\url{http://perlcabal.org/syn/S02.html}}, where
+we annotate the language specification with the official test suite.
+However, it was Ken Pier and Matt Heusser, the QA team for SocialCalc,
+who really opened my eyes to how this can be taken to the next level,
+bringing tests to the place of \emph{executable specification}.
+
+% \pagebreak
+
+In Chapter 16 of \cite{bib:goucher:test}, Matt explained our
+story-test driven development process as follows:
+
+\begin{quotation}
+
+  The basic unit of work is a "story," which is an extremely
+  lightweight requirements document. A story contains a brief
+  description of a feature along with examples of what needs to happen
+  to consider the story completed; we call these examples "acceptance
+  tests" and describe them in plain English.
+
+  During the initial cut of the story, the product owner makes a
+  good-faith first attempt to create acceptance tests, which are
+  augmented by developers and testers before any developer writes
+  a line of code.
+
+\end{quotation}
+
+These story tests are then translated into wikitests, a table-based
+specification language inspired by Ward Cunningham's FIT
+framework\footnote{\url{http://fit.c2.com/}}, which drives automated
+testing frameworks such as
+\code{Test::WWW::Mechanize}\footnote{\url{http://search.cpan.org/dist/Test-WWW-Mechanize/}}
+and
+\code{Test::WWW::Selenium}\footnote{\url{http://search.cpan.org/dist/Test-WWW-Selenium/}}.
+
+It's hard to overstate the benefit of having story tests as a common
+language to express and validate requirements. It was instrumental in
+reducing misunderstanding, and has all but eliminated regressions from
+our monthly releases.
+
+\end{aosasect2}
+
+% \pagebreak
+
+%% \begin{aosasect2}{Open Source With CPAL}
+\begin{aosasect2}{オープンソースとCPAL}
+
+Last but not least, the open source model we chose for SocialCalc
+makes an interesting lesson in itself.
+
+% \vspace*{1.4ex}
+
+Socialtext created the Common Public Attribution
+License\footnote{\url{https://www.socialtext.net/open/?cpal}} for
+SocialCalc.  Based on the Mozilla Public License, CPAL is designed to
+allow the original author to require an attribution to be displayed
+on the software's user interface, and has a network-use clause that
+triggers share-alike provisions when derived work is hosted by a
+service over the network.
+
+% \vspace*{1.4ex}
+
+After its approval by both the Open Source
+Initiative\footnote{\url{http://opensource.org/}} and the Free
+Software Foundation\footnote{\url{http://www.fsf.org}}, we've seen prominent
+sites such as Facebook\footnote{\url{https://github.com/facebook/platform}}
+and Reddit\footnote{\url{https://github.com/reddit/reddit}} opting to release
+their platform's source code under the CPAL, which is very
+encouraging.
+
+% \vspace*{1.4ex}
+
+Because CPAL is a ``weak copyleft'' license, developers can freely
+combine it with either free or proprietary software, and only need to
+release modifications to SocialCalc itself.  This enabled various
+communities to adopt SocialCalc and made it more awesome.
+
+% \vspace*{1.4ex}
+
+There are many interesting possibilities with this open-source
+spreadsheet engine, and if you can find a way to embed SocialCalc
+into your favorite project, we'd definitely love to hear about it.
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\end{aosachapter}

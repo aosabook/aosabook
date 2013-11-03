@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: asterisk.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Asterisk</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Asterisk</h1>
+        <p><a href="intro1.html#bryant-russell">Russell Bryant</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Asterisk<sup class="footnote"><a href="#footnote-1">1</a></sup> is an open source telephony
+applications platform distributed under the GPLv2. In short, it is a
+server application for making, receiving, and performing custom
+processing of phone calls.</p>
+
+<p>The project was started by Mark Spencer in 1999. Mark had a company
+called Linux Support Services and he needed a phone system to help
+operate his business. He did not have a lot of money to spend on
+buying one, so he just made his own. As the popularity of Asterisk
+grew, Linux Support Services shifted focus to Asterisk and changed
+its name to Digium, Inc.</p>
+
+<p>The name Asterisk comes from the Unix wildcard character,
+<code>*</code>. The goal for the Asterisk project is to do everything
+telephony. Through pursuing this goal, Asterisk now supports a long
+list of technologies for making and receiving phone calls. This
+includes many VoIP (Voice over IP) protocols, as well as both analog
+and digital connectivity to the traditional telephone network, or the
+PSTN (Public Switched Telephone Network). This ability to get many
+different types of phone calls into and out of the system is one of
+Asterisk's main strengths.</p>
+
+<p>Once phone calls are made to and from an Asterisk system, there are
+many additional features that can be used to customize the processing
+of the phone call. Some features are larger pre-built common
+applications, such as voicemail. There are other smaller features that
+can be combined together to create custom voice applications, such as
+playing back a sound file, reading digits, or speech recognition.</p>
+
+<div class="sect">
+<h2>1.1. Critical Architectural Concepts</h2>
+
+<p>This section discusses some architectural concepts that are critical
+to all parts of Asterisk. These ideas are at the foundation of
+the Asterisk architecture.</p>
+
+<div class="subsect">
+<h3>1.1.1. Channels</h3>
+
+<p>A channel in Asterisk represents a connection between the Asterisk
+system and some telephony endpoint
+(<a href="#fig.asterisk.simpleCall">Figure&nbsp;1.1</a>). The most common example is
+when a phone makes a call into an Asterisk system. This connection is
+represented by a single channel. In the Asterisk code, a channel
+exists as an instance of the <code>ast_channel</code> data structure.  This
+call scenario could be a caller interacting with voicemail, for
+example.</p>
+
+<div class="figure" id="fig.asterisk.simpleCall">
+  <img src="../images/asterisk/singleChannel.png" alt="[A Single Call Leg, Represented by a Single Channel]" />
+  <p>Figure&nbsp;1.1: A Single Call Leg, Represented by a Single Channel</p>
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>1.1.2. Channel Bridging</h3>
+
+<p>Perhaps a more familiar call scenario would be a connection between
+two phones, where a person using phone A has called a person on phone
+B. In this call scenario, there are two telephony endpoints connected
+to the Asterisk system, so two channels exist for this call
+(<a href="#fig.asterisk.twoChannels">Figure&nbsp;1.2</a>).</p>
+
+<div class="figure" id="fig.asterisk.twoChannels">
+  <img src="../images/asterisk/twoChannels.png" alt="[Two Call Legs Represented by Two Channels]" />
+  <p>Figure&nbsp;1.2: Two Call Legs Represented by Two Channels</p>
+</div>
+
+<p>When Asterisk channels are connected like this, it is referred to as a
+channel bridge. Channel bridging is the act of connecting channels
+together for the purpose of passing media between them. The media
+stream is most commonly an audio stream. However, there may also be a
+video or a text stream in the call. Even in the case where there is
+more than one media stream (such as both audio and video), it is still
+handled by a single channel for each end of the call in Asterisk. In
+<a href="#fig.asterisk.twoChannels">Figure&nbsp;1.2</a>, where there are two channels
+for phones A and B, the bridge is responsible for passing the media
+coming from phone A to phone B, and similarly, for passing the media
+coming from phone B to phone A. All media streams are negotiated
+through Asterisk. Anything that Asterisk does not understand
+and have full control over is not allowed. This means that Asterisk
+can do recording,
+audio manipulation, and translation between different technologies.</p>
+
+<p>When two channels are bridged together, there are two methods that may
+be used to accomplish this: generic bridging and native bridging.
+A generic bridge is one that works regardless of what
+channel technologies are in use. It passes all audio and signalling
+through the Asterisk abstract channel interfaces. While this is the
+most flexible bridging method, it is also the least efficient due to
+the levels of abstraction necessary to accomplish the task.
+<a href="#fig.asterisk.twoChannels">Figure&nbsp;1.2</a> illustrates a generic bridge.</p>
+
+<p>A native bridge is a technology specific method of connecting channels
+together. If two channels are connected to Asterisk using the same
+media transport technology, there may be a way to connect them that is
+more efficient than going through the abstraction layers in Asterisk
+that exist for connecting different technologies together. For
+example, if specialized hardware is being used for connecting to the
+telephone network, it may be possible to bridge the channels on the
+hardware so that the media does not have to flow up through the
+application at all. In the case of some VoIP protocols, it is possible
+to have endpoints send their media streams to each other directly,
+such that only the call signalling information continues to flow
+through the server.</p>
+
+<p>The decision between generic bridging and native bridging is done by
+comparing the two channels when it is time to bridge them. If both
+channels indicate that they support the same native bridging method,
+then that will be used. Otherwise, the generic bridging method will be
+used. To determine whether or not two channels support the same native
+bridging method, a simple C function pointer comparison is used. It's
+certainly not the most elegant method, but we have not yet hit any
+cases where this was not sufficient for our needs. Providing a native
+bridge function for a channel is discussed in more detail in
+<a href="#sec.asterisk.drivers">Section&nbsp;1.2</a>.
+<a href="#fig.asterisk.nativeBridge">Figure&nbsp;1.3</a> illustrates an example of a
+native bridge.</p>
+
+<div class="figure" id="fig.asterisk.nativeBridge">
+  <img src="../images/asterisk/nativeBridge.png" alt="[Example of a Native Bridge]" />
+  <p>Figure&nbsp;1.3: Example of a Native Bridge</p>
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>1.1.3. Frames</h3>
+
+<p>Communication within the Asterisk code during a call is done by using
+frames, which are instances of the <code>ast_frame</code> data
+structure. Frames can either be media frames or signalling frames.
+During a basic phone call, a stream of media frames containing audio
+would be passing through the system. Signalling frames are used to send
+messages about call signalling events, such as a digit being pressed, a
+call being put on hold, or a call being hung up.</p>
+
+<p>The list of available frame types is statically defined. Frames are
+marked with a numerically encoded type and subtype.  A full list can
+be found in the source code in <code>include/asterisk/frame.h</code>; some
+examples are:</p>
+
+<ul>
+
+  <li><code>VOICE</code>: These frames carry a portion of an audio stream.</li>
+
+  <li><code>VIDEO</code>: These frames carry a portion of a video stream.</li>
+
+  <li><code>MODEM</code>: The encoding used for the data in this frame,
+  such as T.38 for sending a FAX over IP.  The primary usage of this
+  frame type is for handling a FAX. It is important that frames of
+  data be left completely undisturbed so that the signal can be
+  successfully decoded at the other end. This is different than
+  AUDIO frames, because in that case, it is acceptable to transcode
+  into other audio codecs to save bandwidth at the cost of audio
+  quality.</li>
+
+  <li><code>CONTROL</code>: The call signalling message that this frame
+  indicates.  These frames are used to indicate call signalling
+  events. These events include a phone being answered, hung up, put
+  on hold, etc.</li>
+
+  <li><code>DTMF_BEGIN</code>: Which digit just started.  This frame is
+    sent when a caller presses a DTMF key<sup class="footnote"><a href="#footnote-2">2</a></sup> on their phone.</li>
+
+  <li><code>DTMF_END</code>: Which digit just ended.  This frame is sent
+  when a caller stops pressing a DTMF key on their phone.</li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>1.2. Asterisk Component Abstractions</h2>
+
+<p>Asterisk is a highly modularized application. There is a core
+application that is built from the source in the <code>main/</code>
+directory of the source tree. However, it is not very useful by
+itself.  The core application acts primarily as a module registry. It
+also has code that knows how to connect all of the abstract interfaces
+together to make phone calls work. The concrete implementations of
+these interfaces are registered by loadable modules at runtime.</p>
+
+<p>By default, all modules found in a predefined Asterisk modules
+directory on the filesystem will be loaded when the main application
+is started. This approach was chosen for its simplicity. However,
+there is a configuration file that can be updated to specify exactly
+which modules to load and in what order to load them. This makes the
+configuration a bit more complex, but provides the ability to specify
+that modules that are not needed should not be loaded. The primary
+benefit is reducing the memory footprint of the application. However,
+there are some security benefits, as well. It is best not to load a
+module that accepts connections over a network if it is not actually
+needed.</p>
+
+<p>When the module loads, it registers all of its implementations of
+component abstractions with the Asterisk core application. There are
+many types of interfaces that modules can implement and register with
+the Asterisk core. A module is allowed to register as many of these
+different interfaces as it would like. Generally, related
+functionality is grouped into a single module.</p>
+
+<div class="subsect" id="sec.asterisk.drivers">
+<h3>1.2.1. Channel Drivers</h3>
+
+<p>The Asterisk channel driver interface is the most complex and most
+important interface available. The Asterisk channel API provides the
+telephony protocol abstraction which allows all other Asterisk
+features to work independently of the telephony protocol in use. This
+component is responsible for translating between the Asterisk channel
+abstraction and the details of the telephony technology that it
+implements.</p>
+
+<p>The definition of the Asterisk channel driver interface is called the
+<code>ast_channel_tech</code> interface. It defines a set of methods that
+must be implemented by a channel driver. The first method that a
+channel driver must implement is an <code>ast_channel</code> factory
+method, which is the <code>requester</code> method in
+<code>ast_channel_tech</code>. When an Asterisk channel is created, either
+for an incoming or outgoing phone call, the implementation of
+<code>ast_channel_tech</code> associated with the type of channel needed
+is responsible for instantiation and initialization of the
+<code>ast_channel</code> for that call.</p>
+
+<p>Once an <code>ast_channel</code> has been created, it has a reference to
+the <code>ast_channel_tech</code> that created it.  There are many other
+operations that must be handled in a technology-specific way. When
+those operations must be performed on an <code>ast_channel</code>, the
+handling of the operation is deferred to the appropriate method from
+<code>ast_channel_tech</code>. <a href="#fig.asterisk.twoChannels">Figure&nbsp;1.2</a> shows
+two channels in Asterisk. <a href="#fig.asterisk.channelLayers">Figure&nbsp;1.4</a>
+expands on this to show two bridged channels and how the channel
+technology implementations fit into the picture.</p>
+
+<div class="figure" id="fig.asterisk.channelLayers">
+  <img src="../images/asterisk/channelLayers.png" alt="[Channel Technology and Abstract Channel Layers]" />
+  <p>Figure&nbsp;1.4: Channel Technology and Abstract Channel Layers</p>
+</div>
+
+<p>The most important methods in <code>ast_channel_tech</code> are:</p>
+
+<ul>
+
+<li><code>requester</code>: This callback is used to
+request a channel driver to instantiate an
+<code>ast_channel</code> object and initialize it as
+appropriate for this channel type.</li>
+
+<li><code>call</code>: This callback is used to initiate an
+outbound call to the endpoint represented by an
+<code>ast_channel</code>.</li>
+
+<li><code>answer</code>: This is called when Asterisk
+decides that it should answer the inbound call associated with this
+<code>ast_channel</code>.</li>
+
+<li><code>hangup</code>: This is called when the system has
+determined that the call should be hung up. The channel driver will
+then communicate to the endpoint that the call is over in a protocol
+specific manner.</li>
+
+<li><code>indicate</code>: Once a call is up, there are a
+number of other events that may occur that need to be signalled to an
+endpoint. For example, if the device is put on hold, this callback
+is called to indicate that condition. There may be a protocol
+specific method of indicating that the call has been on hold, or the
+channel driver may simply initiate the playback of music on hold to
+the device.</li>
+
+<li><code>send_digit_begin</code>: This function is called
+to indicate the beginning of a digit (DTMF) being sent to this
+device.</li>
+
+<li><code>send_digit_end</code>: This function is called to
+indicate the end of a digit (DTMF) being sent to this device.</li>
+
+<li><code>read</code>: This function is called by the
+Asterisk core to read back an <code>ast_frame</code> from this
+endpoint. An <code>ast_frame</code> is an abstraction in
+Asterisk that is used to encapsulate media (such as audio or video),
+as well as to signal events.</li>
+
+<li><code>write</code>: This function is used to send an
+<code>ast_frame</code> to this device. The channel driver will
+take the data and packetize it as appropriate for the telephony
+protocol that it implements and pass it along to the
+endpoint.</li>
+
+<li><code>bridge</code>: This is the native bridge callback
+for this channel type. As discussed before, native bridging is when
+a channel driver is able to implement a more efficient bridging
+method for two channels of the same type instead of having all
+signalling and media flow through additional unnecessary abstraction
+layers. This is incredibly important for performance reasons.</li>
+
+</ul>
+
+<p class="continue">Once a call is over, the abstract channel handling code that lives in
+the Asterisk core will invoke the <code>ast_channel_tech hangup</code>
+callback and then destroy the <code>ast_channel</code> object.</p>
+
+</div>
+
+<div class="subsect">
+<h3>1.2.2. Dialplan Applications</h3>
+
+<p>Asterisk administrators set up call routing using the Asterisk
+dialplan, which resides in the <code>/etc/asterisk/extensions.conf</code>
+file. The dialplan is made up of a series of call rules called
+extensions. When a phone call comes in to the system, the dialed
+number is used to find the extension in the dialplan that should be
+used for processing the call.  The extension includes a list of
+dialplan applications which will be executed on the channel. The
+applications available for execution in the dialplan are maintained in
+an application registry. This registry is populated at runtime as
+modules are loaded.</p>
+
+<p>Asterisk has nearly two hundred included applications. The definition
+of an application is very loose. Applications can use any of the
+Asterisk internal APIs to interact with the channel. Some applications
+do a single task, such as <code>Playback</code>, which plays back a sound
+file to the caller. Other applications are much more involved and
+perform a large number of operations, such as the <code>Voicemail</code>
+application.</p>
+
+<p>Using the Asterisk dialplan, multiple applications can be used
+together to customize call handling. If more extensive customization
+is needed beyond what is possible in the provided dialplan language,
+there are scripting interfaces available that allow call handling to
+be customized using any programming language. Even when using these
+scripting interfaces with another programming language, dialplan
+applications are still invoked to interact with the channel.</p>
+
+<p>Before we get into an example, let's have a look at the syntax of an
+Asterisk dialplan that handles calls to the number <code>1234</code>. Note
+that the choice of <code>1234</code> here is arbitrary. It invokes three
+dialplan applications. First, it answers the call. Next, it plays back
+a sound file. Finally, it hangs up the call.</p>
+
+<pre>
+; Define the rules for what happens when someone dials 1234.
+;
+exten =&gt; 1234,1,Answer()
+    same =&gt; n,Playback(demo-congrats)
+    same =&gt; n,Hangup()
+</pre>
+
+<p class="continue">The <code>exten</code> keyword is used to define the extension.  On the
+right side of the <code>exten</code> line, the <code>1234</code> means that we are
+defining the rules for when someone calls <code>1234</code>.  The next
+<code>1</code> means this is the first step that is taken when that number
+is dialed. Finally, <code>Answer</code> instructs the system to answer the
+call.  The next two lines that begin with the <code>same</code> keyword are
+rules for the last extension that was specified, which in this case is
+<code>1234</code>.  The <code>n</code> is short for saying that this is the next
+step to take.  The last item on those lines specifies what action to
+take.</p>
+
+<p>Here is another example of using the Asterisk dialplan. In this case,
+an incoming call is answered. The caller is played a beep, and then up
+to 4 digits are read from the caller and stored into the <code>DIGITS</code>
+variable. Then, the digits are read back to the caller. Finally, the
+call is ended.</p>
+
+<pre>
+exten =&gt; 5678,1,Answer()
+    same =&gt; n,Read(DIGITS,beep,4)
+    same =&gt; n,SayDigits(${DIGITS})
+    same =&gt; n,Hangup()
+</pre>
+
+<p>As previously mentioned, the definition of an application is very
+loose&mdash;the function prototype registered is very simple:</p>
+
+<pre>
+int (*execute)(struct ast_channel *chan, const char *args);
+</pre>
+
+<p class="continue">However, the application implementations use virtually all of the
+APIs found in <code>include/asterisk/</code>.</p>
+
+</div>
+
+<div class="subsect">
+<h3>1.2.3. Dialplan Functions</h3>
+
+<p>Most dialplan applications take a string of arguments.  While some
+values may be hard coded, variables are used in places where behavior
+needs to be more dynamic.  The following example shows a dialplan
+snippet that sets a variable and then prints out its value to the
+Asterisk command line interface using the <code>Verbose</code> application.</p>
+
+<pre>
+exten =&gt; 1234,1,Set(MY_VARIABLE=foo)
+    same =&gt; n,Verbose(MY_VARIABLE is ${MY_VARIABLE})
+</pre>
+
+<p>Dialplan functions are invoked by using the same syntax as the
+previous example. Asterisk modules are able to register dialplan
+functions that can retrieve some information and return it to the
+dialplan. Alternatively, these dialplan functions can receive data
+from the dialplan and act on it. As a general rule, while dialplan
+functions may set or retrieve channel meta data, they do not do any
+signalling or media processing. That is left as the job of dialplan
+applications.</p>
+
+<p>The following example demonstrates usage of a dialplan function.
+First, it prints out the CallerID of the current channel to the
+Asterisk command line interface. Then, it changes the CallerID by
+using the <code>Set</code> application. In this example, <code>Verbose</code>
+and <code>Set</code> are applications, and <code>CALLERID</code> is a function.</p>
+
+<pre>
+exten =&gt; 1234,1,Verbose(The current CallerID is ${CALLERID(num)})
+    same =&gt; n,Set(CALLERID(num)=&lt;256&gt;555-1212)
+</pre>
+
+<p class="continue">A dialplan function is needed here instead of just a simple variable
+since the CallerID information is stored in data structures on the
+instance of <code>ast_channel</code>. The dialplan function code knows how
+to set and retrieve the values from these data structures.</p>
+
+<p>Another example of using a dialplan function is for adding custom
+information into the call logs, which are referred to as CDRs (Call
+Detail Records). The <code>CDR</code> function allows the retrieval of call
+detail record information, as well as adding custom information.</p>
+
+<pre>
+exten =&gt; 555,1,Verbose(Time this call started: ${CDR(start)})
+    same =&gt; n,Set(CDR(mycustomfield)=snickerdoodle)
+</pre>
+
+</div>
+
+<div class="subsect">
+<h3>1.2.4. Codec Translators</h3>
+
+<p>In the world of VOIP, many different codecs are used for
+encoding media to be sent across networks. The variety of choices
+offers tradeoffs in media quality, CPU consumption, and bandwidth
+requirements. Asterisk supports many different codecs and knows how to
+translate between them when necessary.</p>
+
+<p>When a call is set up, Asterisk will attempt to get two endpoints to
+use a common media codec so that transcoding is not required.
+However, that is not always possible. Even if a common codec is being
+used, transcoding may still be required. For example, if Asterisk is
+configured to do some signal processing on the audio as it passes
+through the system (such as to increase or decrease the volume level),
+Asterisk will need to transcode the audio back to an uncompressed form
+before it can perform the signal processing. Asterisk can also be
+configured to do call recording. If the configured format for the
+recording is different than that of the call, transcoding will be
+required.</p>
+
+<div class="box">
+  <p class="boxtitle">Codec Negotiation</p>
+
+<p>The method used to negotiate which codec will be used for a media
+stream is specific to the technology used to connect the call to
+Asterisk. In some cases, such as a call on the traditional telephone
+network (the PSTN), there may not be any negotiation to do. However,
+in other cases, especially using IP protocols, there is a negotiation
+mechanism used where capabilities and preferences are expressed and a
+common codec is agreed upon.</p>
+
+<p>For example, in the case of SIP (the most commonly used VOIP
+protocol) this is a high level view of how codec negotiation is
+performed when a call is sent to Asterisk.</p>
+
+<ol>
+
+  <li>An endpoint sends a new call request to Asterisk which includes
+  the list of codecs it is willing to use.</li>
+
+  <li>Asterisk consults its configuration provided by the
+  administrator which includes a list of allowed codecs in preferred
+  order. Asterisk will respond by choosing the most preferred codec
+  (based on its own configured preferences) that is listed as allowed
+  in the Asterisk configuration and was also listed as supported in
+  the incoming request.</li>
+
+</ol>
+
+<p>One area that Asterisk does not handle very well is that of more
+complex codecs, especially video. Codec negotiation demands have
+gotten more complicated over the last ten years. We have more work to
+do to be able to better deal with the newest audio codecs and to be
+able to support video much better than we do today. This is one of the
+top priorities for new development for the next major release of
+Asterisk.</p>
+
+</div>
+
+<p>Codec translator modules provide one or more implementations of the
+<code>ast_translator</code> interface. A translator has source and
+destination format attributes. It also provides a callback that will
+be used to convert a chunk of media from the source to the destination
+format. It knows nothing about the concept of a phone call. It only
+knows how to convert media from one format to another.</p>
+
+<p>For more detailed information about the translator API, see
+<code>include/asterisk/translate.h</code> and
+<code>main/translate.c</code>. Implementations of the translator abstraction
+can be found in the <code>codecs</code> directory.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>1.3. Threads</h2>
+
+<p>Asterisk is a very heavily multithreaded application. It uses the
+POSIX threads API to manage threads and related services such as
+locking.  All of the Asterisk code that interacts with threads does so
+by going through a set of wrappers used for debugging purposes. Most
+threads in Asterisk can be classified as either a Network Monitor
+Thread, or a Channel Thread (sometimes also referred to as a PBX
+thread, because its primary purpose is to run the PBX for a channel).</p>
+
+<div class="subsect">
+<h3>1.3.1. Network Monitor Threads</h3>
+
+<p>Network monitor threads exist in every major channel driver in
+Asterisk. They are responsible for monitoring whatever network they
+are connected to (whether that is an IP network, the PSTN, etc.) and
+monitor for incoming calls or other types of incoming requests. They
+handle the initial connection setup steps such as authentication and
+dialed number validation. Once the call setup has been completed, the
+monitor threads will create an instance of an Asterisk channel
+(<code>ast_channel</code>), and start a channel thread to handle the call
+for the rest of its lifetime.</p>
+
+</div>
+
+<div class="subsect">
+<h3>1.3.2. Channel Threads</h3>
+
+<p>As discussed earlier, a channel is a fundamental concept in
+Asterisk. Channels are either inbound or outbound. An inbound channel
+is created when a call comes in to the Asterisk system. These channels
+are the ones that execute the Asterisk dialplan. A thread is created
+for every inbound channel that executes the dialplan. These threads
+are referred to as channel threads.</p>
+
+<p>Dialplan applications always execute in the context of a channel
+thread. Dialplan functions <em>almost</em> always do, as well. It is
+possible to read and write dialplan functions from an asynchronous
+interface such as the Asterisk CLI. However, it is still always the
+channel thread that is the owner of the <code>ast_channel</code> data
+structure and controls the object lifetime.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>1.4. Call Scenarios</h2>
+
+<p>The previous two sections introduced important interfaces for Asterisk
+components, as well as the thread execution model. In this section,
+some common call scenarios are broken down to demonstrate how Asterisk
+components operate together to process phone calls.</p>
+
+<div class="subsect">
+<h3>1.4.1. Checking Voicemail</h3>
+
+<p>One example call scenario is when someone calls into the phone system
+to check their Voicemail. The first major component involved in this
+scenario is the channel driver. The channel driver will be responsible
+for handling the incoming call request from the phone, which will
+occur in the channel driver's monitor thread. Depending on the
+telephony technology being used to deliver the call to the system,
+there may be some sort of negotiation required to set up the
+call. Another step of setting up the call is determining the intended
+destination for the call. This is usually specified by the number that was dialed
+by the caller.  However, in some cases there is no specific number
+available since the technology used to deliver the call does not
+support specifying the dialed number. An example of this would be an
+incoming call on an analog phone line.</p>
+
+<p>If the channel driver verifies that the Asterisk configuration has
+extensions defined in the dialplan (the call routing configuration)
+for the dialed number, it will then allocate an Asterisk channel
+object (<code>ast_channel</code>) and create a channel thread. The channel
+thread has the primary responsibility for handling the rest of the
+call (<a href="#fig.asterisk.callSetupSequence">Figure&nbsp;1.5</a>).</p>
+
+<div class="figure" id="fig.asterisk.callSetupSequence">
+  <img src="../images/asterisk/callSetupSequence.png" alt="[Call Setup Sequence Diagram]" />
+  <p>Figure&nbsp;1.5: Call Setup Sequence Diagram</p>
+</div>
+
+<p>The main loop of the channel thread handles dialplan execution. It
+goes to the rules defined for the dialed extension and executes the
+steps that have been defined. The following is an example extension
+expressed in the <code>extensions.conf</code> dialplan syntax.  This
+extension answers the call and executes the <code>VoicemailMain</code>
+application when someone dials <code>*123</code>. This application is what a
+user would call to be able to check messages left in their mailbox.</p>
+
+<pre>
+exten =&gt; *123,1,Answer()
+    same =&gt; n,VoicemailMain()
+</pre>
+
+<p class="continue">When the channel thread executes the <code>Answer</code> application,
+Asterisk will answer the incoming call. Answering a call requires
+technology specific processing, so in addition to some generic answer
+handling, the <code>answer</code> callback in the associated
+<code>ast_channel_tech</code> structure is called to handle answering the
+call. This may involve sending a special packet over an IP network,
+taking an analog line off hook, etc.</p>
+
+<p>The next step is for the channel thread to execute
+<code>VoicemailMain</code>
+(<a href="#fig.asterisk.blockDiagramVoicemail">Figure&nbsp;1.6</a>). This application is
+provided by the <code>app_voicemail</code> module. One important thing to
+note is that while the Voicemail code handles a lot of call
+interaction, it knows nothing about the technology that is being used
+to deliver the call into the Asterisk system. The Asterisk channel
+abstraction hides these details from the Voicemail implementation.</p>
+
+<p>There are many features involved in providing a caller access to their
+Voicemail. However, all of them are primarily implemented as reading
+and writing sound files in response to input from the caller,
+primarily in the form of digit presses. DTMF digits can be delivered
+to Asterisk in many different ways. Again, these details are handled
+by the channel drivers. Once a key press has arrived in Asterisk, it
+is converted into a generic key press event and passed along to the
+Voicemail code.</p>
+
+<p>One of the important interfaces in Asterisk that has been discussed is
+that of a codec translator. These codec implementations are very
+important to this call scenario. When the Voicemail code would like to
+play back a sound file to the caller, the format of the audio in the
+sound file may not be the same format as the audio being used in the
+communication between the Asterisk system and the caller. If it must
+transcode the audio, it will build a translation path of one or more
+codec translators to get from the source to the destination format.</p>
+
+<div class="figure" id="fig.asterisk.blockDiagramVoicemail">
+  <img src="../images/asterisk/voicemail.png" alt="[A Call to VoicemailMain]" />
+  <p>Figure&nbsp;1.6: A Call to <code>VoicemailMain</code></p>
+</div>
+
+<p>At some point, the caller will be done interacting with the Voicemail
+system and hang up. The channel driver will detect that this has
+occurred and convert this into a generic Asterisk channel signalling
+event. The Voicemail code will receive this signalling event and will
+exit, since there is nothing left to do once the caller hangs up.
+Control will return back to the main loop in the channel thread to
+continue dialplan execution. Since in this example there is no further
+dialplan processing to be done, the channel driver will be given an
+opportunity to handle technology specific hangup processing and then
+the <code>ast_channel</code> object will be destroyed.</p>
+
+</div>
+
+<div class="subsect">
+<h3>1.4.2. Bridged Call</h3>
+
+<p>Another very common call scenario in Asterisk is a bridged call
+between two channels. This is the scenario when one phone calls
+another through the system. The initial call setup process is
+identical to the previous example. The difference in handling begins
+when the call has been set up and the channel thread begins executing
+the dialplan.</p>
+
+<p>The following dialplan is a simple example that results in a bridged
+call. Using this extension, when a phone dials <code>1234</code>, the
+dialplan will execute the <code>Dial</code> application, which is the main
+application used to initiate an outbound call.</p>
+
+<pre>
+exten =&gt; 1234,1,Dial(SIP/bob)
+</pre>
+
+<p class="continue">The argument specified to the <code>Dial</code> application says that the
+system should make an outbound call to the device referred to as
+<code>SIP/bob</code>. The <code>SIP</code> portion of this argument specifies that
+the SIP protocol should be used to deliver the call. <code>bob</code> will
+be interpreted by the channel driver that implements the SIP protocol,
+<code>chan_sip</code>.  Assuming the channel driver has been properly
+configured with an account called <code>bob</code>, it will know how to
+reach Bob's phone.</p>
+
+<p>The <code>Dial</code> application will ask the Asterisk core to allocate a
+new Asterisk channel using the <code>SIP/bob</code> identifier. The core
+will request that the SIP channel driver perform technology specific
+initialization. The channel driver will also initiate the process of
+making a call out to the phone. As the request proceeds, it will pass
+events back into the Asterisk core, which will be received by the
+<code>Dial</code> application. These events may include a response that the
+call has been answered, the destination is busy, the network is
+congested, the call was rejected for some reason, or a number of other
+possible responses. In the ideal case, the call will be answered. The
+fact that the call has been answered is propagated back to the inbound
+channel. Asterisk will not answer the part of the call that came into
+the system until the outbound call was answered.  Once both channels
+are answered, the bridging of the channels begins
+(<a href="#fig.asterisk.genericBridge">Figure&nbsp;1.7</a>).</p>
+
+<div class="figure" id="fig.asterisk.genericBridge">
+  <img src="../images/asterisk/bridgedCall.png" alt="[Block Diagram of a Bridged Call in a Generic Bridge]" />
+  <p>Figure&nbsp;1.7: Block Diagram of a Bridged Call in a Generic Bridge</p>
+</div>
+
+<p>During a channel bridge, audio and signalling events from one channel
+are passed to the other until some event occurs that causes the bridge
+to end, such as one side of the call hanging up. The sequence diagram
+in <a href="#fig.asterisk.frameProcessSequence">Figure&nbsp;1.8</a> demonstrates the key
+operations that are performed for an audio frame during a bridged
+call.</p>
+
+<div class="figure" id="fig.asterisk.frameProcessSequence">
+  <img src="../images/asterisk/bridgeFrameProcessSequence.png" alt="[Sequence Diagram for Audio Frame Processing During a Bridge]" />
+  <p>Figure&nbsp;1.8: Sequence Diagram for Audio Frame Processing During a Bridge</p>
+</div>
+
+<p>Once the call is done, the hangup process is very similar to the
+previous example. The major difference here is that there are two
+channels involved. The channel technology specific hangup processing
+will be executed for both channels before the channel thread stops
+running.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>1.5. Final Comments</h2>
+
+<p>The architecture of Asterisk is now more than ten years old.  However,
+the fundamental concepts of channels and flexible call handling using
+the Asterisk dialplan still support the development of complex
+telephony systems in an industry that is continuously evolving. One
+area that the architecture of Asterisk does not address very well is
+scaling a system across multiple servers. The Asterisk development
+community is currently developing a companion project called Asterisk
+SCF (Scalable Communications Framework) which is intended to address
+these scalability concerns. In the next few years, we expect to see
+Asterisk, along with Asterisk SCF, continue to take over significant
+portions of the telephony market, including much larger installations.</p>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://www.asterisk.org/</code></li>
+<li id="footnote-2">DTMF stands for
+    Dual-Tone Multi-Frequency. This is the tone that is sent in the
+    audio of a phone call when someone presses a key on their
+    telephone.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

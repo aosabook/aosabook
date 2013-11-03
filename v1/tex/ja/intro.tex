@@ -1,0 +1,483 @@
+%% \begin{aosachapter}{Introduction}{s:intro}{Amy Brown and Greg Wilson}
+%% Based on EN-Revision r229
+\begin{aosachapter}{導入}{s:intro}{Amy Brown \& Greg Wilson}
+
+%% Carpentry is an exacting craft, and people can spend their entire
+%% lives learning how to do it well.  But carpentry is not architecture:
+%% if we step back from pitch boards and miter joints, buildings as a
+%% whole must be designed, and doing that is as much an art as it is a
+%% craft or science.
+大工仕事は非常に奥の深いものであり、人はみな、上達するための方法を一生涯かけて学び続けることになる。しかし、大工仕事と建築様式は異なる。ピッチ板や留め継ぎの世界から一歩離れて見渡せば、建造物全体を見た設計が必要になる。そしてそれは、技術的・科学的であるのと同程度に芸術の要素もある。
+
+%% Programming is also an exacting craft, and people can spend their entire lives
+%% learning how to do it well.  But programming is not software architecture. 
+%% Many programmers spend years thinking about
+%% (or wrestling with) larger design issues: Should this application be
+%% extensible?  If so, should that be done by providing a scripting
+%% interface, through some sort of plugin mechanism, or in some other way
+%% entirely?  What should be done by the client, what should be left to
+%% the server, and is ``client-server'' even a useful way to think about
+%% this application?  These are not programming questions, any more than
+%% where to put the stairs is a question of carpentry.
+プログラミングもまた奥の深い作業であり、人はみな、上達するための方法を一生涯かけて学び続けることになる。しかし、プログラミングとソフトウェアアーキテクチャは異なる。多くのプログラマは、何年もかけて大規模な設計の問題に取り組む。「このアプリケーションを拡張可能にすべきだろうか？」「仮にそうだとして、その手法はどうする？スクリプトで拡張できるようにするのかプラグイン的な仕組みを取り入れるのか、あるいはまったく異なる別の方法を考える？」「クライアント側でやるべき処理とサーバー側でやるべき処理の切り分けはどうする？そもそもこのアプリケーションを``クライアント・サーバー''型で考えるのは適切なのか？」といった問題だ。これらの問いは、プログラミングに関するものではない。「階段をどこに配置するか」という問いが大工仕事とは関係ないのと同じことだ。
+
+%% Building architecture and software architecture have a lot in common,
+%% but there is one crucial difference.  While architects study
+%% thousands of buildings in their training and during their careers,
+%% most software developers only ever get to know a handful of large
+%% programs well.  And more often than not, those are programs they wrote
+%% themselves.  They never get to see the great programs of history, or
+%% read critiques of those programs' designs written by experienced
+%% practitioners.  As a result, they repeat one another's mistakes rather
+%% than building on one another's successes.
+建築様式とソフトウェアアーキテクチャには共通点も多いが、決定的な違いがひとつある。建築家はその生涯を通じて何千ものビルについて研究を重ねるが、大半のソフトウェア開発者はほんの一握りの大規模ソフトウェアしか知ることがない。しかも、その数少ないソフトウェアは自分たちが書いたものであることが多い。ソフトウェア開発者は歴史上の偉大なプログラムを振り返ることもないし、そういったプログラムの設計に関する熟練者の批評を読むこともない。その結果、先人の成功例を参考にすることもできずに同じ過ちを繰り返す。
+
+%% This book is our attempt to change that.  Each chapter describes the
+%% architecture of an open source application: how it is structured, how
+%% its parts interact, why it's built that way, and what lessons have
+%% been learned that can be applied to other big design problems.  The
+%% descriptions are written by the people who know the software
+%% best, people with years or decades of experience designing and
+%% re-designing complex applications.  The applications themselves range
+%% in scale from simple drawing programs and web-based spreadsheets to
+%% compiler toolkits and multi-million line visualization packages.  Some
+%% are only a few years old, while others are approaching their thirtieth
+%% anniversary.  What they have in common is that their creators have
+%% thought long and hard about their design, and are willing to share
+%% those thoughts with you.  We hope you enjoy what they have written.
+そんな状況をどうにかしたいと思って本書を書いた。各章では、オープンソースアプリケーションのアーキテクチャについて解説している。どのような構造になっているのか、各パーツがどのように絡み合っているのか、なぜその方式を採用したのか、他の設計上の問題に適用できそうな教訓は何か、といった内容だ。執筆者はそのソフトウェアをもっともよく知る人たちで、何年あるいは何十年もの間、複雑なアプリケーションの設計を経験してきた。本書ではさまざまなアプリケーションを取り上げる。シンプルなドローツールやウェブベースの表計算ソフトもあれば、コンパイラツールキットや数百万行規模の視覚化パッケージもある。数年前に生まれたばかりのアプリケーションもあれば、30周年を迎えるアプリケーションもある。すべてのアプリケーションに共通しているのは、作者が長い時間をかけて真剣に設計を考えたこと。そしてその考えを皆で分かち合いたいと考えているということだ。きっと読者のみなさんにも楽しんでもらえるだろう。
+
+%% \section*{Contributors}
+\section*{執筆者}
+
+%% \indent \indent \emph{Eric P\@. Allman (Sendmail)}: Eric Allman is the
+%% original author of sendmail, syslog, and trek, and the co-founder
+%% of Sendmail, Inc.  He has been writing open source software since
+%% before it had a name, much less became a ``movement''.  He is a
+%% member of the \emph{ACM Queue} Editorial Review Board and the Cal
+%% Performances Board of Trustees.  His personal web site
+%% is \url{http://www.neophilic.com/~eric}.
+\indent \indent \emph{Eric P\@. Allman (Sendmail)}: Eric Allmanはsendmailやsyslogそしてtrekの原作者であり、Sendmail, Inc.の共同創業者でもある。彼がオープンソースソフトウェアを書き始めたころにはまだ``オープンソース''などという名前はついておらず、ましてや今のような``ブーム''にはなっていなかった。彼は\emph{ACM Queue} Editorial Review BoardおよびCal Performances Board of Trusteesのメンバーである。個人サイトは\url{http://www.neophilic.com/~eric}だ。
+
+%% \pagebreak
+
+%% \emph{Keith Bostic (Berkeley DB)}: Keith was a member of the University
+%% of California Berkeley Computer Systems Research Group, where he was the
+%% architect of the 2.10BSD release and a principal developer of 4.4BSD and
+%% related releases.  He received the USENIX Lifetime Achievement Award (``The
+%% Flame''), which recognizes singular contributions to the Unix community, as well
+%% as a Distinguished Achievement Award from the University of California,
+%% Berkeley, for making the 4BSD release open source.  Keith was the
+%% architect and one of the original developers of Berkeley DB, the open source
+%% embedded database system.  
+\emph{Keith Bostic (Berkeley DB)}: Keithはカリフォルニア大学バークレー校のComputer Systems Research Groupのメンバーだった。そこで2.10BSDリリースのアーキテクトや4.4BSDおよび関連リリースの開発リーダーをつとめた。彼はUSENIX Lifetime Achievement Award (``The Flame'')を受賞した。これはUnixコミュニティへの並はずれた貢献を認められたものだ。また、カリフォルニア大学バークレー校からDistinguished Achievement Awardも受賞している。これは4BSDリリースをオープンソースにしたことに対するものだ。KeithはBerkeley DBのアーキテクトかつ開発者の一員だった。Berkeley DBは、オープンソースの組み込みデータベースシステムである。
+
+%% \emph{Amy Brown (editorial)}: Amy has a bachelor's degree in Mathematics
+%% from the University of Waterloo, and worked in the software industry for ten
+%% years.  She now writes and edits books, sometimes about software. She also
+%% sings and organizes other people's lives---professionally and recreationally.
+\emph{Amy Brown (編集担当)}: Amyはウォータールー大学で数学の学士号を取得し、ソフトウェア業界で10年の勤務経験を持つ。現在は、書籍の執筆や編集に携わりつつ時にはソフトウェアも書く。彼女は歌手でもあり、他の人のライブを仕切ったりもする - プロもいれば趣味の人もいる。
+
+%% \emph{C. Titus Brown (Continuous Integration)}: Titus has worked in
+%% evolutionary modeling, physical meteorology, developmental biology, genomics,
+%% and bioinformatics. He is now an Assistant Professor at Michigan State
+%% University, where he has expanded his interests into several new areas,
+%% including reproducibility and maintainability of scientific software. He is
+%% also a member of the Python Software Foundation, and blogs at
+%% \url{http://ivory.idyll.org}.
+\emph{C. Titus Brown (Continuous Integration)}: Titusは、進化的モデリングや物理気象学、発生生物学、ゲノミクス、そしてバイオインフォマティクスを研究している。現在はミシガン州立大学の准教授であり、科学的ソフトウェアの再現性や保守性にまで興味の範囲を広げている。彼はPython Software Foundationのメンバーでもあり、ブログは\url{http://ivory.idyll.org}にある。
+
+%% \emph{Roy Bryant (Snowflock)}: In 20 years as a software
+%% architect and CTO, Roy designed systems including Electronics
+%% Workbench (now National Instruments' Multisim) and the Linkwalker
+%% Data Pipeline, which won Microsoft's worldwide Winning Customer
+%% Award for High-Performance Computing in 2006. After selling his
+%% latest startup, he returned to the University of Toronto to do
+%% graduate studies in Computer Science with a research focus on
+%% virtualization and cloud computing. Most recently, he published
+%% his Kaleidoscope extensions to Snowflock at ACM's Eurosys
+%% Conference in 2011.  His personal web site
+%% is \url{http://www.roybryant.net/}.
+\emph{Roy Bryant (Snowflock)}: ソフトウェアアーキテクトおよびCToとして20年の経験を持つRoyは、Electronics Workbench(現在のNational Instruments' Multisim)やLinkwalker Data Pipelineといったシステムを設計した。Linkwalker Data Pipelineは、Microsoft's worldwide Winning Customer Award for High-Performance Computingを2006年に受賞した。最後に在籍したスタートアップを売却した彼はトロント大学に戻り、大学院でコンピュータサイエンスを研究している。専門は、ビジュアライゼーションとクラウドコンピューティングだ。最近は、ACMのEurosys Conference in 2011でSnowflock用のKaleidoscope拡張について発表した。個人サイトは\url{http://www.roybryant.net/}である。
+
+%% \emph{Russell Bryant (Asterisk)}: Russell is the Engineering
+%% Manager for the Open Source Software team at Digium, Inc. He has
+%% been a core member of the Asterisk development team since the Fall
+%% of 2004. He has since contributed to almost all areas of Asterisk
+%% development, from project management to core architectural design
+%% and development.  He blogs at
+%% \url{http://www.russellbryant.net}.
+\emph{Russell Bryant (Asterisk)}: RussellはDigium, Inc.のオープンソースソフトウェアチームでエンジニアリングマネージャーを務めている。また、2004年の秋からAsterisk開発チームのコアメンバーとして活動している。これまでに、Asteriskの開発におけるほぼすべての分野に貢献をしてきた。プロジェクトの運営からアーキテクチャ設計、そして開発まで。彼のブログは\url{http://www.russellbryant.net}である。
+
+%% \emph{Rosangela Canino-Koning (Continuous Integration)}:
+%% After 13 years of slogging in the software industry trenches,
+%% Rosangela returned to university to pursue a Ph.D.\ in Computer
+%% Science and Evolutionary Biology at Michigan State University. In
+%% her copious spare time, she likes to read, hike, travel, and hack
+%% on open source bioinformatics software.  She blogs at
+%% \url{http://www.voidptr.net}.
+\emph{Rosangela Canino-Koning (Continuous Integration)}: ソフトウェア業界の最前線での13年間を経てRosangelaは大学に戻り、ミシガン州立大学でコンピュータサイエンスと進化生物学の博士号取得を目指している。空き時間には読書やハイキング、旅行などを楽しむほか、オープンソースのバイオインフォマティクスソフトウェアをハックすることもある。彼女のブログは\url{http://www.voidptr.net}である。
+
+%% \emph{Francesco Cesarini (Riak)}: Francesco Cesarini has
+%% used Erlang on a daily basis since 1995, having worked in various
+%% turnkey projects at Ericsson, including the OTP R1 release. He is
+%% the founder of Erlang Solutions and co-author of
+%% O'Reilly's \emph{Erlang Programming}. He currently works as
+%% Technical Director at Erlang Solutions, but still finds the time
+%% to teach graduates and undergraduates alike at Oxford University in
+%% the UK and the IT University of Gotheburg in Sweden.
+\emph{Francesco Cesarini (Riak)}: Francesco CesariniがErlangを常用しはじめたのは1995年のことだった。その後もEricssonでさまざまなプロジェクトに参加し、OTP R1リリースにもかかわっている。彼はErlang Solutionsの創設者であり、O'Reillyの\emph{Erlang Programming}の共著者でもある。現在はErlang Solutionsのテクニカルディレクターとして働いているが、イギリスのオックスフォード大学やスウェーデンのヨーテボリ大学で学生や院生を教えることもある。
+
+%% \emph{Robert Chansler (HDFS)}: Robert is a Senior Manager for Software
+%% Development at Yahoo!  After graduate studies in distributed systems
+%% at Carnegie-Mellon University, he worked on compilers (Tartan Labs),
+%% printing and imaging systems (Adobe Systems), electronic commerce
+%% (Adobe Systems, Impresse), and storage area network management
+%% (SanNavigator, McDATA). Returning to distributed systems and HDFS, Rob
+%% found many familiar problems, but all of the numbers had two or three
+%% more zeros.
+\emph{Robert Chansler (HDFS)}: RobertはYahoo!に在籍するソフトウェア開発のシニアマネージャーである。カーネギーメロン大学の大学院で分散システムを研究した彼はその後、コンパイラ(Tartan Labs)、印刷・画像処理システム(Adobe Systems)、電子商取引(Adobe Systems, Impresse)、SAN管理(SanNavigator, McDATA)などにかかわった。分散システムやHDFSの世界に戻ってきた彼は、解決すべき課題が以前とあまり変わっていないことに気付いた。しかし、登場する数値はどれもみな、ゼロが2つか3つ多くなっていた。
+
+%% \emph{James Crook (Audacity)}: James is a contract software
+%% developer based in Dublin, Ireland. Currently he is working on
+%% tools for electronics design, though in a previous life he
+%% developed bioinformatics software.  He has many audacious plans
+%% for Audacity, and he hopes some, at least, will see the light of day.
+\emph{James Crook (Audacity)}: Jamesはアイルランドのダブリンに住むソフトウェア開発者。現在は電子工学設計用のツールにかかわっているが、かつてはバイオインフォマティクスソフトウェアを開発していたこともある。彼はAudacityに関する多くの野望を抱えており、その中のいくつかだけでも日の目を見ることを望んでいる。
+
+%% \pagebreak
+
+%% \emph{Chris Davis (Graphite)}: Chris is a software
+%% consultant and Google engineer who has been designing and building
+%% scalable monitoring and automation tools for over 12 years. Chris
+%% originally wrote Graphite in 2006 and has lead the open source
+%% project ever since. When he's not writing code he enjoys cooking,
+%% making music, and doing research. His research interests include
+%% knowledge modeling, group theory, information theory, chaos
+%% theory, and complex systems.
+\emph{Chris Davis (Graphite)}: Chrisはソフトウェアコンサルタントであり、Googleのエンジニアとしてスケーラブルな監視・自動化ツールの設計と構築に12年以上携わっている。ChrisがGraphiteを書き始めたのは2006年で、それ以降ずっとこのプロジェクトを率いている。コードを書いていないときの彼は、料理や作曲そして研究などをしている。彼の研究分野は、知識モデリングや群論、情報理論、カオス理論、そして複雑系などだ。
+
+%% \emph{Juliana Freire (VisTrails)}: Juliana is an Associate Professor
+%% of Computer Science at the University of Utah. Before that, she was member
+%% of technical staff at the Database Systems Research Department at Bell
+%% Laboratories (Lucent Technologies) and an Assistant Professor at
+%% OGI/OHSU\@. Her research interests include provenance, scientific data
+%% management, information integration, and Web mining.  She is a
+%% recipient of an NSF CAREER and an IBM Faculty award.  Her research has
+%% been funded by the National Science Foundation, Department of Energy,
+%% National Institutes of Health, IBM, Microsoft and Yahoo!
+\emph{Juliana Freire (VisTrails)}: Julianaは、ユタ大学のコンピュータサイエンスの准教授である。それ以前には、ベル研究所(ルーセント・テクノロジーズ)のデータベースシステム研究部門に在籍したりオレゴン健康科学大学/オレゴン科学技術大学院大学に準教授として在籍したりしていた。彼女の研究分野は、起源や科学データ管理、情報統合、そしてウェブマイニングなどだ。彼女はNSF CAREERおよびIBM Faculty Awardを受賞している。また、彼女の研究に対して国立科学財団やエネルギー省、国立衛生研究所、そしてIBMやMicrosoft、Yahoo!が資金提供している。
+
+%% \emph{Berk Geveci (VTK)}: Berk is the Director of Scientific
+%% Computing at Kitware. He is responsible for leading the
+%% development effort of ParaView, an award-winning visualization
+%% application based on VTK\@. His research interests include large
+%% scale parallel computing, computational dynamics, finite elements
+%% and visualization algorithms.
+\emph{Berk Geveci (VTK)}: Berkは、Kitwareで科学計算のリーダーを務めている。彼はParaViewの開発リーダーでもある。ParaViewは、VTK\@をベースとした視覚化アプリケーションである。彼の研究分野は、大規模なパラレルコンピューティングや計算力学、有限要素、そして視覚化アルゴリズムだ。
+
+%% \emph{Andy Gross (Riak)}: Andy Gross is Principal Architect at Basho
+%% Technologies, managing the design and development of Basho's Open
+%% Source and Enterprise data storage systems. Andy started at Basho in
+%% December of 2007 with 10 years of software and distributed systems
+%% engineering experience.  Prior to Basho, Andy held senior distributed
+%% systems engineering positions at Mochi Media, Apple, Inc., and Akamai
+%% Technologies.
+\emph{Andy Gross (Riak)}: Andy GrossはBasho Technologiesのアーキテクト長であり、Bashoのオープンソースおよびエンタープライズデータストレージシステムの設計と開発を仕切っている。AndyがBashoを立ち上げたのは2007年12月。10年におよぶソフトウェア開発や分散システムエンジニアリングの経験を経た後のことだった。Bashoの前にAndyは、分散システムエンジニアリングの上級技術者としてMochi MediaやApple, Inc.、Akamai Technologiesなどに勤めていた。
+
+%% \emph{Bill Hoffman (CMake)}: Bill is CTO and co-Founder of
+%% Kitware, Inc.  He is a key developer of the CMake project, and has
+%% been working with large C++ systems for over 20 years.
+\emph{Bill Hoffman (CMake)}: BillはKitware, Inc.のCTOを務める共同創業者である。彼はCMakeプロジェクトの主要な開発者であり、大規模なC++システムに20年以上携わってきた経験を持つ。
+
+%% \emph{Cay Horstmann (Violet)}: Cay is a professor of
+%% computer science at San Jose State University, but every so often
+%% he takes a leave of absence to work in industry or teach in a
+%% foreign country.  He is the author of many books on programming
+%% languages and software design, and the original author of the
+%% Violet and GridWorld open-source programs.
+\emph{Cay Horstmann (Violet)}: Cayはサンノゼ州立大学でコンピュータサイエンスの教授を務めるが、しょっちゅう休暇をとっては業界で働いていたり外国で教えていたりする。プログラミング言語やソフトウェア設計に関する多くの著作があり、オープンソースのVioletやGridWorldの原作者でもある。
+
+%% \emph{Emil Ivov (Jitsi)}: Emil is the founder and project
+%% lead of the Jitsi project (previously SIP Communicator). He is
+%% also involved with other initiatives like the ice4j.org and JAIN
+%% SIP projects. Emil obtained his Ph.D.\ from the University of
+%% Strasbourg in early 2008, and has been focusing primarily on Jitsi
+%% related activities ever since.
+\emph{Emil Ivov (Jitsi)}: EmilはJitsiプロジェクト(かつてはSIP Communicatorと呼ばれていた)の創設者であり、プロジェクトを率いている。彼は、ice4j.orgやJAIN SIPプロジェクトなど他の場所でも活躍している。Emilは2008年初めにストラスブール大学で博士号を取得した。それ以降は、Jitsi関連の活動に重点を置いている。
+
+%% \emph{David Koop (VisTrails)}: David is a Ph.D.\ candidate in computer
+%% science at the University of Utah (finishing in the summer of
+%% 2011). His research interests include visualization, provenance, and
+%% scientific data management. He is a lead developer of the VisTrails
+%% system, and a senior software architect at VisTrails, Inc.
+\emph{David Koop (VisTrails)}: Davidはユタ大学のコンピュータサイエンスの博士候補(2011年夏に修了予定)。彼の研究分野は、視覚化や起源そして科学データ管理だ。彼はVisTrailsシステムのリード開発者であり、VisTrails, Inc.の上級ソフトウェアアーキテクトである。
+
+%% \emph{Hairong Kuang (HDFS)} is a long time contributor and committer
+%% to the Hadoop project, which she has worked on passionately, currently
+%% at Facebook and previously at Yahoo! Prior to working in industry, she was an
+%% Assistant Professor at California State Polytechnic University,
+%% Pomona. She received a Ph.D.\ in Computer Science from the University of
+%% California at Irvine.  Her interests include cloud computing, mobile
+%% agents, parallel computing, and distributed systems.
+\emph{Hairong Kuang (HDFS)} は、貢献者およびコミッターとして長期にわたってHadoopプロジェクトに長年かかわってきた。かつてはYahoo!で、そして現在はFacebookで働いている。業界で働くようになる前は、彼女はカリフォルニア州立工科大学ポモナ校の准教授だった。カリフォルニア大学アーバイン校でコンピュータサイエンスの博士号を取得している。彼女の研究分野は、クラウドコンピューティングやモバイルエージェント、パラレルコンピューティング、そして分散システムである。
+
+%% \emph{H.\ Andr\'{e}s Lagar-Cavilla (Snowflock)}:
+%% Andr\'{e}s is a software systems researcher who does
+%% experimental work on virtualization, operating systems, security,
+%% cluster computing, and mobile computing. He has a B.A.Sc.\ from
+%% Argentina, and an M.Sc.\ and Ph.D.\ in Computer Science from University
+%% of Toronto, and can be found online
+%% at \url{http://lagarcavilla.org}.
+\emph{H.\ Andr\'{e}s Lagar-Cavilla (Snowflock)}: Andr\'{e}sはソフトウェアシステムの研究者で、視覚化やオペレーティングシステム、セキュリティ、クラスタコンピューティング、モバイルコンピューティングなどを対象としている。学士号はアルゼンチンで、そしてコンピュータサイエンスの修士号と博士号はトロント大学で取得した。オンラインでは\url{http://lagarcavilla.org}で活動している。
+
+%% \emph{Chris Lattner (LLVM)}: Chris is a software developer
+%% with a diverse range of interests and experiences, particularly in
+%% the area of compiler tool chains, operating systems, graphics and
+%% image rendering.  He is the designer and lead architect of the
+%% Open Source LLVM Project.
+%% See \url{http://nondot.org/~sabre/}
+%% for more about Chris and his projects.
+\emph{Chris Lattner (LLVM)}: Chrisはソフトウェア開発者で、幅広い分野の経験を持つ。コンパイラツール群やオペレーティングシステム、そしてグラフィックや画像レンダリングが得意分野だ。彼は、オープンソースのLLVMプロジェクトの設計者でありリードアーキテクトである。Chrisや彼のプロジェクトに関する詳細な情報は\url{http://nondot.org/~sabre/}で得られる。
+
+%% \emph{Alan Laudicina (Thousand Parsec)}: Alan is an M.Sc.\ 
+%% student in computer science at Wayne State University, where he
+%% studies distributed computing. In his spare time he codes, learns
+%% programming languages, and plays poker.  You can find more about
+%% him at \url{http://alanp.ca/}.
+\emph{Alan Laudicina (Thousand Parsec)}: Alanはウェイン州立大学の修士課程の学生で、分散コンピューティングを学んでいる。空き時間には、コードを書いたりプログラミング言語を学んだり、あるいはポーカーをプレイしたりする。詳細な情報は\url{http://alanp.ca/}で得られる。
+
+%% \emph{Danielle Madeley (Telepathy)}: Danielle is an
+%% Australian software engineer working on Telepathy and other magic
+%% for Collabora Ltd. She has bachelor's degrees in electronic
+%% engineering and computer science. She also has an extensive
+%% collection of plush penguins.  She blogs
+%% at \url{http://blogs.gnome.org/danni/}.
+\emph{Danielle Madeley (Telepathy)}: Danielleはオーストラリアのソフトウェアエンジニアで、Collabora Ltd.でTelepathyその他の開発にかかわっている。彼女は電子工学とコンピュータサイエンスの学士号を持っており、Plush Penguinを収集している。ブログは\url{http://blogs.gnome.org/danni/}である。
+
+%% \emph{Adam Marcus (NoSQL)}: Adam is a Ph.D.\ student focused on the
+%% intersection of database systems and social computing at MIT's Computer Science
+%% and Artificial Intelligence Lab.  His recent work ties traditional database
+%% systems to social streams such as Twitter and human computation platforms such
+%% as Mechanical Turk. He likes to build usable open source systems from his
+%% research prototypes, and prefers tracking open source storage systems to long
+%% walks on the beach. He blogs at \url{http://blog.marcua.net}.
+\emph{Adam Marcus (NoSQL)}: Adamは博士課程の学生で、データベースシステムとソーシャルコンピューティングの共通部分をMITコンピュータ科学・人工知能研究所で研究している。最近の研究内容は、伝統的なデータベースシステムとTwitterのようなソーシャルストリーム・Mechanical Turkのようなヒューマンコンピューティング環境との関係だ。研究用のプロトタイプを便利なオープンソースシステムに仕上げるのが好き。オープンソースのストレージシステムを追いかけているほうがビーチを歩くよりも好き。ブログは\url{http://blog.marcua.net}である。
+
+%% \emph{Kenneth Martin (CMake)}: Ken is currently Chairman
+%% and CFO of Kitware, Inc., a research and development company based
+%% in the US\@. He co-founded Kitware in 1998 and since then has helped
+%% grow the company to its current position as a leading R\&D
+%% provider with clients across many government and commercial
+%% sectors.
+\emph{Kenneth Martin (CMake)}: Kenは現在Kitware, Inc.の会長とCFOを務める。Kitware, Inc.は米国に基盤をおく研究開発会社である。彼はKitwareを1998年に立ち上げた共同創業者であり、会社を現在のポジションに引き上げるのに貢献した。今や同社は一流のR\&Dプロバイダであり、政府機関や商業関係などさまざまな分野にまたがるクライアントを抱えている。
+
+%% \emph{Aaron Mavrinac (Thousand Parsec)}: Aaron is a
+%% Ph.D.\ candidate in electrical and computer engineering at the
+%% University of Windsor, researching camera networks, computer
+%% vision, and robotics. When there is free time, he fills some of it
+%% working on Thousand Parsec and other free software, coding in
+%% Python and C, and doing too many other things to get good at any
+%% of them.  His web site is \url{http://www.mavrinac.com}.
+\emph{Aaron Mavrinac (Thousand Parsec)}: Aaronは電子工学とコンピュータ工学をウィンザー大学で学ぶ博士候補で、カメラネットワークやコンピュータビジョン、そしてロボット工学を研究している。空き時間には、Thousand Parsecやその他のフリーソフトウェアに関する活動をしたりPythonやCのコードを書いたりその他さまざまなことに手を出している。彼のウェブサイトは\url{http://www.mavrinac.com}である。
+
+%% \emph{Kim Moir (Eclipse)}: Kim works at the IBM Rational
+%% Software lab in Ottawa as the Release Engineering lead for the
+%% Eclipse and Runtime Equinox projects and is a member of the
+%% Eclipse Architecture Council.  Her interests lie in build
+%% optimization, Equinox and building component based software.
+%% Outside of work she can be found hitting the pavement with her
+%% running mates, preparing for the next road race.  She blogs at
+%% \url{http://relengofthenerds.blogspot.com/}.
+\emph{Kim Moir (Eclipse)}: KimはオタワにあるIBM Rational Softwareの研究所でEclipseやEquinoxプロジェクトのリリースエンジニアリングを率いる。またEclipse Architecture Councilのメンバーでもある。彼女が興味を持っている分野は、ビルドの最適化やEquinoxそしてコンポーネントベースのソフトウェアを作ることだ。オフのときにはランニング仲間と道路を走り、次のロードレースに備えている。彼女のブログは\url{http://relengofthenerds.blogspot.com/}である。
+
+%% \emph{Dirkjan Ochtman (Mercurial)}: Dirkjan graduated as a
+%% Master in CS in 2010, and has been working at a financial startup
+%% for 3 years. When not procrastinating in his free time, he hacks
+%% on Mercurial, Python, Gentoo Linux and a Python CouchDB
+%% library. He lives in the beautiful city of Amsterdam.  His
+%% personal web site is \url{http://dirkjan.ochtman.nl/}.
+\emph{Dirkjan Ochtman (Mercurial)}: Dirkjanは2010年にコンピュータサイエンスの修士課程を修了した。金融関係のスタートアップ企業での勤務経験は3年になる。自由な時間ができると、MercurialやPython、Gentoo LinuxそしてPythonのCouchDBライブラリをハックする。彼はアムステルダムの美しい都市に住んでいる。個人サイトは\url{http://dirkjan.ochtman.nl/}である。
+
+%% \emph{Sanjay Radia (HDFS)}: Sanjay is the architect of the Hadoop
+%% project at Yahoo!, and a Hadoop committer and Project Management
+%% Committee member at the Apache Software Foundation. Previously he held
+%% senior engineering positions at Cassatt, Sun Microsystems and INRIA
+%% where he developed software for distributed systems and grid/utility
+%% computing infrastructures. Sanjay has a Ph.D.\ in Computer Science from
+%% University of Waterloo, Canada.
+\emph{Sanjay Radia (HDFS)}: SanjayはYahoo!でHadoopプロジェクトのアーキテクトを務める。Hadoopのコミッターであり、Apache Software FoundationのProject Management Committeeのメンバーでもある。かつてはCassattやSun MicrosystemsそしてINRIAに勤務していた経験もあり、分散システムやグリッドコンピューティング基盤の開発に携わっていた。Sanjayは、カナダのウォータールー大学でコンピュータサイエンスの博士号を取得している。
+
+%% \emph{Chet Ramey (Bash)}: Chet has been involved with bash
+%% for more than twenty years, the past seventeen as primary
+%% developer.  He is a longtime employee of Case Western Reserve
+%% University in Cleveland, Ohio, from which he received his B.Sc.\  and
+%% M.Sc.\ degrees.  He lives near Cleveland with his family and pets,
+%% and can be found online at \url{http://tiswww.cwru.edu/~chet}.
+\emph{Chet Ramey (Bash)}: Chetは20年以上bashにかかわっており、過去17年はメイン開発者だった。オハイオ州クリーブランドにあるケース・ウェスタン・リザーブ大学の永年勤続者である彼は、学士号と修士号もそこで取得した。クリーブランド近郊に家族やペットとともに住み、オンラインでは\url{http://tiswww.cwru.edu/~chet}にいる。
+
+%% \emph{Emanuele Santos (VisTrails)}: Emanuele is a research scientist
+%% at the University of Utah. Her research interests include scientific
+%% data management, visualization, and provenance. She received her
+%% Ph.D.\ in Computing from the University of Utah in 2010. She is also a
+%% lead developer of the VisTrails system.
+\emph{Emanuele Santos (VisTrails)}: Emanueleはユタ大学で研究をする科学者で、研究分野は科学データ管理や視覚化、起源である。彼女は2010年に、ユタ大学でコンピューティングの博士号を取得している。彼女はVisTrailsシステムのリード開発者でもある。
+
+%% \emph{Carlos Scheidegger (VisTrails)}: Carlos has a Ph.D.\ in
+%% Computing from the University of Utah, and is now a researcher at
+%% AT\&T Labs--Research. Carlos has won best paper awards at IEEE
+%% Visualization in 2007, and Shape Modeling International in 2008. His
+%% research interests include data visualization and analysis, geometry
+%% processing and computer graphics.
+\emph{Carlos Scheidegger (VisTrails)}: Carlosはユタ大学でコンピューティングの博士号を取得し、今はAT\&T Labsの研究部門で研究者として働いている。2007年のIEEE Visualizationと2008年のShape Modeling Internationalでは最優秀論文に選ばれた。彼の研究分野は、データの視覚化と解析やジオメトリ処理、そしてコンピュータグラフィックスだ。
+
+%% \emph{Will Schroeder (VTK)}: Will is President and
+%% co-Founder of Kitware, Inc. He is a computational scientist by
+%% training and has been one of the key developers of VTK\@. He enjoys
+%% writing beautiful code, especially when it involves computational
+%% geometry or graphics.
+\emph{Will Schroeder (VTK)}: WillはKitware, Inc.の社長で共同創業者でもある。コンピュータサイエンスの教育を受けており、VTK\@の主要な開発者のひとりだ。彼は美しいコードを書くことを好む。特に計算幾何学やグラフィックに関するコードでは。
+
+%% \emph{Margo Seltzer (Berkeley DB)}: Margo is the Herchel
+%% Smith Professor of Computer Science at Harvard's School of
+%% Engineering and Applied Sciences and an Architect at Oracle
+%% Corporation.  She was one of the principal designers of Berkeley
+%% DB and a co-founder of Sleepycat Software.  Her research interests
+%% are in filesystems, database systems, transactional systems, and
+%% medical data mining.  Her professional life is online at
+%% \url{http://www.eecs.harvard.edu/~margo}, and she blogs at
+%% \url{http://mis-misinformation.blogspot.com/}.
+\emph{Margo Seltzer (Berkeley DB)}: Margoはハーバード工学・応用科学大学院でコンピュータサイエンスの教授を務め、Oracle Corporationでアーキテクトとしても働いている。彼女はBerkeley DBの設計者のひとりであり、Sleepycat Softwareの共同創業者でもある。彼女の研究分野は、ファイルシステムやデータベースシステム、トランザクションシステム、そして医療データマイニングである。研究者としての顔は\url{http://www.eecs.harvard.edu/~margo}で見られ、ブログは\url{http://mis-misinformation.blogspot.com/}にある。
+
+%% \emph{Justin Sheehy (Riak)}: Justin is the CTO of Basho
+%% Technologies, the company behind the creation of Webmachine and
+%% Riak. Most recently before Basho, he was a principal scientist at
+%% the MITRE Corporation and a senior architect for systems
+%% infrastructure at Akamai. At both of those companies he focused on
+%% multiple aspects of robust distributed systems, including
+%% scheduling algorithms, language-based formal models, and
+%% resilience.
+\emph{Justin Sheehy (Riak)}: JustinはBasho TechnologiesのCTO。同社はWebmachineやRiakの制作にかかわっている。Bashoの前職は、MITRE Corporationの科学者そしてAkamaiのシステム基盤担当シニアアーキテクトだった。両社で彼が力を注いでいたのは堅牢な分散システムに関するさまざまな内容だった。スケジューリングのアルゴリズムや言語ベースの形式モデル、そして弾性などが含まれる。
+
+%% \emph{Richard Shimooka (Battle for Wesnoth)}: Richard is a Research
+%% Associate at Queen's University's Defence Management Studies Program in
+%% Kingston, Ontario. He is also a Deputy Administrator and Secretary for the
+%% Battle for Wesnoth. Richard has written several works examining the
+%% organizational cultures of social groups, ranging from governments to open
+%% source projects.
+\emph{Richard Shimooka (Battle for Wesnoth)}: Richardは、オンタリオ州キングストンにあるクイーンズ大学のDefence Management Studies Programで研究員を務めている。彼はまた、Battle for Wesnothの管理者代理かつ長官でもある。Richardの著作には、ソーシャルグループ(政府からオープンソースプロジェクトまでの幅広いもの)の組織文化に関して調査したものがいくつかある。
+
+%% \emph{Konstantin V. Shvachko (HDFS)}, a veteran HDFS developer, is a
+%% principal Hadoop architect at eBay. Konstantin specializes in
+%% efficient data structures and algorithms for large-scale distributed
+%% storage systems. He discovered a new type of balanced trees, S-trees,
+%% for optimal indexing of unstructured data, and was a primary developer
+%% of an S-tree-based Linux filesystem, treeFS, a prototype of
+%% reiserFS. Konstantin holds a Ph.D.\ in computer science from Moscow
+%% State University, Russia. He is also a member of the Project
+%% Management Committee for Apache Hadoop.
+\emph{Konstantin V. Shvachko (HDFS)} はベテランのHDFS開発者で、eBayのHadoopアーキテクトのリーダーである。Konstantinの専門分野は、大規模な分散ストレージシステムのための効率的なデータ構造やアルゴリズムである。彼は平衡木の新しい方式であるS-treeを考案した。これは構造化されていないデータの索引付けに最適化されたものだ。また彼は、S-treeベースのLinuxファイルシステムであるtreeFSの初期の開発者だった。treeFSは、後のreiserFSの原型となった。Konstantinは、ロシアのモスクワ大学でコンピュータサイエンスの博士号を取得している。また、Apache HadoopのProject Management Committeeのメンバーでもある。
+
+%% \emph{Claudio Silva (VisTrails)}: Claudio is a full professor of
+%% computer science at the University of Utah. His research interests are
+%% in visualization, geometric computing, computer graphics, and
+%% scientific data management. He received his Ph.D.\ in computer science
+%% from the State University of New York at Stony Brook in 1996. Later in
+%% 2011, he will be joining the Polytechnic Institute of New York
+%% University as a full professor of computer science and engineering.
+\emph{Claudio Silva (VisTrails)}: Claudioは、ユタ大学のコンピュータサイエンスの正教授である。彼の研究分野は、視覚化や幾何学的コンピューティング、コンピュータグラフィックス、そして科学データ管理などだ。彼は1996年に、ニューヨーク州立大学ストーニブルック校でコンピュータサイエンスの博士号を取得した。2011年後半には、ニューヨーク大学ポリテクニック研究室にコンピュータサイエンスおよびエンジニアリングの正教授として合流する予定だ。
+
+%% \emph{Suresh Srinivas (HDFS)}: Suresh works on HDFS as a software
+%% architect at Yahoo! He is a Hadoop committer and PMC member at Apache
+%% Software Foundation. Prior to Yahoo!, he worked at Sylantro Systems,
+%% developing scalable infrastructure for hosted communication
+%% services. Suresh has a bachelor's degree in Electronics and
+%% Communication from National Institute of Technology Karnataka, India.
+\emph{Suresh Srinivas (HDFS)}: Sureshは、Yahoo!のソフトウェアアーキテクトとしてHDFSにかかわっている。彼はHadoopのコミッターであり、Apache Software FoundationのPMCのメンバーでもある。Yahoo!の前にはSylantro Systemsで働いており、コミュニケーションサービスのホスティングのためのスケーラブルな基盤を開発していた。Sureshは、インドのカルナタカにあるナショナル工科大学でエレクトロニクスと通信の学位を取得した。
+
+%% \emph{Simon Stewart (Selenium)}: Simon lives in London and
+%% works as a Software Engineer in Test at Google. He is a core
+%% contributor to the Selenium project, was the creator of WebDriver
+%% and is enthusiastic about open source. Simon enjoys beer and
+%% writing better software, sometimes at the same time.  His personal
+%% home page is \url{http://www.pubbitch.org/}.
+\emph{Simon Stewart (Selenium)}: Simonはロンドン在住で、Googleのソフトウェアテストエンジニアとして働いている。彼はSeleniumプロジェクトの主要な貢献者である。WebDriverの作者でもある彼は、オープンソースにほれ込んでいる。Simonが好きなのはビールを楽しむこととソフトウェアを書くことで、ときにはそれらを同時にすることもある。個人ホームページは\url{http://www.pubbitch.org/}である。
+
+%% \emph{Audrey Tang (SocialCalc)}: Audrey is a self-educated programmer
+%% and translator based in Taiwan.  She curently works at Socialtext,
+%% where her job title is ``Untitled Page'', as well as at Apple as
+%% contractor for localization and release engineering.  She previously
+%% designed and led the Pugs project, the first working Perl 6
+%% implementation; she has also served in language design committees for
+%% Haskell, Perl 5, and Perl 6, and has made numerous contributions to
+%% CPAN and Hackage.  She blogs at \url{http://pugs.blogs.com/audreyt/}.
+\emph{Audrey Tang (SocialCalc)}: Audreyは、台湾在住のプログラマーであり翻訳家でもある。現在の勤務先はSocialtextで、彼女のそこでの役職は``Untitled Page''だ。また、Appleのローカライズやリリースエンジニアリングも請け負っている。彼女はかつてPugsプロジェクトを率いていた。これは実際に動作するPerl 6の初めての実装だった。また、CPANやHackageにも多大な貢献をしている。彼女のブログは\url{http://pugs.blogs.com/audreyt/}である。
+
+%% \pagebreak
+
+%% \emph{Huy T.\ Vo (VisTrails)}: Huy is receiving his Ph.D.\ from the
+%% University of Utah in May 2011. His research interests include
+%% visualization, dataflow architecture and scientific data
+%% management. He is a senior developer at VisTrails, Inc. He also holds
+%% a Research Assistant Professor appointment with the Polytechnic
+%% Institute of New York University.
+\emph{Huy T.\ Vo (VisTrails)}: Huyは、2011年5月にユタ大学で博士号を取得した。彼の研究分野は、視覚化やデータフローアーキテクチャ、そして科学データ管理などである。VisTrails, Inc.で上級開発者として働く。彼はまた、ニューヨーク大学ポリテクニック研究室で博士研究員となることも決まっている。
+
+%% \emph{David White (Battle for Wesnoth)}: David is the founder and lead
+%% developer of Battle for Wesnoth. David has been involved with several Open
+%% Source video game projects, including Frogatto which he also co-founded. David
+%% is a performance engineer at Sabre Holdings, a leader in travel technology. 
+\emph{David White (Battle for Wesnoth)}: Davidは、Battle for Wesnothの創設者でありリード開発者である。Davidはこれまでにもいくつかのオープンソースビデオゲームプロジェクトにかかわってきた。共同で立ち上げたFrogattoもそのひとつだ。彼はSabre Holdingsのパフォーマンスエンジニアであり、旅行技術のリーダーでもある。
+
+%% \emph{Greg Wilson (editorial)}: Greg has worked over the
+%% past 25 years in high-performance scientific computing, data
+%% visualization, and computer security, and is the author or editor
+%% of several computing books (including the 2008 Jolt Award
+%% winner \emph{Beautiful Code}) and two books for children.
+%% Greg received a Ph.D.\ in Computer Science from the University of
+%% Edinburgh in 1993.
+\emph{Greg Wilson (編集担当)}: Gregは過去25年にわたって高性能科学計算やデータの視覚化、コンピュータセキュリティなどにかかわってきた。数冊のコンピュータ関連書籍(2008年のJolt Awardを受賞した\emph{Beautiful Code}など)に著者あるいは編集者としてかかわっており、こども向けの本も二冊出版している。Gregは1993年にエジンバラ大学でコンピュータサイエンスの博士号を取得した。
+
+%% \emph{Tarek Ziad\'{e} (Python Packaging)}: Tarek lives in Burgundy, France.
+%% He's a Senior Software Engineer at Mozilla, building servers in Python. In his
+%% spare time, he leads the packaging effort in Python.
+\emph{Tarek Ziad\'{e} (Python Packaging)}: Tarekはフランスのブルゴーニュに住む。Mozillaの上級ソフトウェアエンジニアであり、サーバーをPythonで構築している。空き時間には、Pythonのパッケージングを率いている。
+
+%% \section*{Acknowledgments}
+\section*{謝辞}
+
+%% We would like to thank our reviewers:\\
+レビュアーのみなさんに感謝する。\\
+
+\begin{tabular}{lll}
+Eric Aderhold		& Muhammad Ali			& Lillian Angel		\\
+Robert Beghian		& Taavi Burns			& Luis Pedro Coelho	\\
+David Cooper		& Mauricio de Simone		& Jonathan Deber	\\
+Patrick Dubroy		& Igor Foox			& Alecia Fowler		\\
+Marcus Hanwell		& Johan Harjono			& Vivek Lakshmanan	\\
+Greg Lapouchnian	& Laurie MacDougall Sookraj	& Josh McCarthy		\\
+Jason Montojo		& Colin Morris			& Christian Muise	\\
+Victor Ng		& Nikita Pchelin		& Andrew Petersen	\\
+Andrey Petrov		& Tom Plaskon			& Pascal Rapicault	\\
+Todd Ritchie		& Samar Sabie			& Misa Sakamoto		\\
+David Scannell		& Clara Severino		& Tim Smith		\\
+Kyle Spaans		& Sana Tapal			& Tony Targonski	\\
+Miles Thibault		& David Wright			& Tina Yee
+\end{tabular}
+
+~\\
+
+%% \noindent We would also like to thank Jackie Carter, who helped with the early stages of editing.
+\noindent また、編集の初期段階での助けとなったJackie Carterにも感謝する。
+
+%% \section*{Contributing}
+\section*{貢献}
+
+%% Dozens of volunteers worked hard to create this book, but there is
+%% still lots to do.  You can help by reporting errors, by helping to
+%% translate the content into other languages, or by describing the
+%% architecture of other open source projects.  Please contact us at
+%% \code{aosa@aosabook.org} if you would like to get involved.
+何十人ものボランティアのおかげで本書を作ることができたが、まだやり残したことは多い。間違いの指摘、他の言語への翻訳、他のオープンソースプロジェクトのアーキテクチャに関する記述の追加などを歓迎する。協力してくれる場合は\code{aosa@aosabook.org}まで連絡してほしい。
+
+\end{aosachapter}

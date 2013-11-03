@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="/en/posa.css" type="text/css" />
+    <title>The Performance of Open Source Software | Applying Optimization Principle Patterns to Component Deployment and Configuration&nbsp;Tools</title>
+
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+              <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'><img src="/images/posa-titlebar.png" /></a>
+          <h1>Applying Optimization Principle Patterns to Component Deployment and Configuration&nbsp;Tools</h1>
+          <h2 class="author">Doug C. Schmidt, William R. Otte, and Aniruddha Gokhale</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+                        <div class="row">
+        <div class='span10 offset1' id='content'>
+          <h2 id="introduction">Introduction</h2>
+
+<p><a name="intro"> </a></p>
+
+<p><em>Distributed, real-time and embedded</em> (<span class="caps">DRE</span>) systems are an important class of applications that share properties of both enterprise distributed systems and resource-constrained real-time and embedded systems. In particular, applications in <span class="caps">DRE</span> systems are similar to enterprise applications, i.e., they are distributed across a large domain. Moreover, like real-time and embedded systems, applications in <span class="caps">DRE</span> systems are often mission-critical and carry stringent safety, reliability, and <em>quality of service</em> (QoS)&nbsp;requirements.</p>
+
+<p>In addition to the complexities described above, deployment of application and infrastructure components in <span class="caps">DRE</span> systems incurs its own set of unique challenges. First, applications in <span class="caps">DRE</span> system domains may have particular dependencies on the target environment, such as particular hardware/software (e.g., <span class="caps">GPS</span>, sensors, actuators, particular real-time operating systems, etc.). Second, the deployment infrastructure of a <span class="caps">DRE</span> system must contend with strict resource requirements in environments with finite resources (e.g., <span class="caps">CPU</span>, memory, network bandwidth,&nbsp;etc.).</p>
+
+<p><em>Component-Based Software Engineering</em> (<span class="caps">CBSE</span>) [<span class="citation">1</span>] is increasingly used as a paradigm for developing applications in both enterprise [<span class="citation">2</span>] and <span class="caps">DRE</span> systems [<span class="citation">3</span>]. <span class="caps">CBSE</span> facilitates systematic software reuse by encouraging developers to create black box components that interact with each other and their environment through well-defined interfaces. <span class="caps">CBSE</span> also simplifies the deployment of highly complex distributed systems [<span class="citation">4</span>] by providing standardized mechanisms to control the configuration and lifecycle of applications. These mechanisms enable the composition of large-scale, complex applications from smaller, more manageable units of functionality, e.g., commercial off-the-shelf components and preexisting application building-blocks. These applications can be packaged along with descriptive and configuration metadata, and made available for deployment into a production&nbsp;environment.</p>
+
+<p>Building on expertise gleaned from the development of <em>The <span class="caps">ACE</span> <span class="caps">ORB</span></em> (<span class="caps">TAO</span>) [<span class="citation">5</span>]&#8211;an open source implementation of the <em>Common Object Request Broker Architecture</em> (<span class="caps">CORBA</span>) standard&#8211;we have been applying <span class="caps">CBSE</span> principles to <span class="caps">DRE</span> systems over the past decade. As a result of these efforts, we have developed a high-quality open source implementation of the <span class="caps">OMG</span> <em><span class="caps">CORBA</span> Component Model</em> (<span class="caps">CCM</span>), which we call the <em>Component Integrated <span class="caps">ACE</span> <span class="caps">ORB</span></em> (<span class="caps">CIAO</span>) [<span class="citation">6</span>]. <span class="caps">CIAO</span> implements the so-called <em>Lightweight <span class="caps">CCM</span></em> [<span class="citation">7</span>] specification, which is a subset of the full <span class="caps">CCM</span> standard that is tuned for resource-constrained <span class="caps">DRE</span>&nbsp;systems.</p>
+
+<p>In the context of our work on applying <span class="caps">CBSE</span> principles to <span class="caps">DRE</span> systems, we have also been researching the equally challenging problem of facilitating deployment and configuration of component-based systems in these domains. Managing deployment and configuration of component-based applications is a challenging problem for the following&nbsp;reasons:</p>
+
+<ul>
+<li><p><em>Component dependency and version management.</em> There may be complex requirements and relationships amongst individual components. Components may depend on one another for proper operation, or specifically require or exclude particular versions. If these relationships are not described and enforced, component applications may fail to deploy properly; even worse, malfunction in subtle and pernicious&nbsp;ways.</p></li>
+<li><p><em>Component configuration management.</em> A component might expose configuration hooks that change its behavior, and the deployment infrastructure must manage and apply any required configuration information. Moreover, several components in a deployment may have related configuration properties, and the deployment infrastructure should ensure that these properties remain consistent across an entire&nbsp;application.</p></li>
+<li><p><em>Distributed connection and lifecycle management.</em> In the case of enterprise systems, components must be installed and have their connection and activation managed on remote&nbsp;hosts.</p></li>
+</ul>
+
+<p>To address the challenges outlined above, we began developing a deployment engine for <span class="caps">CIAO</span> in 2005. This tool, which we call the <em>Deployment and Configuration Engine</em> (DAnCE) [<span class="citation">8</span>], is an implementation of the <span class="caps">OMG</span> <em>Deployment and Configuration</em> (D&amp;C) specification [<span class="citation">9</span>]. For most of its history, DAnCE served primarily as a research vehicle for graduate students developing novel approaches to deployment and configuration, which had two important impacts on its&nbsp;implementation:</p>
+
+<ul>
+<li><p>As a research vehicle, DAnCE’s development timeline was largely driven by paper deadlines and feature demonstrations for sponsors. As a result, its tested use cases were relatively simple and narrowly&nbsp;focused.</p></li>
+<li><p>Custodianship of DAnCE changed hands several times as research projects were completed and new ones started. As a result, there was often not a unified architectural vision for the entire&nbsp;infrastructure.</p></li>
+</ul>
+
+<p>These two factors had several impacts on DAnCE. For example, narrow and focused use-cases often made evaluating end-to-end performance on real-world application deployments a low priority. Moreover, the lack of a unified architectural vision combined with tight deadlines often meant that poor architectural choices were made in the name of expediency, and were not later remedied. These problems were brought into focus as we began to work with our commercial sponsors to apply DAnCE to larger-scale deployments, numbering in the hundreds to thousands of components on tens to hundreds of hardware nodes. While the smaller, focused uses cases would have acceptable deployment times, these larger deployments would take unacceptably long amounts of time, on the order of an hour or more to fully&nbsp;complete.</p>
+
+<table>
+<caption><b>Table 6.1</b> - Catalog of optimization principles and known use cases in networking~[<span class="citation">10</span>]</caption>
+<thead>
+<tr class="header">
+<th align="left">Title</th>
+<th align="left">Principle</th>
+<th align="left">Examples from Networking</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><em>Avoiding Waste</em></td>
+<td align="left">Avoid obvious waste</td>
+<td align="left">zero-copy [<span class="citation">11</span>]</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Shifting in Time</em></td>
+<td align="left">Shift computation in time (/precompute, lazy evaluation, sharing expenses, batching)</td>
+<td align="left">copy-on-write [<span class="citation">12</span>] [<span class="citation">13</span>] , integrated layer processing [<span class="citation">13</span>]</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Relaxing Specifications</em></td>
+<td align="left">Relax specifications (trading off certainty for time, trading off accuracy for time, and shifting computation in time)</td>
+<td align="left">fair queuing [<span class="citation">14</span>], IPv6 fragmentation</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Leveraging other Components</em></td>
+<td align="left">Leverage other system components (exploiting locality, trading memory for speed, exploiting hardware)</td>
+<td align="left">Lulea <span class="caps">IP</span> lookups [<span class="citation">15</span>], <span class="caps">TCP</span> checksum</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Adding Hardware</em></td>
+<td align="left">Add hardware to improve performance</td>
+<td align="left">Pipelined <span class="caps">IP</span> lookup [<span class="citation">16</span>], counters</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Efficient Routines</em></td>
+<td align="left">Create efficient routines</td>
+<td align="left"><span class="caps">UDP</span> lookups</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Avoiding Generality</em></td>
+<td align="left">Avoid unnecessary generality</td>
+<td align="left">Fbufs [<span class="citation">17</span>]</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Specification vs Implementation</em></td>
+<td align="left">Don’t confuse specification and implentation</td>
+<td align="left">Upcalls [<span class="citation">18</span>]</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Passing Hints</em></td>
+<td align="left">Pass information like hints in interfaces</td>
+<td align="left">Packet filters [<span class="citation">19</span>] [<span class="citation">20</span>] [<span class="citation">21</span>]</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Passing Information</em></td>
+<td align="left">Pass information in protocol headers</td>
+<td align="left">Tag switching [<span class="citation">22</span>]</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Expected Use Case</em></td>
+<td align="left">Optimize the expected case</td>
+<td align="left">Header prediction [<span class="citation">23</span>]</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Exploiting State</em></td>
+<td align="left">Add or exploit state to gain speed</td>
+<td align="left">Active <span class="caps">VC</span> list</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Degrees of Freedom</em></td>
+<td align="left">Optimize degrees of freedom</td>
+<td align="left"><span class="caps">IP</span> trie lookups [<span class="citation">24</span>]</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Exploit Finite Universes</em></td>
+<td align="left">Use special techniques for finite universes</td>
+<td align="left">Timing wheels [<span class="citation">25</span>]</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Efficient Data Structures</em></td>
+<td align="left">Use efficient data structures</td>
+<td align="left">Level-4 switching</td>
+</tr>
+</tbody>
+</table>
+
+<p>In response to these problems, we undertook an effort to comprehensively evaluate the architecture, design, and implementation of DAnCE and create a new implementation that we call <em>Locality-Enabled DAnCE</em> (<span class="caps">LE</span>-DAnCE) [<span class="citation">26</span>] [<span class="citation">27</span>] . This chapter focuses on documenting and applying optimization principle patterns that form the core of <span class="caps">LE</span>-DAnCE to make it suitable for <span class="caps">DRE</span> systems. Table 6.1 summarizes common optimization patterns [<span class="citation">10</span>], many of which we apply in <span class="caps">LE</span>-DAnCE. An additional goal of this paper was to supplement this catalog with new patterns we identified in our work on&nbsp;<span class="caps">LE</span>-DAnCE.</p>
+
+<p>The remainder of this chapter is organized as follows: <a href="#sec.overview">Overview of DAnCE</a> provides an overview of the <span class="caps">OMG</span> D&amp;C specification; <a href="#sec.opp">Applying Optimization Principle Patterns to DAnCE</a> identifies the most significant sources of DAnCE performance problems (parsing deployment information from <span class="caps">XML</span>, analysis of deployment information at run-time, and serialized execution of deployment steps) and uses them as case studies to identify optimization principles that (1) are generally applicable to <span class="caps">DRE</span> systems and (2) we applied to <span class="caps">LE</span>-DAnCE; and <a href="#sec.conc">Concluding Remarks</a> presents concluding&nbsp;remarks.</p>
+
+<h2 id="overview-of-dance">Overview of&nbsp;DAnCE</h2>
+
+<p><a name="sec.overview"> </a></p>
+
+<p>The <span class="caps">OMG</span> D&amp;C specification provides standard interchange formats for metadata used throughout the component-based application development lifecycle, as well as runtime interfaces used for packaging and planning. These runtime interfaces deliver deployment instructions to the middleware deployment infrastructure via a <em>component deployment plan</em>, which contains the complete set of deployment and configuration information for component instances and their associated connection information. During <span class="caps">DRE</span> system initialization this information must be parsed, components deployed to physical hardware resources, and the system activated in a timely&nbsp;manner.</p>
+
+<p>This section presents a brief summary of the core architectural elements and processes that must be provided by a standards-compliant D&amp;C implementation. We use this summary as a basis to discuss substantial performance and scalability problems in DAnCE, which is our open source implementation of the <span class="caps">OMG</span> <em>Deployment and Configuration</em> (D&amp;C) specification [<span class="citation">9</span>], as outlined in <a href="#intro">Introduction</a>. This summary is split into three sections: (1) <em>the DAnCE runtime architecture</em>, which describes the daemons and actors that are present in the system, the (2) <em>data model</em>, which describes the structure of the “deployment plans” that describe component applications, and (3) the <em>deployment process</em>, which provides a high level overview of the process by which a deployed distributed application is&nbsp;realized.</p>
+
+<h3 id="runtime-dc-architecture">Runtime D&amp;C&nbsp;Architecture</h3>
+
+<p><a name="sec.overview.arch"> </a></p>
+
+<p>The runtime interfaces defined by the <span class="caps">OMG</span> D&amp;C specification for deployment and configuration of components consists of the two-tier architecture shown in <a href="#figure-6.1">Figure 6.1</a>.</p>
+
+<div class="center figure">
+<a name="figure-6.2"></a><img src="dance-images/dnc-arch.png" alt="Figure 6.2 - OMG D&amp;C architectural overview and separation of concerns" title="Figure 6.2 - OMG D&amp;C architectural overview and separation of concerns" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 6.2 - <span class="caps">OMG</span> D&amp;C architectural overview and separation of concerns</small>
+</p>
+
+<p>This architecture consists of (1) a set of global (system-wide) entities used to coordinate deployment and (2) a set of local (node-level) entities used to instantiate component instances and configure their connections and QoS properties. Each entity in these global and local tiers correspond to one of the following three major&nbsp;roles:</p>
+
+<dl>
+<dt>Manager</dt>
+<dd><p>This role (known as the <em>ExecutionManager</em> at the global-level and as the <em>NodeManager</em> at the node-level) is a singleton daemon that coordinates all deployment entities in a single context. The Manager serves as the entry point for all deployment activity and as a factory for implementations of the <em>ApplicationManager</em>&nbsp;role.</p>
+</dd>
+<dt>ApplicationManager</dt>
+<dd><p>This role (known as the <em>DomainApplicationManager</em> at the global-level and as the <em>NodeApplicationManager</em> at the node-level entity) coordinates the lifecycle for running instances of a component-based application. Each ApplicationManager represents exactly one component-based application and is used to initiate deployment and teardown of that application. This role also serves as a factory for implementations of the <em>Application</em>&nbsp;role.</p>
+</dd>
+<dt>Application</dt>
+<dd><p>This role (known as the <em>DomainApplication</em> at the global-level and the <em>NodeApplication</em> at the node-level entity) represents a deployed instance of a component-based application. It is used to finalize the configuration of the associated component instances that comprise an application and begin execution of the deployed component-based&nbsp;application.</p>
+</dd>
+</dl>
+
+<h3 id="dc-deployment-data-model">D&amp;C Deployment Data&nbsp;Model</h3>
+
+<p><a name="sec.overview.model"> </a></p>
+
+<p>In addition to the runtime entities described above, the D&amp;C specification also contains an extensive data model that is used to describe component applications throughout their deployment lifecycle. The metadata defined by the specification is intended for use&nbsp;as:</p>
+
+<ul>
+<li><p>An interchange format between various tools (e.g., development tools, application modeling and packaging applications, and deployment planning tools) applied to create the applications&nbsp;and</p></li>
+<li><p>Directives that describe the configuration and deployment used by the runtime&nbsp;infrastructure.</p></li>
+</ul>
+
+<p>Most entities in the D&amp;C metadata contain a section where configuration information may be included in the form of a sequence of name/value pairs, where the value may be an arbitrary data type. This configuration information can be used to describe everything from basic configuration information (such as shared library entry points and component/container associations) to more complex configuration information (such as QoS properties or initialization of component attributes with user-defined data&nbsp;types).</p>
+
+<p>This metadata can broadly be grouped into three categories: <em>packaging</em>, <em>domain</em>, and <em>deployment</em>. Packaging descriptors are used from the beginning of application development to specify component interfaces, capabilities, and requirements. After implementations have been created, this metadata is further used to group individual components into assemblies, describe pairings with implementation artifacts, such as shared libraries (also known as dynamically linked libraries), and create packages containing both metadata and implementations that may be installed into the target environment. Domain descriptors are used by hardware administrators to describe capabilities (e.g., <span class="caps">CPU</span>, memory, disk space, and special hardware such as <span class="caps">GPS</span> receivers) present in the&nbsp;domain.</p>
+
+<h3 id="omg-dc-deployment-process"><span class="caps">OMG</span> D&amp;C Deployment&nbsp;Process</h3>
+
+<p><a name="sec.overview.process"> </a></p>
+
+<p>Component application deployments are performed in a four phase process codified by the <span class="caps">OMG</span> D&amp;C standard. The <em>Manager</em> and <em>ApplicationManager</em> are responsible for the first two phases and the <em>Application</em> is responsible for the final two phases, as described&nbsp;below:</p>
+
+<ol style="list-style-type: decimal">
+<li><p><em>Plan preparation.</em> In this phase, a deployment plan is provided to the <em>ExecutionManager</em>, which (1) analyzes the plan to determine which nodes are involved in the deployment and (2) splits the plans into “locality-constrained” plans, one for each node containing information only for the corresponding node. These locality-constrained plans have only instance and connection information for a single node. Each <em>NodeManager</em> is then contacted and provided with its locality-constrained plan, which causes the creation of <em>NodeApplicationManagers</em> whose reference is returned. Finally, the <em>ExecutionManager</em> creates a <em>DomainApplicationManager</em> with these&nbsp;references.</p></li>
+<li><p><em>Start launch.</em> When the <em>DomainApplicationManager</em> receives the start launch instruction, it delegates work to the <em>NodeApplicationManagers</em> on each node. Each <em>NodeApplicationManager</em> creates a <em>NodeApplication</em> that loads all component instances into memory, performs preliminary configuration, and collects references for all endpoints described in the deployment plan. These references are then cached by a <em>DomainApplication</em> instance created by the <em>DomainApplicationManager</em>.</p></li>
+<li><p><em>Finish launch.</em> This phase is started by an operation on the <em>DomainApplication</em> instance, which apportions its collected object references from the previous phase to each <em>NodeApplication</em> and causes them to initiate this phase. All component instances receive final configurations and all connections are then&nbsp;created.</p></li>
+<li><p><em>Start.</em> This phase is again initiated on the <em>DomainApplication</em>, which delegates to the <em>NodeApplication</em> instances and causes them to instruct all installed component instances to begin&nbsp;execution.</p></li>
+</ol>
+
+<h2 id="applying-optimization-principle-patterns-to-dance">Applying Optimization Principle Patterns to&nbsp;DAnCE</h2>
+
+<p><a name="sec.opp"> </a></p>
+
+<p>This section examines three of the most problematic performance problems we identified when applying DAnCE to component-based applications in a large-scale production <span class="caps">DRE</span> system. We first describe a case study that highlights many of these performance challenges. We then identify the causes of performance degradation and use this discussion to present optimization principles, which are guidelines that may be applied in other situations and applications to remedy or prevent performance&nbsp;problems.</p>
+
+<h3 id="overview-of-the-seamonster-platform">Overview of the <span class="caps">SEAMONSTER</span>&nbsp;Platform</h3>
+
+<p>An example <span class="caps">DRE</span> system that revealed significant performance issues with DAnCE was a collaboration with the University of Alaska on the <em>South East Alaska MOnitoring Network for Science, Telecommunications, Education, and Research</em> (<span class="caps">SEAMONSTER</span>) platform. <span class="caps">SEAMONSTER</span> is a glacier and watershed sensor web hosted at the University of Alaska Southeast (<span class="caps">UAS</span>) [<span class="citation">28</span>]. This sensor web monitors and collects data regarding glacier dynamics and mass balance, watershed hydrology, coastal marine ecology, and human impact/hazards in and around the Lemon Creek watershed and Lemon Glacier. The collected data is used to study the correlations between glacier velocity, glacial lake formation and drainage, watershed hydrology, and temperature&nbsp;variation.</p>
+
+<p>The <span class="caps">SEAMONSTER</span> sensor web includes sensors and weatherized computer platforms that are deployed on the glacier and throughout the watershed to collect data of scientific interest. The data collected by the sensors is relayed via wireless networks to a cluster of servers that filter, correlate, and analyze the data. Effective deployment of data collection and filtering applications on <span class="caps">SEAMONSTER</span> field hardware and dynamic adaptation to changing environmental conditions and resource availability present significant software challenges for efficient operation of <span class="caps">SEAMONSTER</span>. While <span class="caps">SEAMONSTER</span> servers provide significant computational resources, the field hardware is computationally&nbsp;constrained.</p>
+
+<p>Field nodes in a sensor web often have a large number of observable phenomena in their area of interest. The type, duration, and frequency of observation of these phenomena may change over time, based on changes in the environment, occurrence of transient events in the environment, and changing goals and objectives in the science mission of the sensor web. Moreover, limited power, processing capability, storage, and network bandwidth constrain the ability of these nodes to continually perform observations at the desired frequency and fidelity. Dynamic changes in environmental conditions coupled with limited resource availability requires individual nodes of the sensor web to rapidly revise current operations and future plans to make the best use of their&nbsp;resources.</p>
+
+<p>To address these challenges, we proposed to transition the data collection and processing tasks to a middleware platform built on top of the <span class="caps">CIAO</span> and DAnCE middleware described in <a href="#intro">Introduction</a> and <a href="#sec.overview">Overview of DAnCE</a>, respectively. We developed a run-time planner [<span class="citation">29</span>] that analyzed the physical observations of the sensor nodes. Based on that information&#8211;as well as the operational goals of the network&#8211;the planner generates deployment plans describing desired software&nbsp;configuration.</p>
+
+<p>Using DAnCE to apply the deployment changes requested by the run-time planner, however, revealed a number of shortcomings in its performance. These shortcomings were exacerbated by the limited performance of the field hardware, relative slowness of the network linking the nodes, and the stringent real-time requirements of the system. Each of these shortcomings is described&nbsp;below.</p>
+
+<h3 id="optimizing-deployment-plan-parsing">Optimizing Deployment Plan&nbsp;Parsing</h3>
+
+<p><a name="sec.opp.parsing"> </a></p>
+
+<h4 id="context">Context</h4>
+
+<p>Component application deployments for <span class="caps">OMG</span> D&amp;C are described by a data structure that contains all the relevant configuration metadata for the component instances, their mappings to individual nodes, and any connection information required. This deployment plan is serialized on disk in a <span class="caps">XML</span> file whose structure is described by an <span class="caps">XML</span> Schema defined by the D&amp;C specification. This <span class="caps">XML</span> document format presents significant advantages by providing a simple interchange format for exchanging deployment plan files between modeling tools [<span class="citation">30</span>].</p>
+
+<p>For example, in the <span class="caps">SEAMONSTER</span> case study this format provided a convenient interchange format between the planning front end and the deployment infrastructure. This format is also easy to generate and manipulate using widely available <span class="caps">XML</span> modules for popular programming languages. Moreover, it enables simple modification and data mining by text processing tools such as perl, grep, sed, and&nbsp;awk.</p>
+
+<h4 id="problem">Problem</h4>
+
+<p><a name="sec.challenge.parsing"> </a></p>
+
+<p>Processing these deployment plan files during deployment and even runtime, however, can lead to substantial performance penalties. These performance penalties stem from the following&nbsp;sources:</p>
+
+<ul>
+<li><p><span class="caps">XML</span> deployment plan file sizes grow substantially as the number of component instances and connections in the deployment increases, which causes significant I/O overhead to load the plan into memory and to validate the structure against the schema to ensure that it is&nbsp;well-formed.</p></li>
+<li><p>The <span class="caps">XML</span> document format cannot be directly used by the deployment infrastructure because the infrastructure is a <span class="caps">CORBA</span> application that implements <span class="caps">OMG</span> <em>Interface Definition Language</em> (<span class="caps">IDL</span>) interfaces. Hence, the <span class="caps">XML</span> document must first be converted into the <span class="caps">IDL</span> format used by the runtime interfaces of the deployment&nbsp;framework.</p></li>
+</ul>
+
+<p>In <span class="caps">DRE</span> systems, component deployments that number in the thousands are not uncommon. Moreover, component instances in these domains will exhibit a high degree of connectivity. Both these factors contribute to large plans. Plans need not be large, however, to significantly impact the operation of a system. Though the plans were significantly smaller in the <span class="caps">SEAMONSTER</span> case study described above the extremely limited computational resources meant that the processing overhead for even smaller plans was often too time&nbsp;consuming.</p>
+
+<h4 id="optimization-principle-patterns-in-parsing-configuration-metadata">Optimization Principle Patterns in Parsing Configuration&nbsp;Metadata</h4>
+
+<p>There are two general approaches to resolving the challenge of <span class="caps">XML</span> parsing outlined in <a href="#sec.challenge.parsing">Problem</a>.</p>
+
+<ol style="list-style-type: decimal">
+<li>Optimize the <span class="caps">XML</span>-to-<span class="caps">IDL</span> processing capability. DAnCE uses a vocabulary-specific <span class="caps">XML</span> data binding [<span class="citation">31</span>] tool called the <em><span class="caps">XML</span> Schema Compiler</em> (<span class="caps">XSC</span>). <span class="caps">XSC</span> reads D&amp;C <span class="caps">XML</span> schemas and generates a C++-based interface to <span class="caps">XML</span> documents built atop the <em>Document Object Model</em> (<span class="caps">DOM</span>) <span class="caps">XML</span> programming <span class="caps">API</span>. <span class="caps">DOM</span> is a time/space-intensive approach since the entire document must first be processed to construct a tree-based representation of the document prior to initiating the <span class="caps">XML</span>-to-<span class="caps">IDL</span> translation process. Since deployment plan data structures contain extensive internal cross-referencing, an alternative to <span class="caps">DOM</span> including event-based mechanisms to process deployment plans, such as the <em>Simple <span class="caps">API</span> for <span class="caps">XML</span></em> (<span class="caps">SAX</span>), would not yield substantial gains&nbsp;either.</li>
+</ol>
+
+<!-- TODO fix enumeration style. -->
+
+<p>The C++ data binding generated by <span class="caps">XSC</span> creates a number of classes (based on the content of the <span class="caps">XML</span> schema) that provide strongly-typed object-oriented access to the data in the <span class="caps">XML</span> document. Moreover, this interface leverages features of the C++ <span class="caps">STL</span> to help programmers write compact and efficient code to interact with their data. The general process for populating these wrappers is to 1) parse the <span class="caps">XML</span> document using a <span class="caps">DOM</span> <span class="caps">XML</span> parser; 2) parse the <span class="caps">DOM</span> tree to populate the generated class hierarchy. In order to enhance compatibility with <span class="caps">STL</span> algorithms and functors, <span class="caps">XSC</span> stores its data internally inside <span class="caps">STL</span> container&nbsp;classes.</p>
+
+<p>Initial versions of the <span class="caps">XSC</span> data binding were highly inefficient. Even relatively modest deployments numbering as few as several hundred to a thousand components would take nearly half an hour to process. After analyzing the execution of this process using tools such as Rational Quantify revealed a very straightforward problem: the generated <span class="caps">XSC</span> code was individually inserting elements into its internal data structures (in this case, <code>std::vector</code>) in a naive manner. As a result, exorbitant amounts of time were spent re-allocating and copying data inside these containers for each additional element&nbsp;inserted.</p>
+
+<p>Below we present specific guidelines that developers must be aware&nbsp;of:</p>
+
+<ul>
+<li><p><em>Be aware of the cost of your abstractions.</em> High level abstractions, such as the container classes that are available in the C++ <span class="caps">STL</span> can greatly simplify programs by reducing the need to reproduce complex and error-prone lower level (largely boilerplate) code. It is important to characterize and document (when writing abstractions) and understand (when using them) what hidden costs may be incurred by using the higher level operations provided by your&nbsp;abstraction.</p></li>
+<li><p><em>Use appropriate abstractions for your use case.</em> Often, there is a choice to be made between abstractions that provide similar functionality. An example may be the choice between <code>std::vector</code> and <code>std::list</code>; each presents its own advantages. In <span class="caps">XSC</span>, <code>std::vector</code> was initially used because we desired random access to elements in the data binding; the cost was extremely poor performance when parsing the <span class="caps">XML</span> document due to poor insertion performance. Our use case, however, only required sequential access, so the much better insertion performance of <code>std::list</code> was in the end much more&nbsp;desirable.</p></li>
+</ul>
+
+<p>By understanding the specific requirements of the particular use case of our generated <span class="caps">XML</span> data binding&#8211;in particular that most nodes are visited a single time and can be visited in order&#8211;we are able to apply the pattern <em>Expected Use Case</em> through the application of two other optimization patterns. The <em>Avoiding Generality</em> pattern is applicable in this case because we consciously avoid generality by generating the data binding without random access containers. We then chose to use the most efficient data structure (<em>Efficient Data Structures</em> pattern) to satisfy that lack of&nbsp;generality.</p>
+
+<ol start="2" style="list-style-type: decimal">
+<li>Preprocess the <span class="caps">XML</span> files for latency-critical deployments. While optimizing the <span class="caps">XML</span> to <span class="caps">IDL</span> conversion process yielded conversion times that were tractable, this step in the deployment process still consumed a large fraction of the total time required for deployment. This yet-unresolved overhead could be avoided by applying another optimization principle&nbsp;pattern:</li>
+</ol>
+
+<ul>
+<li><em>When possible, perform costly computations outside of the critical path</em>. In many cases, the result of costly procedures and computations can be pre-computed and stored for later retrieval. This is especially true in cases such as the <span class="caps">XML</span> deployment plan, which is unlikely to change between when it is generated, and when the application deployment is&nbsp;requested.</li>
+</ul>
+
+<p>This optimization approach applies the optimization pattern <em>Shifting in Time</em> by shifting the costly conversion of the deployment plan to a more efficient binary format outside of the critical path of application deployment. In applying this pattern, we first convert the deployment plan into its runtime <span class="caps">IDL</span> representation. We then serialize the result to disk using the <em>Common Data Representation</em> (<span class="caps">CDR</span>) [<span class="citation">32</span>] binary format defined by the <span class="caps">CORBA</span> specification. The <span class="caps">SEAMONSTER</span> online planner could take advantage of this optimization by producing these binary plans in lieu of <span class="caps">XML</span>-based deployment plans, significantly reducing&nbsp;latency.</p>
+
+<p>The platform-independent <span class="caps">CDR</span> binary format used to store the deployment plan on disk is the same format used to transmit the plan over the network at runtime. The advantage of this approach is that it leverages the heavily optimized de-serialization handlers provided by the underlying <span class="caps">CORBA</span> implementation. These handlers create an in-memory representation of the deployment plan data structure from the on-disk binary&nbsp;stream.</p>
+
+<h3 id="optimizing-plan-analysis">Optimizing Plan&nbsp;Analysis</h3>
+
+<p><a name="sec.opp.analysis"> </a></p>
+
+<h4 id="context-1">Context</h4>
+
+<p>After a component deployment plan has been loaded into an in-memory representation, it must be analyzed by the middleware deployment infrastructure before any subsequent deployment activity is performed. This analysis occurs during the plan preparation phase described in <a href="#sec.overview.process"><span class="caps">OMG</span> D&amp;C Deployment Process</a>. The goal of this analysis is to determine (1) the number of deployment sub-problems that are part of the deployment plan and (2) which component instances belong to each&nbsp;sub-problem.</p>
+
+<p>As mentioned in <a href="#sec.overview.process"><span class="caps">OMG</span> D&amp;C Deployment Process</a>, the output of this analysis process is a set of “locality-constrained” sub-plans. A locality-constrained sub-plan contains all the necessary metadata to execute a deployment successfully. It therefore contains copies of the information contained in the original plan (described in <a href="#sec.overview.model">D&amp;C Deployment Data Model</a>).</p>
+
+<p>The runtime plan analysis is actually conducted twice during the plan preparation phase of deployment: once at the global level and again on each node. Global deployment plans are split according to the node that the individual instances are assigned to. This two-part analysis results in a new sub-plan for each node that only contains the instances, connections, and other component metadata necessary for that&nbsp;node.</p>
+
+<p>The algorithm for splitting plans used by our DAnCE implementation of the D&amp;C specification is straightforward. For each instance to be deployed in the plan, the algorithm determines which sub-plan should contain it and retrieve the appropriate (or create a new) sub-plan data structure. As this relationship is determined, all metadata necessary for that component instance is copied to the sub-plan, including connections, metadata describing executables, shared library dependencies,&nbsp;etc.</p>
+
+<h4 id="problem-1">Problem</h4>
+
+<p>While this approach is conceptually simple, it is fraught with accidental complexities that yield the following inefficiencies in&nbsp;practice:</p>
+
+<ol style="list-style-type: decimal">
+<li><p><em>Reference representation in <span class="caps">IDL</span></em>. Deployment plans are typically transmitted over networks, so they must obey the rules of the <span class="caps">CORBA</span> <span class="caps">IDL</span> language mapping. Since <span class="caps">IDL</span> does not have any concept of references or pointers, some alternative mechanism must be used to describe the relationships between plan elements. The deployment plan stores all the major elements in sequences, so references to other entities can be represented with simple indices into these sequences. While this implementation can follow references in constant time, it also means these references become invalidated when plan entities are copied to sub-plans, as their position in deployment plan sequences will most likely be different. It is also impossible to determine if the target of a reference has already been copied without searching the sub-plan, which is&nbsp;time-consuming.</p></li>
+<li><p><em>Memory allocation in deployment plan sequences</em>. The <span class="caps">CORBA</span> <span class="caps">IDL</span> mapping requires that sequences be stored in consecutive memory addresses. If a sequence is resized, therefore, its contents will most likely be copied to another location in memory to accommodate the increased sequence size. With the approach summarized above, substantial copying overhead will occur as plan sizes grow. This overhead is especially problematic in resource-constrained systems (such as our <span class="caps">SEAMONSTER</span> case study), whose limited run-time memory must be conserved for application components. If the deployment infrastructure is inefficient in its use of this resource, either it will exhaust the available memory, or cause significant thrashing of any virtual memory available (both impacting deployment latency and the usable life of flash-based&nbsp;storage).</p></li>
+<li><p><em>Inefficient parallelization of plan analysis</em>. The algorithm described above would appear to benefit greatly from parallelization, as the process of analyzing a single component and determining which elements must be copied to a sub-plan is independent of all other components. Multi-threading this algorithm, however, would likely not be effective because access to sub-plans to copy instance metadata must be serialized to avoid data corruption. In practice, component instances in the deployment plan are usually grouped according to the node and/or process since deployment plans are often generated from modeling tools. As a result, multiple threads would likely compete for a lock on the same sub-plan, which would cause the “parallelized” algorithm to run largely sequentially. While parallelization has historically been viewed as non-applicable to resource-constrained <span class="caps">DRE</span> systems (such as <span class="caps">SEAMONSTER</span>), the advent of multi-core processors in single-board computers is motivating more parallelism in these&nbsp;environments.</p></li>
+</ol>
+
+<h4 id="optimization-principle-patterns-in-analysis-of-deployment-plans">Optimization Principle Patterns in Analysis of Deployment&nbsp;Plans</h4>
+
+<p>This performance challenge could potentially be resolved by applying the <em>Specification vs Implementation</em> pattern, and leveraging some of the same optimization principles described earlier for the <span class="caps">XSC</span> tool, especially <em>being aware of the cost of abstractions</em>, and <em>using appropriate containers for the use case</em>. For example, pointers/references could be used instead of sequence indices to refer to related data structures, potentially removing the need to carefully rewrite references when plan entities are copied between plans. Likewise, an associative container (such as an <span class="caps">STL</span> map) instead of a sequence could store plan objects, thereby increasing the efficiency of inserting plan entities into&nbsp;sub-plans.</p>
+
+<p>While these and other similar options are tempting, there are some inherent complexities in the requirements of the D&amp;C standard that make these optimizations less attractive. Since this data must be transmitted to other entities as part of the deployment process, using a more efficient representation for analysis would introduce yet another conversion step into the deployment process. This conversion would potentially overwhelm any gains attained by this new&nbsp;representation.</p>
+
+<p>A more attractive result is to apply a different set of optimization principles to this problem, outlined&nbsp;below:</p>
+
+<ul>
+<li><p><em>Cache previously calculated results for later use.</em> This is an example of the patterns <em>Shifting in Time</em> and <em>Exploiting State</em>. It is possible to perform a simple pre-analysis step to pre-calculate values that will be more time consuming to perform later. In this case, iterating over the plan first to determine the final sizes necessary to contain the calculated sub-plans and cache that state for later&nbsp;use.</p></li>
+<li><p><em>Where possible, pre-allocate any data structures.</em> As a result of the additional state gleaned through the pre-analysis step described above, we can apply the <em>Avoiding Waste</em> and avoid gratuitous waste by pre-allocating the sequences which were previously being re-allocated each time a new plan element was&nbsp;discovered.</p></li>
+<li><p><em>Design your algorithms to take advantage of parallelization.</em> While this can be seen as an application of the <em>Adding Hardware</em>, this pattern speaks more to taking advantage of intrinsic properties of hardware such as word size caching effects. Moreover, this pattern speaks to adding special purpose hardware to perform specialized&nbsp;calculations.</p>
+<p>Taking advantage of multiple general-purpose processors is an 1 important emerging principle. Since multi-core computers are pervasive in desktop and server domains, and are becoming increasingly common even in embedded domains, it is increasingly important to design for this important hardware feature. We therefore propose an additional pattern which we will call <em>Design for Parallelization</em>, wherein one optimizes design of algorithms and interfaces for parallelization, shown in&nbsp;.</p></li>
+<li><p><em>Structure shared data access to avoid necessary use of synchronization.</em> Synchronization, e.g., using mutexes to protect access to shared data, is tedious and error prone to use. Moreover, overzealous use of synchronization can often entirely negate any parallelization of your algorithms. A much more preferable approach is to structure your algorithms to eliminate the need for synchronization entirely; requiring only shared <em>read</em> access to data, instead of shared <em>write</em>&nbsp;access.</p>
+<p>This optimization principle is not only an important companion to <em>Design for Parallelization</em> proposed above, but is also a wise programming practice in general: deadlocks and race conditions caused by incorrect synchronization are pernicious and difficult to diagnose bugs. Indeed, our recent work in software frameworks intended for fractionated spacecraft has proposed a component model that eliminates synchronization from application code entirely [<span class="citation">33</span>]. To that end, we propose another optimization pattern which we call <em>Avoid Synchronization</em>, wherein one should avoid overzealous synchronization and locking, shown in&nbsp;below.</p></li>
+</ul>
+
+<p>These principles can be applied to the algorithm described above to create a version that is far more amenable to optimization; the new algorithm (along with how the above principles influenced the design, is described&nbsp;below.</p>
+
+<ol style="list-style-type: decimal">
+<li><p><em>Phase 1: Determine the number of sub-plans to produce.</em> In this phase, a single thread iterates over all component instances contained in the deployment plan to determine the number of necessary sub-plans. When this operation is performed at the global level, it simply requires a constant time operation per instance. When performed at the local level, it requires that locality constraints (described in <a href="#sec.overview.model">D&amp;C Deployment Data Model</a>) be evaluated. Since this phase is potentially time consuming the results are cached for later use. This is an example of <em>Shifting in Time</em> and <em>Exploiting State</em>.</p></li>
+<li><p><em>Phase 2: Preallocate data structures for sub-plans</em>. Using information gleaned in phase 1 above, preallocate data structures necessary to assemble sub-plans. As part of this preallocation it is possible to reserve memory for each sequence in the sub-plan data structure to avoid repeated resizing and copying. Statistics are collected in phase 1 to estimate these lengths efficiently. This is an example of <em>Avoiding&nbsp;Waste</em></p></li>
+<li><p><em>Phase 3: Assemble node-specific sub-plans.</em> This phase of the new analysis process is similar to the algorithm described at the beginning of this section. The main difference is that the cached results of the pre-analysis phase are used to guide the creation of sub-plans. Instead of considering each instance in order (as the original DAnCE implementation did), <span class="caps">LE</span>-DAnCE fully constructs one sub-plan at a time, by processing instances on a per-node basis. This approach simplifies parallelizing this phase by dedicating a single thread per sub-plan and eliminates any shared state between threads, except for read-only access to the original plan. It is therefore unnecessary to use any locking mechanism to protect access to the sub-plans. This is an example of <em>Design for Parallelization</em> and <em>Avoid Synchronization</em>.</p></li>
+</ol>
+
+<p>The revised algorithm above is a much more efficient implementation of plan analysis, and can show improvement even on the single-core embedded processors that were typical of the <span class="caps">SEAMONSTER</span> use-case: the above is far more memory efficient, both in terms of space used and the amount of re-allocation that is necessary. The use of multi-core embedded processors would substantially improve run-time performance over the old&nbsp;algorithm.</p>
+
+<h3 id="optimization-through-reduction-in-serialized-execution-of-deployment-tasks">Optimization Through Reduction in Serialized Execution of Deployment&nbsp;Tasks</h3>
+
+<p></p>
+
+<h4 id="context-2">Context</h4>
+
+<p>The complexities presented below involve the serial (non-parallel) execution of deployment tasks. The related sources of latency in DAnCE exist at both the global and node level. At the global level, this lack of parallelism results from the underlying <span class="caps">CORBA</span> transport used by DAnCE. The lack of parallelism at the local level, however, results from the lack of specificity in terms of the interface of the D&amp;C implementation with the target component model that is contained in the D&amp;C&nbsp;specification.</p>
+
+<p>The D&amp;C deployment process presented in <a href="#sec.overview.process"><span class="caps">OMG</span> D&amp;C Deployment Process</a> enables global entities to divide the deployment process into a number of node-specific subtasks. Each subtask is dispatched to individual nodes using a single remote invocation, with any data produced by the nodes passed back to the global entities via “out” parameters that are part of the operation signature described in <span class="caps">IDL</span>. Due to the synchronous (request/response) nature of the <span class="caps">CORBA</span> messaging protocol used to implement DAnCE, the conventional approach is to dispatch these subtasks serially to each node. This approach is simple to implement in contrast to the complexity of using the <span class="caps">CORBA</span> <em>asynchronous method invocation</em> (<span class="caps">AMI</span>) mechanism [<span class="citation">34</span>].</p>
+
+<h4 id="problem-2">Problem</h4>
+
+<p>To minimize initial implementation complexity, we used synchronous invocation in an (admittedly shortsighted) design choice in the initial DAnCE implementation. This global synchronicity worked fine for relatively small deployments with less than about 100 components. As the number of nodes and instances assigned to those nodes scaled up, however, this global/local serialization imposed a substantial cost in deployment&nbsp;latency.</p>
+
+<p>This serialized execution yielded the most problematic performance degradation in our <span class="caps">SEAMONSTER</span> case study, i.e., the limited computational resources available on the field hardware would often take several minutes to complete. Such latency at the node level can quickly becomes disastrous. In particular, even relatively modest deployments involving tens of nodes quickly escalates the deployment latency of the system to a half hour or&nbsp;more.</p>
+
+<p>This serialization problem, however, is not limited only to the global/local task dispatching; it exists in the node-specific portion of the infrastructure, as well. The D&amp;C specification provides no guidance in terms of how the NodeApplication should interface with the target component model, such as the <span class="caps">CORBA</span> Component Model (<span class="caps">CCM</span>), instead leaving such an interface as an implementation&nbsp;detail.</p>
+
+<p>In DAnCE, the D&amp;C architecture was implemented using three processes, as shown in <a href="#figure-6.3">Figure 6.3</a>.</p>
+
+<div class="center figure">
+<a name="figure-6.3"></a><img src="dance-images/abstract-arch.png" alt="Figure 6.3 - Simplified, serialized DAnCE architecture" title="Figure 6.3 - Simplified, serialized DAnCE architecture" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 6.3 - Simplified, serialized DAnCE architecture</small>
+</p>
+
+<p>The ExecutionManager and NodeManager processes instantiate their associated ApplicationManager and Application instances in their address spaces. When the NodeApplication installs concrete component instances it spawns one (or more) separate application processes as needed. These application processes use an interface derived from an older version of the <span class="caps">CCM</span> specification that allows the NodeApplication to instantiate containers and component instances individually. This approach is similar to that taken by <span class="caps">CARDAMOM</span> [<span class="citation">35</span>] (which is another open source <span class="caps">CCM</span> implementation) that is tailored for enterprise <span class="caps">DRE</span> systems, such as air-traffic management&nbsp;systems.</p>
+
+<p>The DAnCE architecture shown in <a href="#figure-6.3">Figure 6.3</a> was problematic with respect to parallelization since its NodeApplication implementation integrated all logic necessary for installing, configuring, and connecting instances directly (as shown in <a href="#figure-6.4">Figure 6.4</a>),</p>
+
+<div class="center figure">
+<a name="figure-6.4"></a><img src="dance-images/old-na.png" alt="Figure 6.4 - Previous DAnCE NodeApplication implementation" title="Figure 6.4 - Previous DAnCE NodeApplication implementation" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 6.4 - Previous DAnCE NodeApplication implementation</small>
+</p>
+
+<p>rather than performing only some processing and delegating the remainder of the concrete deployment logic to the application process. This tight integration made it hard to parallelize the node-level installation procedures for the following&nbsp;reasons:</p>
+
+<ul>
+<li><p>The amount of data shared by the <em>generic deployment logic</em> (the portion of the NodeApplication implementation that interprets the plan) and the <em>specific deployment logic</em> (the portion which has specific knowledge of how to manipulate components) made it hard to parallelize their installation in the context of a <em>single</em> component server since that data must be modified during&nbsp;installation.</p></li>
+<li><p>Groups of components installed to separate application processes were considered as separate deployment sub-tasks, so these groupings were handled sequentially one after the&nbsp;other.</p></li>
+</ul>
+
+<h4 id="optimization-principle-patterns-in-reducing-serialized-phasing">Optimization Principle Patterns in Reducing Serialized&nbsp;Phasing</h4>
+
+<p>In a similar vein to the analysis problem described earlier, this is a problem wherein excessive serialization is impacting performance. In this case, however, instead of re-evaluating the algorithmic approach to the <em>deployment process</em>, we will re-consider the <em>architectural design</em> of the system instead. In order to address the performance challenge in this case, we applied the following optimization principles to&nbsp;DAnCE:</p>
+
+<ol style="list-style-type: decimal">
+<li><p><em>Don’t let specifications overly constrain your design.</em> When implementing a system or software framework according to the specification, it is often natural to model your design along the strictures and implicit assumptions of the specification. It is often possible to architect your implementation in order to introduce architectural elements or behavior that remain within the strictures of the specification. This is an example of both the <em>Specification vs. Implementation</em> pattern and the <em>Degrees of Freedom</em>&nbsp;pattern.</p></li>
+<li><p><em>Maintain strict separation of concerns.</em> Ensure that your system operates in <em>layers</em> or <em>modules</em> that interact through well-defined interfaces. This helps to ensure that the state for each layer or module is well-contained, simplifying interactions between logically distinct portions of your applications and making it easier to apply the <em>Design for Parallelization</em> pattern. Moreover, ensuring that the state for each layer is self contained helps to apply the <em>Avoid Synchronization</em>&nbsp;pattern.</p>
+<p>Moreover, modularizing your software design can often reveal ways that other optimization principle patterns can be applied. As such, we propose another principle pattern, <em>Separate Concerns</em>, leveraging separation of concern to modularize architecture (summarized in . Although traditionally a level of indirection may be frowned upon because it could lead to performance penalties, sometimes it can reveal new opportunities or help apply other&nbsp;optimizations.</p></li>
+<li><p><em>Ensure that these layers or modules can interact asynchronously.</em> If the modules or layers in your architecture have interfaces that assume synchronous operation, it becomes difficult to leverage parallel operation to improve performance. Even if the interface is itself synchronous, it is often possible to use other techniques, such as leveraging abstractions that allow you to interact with a synchronous interface in an asynchronous manner. Avoiding synchronous interactions between is another important application of the <em>Design for Parallelization</em>&nbsp;pattern.</p></li>
+</ol>
+
+<p>Applying these principles at the global level (e.g., the <code>ExecutionManager</code> described in <a href="#sec.overview.arch">Runtime D&amp;C Architecture</a>) the separation of concerns is maintained by virtue of the fact that it and the node-level resources are in separate processes, and likely the different physical nodes. Asynchrony in this context is also easy to achieve, as we were able to leverage the <span class="caps">CORBA</span> Asynchronous Method Invocation (<span class="caps">AMI</span>) to allow the client (in this case, the global infrastructure) to interact asynchronously with the synchronous server interface (in this case, the node level infrastructure), and dispatch multiple requests to individual nodes in parallel. This is an example of <em>Degrees of Freedom</em> in that the specification does not reject the notion of asynchronous interaction between these&nbsp;entities.</p>
+
+<p>Applying these principles in the node level infrastructure, however, was more challenging. As described above, our initial implementation had poor separation of concerns, making it extremely difficult to apply multiple threads of execution in order to parallelize deployment activity at the node level. To support this, we created a new abstraction at the node level that we called the Locality Manager, which was the result of applying the above optimization&nbsp;principles.</p>
+
+<p><em>Overview of the <span class="caps">LE</span>-DAnCE Locality Manager.</em> The <span class="caps">LE</span>-DAnCE node-level architecture (e.g., NodeManager, NodeApplicationManager, and NodeApplication) now functions as a node-constrained version of the global portion of the <span class="caps">OMG</span> D&amp;C architecture. Rather than having the NodeApplication directly triggering installation of concrete component instances, this responsibility is now delegated to LocalityManager instances. The node-level infrastructure performs a second “split” of the plan it receives from the global level by grouping component instances into one or more application processes. The NodeApplication then spawns a number of LocalityManager processes and delegates these “process-constrained” (<em>i.e.</em>, containing only components and connections apropos to a single process) plans to each application process in&nbsp;parallel.</p>
+
+<p>The Locality Manager is an example of the <em>Specification vs. Implementation</em> pattern. The specification would suggest that the NodeApplication is the final entity that interacts with the component middleware; by recognizing that our implementation could introduce another layer of abstraction, we’ve been able to apply a number of other optimization&nbsp;patterns.</p>
+
+<p>Unlike the previous DAnCE NodeApplication implementation, the <span class="caps">LE</span>-DAnCE LocalityManager functions as a generic application process that strictly separates concerns between the general deployment logic needed to analyze the plan and the specific deployment logic needed to install and manage the lifecycle of concrete component middleware instances. This separation is achieved using entities called <em>Instance Installation Handlers</em>, which provide a well-defined interface for managing the lifecycle of a component instance, including installation, removal, connection, disconnection, and activation. Installation Handlers are also used in the context of the NodeApplication to manage the life-cycle of LocalityManager&nbsp;processes.</p>
+
+<p>The genesis of these installation handlers is an example of the <em>Degrees of Freedom</em> pattern; by under specifying the explicit interaction with the component middleware, it has left us free to design our own interaction. In doing do, we have applied the <em>Separate Concerns</em>&nbsp;pattern.</p>
+
+<p><em>Using the Locality Manager to reduce serialized execution of deployment steps.</em> <span class="caps">LE</span>-DAnCE’s new LocalityManager and Installation Handlers make it substantially easier to parallelize than DAnCE. Parallelism in both the LocalityManager and NodeApplication is achieved using an entity called the <em>Deployment Scheduler</em>, which is shown in <a href="#figure-6.5">Figure 6.5</a>.</p>
+
+<div class="center figure">
+<a name="figure-6.5"></a><img src="dance-images/deployment-scheduler.png" alt="Figure 6.5 - DAnCE Deployment Scheduler" title="Figure 6.5 - DAnCE Deployment Scheduler" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 6.5 - DAnCE Deployment Scheduler</small>
+</p>
+
+<p>The Deployment Scheduler combines the Command pattern [<span class="citation">36</span>] and the Active Object pattern [<span class="citation">37</span>]. Individual deployment actions (e.g., instance installation, instance connection, <em>etc.</em>) are encased inside an Action object, along with any required metadata. Each individual deployment action is an invocation of a method on an Installation Handler, so these actions need not be rewritten for each potential deployment target. Error handling and logging logic is also fully contained within individual actions, further simplifying the&nbsp;LocalityManager.</p>
+
+<p>Individual actions (e.g., install a component or create a connection) are scheduled for execution by a configurable thread pool. This pool can provide user-selected, single-threaded, or multi-threaded behavior, depending on application requirements. This thread pool can also be used to implement more sophisticated scheduling behavior, e.g., a priority-based scheduling algorithm that dynamically reorders the installation of component instances based on metadata present in the&nbsp;plan.</p>
+
+<p>The LocalityManager determines which actions to perform during each particular phase of deployment and creates one Action object for each instruction. These actions are then passed to the deployment scheduler for execution while the main thread of control waits on a completion signal from the Deployment Scheduler. Upon completion, the LocalityManager reaps either return values or error codes from the completed actions and completes the deployment&nbsp;phase.</p>
+
+<p>To provide parallelism between LocalityManager instances on the same node, the <span class="caps">LE</span>-DAnCE Deployment Scheduler is also used in the implementation of the NodeApplication, along with an Installation Handler for LocalityManager processes. Using the Deployment Scheduler at this level helps overcome a significant source of latency whilst conducting node-level deployments. Spawning LocalityManager instances can take a significant amount of time compared to the deployment time required for component instances, so parallelizing this process can achieve significant latency savings when application deployments have many LocalityManager processes per&nbsp;node.</p>
+
+<p>Taken together, the dynamic re-ordering of deployment events and parallel installation of LocalityManager instances is a promising approach to improve deployment latency in the <span class="caps">SEAMONSTER</span> domain. By attaching high priority to critical deployment events, such as the activation or change in configuration of a sensor observing a present natural phenomena, DAnCE can help ensure that critical mission needs are met in a timely fashion. Moreover, the parallelism enabled by this design can reduce latency by allowing other LocalityManager instances to execute while one is blocked on I/O as it loads new component implementations, or by taking advantage of newer multicore embedded&nbsp;processors.</p>
+
+<h2 id="concluding-remarks">Concluding&nbsp;Remarks</h2>
+
+<p><a name="sec.conc"> </a></p>
+
+<p>This chapter provided an overview of the <em>Deployment And Configuration Engine</em> (DAnCE), an implementation of the <span class="caps">OMG</span> <em>Deployment and Configuration</em> specification. As a research tool, DAnCE was used to demonstrate novel techniques for the deployment and configuration (D&amp;C) of component-based applications in <span class="caps">DRE</span> systems. While its performance was satisfactory for the narrow and focused demonstrations required for publications and demonstration, its performance was not satisfactory when applied to larger-scale production <span class="caps">DRE</span> systems. A number of factors, including changing architectural ownership and the demo-focused nature of DAnCE’s development, caused a number of poor design choices early on to become entrenched in its architecture and design, seriously impeding&nbsp;performance.</p>
+
+<p>A typical use case of DAnCE, in this case the <em>South East Alaska MOnitoring Network for Science, Telecommunications, Education, and Research</em> (<span class="caps">SEAMONSTER</span>) platform, was described to highlight many of the optimization opportunities present in DAnCE. Motivated by this use case, this paper described how we applied a catalog of optimization principles from the domain of networking to re-evaluate and re-engineer the design and implementation of DAnCE to remedy the deficiencies outlined above. In addition, we described three additional optimization principles: dealing with parallelization, synchronization, and separation of concerns. These additional patterns—in conjunction with those described in the initial catalog—were used to develop <span class="caps">LE</span>-DAnCE, which substantially improved the performance and reliability of DAnCE. A summary of the original pattern catalog, along with our additions, is shown in . Likewise, a thorough quantitative discussion of the performance enhancement results is described in [<span class="citation">27</span>].</p>
+
+<table>
+<caption> Catalog of optimization principles and known use cases in <span class="caps">LE</span>-DAnCE</caption>
+<thead>
+<tr class="header">
+<th align="left">Pattern</th>
+<th align="left">Explanation</th>
+<th align="left">Example in DaNCE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><em>Avoiding Waste</em></td>
+<td align="left">Avoid obvious waste</td>
+<td align="left">Pre-allocate memory when parsing deployment plans.</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Shifting in Time</em></td>
+<td align="left">Shift computation in time (/pre-compute, lazy evaluation, sharing expenses, batching)</td>
+<td align="left">Pre-convert deployment plan to binary format, <br/> <em>potentially pre-compute plan splits</em>.</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Relaxing Specifications</em></td>
+<td align="left">Relax specifications (trading off certainty for time, trading off accuracy for time, and shifting computation in time)</td>
+<td align="left"><em>Potentially pre-compute plan splits</em>.</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Leveraging Other Components</em></td>
+<td align="left">Leverage other system components (exploiting locality, trading memory for speed, exploiting hardware)</td>
+<td align="left">(n/a)</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Adding Hardware</em></td>
+<td align="left">Add hardware to improve performance</td>
+<td align="left">(n/a)</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Efficient Routines</em></td>
+<td align="left">Create efficient routines</td>
+<td align="left"><span class="caps">XML</span>-<span class="caps">IDL</span> Data Binding</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Avoiding Generality</em></td>
+<td align="left">Avoid unnecessary generality</td>
+<td align="left">Optimize plan parsing</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Specification vs Implementation</em></td>
+<td align="left">Don&#8217;t confuse specification and implementation</td>
+<td align="left">LocalityManager</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Passing Hints</em></td>
+<td align="left">Pass information like hints in interfaces</td>
+<td align="left"><em>Potentially used to pre-compute plan splits</em></td>
+</tr>
+<tr class="even">
+<td align="left"><em>Passing Information</em></td>
+<td align="left">Pass information in protocol headers</td>
+<td align="left">(n/a)</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Expected Use Case</em></td>
+<td align="left">Optimize the expected case</td>
+<td align="left"><span class="caps">XML</span>-<span class="caps">IDL</span> Data Binding</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Exploiting State</em></td>
+<td align="left">Add or exploit state to gain speed</td>
+<td align="left">Pre-allocate child plans during plan analysis.</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Degrees of Freedom</em></td>
+<td align="left">Optimize degrees of freedom</td>
+<td align="left">LocalityManager Installation Handlers</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Exploit Finite Universes</em></td>
+<td align="left">Use special techniques for finite universes</td>
+<td align="left">(n/a)</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Efficient Data Structures</em></td>
+<td align="left">Use efficient data structures</td>
+<td align="left">Optimize <span class="caps">XML</span>-<span class="caps">IDL</span> data binding</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Design for Parallelization</em></td>
+<td align="left">Optimize design for parallelization</td>
+<td align="left">Process child plans in parallel</td>
+</tr>
+<tr class="odd">
+<td align="left"><em>Avoid Synchronization</em></td>
+<td align="left">Avoid synchronization and locking</td>
+<td align="left">Unsynchronized access to parent plan during plan analysis.</td>
+</tr>
+<tr class="even">
+<td align="left"><em>Separate Concerns</em></td>
+<td align="left">Use strict separation of concerns to modularize architecture</td>
+<td align="left">Locality Manager</td>
+</tr>
+</tbody>
+</table>
+
+<p>Based on our experiences applying the optimizations described in this chapter to <span class="caps">LE</span>-DAnCE and observing the results, we have learned the following&nbsp;lessons:</p>
+
+<ul>
+<li><p><em>Taking advantage of parallelization is a critical optimization opportunity.</em> As multicore processors become a standard feature of even embedded devices, it is critically important that algorithms and processes be designed to take advantage of this capability. When optimizing algorithms and processes for parallelization, be judicious in applying synchronization since improper use of locks can cause parallel systems to operate in a serial fashion, or worse, malfunction in subtle&nbsp;ways.</p></li>
+<li><p><em>When possible, shift time consuming operations out of the critical path</em>. While our optimizations to the plan analysis portion of the D&amp;C process (described in <a href="#sec.opp.analysis">Optimizing Plan Analysis</a>) were effective in reducing the total deployment latency for large scale deployments, additional improvement is possible by further applying the <em>Shifting in Time</em> pattern Like the <span class="caps">XML</span> parsing problem described in <a href="#sec.opp.parsing">Optimizing Deployment Plan Parsing</a>, the result of this operation is likely fixed at the point that the <span class="caps">XML</span> plan is generated. This process could be similarly pre-computed and provided to the D&amp;C infrastructure for additional latency savings. Passing these pre-computed plans (both for the global split and the local split) would be an example application of the <em>Passing Hints</em> optimization&nbsp;pattern.</p></li>
+<li><p><em>Serialized execution of processes is a major source of performance problems in <span class="caps">DRE</span> systems.</em> Executing tasks in a serial fashion when designing distributed systems offers significant conceptual and implementation simplicity. This simplicity, however, often comes with a significant performance penalty. Often, the additional complexity of asynchronous interaction is well worth the additional&nbsp;complexity.</p></li>
+<li><p><em>Lack of clear architectural and technical leadership is detrimental to open source projects.</em> Developers often contribute to an open source project to solve a narrow problem and leave soon after. Without clear leadership, poor architectural and technical decisions made by individual contributors eventually snowball into a nearly unusable&nbsp;project.</p></li>
+</ul>
+
+<p><span class="caps">TAO</span>, <span class="caps">CIAO</span>, and <span class="caps">LE</span>-DAnCE are available in open source form from&nbsp;download.dre.vanderbilt.edu.</p>
+
+<h2 id="references">References</h2>
+
+<p>[1]<span class="caps">G. T.</span> Heineman and <span class="caps">B. T.</span> Councill, <em>Component-Based Software Engineering: Putting the Pieces Together</em>. Addison-Wesley,&nbsp;2001.</p>
+
+<p>[2]A. Akkerman, A. Totok, and V. Karamcheti, “Infrastructure for Automatic Dynamic Deployment of <span class="caps">J2EE</span> Applications in Distributed Environments,” in <em>3rd International Working Conference on Component Deployment (<span class="caps">CD</span> 2005)</em>, Grenoble, France, 2005, pp.&nbsp;17–32.</p>
+
+<p>[3]D. Suri, A. Howell, N. Shankaran, J. Kinnebrew, W. Otte, <span class="caps">D. C.</span> Schmidt, and G. Biswas, “Onboard Processing using the Adaptive Network Architecture,” in <em>Proceedings of the Sixth Annual <span class="caps">NASA</span> Earth Science Technology Conference</em>,&nbsp;2006.</p>
+
+<p>[4]J. White, B. Dougherty, R. Schantz, <span class="caps">D. C.</span> Schmidt, A. Porter, and A. Corsaro, “R&amp;D Challenges and Solutions for Highly Complex Distributed Systems: a Middleware Perspective,” <em>the Springer Journal of Internet Services and Applications special issue on the Future of Middleware</em>, vol. 2, no. 3, dec&nbsp;2011.</p>
+
+<p>[5]<span class="caps">D. C.</span> Schmidt, B. Natarajan, A. Gokhale, N. Wang, and C. Gill, “<span class="caps">TAO</span>: A Pattern-Oriented Object Request Broker for Distributed Real-time and Embedded Systems,” <em><span class="caps">IEEE</span> Distributed Systems Online</em>, vol. 3, no. 2, Feb&nbsp;2002.</p>
+
+<p>[6]Institute for Software Integrated Systems, “Component-Integrated <span class="caps">ACE</span> <span class="caps">ORB</span> (<span class="caps">CIAO</span>).” www.dre.vanderbilt.edu/<span class="caps">CIAO</span>, Vanderbilt&nbsp;University.</p>
+
+<p>[7]<em>Lightweight <span class="caps">CCM</span> <span class="caps">FTF</span> Convenience Document</em>, Ptc/04-06-10. Object Management Group,&nbsp;2004.</p>
+
+<p>[8]G. Deng, J. Balasubramanian, W. Otte, <span class="caps">D. C.</span> Schmidt, and A. Gokhale, “DAnCE: A QoS-enabled Component Deployment and Configuration Engine,” in <em>Proceedings of the 3rd Working Conference on Component Deployment (<span class="caps">CD</span> 2005)</em>, 2005, pp.&nbsp;67–82.</p>
+
+<p>[9]<em>Deployment and Configuration of Component-based Distributed Applications, v4.0</em>, Document formal/2006-04-02. <span class="caps">OMG</span>,&nbsp;2006.</p>
+
+<p>[10]G. Varghese, <em>Network Algorithmics: An Interdisciplinary Approach to Designing Fast Networked Devices</em>. San Francisco, <span class="caps">CA</span>: Morgan Kaufmann Publishers (Elsevier),&nbsp;2005.</p>
+
+<p>[11]<span class="caps">V. S.</span> Pai, P. Druschel, and W. Zwaenepoel, “<span class="caps">IO</span>-Lite: A Unified I/O Buffering and Caching System,” <em><span class="caps">ACM</span> Transactions of Computer Systems</em>, vol. 18, no. 1, pp. 37–66,&nbsp;2000.</p>
+
+<p>[12]M. Accetta, R. Baron, W. Bolosky, D. Golub, R. Rashid, A. Tavanian, and M. Young, “Mach: A New Kernel Foundation for <span class="caps">UNIX</span> Development,” in <em>Proceedings of the Summer 1986 <span class="caps">USENIX</span> Technical Conference and Exhibition</em>, 1986, pp.&nbsp;93–112.</p>
+
+<p>[13]<span class="caps">D. D.</span> Clark and <span class="caps">D. L.</span> Tennenhouse, “Architectural Considerations for a New Generation of Protocols,” in <em>Proceedings of the Symposium on Communications Architectures and Protocols (<span class="caps">SIGCOMM</span>)</em>, <span class="caps">ACM</span>, 1990, pp.&nbsp;200–208.</p>
+
+<p>[14]M. Shreedhar and G. Varghese, “Efficient Fair Queueing using Deficit Round Robin,” in <em><span class="caps">SIGCOMM</span> ’95: Proceedings of the conference on Applications, technologies, architectures, and protocols for computer communication</em>, <span class="caps">ACM</span> Press, 1995, pp.&nbsp;231–242.</p>
+
+<p>[15]M. Degermark, A. Brodnik, S. Carlsson, and S. Pink, “Small Forwarding Tables for Fast Routing Lookups,” in <em>Proceedings of the <span class="caps">ACM</span> <span class="caps">SIGCOMM</span> ’97 Conference on Applications, Technologies, Architectures, and Protocols for Computer Communication</em>, <span class="caps">ACM</span> Press, 1997, pp.&nbsp;3–14.</p>
+
+<p>[16]J. Hasan and <span class="caps">T. N.</span> Vijaykumar, “Dynamic pipelining: Making <span class="caps">IP</span>-lookup Truly Scalable,” in <em><span class="caps">SIGCOMM</span> ’05: Proceedings of the 2005 Conference on Applications, technologies, architectures, and protocols for computer communications</em>, <span class="caps">ACM</span> Press, 2005, pp.&nbsp;205–216.</p>
+
+<p>[17]P. Druschel and <span class="caps">L. L.</span> Peterson, “Fbufs: A High-Bandwidth Cross-Domain Transfer Facility,” in <em>Proceedings of the $14^th$ Symposium on Operating System Principles (<span class="caps">SOSP</span>)</em>,&nbsp;1993.</p>
+
+<p>[18]<span class="caps">N. C.</span> Hutchinson and <span class="caps">L. L.</span> Peterson, “Design of the x-Kernel,” in <em>Proceedings of the <span class="caps">SIGCOMM</span> ’88 Symposium</em>, 1988, pp.&nbsp;65–75.</p>
+
+<p>[19]S. McCanne and V. Jacobson, “The <span class="caps">BSD</span> Packet Filter: A New Architecture for User-level Packet Capture,” in <em>Proceedings of the Winter <span class="caps">USENIX</span> Conference</em>, 1993, pp.&nbsp;259–270.</p>
+
+<p>[20]<span class="caps">J. C.</span> Mogul, <span class="caps">R. F.</span> Rashid, and <span class="caps">M. J.</span> Accetta, “The Packet Filter: an Efficient Mechanism for User-level Network Code,” in <em>Proceedings of the 11th Symposium on Operating System Principles (<span class="caps">SOSP</span>)</em>,&nbsp;1987.</p>
+
+<p>[21]<span class="caps">D. R.</span> Engler and <span class="caps">M. F.</span> Kaashoek, “<span class="caps">DPF</span>: Fast, Flexible Message Demultiplexing using Dynamic Code Generation,” in <em>Proceedings of <span class="caps">ACM</span> <span class="caps">SIGCOMM</span> ’96 Conference in Computer Communication Review</em>, <span class="caps">ACM</span> Press, 1996, pp.&nbsp;53–59.</p>
+
+<p>[22]Y. Rekhter, B. Davie, E. Rosen, G. Swallow, D. Farinacci, and D. Katz, “Tag Switching Architecture Overview,” <em>Proceedings of the <span class="caps">IEEE</span></em>, vol. 85, no. 12, pp. 1973–1983, dec&nbsp;1997.</p>
+
+<p>[23]<span class="caps">D. D.</span> Clark, V. Jacobson, J. Romkey, and H. Salwen, “An Analysis of <span class="caps">TCP</span> Processing Overhead,” <em><span class="caps">IEEE</span> Communications Magazine</em>, vol. 27, no. 6, pp. 23–29, jun&nbsp;1989.</p>
+
+<p>[24]S. Sahni and <span class="caps">K. S.</span> Kim, “Efficient Construction of Multibit Tries for <span class="caps">IP</span> Lookup,” <em><span class="caps">IEEE</span>/<span class="caps">ACM</span> Trans. Netw.</em>, vol. 11, no. 4, pp. 650–662,&nbsp;2003.</p>
+
+<p>[25]G. Varghese and T. Lauck, “Hashed and Hierarchical Timing Wheels: Data Structures for the Efficient Implementation of a Timer Facility,” <em><span class="caps">IEEE</span> Transactions on Networking</em>, dec&nbsp;1997.</p>
+
+<p>[26]<span class="caps">W. R.</span> Otte, A. Gokhale, and <span class="caps">D. C.</span> Schmidt, “Predictable Deployment in Component-based Enterprise Distributed Real-time and Embedded Systems,” in <em>Proceedings of the 14th international <span class="caps">ACM</span> Sigsoft Symposium on Component Based Software Engineering</em>, <span class="caps">ACM</span>, 2011, pp.&nbsp;21–30.</p>
+
+<p>[27]W. Otte, A. Gokhale, D. Schmidt, and A. Tackett, “Efficient and Deterministic Application Deployment in Component-based, Enterprise Distributed, Real-time, and Embedded Systems,” <em>Elsevier Journal of Information and Software Technology (<span class="caps">IST</span>)</em>, vol. 55, no. 2, pp. 475–488, feb&nbsp;2013.</p>
+
+<p>[28]D. ~. R. Fatland, M. ~. J. Heavner, E. Hood, and C. Connor, “The <span class="caps">SEAMONSTER</span> Sensor Web: Lessons and Opportunities after One Year,” <em><span class="caps">AGU</span> Fall Meeting Abstracts</em>, dec&nbsp;2007.</p>
+
+<p>[29]<span class="caps">J. S.</span> Kinnebrew, <span class="caps">W. R.</span> Otte, N. Shankaran, G. Biswas, and <span class="caps">D. C.</span> Schmidt, “Intelligent Resource Management and Dynamic Adaptation in a Distributed Real-time and Embedded Sensor Web System,” Vanderbilt University, <span class="caps">ISIS</span>-08-906,&nbsp;2008.</p>
+
+<p>[30]A. Gokhale, B. Natarajan, <span class="caps">D. C.</span> Schmidt, A. Nechypurenko, J. Gray, N. Wang, S. Neema, T. Bapty, and J. Parsons, “CoSMIC: An <span class="caps">MDA</span> Generative Tool for Distributed Real-time and Embedded Component Middleware and Applications,” in <em>Proceedings of the <span class="caps">OOPSLA</span> 2002 Workshop on Generative Techniques in the Context of Model Driven Architecture</em>, <span class="caps">ACM</span>,&nbsp;2002.</p>
+
+<p>[31]J. White, B. Kolpackov, B. Natarajan, and <span class="caps">D. C.</span> Schmidt, “Reducing Application Code Complexity with Vocabulary-specific <span class="caps">XML</span> language Bindings,” in <em><span class="caps">ACM</span>-<span class="caps">SE</span> 43: Proceedings of the 43rd annual Southeast regional conference</em>,&nbsp;2005.</p>
+
+<p>[32]<em>The Common Object Request Broker: Architecture and Specification Version 3.1, Part 2: <span class="caps">CORBA</span> Interoperability</em>, <span class="caps">OMG</span> Document formal/2008-01-07. Object Management Group,&nbsp;2008.</p>
+
+<p>[33]A. Dubey, W. Emfinger, A. Gokhale, G. Karsai, W. Otte, J. Parsons, C. Czabo, A. Coglio, E. Smith, and P. Bose, “A Software Platform for Fractionated Spacecraft,” in <em>Proceedings of the <span class="caps">IEEE</span> Aerospace Conference, 2012</em>, <span class="caps">IEEE</span>, 2012, pp.&nbsp;1–20.</p>
+
+<p>[34]<span class="caps">A. B.</span> Arulanthu, C. O’Ryan, <span class="caps">D. C.</span> Schmidt, M. Kircher, and J. Parsons, “The Design and Performance of a Scalable <span class="caps">ORB</span> Architecture for <span class="caps">CORBA</span> Asynchronous Messaging,” in <em>Proceedings of the Middleware 2000 Conference</em>, Pallisades, New York: <span class="caps">ACM</span>/<span class="caps">IFIP</span>,&nbsp;2000.</p>
+
+<p>[35]ObjectWeb Consortium, “<span class="caps">CARDAMOM</span> - An Enterprise Middleware for Building Mission and Safety Critical Applications.” cardamom.objectweb.org,&nbsp;2006.</p>
+
+<p>[36]E. Gamma, R. Helm, R. Johnson, and J. Vlissides, <em>Design Patterns: Elements of Reusable Object-Oriented Software</em>. Addison-Wesley,&nbsp;1995.</p>
+
+<p>[37]<span class="caps">D. C.</span> Schmidt, M. Stal, H. Rohnert, and F. Buschmann, <em>Pattern-Oriented Software Architecture: Patterns for Concurrent and Networked Objects, Volume 2</em>. New York: Wiley <span class="amp">&amp;</span> Sons,&nbsp;2000.</p>
+        </div>
+      </div>
+          </div>
+  </body>
+</html>

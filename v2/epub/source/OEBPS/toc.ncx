@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
+   "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+    <head>
+        <meta name="dtb:uid" content="1384d7d5-c4a7-46e2-8c69-a7511205bdc4"/>
+        <meta name="dtb:depth" content="4"/>
+        <meta name="dtb:totalPageCount" content="0"/>
+        <meta name="dtb:maxPageNumber" content="0"/>
+    </head>
+    <docTitle>
+        <text>The Architecture of Open Source Applications, Volume II</text>
+    </docTitle>
+    <navMap>
+        <navPoint id="navPoint-1" playOrder="1">
+            <navLabel>
+                <text>Introduction</text>
+            </navLabel>
+            <content src="Text/intro2.html"/>
+        </navPoint>
+        <navPoint id="navPoint-2" playOrder="2">
+            <navLabel>
+                <text>Scalable Web Architecture and Distributed Systems</text>
+            </navLabel>
+            <content src="Text/distsys.html"/>
+        </navPoint>
+        <navPoint id="navPoint-3" playOrder="3">
+            <navLabel>
+                <text>Firefox Release Engineering</text>
+            </navLabel>
+            <content src="Text/ffreleng.html"/>
+        </navPoint>
+        <navPoint id="navPoint-4" playOrder="4">
+            <navLabel>
+                <text>FreeRTOS</text>
+            </navLabel>
+            <content src="Text/freertos.html"/>
+        </navPoint>
+        <navPoint id="navPoint-5" playOrder="5">
+            <navLabel>
+                <text>GDB</text>
+            </navLabel>
+            <content src="Text/gdb.html"/>
+        </navPoint>
+        <navPoint id="navPoint-6" playOrder="6">
+            <navLabel>
+                <text>The Glasgow Haskell Compiler</text>
+            </navLabel>
+            <content src="Text/ghc.html"/>
+        </navPoint>
+        <navPoint id="navPoint-7" playOrder="7">
+            <navLabel>
+                <text>Git</text>
+            </navLabel>
+            <content src="Text/git.html"/>
+        </navPoint>
+        <navPoint id="navPoint-8" playOrder="8">
+            <navLabel>
+                <text>The Dynamic Language Runtime and the Iron Languages</text>
+            </navLabel>
+            <content src="Text/ironlang.html"/>
+        </navPoint>
+        <navPoint id="navPoint-9" playOrder="9">
+            <navLabel>
+                <text>ITK</text>
+            </navLabel>
+            <content src="Text/itk.html"/>
+        </navPoint>
+        <navPoint id="navPoint-10" playOrder="10">
+            <navLabel>
+                <text>GNU Mailman</text>
+            </navLabel>
+            <content src="Text/mailman.html"/>
+        </navPoint>
+        <navPoint id="navPoint-11" playOrder="11">
+            <navLabel>
+                <text>matplotlib</text>
+            </navLabel>
+            <content src="Text/matplotlib.html"/>
+        </navPoint>
+        <navPoint id="navPoint-12" playOrder="12">
+            <navLabel>
+                <text>MediaWiki</text>
+            </navLabel>
+            <content src="Text/mediawiki.html"/>
+        </navPoint>
+        <navPoint id="navPoint-13" playOrder="13">
+            <navLabel>
+                <text>Moodle</text>
+            </navLabel>
+            <content src="Text/moodle.html"/>
+        </navPoint>
+        <navPoint id="navPoint-14" playOrder="14">
+            <navLabel>
+                <text>nginx</text>
+            </navLabel>
+            <content src="Text/nginx.html"/>
+        </navPoint>
+        <navPoint id="navPoint-15" playOrder="15">
+            <navLabel>
+                <text>Open MPI</text>
+            </navLabel>
+            <content src="Text/openmpi.html"/>
+        </navPoint>
+        <navPoint id="navPoint-16" playOrder="16">
+            <navLabel>
+                <text>OSCAR</text>
+            </navLabel>
+            <content src="Text/oscar.html"/>
+        </navPoint>
+        <navPoint id="navPoint-17" playOrder="17">
+            <navLabel>
+                <text>Processing.js</text>
+            </navLabel>
+            <content src="Text/pjs.html"/>
+        </navPoint>
+        <navPoint id="navPoint-18" playOrder="18">
+            <navLabel>
+                <text>Puppet</text>
+            </navLabel>
+            <content src="Text/puppet.html"/>
+        </navPoint>
+        <navPoint id="navPoint-19" playOrder="19">
+            <navLabel>
+                <text>PyPy</text>
+            </navLabel>
+            <content src="Text/pypy.html"/>
+        </navPoint>
+        <navPoint id="navPoint-20" playOrder="20">
+            <navLabel>
+                <text>SQLAlchemy</text>
+            </navLabel>
+            <content src="Text/sqlalchemy.html"/>
+        </navPoint>
+        <navPoint id="navPoint-21" playOrder="21">
+            <navLabel>
+                <text>Twisted</text>
+            </navLabel>
+            <content src="Text/twisted.html"/>
+        </navPoint>
+        <navPoint id="navPoint-22" playOrder="22">
+            <navLabel>
+                <text>Yesod</text>
+            </navLabel>
+            <content src="Text/yesod.html"/>
+        </navPoint>
+        <navPoint id="navPoint-23" playOrder="23">
+            <navLabel>
+                <text>Yocto</text>
+            </navLabel>
+            <content src="Text/yocto.html"/>
+        </navPoint>
+        <navPoint id="navPoint-24" playOrder="24">
+            <navLabel>
+                <text>ZeroMQ</text>
+            </navLabel>
+            <content src="Text/zeromq.html"/>
+        </navPoint>
+        <navPoint id="navPoint-25" playOrder="25">
+            <navLabel>
+                <text>Bibliography</text>
+            </navLabel>
+            <content src="Text/bib2.html"/>
+        </navPoint>
+    </navMap>
+</ncx>

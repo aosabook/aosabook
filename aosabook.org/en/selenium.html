@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: selenium.html 1602 2013-02-05 03:25:24Z tavish $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Selenium WebDriver</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Selenium WebDriver</h1>
+        <p><a href="intro1.html#stewart-simon">Simon Stewart</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Selenium is a browser automation tool, commonly used for writing
+end-to-end tests of web applications. A browser automation tool
+does exactly what you would expect: automate the control of a
+browser so that repetitive tasks can be automated. It sounds like
+a simple problem to solve, but as we will see, a lot has to happen
+behind the scenes to make it work.</p>
+
+<p>Before describing the architecture of Selenium it helps to understand
+how the various related pieces of the
+project fit together. At a very high level, Selenium is a suite of
+three tools. The first of these tools, Selenium
+IDE, is an extension for Firefox that allows users to record and
+playback tests. The record/playback paradigm can be limiting and isn't
+suitable for many users, so the second tool in the suite, Selenium
+WebDriver, provides APIs in a variety of languages to allow for more
+control and the application of standard software development
+practices. The final tool, Selenium Grid, makes it possible to use the
+Selenium APIs to control browser instances distributed over a grid of
+machines, allowing more tests to run in parallel. Within the project,
+they are referred to as "IDE", "WebDriver" and "Grid". This
+chapter explores the architecture of Selenium WebDriver.</p>
+
+<p>This chapter was written during the betas of Selenium 2.0 in late
+2010. If you're reading the book after then, then things will have
+moved forward, and you'll be able to see how the architectural choices
+described here have unfolded. If you're reading before that date:
+Congratulations! You have a time machine. Can I have some winning
+lottery numbers?</p>
+
+<div class="sect">
+<h2>16.1. History</h2>
+
+<p>Jason Huggins started the Selenium project in 2004 while working at
+ThoughtWorks on their in-house Time and Expenses (T&amp;E) system, which
+made extensive use of Javascript. Although Internet Explorer was the
+dominant browser at the time, ThoughtWorks used a number of
+alternative browsers (in particular Mozilla variants) and would file
+bug reports when the T&amp;E app wouldn't work on their browser of
+choice. Open Source testing tools at the time were either focused on a
+single browser (typically IE) or were simulations of a browser (like
+HttpUnit).  The cost of a license for a commercial tool would have
+exhausted the limited budget for a small in-house project, so they
+weren't even considered as viable testing choices.</p>
+
+<p>Where automation is difficult, it's common to rely on manual
+testing. This approach doesn't scale when the team is very small or
+when releases are extremely frequent. It's also a waste of humanity to
+ask people to step through a script that could be automated. More
+prosaically, people are slower and more error prone than a machine for
+dull repetitive tasks.  Manual testing wasn't an option.</p>
+
+<p>Fortunately, all the browsers being tested supported Javascript. It
+made sense to Jason and the team he was working with to write a
+testing tool in that language which could be used to verify the
+behavior of the application. Inspired by work being done on
+FIT<sup class="footnote"><a href="#footnote-1">1</a></sup>, a table-based syntax was placed
+over the raw Javascript and this allowed tests to be written by people
+with limited programming experience using a keyword-driven approach in
+HTML files. This tool, originally called "Selenium" but later
+referred to as "Selenium Core", was released under the Apache 2
+license in 2004.</p>
+
+<p>The table format of Selenium is structured similarly to the
+ActionFixture from FIT. Each row of the table is split into three
+columns. The first column gives the name of the command to execute,
+the second column typically contains an element identifier and the
+third column contains an optional value. For example, this is how to
+type the string "Selenium WebDriver" into an element identified with
+the name "q":</p>
+
+<pre>
+type       name=q       Selenium WebDriver
+</pre>
+
+<p>Because Selenium was written in pure Javascript,
+its initial design required developers to host Core and
+their tests on the same server as the application under test
+(AUT) in order to avoid falling foul of the browser's security
+policies and the Javascript sandbox. This was not always
+practical or possible.  Worse, although a
+developer's IDE gives them the ability to swiftly manipulate code and
+navigate a large codebase, there is no such tool for HTML. It rapidly
+became clear that maintaining even a medium-sized suite of tests was
+an unwieldy and painful proposition.<sup class="footnote"><a href="#footnote-2">2</a></sup></p>
+
+<p>To resolve this and other issues, an HTTP proxy was written so that
+every HTTP request could be intercepted by Selenium. Using this
+proxy made it possible to side-step many of the constraints of the "same host
+origin" policy, where a browser won't allow Javascript to make calls
+to anything other than the server from which the current page has been
+served, allowing the first weakness to be mitigated. The design opened
+up the possibility of writing Selenium bindings in multiple languages:
+they just needed to be able to send HTTP requests to a particular
+URL. The wire format was closely modeled on the table-based syntax of
+Selenium Core and it, along with the table-based syntax, became
+known as "Selenese". Because the language bindings were controlling
+the browser at a distance, the tool was called "Selenium Remote
+Control", or "Selenium RC".</p>
+
+<p>While Selenium was being developed, another browser automation
+framework was brewing at ThoughtWorks: WebDriver. The initial code for
+this was released early in 2007. WebDriver was derived from work on
+projects which wanted to isolate their end-to-end tests from the
+underlying test tool.  Typically, the way that this isolation is done
+is via the Adapter pattern.  WebDriver grew out of insight
+developed by applying this approach consistently over numerous
+projects, and initially was a wrapper around HtmlUnit. Internet
+Explorer and Firefox support followed rapidly after release.</p>
+
+<p>When WebDriver was released there were significant differences between
+it and Selenium RC, though they sat in the same software niche of an
+API for browser automation.  The most obvious difference to a user was
+that Selenium RC had a dictionary-based API, with all methods exposed
+on a single class, whereas WebDriver had a more object-oriented API.
+In addition, WebDriver only supported Java, whereas Selenium RC
+offered support for a wide-range of languages.  There were also strong
+technical differences: Selenium Core (on which RC was based) was
+essentially a Javascript application, running inside the browser's
+security sandbox. WebDriver attempted to bind natively to the browser,
+side-stepping the browser's security model at the cost of
+significantly increased development effort for the framework itself.</p>
+
+<p>In August, 2009, it was announced that the two projects would merge,
+and Selenium WebDriver is the result of those merged projects.
+As I write this, WebDriver supports language bindings for Java, C#,
+Python and Ruby. It offers support for Chrome, Firefox, Internet
+Explorer, Opera, and the Android and iPhone browsers. There are sister
+projects, not kept in the same source code repository but working
+closely with the main project, that provide Perl bindings, an
+implementation for the BlackBerry browser, and for "headless"
+WebKit&mdash;useful for those times where tests need to run on a
+continuous integration server without a proper display. The original
+Selenium RC mechanism is still maintained and allows WebDriver to
+provide support for browsers that would otherwise be unsupported.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.2. A Digression About Jargon</h2>
+
+<p>Unfortunately, the Selenium project uses a lot of jargon.  To recap
+what we've already come across:</p>
+
+<ul>
+
+  <li><em>Selenium Core</em> is the heart of the original Selenium implementation,
+  and is a set of Javascript scripts that control the browser. This is
+  sometimes referred to as "Selenium" and sometimes as "Core".</li>
+
+  <li><em>Selenium RC</em> was the name given to the language bindings for Selenium
+  Core, and is commonly, and confusingly, referred to as just
+  "Selenium" or "RC".  It has now been replaced by Selenium
+  WebDriver, where RC's API is referred to as the "Selenium 1.x API".</li>
+
+  <li><em>Selenium WebDriver</em> fits in the same niche as RC did, and has subsumed
+  the original 1.x bindings.  It refers to both the language bindings
+  and the implementations of the individual browser controlling
+  code. This is commonly referred to as just "WebDriver" or sometimes
+  as Selenium 2. Doubtless, this will be contracted to "Selenium" over
+  time.</li>
+
+</ul>
+
+<p>The astute reader will have noticed that "Selenium" is used in a
+fairly general sense. Fortunately, context normally makes it clear
+which particular Selenium people are referring to.</p>
+
+<p>Finally, there's one more phrase which I'll be using, and there's no
+graceful way of introducing it: "driver" is the name given to a
+particular implementation of the WebDriver API. For example, there is
+a Firefox driver, and an Internet Explorer driver.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.3. Architectural Themes</h2>
+
+<p>Before we start looking at the individual pieces to understand how
+they're wired together, it's useful to understand the the overarching
+themes of the architecture and development of the project. Succinctly
+put, these are:</p>
+
+<ul>
+
+<li>Keep the costs down.</li>
+
+<li>Emulate the user.</li>
+
+<li>Prove the drivers work&hellip;</li>
+
+<li>&hellip;but you shouldn't need to understand how everything works.</li>
+
+<li>Lower the bus factor.</li>
+
+<li>Have sympathy for a Javascript implementation.</li>
+
+<li>Every method call is an RPC call.</li>
+
+<li>We are an Open Source project.</li>
+
+</ul>
+
+<div class="subsect">
+<h3>16.3.1. Keep the Costs Down</h3>
+
+<p>Supporting X browsers on Y platforms is inherently an expensive
+proposition, both in terms of initial development and maintenance. If
+we can find some way to keep the quality of the product high without
+violating too many of the other principles, then that's the route we
+favor. This is most clearly seen in our adoption of Javascript where
+possible, as you'll read about shortly.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.2. Emulate the User</h3>
+
+<p>WebDriver is designed to accurately simulate the way that a user will
+interact with a web application. A common approach for simulating user
+input is to make use of Javascript to synthesize and fire the series
+of events that an app would see if a real user were to perform the
+same interaction. This "synthesized events" approach is fraught with
+difficulties as each browser, and sometimes different versions of the
+same browser, fire slightly different events with slightly different
+values. To complicate matters, most browsers won't allow a user to
+interact in this way with form elements such as file input
+elements for security reasons.</p>
+
+<p>Where possible WebDriver uses the alternative approach of firing
+events at the OS level. As these "native events" aren't generated by
+the browser this approach circumvents the security restrictions placed
+on synthesized events and, because they are OS specific, once they are
+working for one browser on a particular platform reusing the code in
+another browser is relatively easy. Sadly, this approach is only
+possible where WebDriver can bind closely with the browser
+and where the development team have determined how best to send
+native events without requiring the browser window to be focused
+(as Selenium tests take a long time to run, and it's useful to be
+able to use the machine for other tasks as they run). At the time
+of writing, this means that native events can be used on Linux and
+Windows, but not Mac OS X.</p>
+
+<p>No matter how WebDriver is emulating user input, we try hard to mimic
+user behavior as closely as possible. This in contrast to RC, which
+provided APIs that operated at a level far lower than that which a
+user works at.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.3. Prove the Drivers Work</h3>
+
+<p>It may be an idealistic, "motherhood and apple pie" thing, but I
+believe there's no point in writing code if it doesn't work. The way
+we prove the drivers work on the Selenium project is to have an
+extensive set of automated test cases. These are typically
+"integration tests", requiring the code to be compiled and making
+use of a browser interacting with a web server, but where possible we
+write "unit tests", which, unlike an integration test can be run
+without a full recompilation. At the time of writing, there are about
+500 integration tests and about 250 unit tests that could be run
+across each and every browser. We add more as we fix issues and write
+new code, and our focus is shifting to writing more unit tests.</p>
+
+<p>Not every test is run against every browser. Some test specific
+capabilities that some browsers don't support, or which are handled in
+different ways on different browsers. Examples would include the tests
+for new HTML5 features which aren't supported on all browsers. Despite
+this, each of the major desktop browsers have a significant subset of
+tests run against them. Understandably, finding a way to run 500+
+tests per browser on multiple platforms is a significant challenge,
+and it's one that the project continues to wrestle with.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.4. You Shouldn't Need to Understand How Everything Works</h3>
+
+<p>Very few developers are proficient and comfortable in every language
+and technology we use. Consequently, our architecture needs to allow
+developers to focus their talents where they can do the most good,
+without needing them to work on pieces of the codebase where they are
+uncomfortable.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.5. Lower the Bus Factor</h3>
+
+<p>There's a (not entirely serious) concept in software development
+called the "bus factor". It refers to the number of key developers
+who would need to meet some grisly end&mdash;presumably by being hit by a
+bus&mdash;to leave the project in a state where it couldn't
+continue. Something as complex as browser automation could be
+especially prone to this, so a lot of our architectural decisions are
+made to raise this number as high as possible.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.6. Have Sympathy for a Javascript Implementation</h3>
+
+<p>WebDriver falls back to using pure Javascript to drive the browser if
+there is no other way of controlling it. This means that any API we
+add should be "sympathetic" to a Javascript implementation.
+As a concrete example, HTML5 introduces LocalStorage, an API for
+storing structured data on the client-side. This is typically
+implemented in the browser using SQLite. A natural implementation
+would have been to provide a database connection to the underlying
+data store, using something like JDBC.
+Eventually, we settled on an API that closely models the underlying
+Javascript implementation because something that modeled typical
+database access APIs wasn't sympathetic to a Javascript implementation.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.7. Every Call Is an RPC Call</h3>
+
+<p>WebDriver controls browsers that are running in other processes. Although
+it's easy to overlook it, this means that every call that is made
+through its API is an RPC call and therefore the performance of the
+framework is at the mercy of network latency. In normal operation,
+this may not be terribly noticeable&mdash;most OSes optimize routing to
+localhost&mdash;but as the network latency between the browser and the
+test code increases, what may have seemed efficient becomes less so to
+both API designers and users of that API.</p>
+
+<p>This introduces some tension into the design of APIs. A larger API,
+with coarser functions would help reduce latency by collapsing
+multiple calls, but this must be balanced by keeping the API
+expressive and easy to use. For example, there are several checks that
+need to be made to determine whether an element is visible to an
+end-user. Not only do we need to take into account various CSS
+properties, which may need to be inferred by looking at parent
+elements, but we should probably also check the dimensions of the
+element. A minimalist API would require each of these checks to be
+made individually. WebDriver collapses all of them into a single
+<code>isDisplayed</code> method.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.3.8. Final Thought: This Is Open Source</h3>
+
+<p>Although it's not strictly an architectural point, Selenium is an Open
+Source project. The theme that ties all the above points together is
+that we'd like to make it as easy as possible for a new developer to
+contribute. By keeping the depth of knowledge required as shallow as
+possible, using as few languages as necessary and by relying on
+automated tests to verify that nothing has broken, we hopefully enable
+this ease of contribution.</p>
+
+<p>Originally the project was split into a series of modules, with each
+module representing a particular browser with additional modules for
+common code and for support and utility code. Source trees for each
+binding were stored under these modules. This approach made a lot of
+sense for languages such as Java and C#, but was painful to work with
+for Rubyists and Pythonistas. This translated almost directly into
+relative contributor numbers, with only a handful of people able and
+interested to work on the Python and Ruby bindings. To address this,
+in October and November of 2010 the source code was reorganized with
+the Ruby and Python code stored under a single top-level directory per
+language. This more closely matched the expectations of Open Source
+developers in those languages, and the effect on contributions from
+the community was noticeable almost immediately.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>16.4. Coping with Complexity</h2>
+
+<p>Software is a lumpy construct. The lumps are complexity, and as
+designers of an API we have a choice as where to push that
+complexity. At one extreme we could spread the complexity as evenly as
+possible, meaning that every consumer of the API needs to be party to
+it. The other extreme suggests taking as much of the complexity as
+possible and isolating it in a single place. That single place would
+be a place of darkness and terror for many if they have to venture
+there, but the trade-off is that users of the API, who need not delve
+into the implementation, have that cost of complexity paid up-front
+for them.</p>
+
+<p>The WebDriver developers lean more towards finding and isolating the
+complexity in a few places rather than spreading it out. One reason
+for this is our users. They're exceptionally good at finding problems
+and issues, as a glance at our bug list shows, but because many of
+them are not developers a complex API isn't going to work well. We
+sought to provide an API that guides people in the right direction. As
+an example, consider the following methods from the original Selenium
+API, each of which can be used to set the value of an input element:</p>
+
+<ul>
+
+<li>type</li>
+
+<li>typeKeys</li>
+
+<li>typeKeysNative</li>
+
+<li>keydown</li>
+
+<li>keypress</li>
+
+<li>keyup</li>
+
+<li>keydownNative</li>
+
+<li>keypressNative</li>
+
+<li>keyupNative</li>
+
+<li>attachFile</li>
+
+</ul>
+
+<p>Here's the equivalent in the WebDriver API:</p>
+
+<ul>
+
+<li>sendKeys</li>
+
+</ul>
+
+<p>As discussed earlier, this highlights one of the major philosophical
+differences between RC and WebDriver in that WebDriver is striving to
+emulate the user, whereas RC offers APIs that deal at a lower level
+that a user would find hard or impossible to reach. The distinction
+between <code>typeKeys</code> and <code>typeKeysNative</code> is that the former
+always uses synthetic events, whereas the latter attempts to use the
+AWT Robot to type the keys. Disappointingly, the AWT Robot sends the
+key presses to whichever window has focus, which may not necessarily
+be the browser. WebDriver's native events, by contrast, are sent
+directly to the window handle, avoiding the requirement that the
+browser window have focus.</p>
+
+<div class="subsect">
+<h3>16.4.1. The WebDriver Design</h3>
+
+<p>The team refers to WebDriver's API as being "object-based". The
+interfaces are clearly defined and try to adhere to having only a
+single role or responsibility, but rather than modeling every single
+possible HTML tag as its own class we only have a single
+<code>WebElement</code> interface. By following this approach developers
+who are using an IDE which supports auto-completion can be led towards
+the next step to take. The result is that coding sessions may
+look like this (in Java):</p>
+
+<pre>
+WebDriver driver = new FirefoxDriver();
+driver.&lt;user hits space&gt;
+</pre>
+
+<p class="continue">At this point, a relatively short list of 13 methods to pick from
+appears. The user selects one:</p>
+
+<pre>
+driver.findElement(&lt;user hits space&gt;)
+</pre>
+
+<p class="continue">Most IDEs will now drop a hint about the type of the argument
+expected, in this case a "By". There are a number of preconfigured
+factory methods for "By" objects declared as static methods on the
+By itself. Our user will quickly end up with a line of code that looks
+like:</p>
+
+<pre>
+driver.findElement(By.id("some_id"));
+</pre>
+
+<div class="box">
+  <p class="boxtitle">Role-based Interfaces</p>
+
+<p>Think of a simplified <code>Shop</code> class. Every day, it needs to be
+restocked, and it collaborates with a <code>Stockist</code> to deliver this
+new stock. Every month, it needs to pay staff and taxes. For the sake
+of argument, let's assume that it does this using an
+<code>Accountant</code>. One way of modeling this looks like:</p>
+
+<pre>
+public interface Shop {
+    void addStock(StockItem item, int quantity);
+    Money getSalesTotal(Date startDate, Date endDate);
+}
+</pre>
+
+<p>We have two choices about where to draw the boundaries when defining
+the interface between the Shop, the Accountant and the Stockist. We
+could draw a theoretical line as shown in <a href="#fig.sel.int1">Figure&nbsp;16.1</a>.</p>
+
+<p>This would mean that both <code>Accountant</code> and <code>Stockist</code> would
+accept a <code>Shop</code> as an argument to their respective methods. The
+drawback here, though, is that it's unlikely that the Accountant
+really wants to stack shelves, and it's probably not a great idea for
+the Stockist to realize the vast mark-up on prices that the Shop is
+adding. So, a better place to draw the line is shown in
+<a href="#fig.sel.int2">Figure&nbsp;16.2</a>.</p>
+
+<p>We'll need two interfaces that the Shop needs to implement, but these
+interfaces clearly define the role that the Shop fulfills for both the
+Accountant and the Stockist. They are role-based interfaces:</p>
+
+<pre>
+public interface HasBalance {
+    Money getSalesTotal(Date startDate, Date endDate);
+}
+
+public interface Stockable {
+    void addStock(StockItem item, int quantity);
+}
+
+public interface Shop extends HasBalance, Stockable {
+}
+
+</pre>
+
+</div>
+
+<p>I find <code>UnsupportedOperationExceptions</code> and their ilk deeply
+displeasing, but there needs to be something that allows functionality
+to be exposed for the subset of users who might need it without
+cluttering the rest of the APIs for the majority of users. To this
+end, WebDriver makes extensive use of role-based interfaces. For
+example, there is a <code>JavascriptExecutor</code> interface that provides
+the ability to execute arbitrary chunks of Javascript in the context
+of the current page. A successful cast of a WebDriver instance to that
+interface indicates that you can expect the methods on it to work.</p>
+
+<div class="figure" id="fig.sel.int1">
+  <img src="../images/selenium/role-based-interfaces-one-interface.png" alt="[Accountant and Stockist Depend on Shop]" />
+  <p>Figure&nbsp;16.1: Accountant and Stockist Depend on Shop</p>
+</div>
+
+<div class="figure" id="fig.sel.int2">
+  <img src="../images/selenium/role-based-interfaces-two-interfaces.png" alt="[Shop Implements HasBalance and Stockable]" />
+  <p>Figure&nbsp;16.2: Shop Implements HasBalance and Stockable</p>
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>16.4.2. Dealing with the Combinatorial Explosion</h3>
+
+<p>One of the first things that is apparent from a moment's thought about
+the wide range of browsers and languages that WebDriver supports is
+that unless care is taken it would quickly face an escalating cost of
+maintenance. With X browsers and Y languages, it would be very easy to
+fall into the trap of maintaining X&times;Y implementations.</p>
+
+<p>Reducing the number of languages that WebDriver supports would be one
+way to reduce this cost, but we don't want to go down this route for
+two reasons. Firstly, there's a cognitive load to be paid when
+switching from one language to another, so it's advantageous to users
+of the framework to be able to write their tests in the same language
+that they do the majority of their development work in. Secondly,
+mixing several languages on a single project is something that teams
+may not be comfortable with, and corporate coding standards and
+requirements often seem to demand a technology monoculture (although,
+pleasingly, I think that this second point is becoming less true over
+time), therefore reducing the number of supported languages isn't an
+available option.</p>
+
+<p>Reducing the number of supported browsers also isn't an option&mdash;there
+were vociferous arguments when we phased out support for Firefox 2 in
+WebDriver, despite the fact that when we made this choice it
+represented less than 1% of the browser market.</p>
+
+<p>The only choice we have left is to try and make all the browsers look
+identical to the language bindings: they should offer a uniform
+interface that can be addressed easily in a wide variety of languages.
+What is more, we want the language bindings themselves to be as easy
+to write as possible, which suggests that we want to keep them as slim
+as possible. We push as much logic as we can into the underlying
+driver in order to support this: every piece of functionality we fail
+to push into the driver is something that needs to be implemented in
+every language we support, and this can represent a significant amount
+of work.</p>
+
+<p>As an example, the IE driver has successfully pushed the
+responsibility for locating and starting IE into the main driver
+logic. Although this has resulted in a surprising number of lines of
+code being in the driver, the language binding for creating a new
+instance boils down to a single method call into that driver. For
+comparison, the Firefox driver has failed to make this change. In the
+Java world alone, this means that we have three major classes that
+handle configuring and starting Firefox weighing in at around 1300
+lines of code. These classes are duplicated in every language binding
+that wants to support the FirefoxDriver without relying on starting a
+Java server. That's a lot of additional code to maintain.</p>
+
+</div>
+
+<div class="subsect">
+<h3>16.4.3. Flaws in the WebDriver Design</h3>
+
+<p>The downside of the decision to expose capabilities in this way is
+that until someone knows that a particular interface exists they may
+not realize that WebDriver supports that type of functionality;
+there's a loss of explorability in the API. Certainly when WebDriver
+was new we seemed to spend a lot of time just pointing people towards
+particular interfaces. We've now put a lot more effort into our
+documentation and as the API gets more widely used it becomes easier
+and easier for users to find the information they need.</p>
+
+<p>There is one place where I think our API is particularly poor. We have
+an interface called <code>RenderedWebElement</code> which has a strange
+mish-mash of methods to do with querying the rendered state of the
+element (<code>isDisplayed</code>, <code>getSize</code> and <code>getLocation</code>),
+performing operations on it (<code>hover</code> and drag and drop methods),
+and a handy method for getting the value of a particular CSS
+property. It was created because the HtmlUnit driver didn't expose the
+required information, but the Firefox and IE drivers did. It
+originally only had the first set of methods but we added the other
+methods before I'd done hard thinking about how I wanted the API to
+evolve. The interface is well known now, and the tough choice is
+whether we keep this unsightly corner of the API given that it's
+widely used, or whether we attempt to delete it. My preference is not
+to leave a "broken window" behind, so fixing this before we release
+Selenium 2.0 is important.
+As a result, by the time you read this chapter,
+<code>RenderedWebElement</code> may well be gone.</p>
+
+<p>From an implementor's point of view, binding tightly to a browser is
+also a design flaw, albeit an inescapable one. It takes significant
+effort to support a new browser, and often several attempts need to be
+made in order to get it right. As a concrete example, the Chrome
+driver has gone through four complete rewrites, and the IE driver has
+had three major rewrites too. The advantage of binding tightly to a
+browser is that it offers more control.</p>
+
+</div>
+
+</div>
+
+<div class="sect" id="sec.selenium.layers">
+<h2>16.5. Layers and Javascript</h2>
+
+<p>A browser automation tool is essentially built of three moving parts:</p>
+
+<ul>
+
+<li>A way of interrogating the DOM.</li>
+
+<li>A mechanism for executing Javascript.</li>
+
+<li>Some means of emulating user input.</li>
+
+</ul>
+
+<p>This section focuses on the first part: providing a mechanism to
+interrogate the DOM. The lingua franca of the browser is Javascript,
+and this seems like the ideal language to use when interrogating the
+DOM. Although this choice seems obvious, making it leads to some
+interesting challenges and competing requirements that need balancing
+when thinking about Javascript.</p>
+
+<p>Like most large projects, Selenium makes use of a layered set of
+libraries.  The bottom layer is Google's Closure Library, which
+supplies primitives and a modularization mechanism allowing source
+files to be kept focused and as small as possible. Above this, there
+is a utility library providing functions that range from simple tasks
+such as getting the value of an attribute, through determining whether
+an element would be visible to an end user, to far more complex
+actions such as simulating a click using synthesized events. Within
+the project, these are viewed as offering the smallest units of
+browser automation, and so are called Browser Automation Atoms or
+atoms. Finally, there are adapter layers that compose atoms in order
+to meet the API contracts of both WebDriver and Core.</p>
+
+<div class="figure" id="fig.sel.atoms">
+  <img src="../images/selenium/atoms.png" alt="[Layers of Selenium Javascript Library]" />
+  <p>Figure&nbsp;16.3: Layers of Selenium Javascript Library</p>
+</div>
+
+<p>The Closure Library was chosen for several reasons. The main one was
+that the Closure Compiler understands the modularization technique the
+Library uses. The Closure Compiler is a compiler targeting Javascript
+as the output language. "Compilation" can be as simple as ordering
+input files in dependency order, concatenating and pretty printing
+them, or as complex as doing advanced minification and dead code
+removal. Another undeniable advantage was that several members of the
+team doing the work on the Javascript code were very familiar with
+Closure Library.</p>
+
+<p>This "atomic" library of code is used pervasively throughout the
+project when there is a requirement to interrogate the DOM.  For RC
+and those drivers largely composed of Javascript, the library is used
+directly, typically compiled as a monolithic script. For drivers
+written in Java, individual functions from the WebDriver adapter layer
+are compiled with full optimization enabled, and the generated
+Javascript included as resources in the JARs. For drivers written in C
+variants, such as the iPhone and IE drivers, not only are the
+individual functions compiled with full optimization, but the
+generated output is converted to a constant defined in a header which
+is executed via the driver's normal Javascript execution mechanism on
+demand. Although this seems like a strange thing to do, it allows the
+Javascript to be pushed into the underlying driver without needing to
+expose the raw source in multiple places.</p>
+
+<p>Because the atoms are used pervasively it's possible to ensure
+consistent behavior between the different browsers, and because the
+library is written in Javascript and doesn't require elevated
+privileges to execute the development cycle, is easy and fast. The
+Closure Library can load dependencies dynamically, so the Selenium
+developer need only write a test and load it in a browser, modifying
+code and hitting the refresh button as required. Once the test is
+passing in one browser, it's easy to load it in another browser and
+confirm that it passes there. Because the Closure Library does a good
+job of abstracting away the differences between browsers, this is
+often enough, though it's reassuring to know that there are continuous
+builds that will run the test suite in every supported browser.</p>
+
+<p>Originally Core and WebDriver had many areas of congruent code&mdash;code
+that performed the same function in slightly different ways. When we
+started work on the atoms, this code was combed through to try and
+find the "best of breed" functionality. After all, both projects had
+been used extensively and their code was very robust so throwing away
+everything and starting from scratch would not only have been wasteful
+but foolish.  As each atom was extracted, the sites at which it would
+be used were identified and switched to using the atom. For example,
+the Firefox driver's <code>getAttribute</code> method shrunk from
+approximately 50 lines of code to 6 lines long, including blank lines:</p>
+
+<pre>
+FirefoxDriver.prototype.getElementAttribute =
+  function(respond, parameters) {
+  var element = Utils.getElementAt(parameters.id,
+                                   respond.session.getDocument());
+  var attributeName = parameters.name;
+
+  respond.value = webdriver.element.getAttribute(element, attributeName);
+  respond.send();
+};
+</pre>
+
+<p class="continue">That second-to-last line, where <code>respond.value</code> is assigned to,
+is using the atomic WebDriver library.</p>
+
+<p>The atoms are a practical demonstration of several of the
+architectural themes of the project. Naturally they enforce the
+requirement that an implementation of an API be sympathetic to a
+Javascript implementation. What's even better is that the same library
+is shared throughout the codebase; where once a bug had to be verified
+and fixed across multiple implementations, it is now enough to fix the
+bug in one place, which reduces the cost of change while improving
+stability and effectiveness. The atoms also make the bus factor of the
+project more favorable. Since a normal Javascript unit test can be
+used to check that a fix works the barrier to joining the Open Source
+project is considerably lower than it was when knowledge of how each
+driver was implemented was required.</p>
+
+<p>There is another benefit to using the atoms. A layer emulating the
+existing RC implementation but backed by WebDriver is an important
+tool for teams looking to migrate in a controlled fashion to the newer
+WebDriver APIs. As Selenium Core is atomized it becomes possible to
+compile each function from it individually, making the task of writing
+this emulating layer both easier to implement and more accurate.</p>
+
+<p>It goes without saying that there are downsides to the approach taken.
+Most importantly, compiling Javascript to a C <code>const</code> is a very
+strange thing to do, and it always baffles new contributors to the
+project who want to work on the C code. It is also a rare developer
+who has every version of every browser and is dedicated enough to run
+every test in all of those browsers&mdash;it is possible for someone to
+inadvertently cause a regression in an unexpected place, and it can
+take some time to identify the problem, particularly if the continuous
+builds are being flaky.</p>
+
+<p>Because the atoms normalize return values between browsers, there can
+also be unexpected return values. For example, consider this HTML:</p>
+
+<pre>
+&lt;input name="example" checked&gt;
+</pre>
+
+<p class="continue">The value of the <code>checked</code> attribute will depend on the browser
+being used. The atoms normalize this, and other Boolean attributes
+defined in the HTML5 spec, to be "true" or "false". When this atom
+was introduced to the code base, we discovered many places where
+people were making browser-dependent assumptions about what the return
+value should be. While the value was now consistent there was an
+extended period where we explained to the community what had happened
+and why.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.6. The Remote Driver, and the Firefox Driver in Particular</h2>
+
+<p>The remote WebDriver was originally a glorified RPC mechanism. It has
+since evolved into one of the key mechanisms we use to reduce the cost
+of maintaining WebDriver by providing a uniform interface that
+language bindings can code against. Even though we've pushed as much
+of the logic as we can out of the language bindings and into the
+driver, if each driver needed to communicate via a unique protocol we
+would still have an enormous amount of code to repeat across all the
+language bindings.</p>
+
+<p>The remote WebDriver protocol is used wherever we need to communicate
+with a browser instance that's running out of process.  Designing this
+protocol meant taking into consideration a number of concerns. Most of
+these were technical, but, this being open source, there was also the
+social aspect to consider.</p>
+
+<p>Any RPC mechanism is split into two pieces: the transport and the
+encoding. We knew that however we implemented the remote WebDriver
+protocol, we would need support for both pieces in the languages we
+wanted to use as clients. The first iteration of the design was
+developed as part of the Firefox driver.</p>
+
+<p>Mozilla, and therefore Firefox, was always seen as being a
+multi-platform application by its developers. In order to facilitate
+the development, Mozilla created a framework inspired by Microsoft's
+COM that allowed components to be built and bolted together called
+XPCOM (cross-platform COM). An XPCOM interface is declared using IDL,
+and there are
+language bindings for C and Javascript as well as other languages. Because
+XPCOM is used to construct Firefox, and because XPCOM has Javascript
+bindings, it's possible to make use of XPCOM objects in Firefox
+extensions.</p>
+
+<p>Normal Win32 COM allows interfaces to be accessed remotely. There were
+plans to add the same ability to XPCOM too, and Darin Fisher added an
+XPCOM ServerSocket implementation to facilitate this. Although the
+plans for D-XPCOM never came to fruition, like an appendix, the
+vestigial infrastructure is still there.  We took advantage of this to
+create a very basic server within a custom Firefox extension
+containing all the logic for controlling Firefox. The protocol used
+was originally text-based and line-oriented, encoding all strings as
+UTF-2. Each request or response began with a number, indicating how
+many newlines to count before concluding that the request or reply had
+been sent. Crucially, this scheme was easy to implement in Javascript
+as SeaMonkey (Firefox's Javascript engine at the time) stores
+Javascript strings internally as 16 bit unsigned integers.</p>
+
+<p>Although futzing with custom encoding protocols over raw sockets is a
+fun way to pass the time, it has several drawbacks. There were no
+widely available libraries for the custom protocol, so it needed to be
+implemented from the ground up for every language that we wanted to
+support. This requirement to implement more code would make it less
+likely that generous Open Source contributors would participate in the
+development of new language bindings. Also, although a line-oriented
+protocol was fine when we were only sending text-based data around, it
+brought problems when we wanted to send images (such as screenshots)
+around.</p>
+
+<p>It became very obvious, very quickly that this original RPC mechanism
+wasn't practical. Fortunately, there was a well-known transport that
+has widespread adoption and support in almost every language that
+would allow us to do what we wanted: HTTP.</p>
+
+<p>Once we had decided to use HTTP for a transport mechanism, the next
+choice that needed to be made was whether to use a single end-point
+(&agrave; la SOAP) or multiple end points (in the style of REST) The
+original Selenese protocol used a single end-point and had encoded
+commands and arguments in the query string. While this approach worked
+well, it didn't "feel" right: we had visions of being able to
+connect to a remote WebDriver instance in a browser to view the state
+of the server. We ended up choosing an approach we call "REST-ish":
+multiple end-point URLs using the verbs of HTTP to help provide
+meaning, but breaking a number of the constraints required for a truly
+RESTful system, notably around the location of state and cacheability,
+largely because there is only one location for the application state
+to meaningfully exist.</p>
+
+<p>Although HTTP makes it easy to support multiple ways of encoding data
+based on content type negotiation, we decided that we needed a
+canonical form that all implementations of the remote WebDriver
+protocol could work with. There were a handful of obvious choices:
+HTML, XML or JSON. We quickly ruled out XML: although it's a
+perfectly reasonable data format and there are libraries that support
+it for almost every language, my perception of how well-liked it is in
+the Open Source community was that people don't enjoy working with
+it. In addition, it was entirely possible that although the returned
+data would share a common "shape" it would be easy for additional
+fields to be added<sup class="footnote"><a href="#footnote-3">3</a></sup>. Although these extensions could be
+modeled using XML namespaces this would start to introduce Yet More
+Complexity into the client code: something I was keen to avoid.  XML
+was discarded as an option.  HTML wasn't really a good choice, as we
+needed to be able to define our own data format, and though an
+embedded micro-format could have been devised and used that seems like
+using a hammer to crack an egg.</p>
+
+<p>The final possibility considered was Javascript Object Notation
+(JSON). Browsers can transform a string into an object using either a
+straight call to <code>eval</code> or, on more recent browsers, with
+primitives designed to transform a Javascript object to and from a
+string securely and without side-effects. From a practical
+perspective, JSON is a popular data format with libraries for handling
+it available for almost every language and all the cool kids like
+it. An easy choice.</p>
+
+<p>The second iteration of the remote WebDriver protocol therefore used
+HTTP as the transport mechanism and UTF-8 encoded JSON as the default
+encoding scheme. UTF-8 was picked as the default encoding so that
+clients could easily be written in languages with limited support for
+Unicode, as UTF-8 is backwardly compatible with ASCII. Commands sent
+to the server used the URL to determine which command was being sent,
+and encoded the parameters for the command in an array.</p>
+
+<p>For example a call to <code>WebDriver.get("http://www.example.com")</code>
+mapped to a POST request to a URL encoding the session ID and ending
+with "/url", with the array of parameters looking like
+<code>{[}'http://www.example.com'{]}</code>.  The returned result was a
+little more structured, and had place-holders for a returned value and
+an error code.  It wasn't long until the third iteration of remote
+protocol, which replaced the request's array of parameters with a
+dictionary of named parameters. This had the benefit of making
+debugging requests significantly easier, and removed the possibility
+of clients mistakenly mis-ordering parameters, making the system as a
+whole more robust.  Naturally, it was decided to use normal HTTP error
+codes to indicate certain return values and responses where they were
+the most appropriate way to do so; for example, if a user attempts to
+call a URL with nothing mapped to it, or when we want to indicate the
+"empty response".</p>
+
+<p>The remote WebDriver protocol has two levels of error handling, one
+for invalid requests, and one for failed commands. An example of an
+invalid request is for a resource that doesn't exist on the server, or
+perhaps for a verb that the resource doesn't understand (such as
+sending a DELETE command to the the resource used for dealing with the
+URL of the current page) In those cases, a normal HTTP 4xx response is
+sent. For a failed command, the responses error code is set to 500
+("Internal Server Error") and the returned data contains a more
+detailed breakdown of what went wrong.</p>
+
+<p>When a response containing data is sent from the server, it takes the
+form of a JSON object:</p>
+
+<table>
+  <tr>
+    <th>Key</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>sessionId</td>
+    <td>An opaque handle used by the server to determine where to route session-specific commands.</td>
+  </tr>
+  <tr>
+    <td>status</td>
+    <td>A numeric status code summarizing the result of the command. A non-zero value indicates that the command failed.</td>
+  </tr>
+  <tr>
+    <td>value</td>
+    <td>The response JSON value.</td>
+  </tr>
+</table>
+
+<p class="continue">An example response would be:</p>
+
+<pre>
+{
+  sessionId: 'BD204170-1A52-49C2-A6F8-872D127E7AE8',
+  status: 7,
+  value: 'Unable to locate element with id: foo'
+}
+</pre>
+
+<p class="continue">As can be seen, we encode status codes in the response, with a
+non-zero value indicating that something has gone horribly awry. The
+IE driver was the first to use status codes, and the values used in
+the wire protocol mirror these. Because all error codes are consistent
+between drivers, it is possible to share error handling code between
+all the drivers written in a particular language, making the job of
+the client-side implementors easier.</p>
+
+<p>The Remote WebDriver Server is simply a Java servlet that acts as a
+multiplexer, routing any commands it receives to an appropriate
+WebDriver instance. It's the sort of thing that a second year graduate
+student could write. The Firefox driver also implements the remote
+WebDriver protocol, and its architecture is far more interesting, so
+let's follow a request through from the call in the language bindings
+to that back-end until it returns to the user.</p>
+
+<p>Assuming that we're using Java, and that "element" is an instance of
+WebElement, it all starts here:</p>
+
+<pre>
+element.getAttribute("row");
+</pre>
+
+<p class="continue">Internally, the element has an opaque "id" that the server-side uses
+to identify which element we're talking about. For the sake of this
+discussion, we'll imagine it has the value "some_opaque_id". This
+is encoded into a Java <code>Command</code> object with a <code>Map</code> holding
+the (now named) parameters <code>id</code> for the element ID
+and <code>name</code> for the name of the attribute being queried.</p>
+
+<p>A quick look up in a table indicates that the correct URL is:</p>
+
+<pre>
+/session/:sessionId/element/:id/attribute/:name
+</pre>
+
+<p class="continue">Any section of the URL that begins with a colon is assumed to be a
+variable that requires substitution. We've been given the <code>id</code>
+and <code>name</code> parameters already, and the <code>sessionId</code> is
+another opaque handle that is used for routing when a server can
+handle more than one session at a time (which the Firefox driver
+cannot). This URL therefore typically expands to something like:</p>
+
+<pre>
+http://localhost:7055/hub/session/XXX/element/some_opaque_id/attribute/row
+</pre>
+
+<p>As an aside, WebDriver's remote wire protocol was originally developed
+at the same time as URL Templates were proposed as a draft RFC. Both
+our scheme for specifying URLs and URL Templates allow variables to be
+expanded (and therefore derived) within a URL. Sadly, although URL
+Templates were proposed at the same time, we only became aware of them
+relatively late in the day, and therefore they are not used to
+describe the wire protocol.</p>
+
+<p>Because the method we're executing is idempotent<sup class="footnote"><a href="#footnote-4">4</a></sup>, the correct HTTP method to use is a
+GET. We delegate down to a Java library that can handle HTTP (the
+Apache HTTP Client) to call the server.</p>
+
+<div class="figure" id="fig.sel.ffdr">
+  <img src="../images/selenium/firefox-driver-overall-architecture.png" alt="[Overview of the Firefox Driver Architecture]" />
+  <p>Figure&nbsp;16.4: Overview of the Firefox Driver Architecture</p>
+</div>
+
+<p>The Firefox driver is implemented as a Firefox extension, the basic
+design of which is shown in <a href="#fig.sel.ffdr">Figure&nbsp;16.4</a>.
+Somewhat unusually, it has an embedded HTTP server.  Although
+originally we used one that we had built ourselves, writing HTTP
+servers in XPCOM wasn't one of our core competencies, so when the
+opportunity arose we replaced it with a basic HTTPD written by Mozilla
+themselves.  Requests are received by the HTTPD and almost straight
+away passed to a <code>dispatcher</code> object.</p>
+
+<p>The dispatcher takes the request and iterates over a known list of
+supported URLs, attempting to find one that matches the request. This
+matching is done with knowledge of the variable interpolation that
+went on in the client side. Once an exact match is found, including
+the verb being used, a JSON object, representing the command to
+execute, is constructed. In our case it looks like:</p>
+
+<pre>
+{
+  'name': 'getElementAttribute',
+  'sessionId': { 'value': 'XXX' },
+  'parameters': {
+    'id': 'some_opaque_key',
+    'name': 'rows'
+  }
+}
+</pre>
+
+<p class="continue">This is then passed as a JSON string to a custom XPCOM component we've
+written called the CommandProcessor. Here's the code:</p>
+
+<pre>
+var jsonResponseString = JSON.stringify(json);
+var callback = function(jsonResponseString) {
+  var jsonResponse = JSON.parse(jsonResponseString);
+
+  if (jsonResponse.status != ErrorCode.SUCCESS) {
+    response.setStatus(Response.INTERNAL_ERROR);
+  }
+
+  response.setContentType('application/json');
+  response.setBody(jsonResponseString);
+  response.commit();
+};
+
+// Dispatch the command.
+Components.classes['@googlecode.com/webdriver/command-processor;1'].
+    getService(Components.interfaces.nsICommandProcessor).
+    execute(jsonString, callback);
+</pre>
+
+<p>There's quite a lot of code here, but there are two key points. First,
+we converted the object above to a JSON string.  Secondly, we pass a
+callback to the execute method that causes the HTTP response to be
+sent.</p>
+
+<p>The execute method of the command processor looks up the "name" to
+determine which function to call, which it then does. The first
+parameter given to this implementing function is a "<code>respond</code>"
+object (so called because it was originally just the function used to
+send the response back to the user), which encapsulates not only the
+possible values that might be sent, but also has a method that allows
+the response to be dispatched back to the user and mechanisms to find
+out information about the DOM. The second parameter is the value of
+the <code>parameters</code> object seen above (in this case, <code>id</code> and
+<code>name</code>). The advantage of this scheme is that each function has a
+uniform interface that mirrors the structure used on the client
+side. This means that the mental models used for thinking about the
+code on each side are similar.  Here's the underlying implementation
+of <code>getAttribute</code>, which you've seen before in
+<a href="#sec.selenium.layers">Section&nbsp;16.5</a>:</p>
+
+<pre>
+FirefoxDriver.prototype.getElementAttribute = function(respond, parameters) {
+  var element = Utils.getElementAt(parameters.id,
+                                  respond.session.getDocument());
+  var attributeName = parameters.name;
+
+  respond.value = webdriver.element.getAttribute(element, attributeName);
+  respond.send();
+};
+</pre>
+
+<p class="continue">In order to make element references consistent, the first line simply
+looks up the element referred to by the opaque ID in a cache. In the
+Firefox driver, that opaque ID is a UUID and the "cache" is simply a
+map.  The <code>getElementAt</code> method also checks to see if the
+referred to element is both known and attached to the DOM. If either
+check fails, the ID is removed from the cache (if necessary) and an
+exception is thrown and returned to the user.</p>
+
+<p>The second line from the end makes use of the browser automation atoms
+discussed earlier, this time compiled as a monolithic script and
+loaded as part of the extension.</p>
+
+<p>In the final line, the <code>send</code> method is called.  This does a
+simple check to ensure that we only send a response once before it
+calls the callback given to the execute method. The response is sent
+back to the user in the form of a JSON string, which is decanted into
+an object that looks like (assuming that <code>getAttribute</code> returned
+"7", meaning the element wasn't found):</p>
+
+<pre>
+{
+  'value': '7',
+  'status': 0,
+  'sessionId': 'XXX'
+}
+</pre>
+
+<p>The Java client then checks the value of the status field. If that
+value is non-zero, it converts the numeric status code into an
+exception of the correct type and throws that, using the "value"
+field to help set the message sent to the user. If the status is zero
+the value of the "value" field is returned to to the user.</p>
+
+<p>Most of this makes a certain amount of sense, but there was one piece
+that an astute reader will raise questions about: why did the
+dispatcher convert the object it had into a string before calling the
+<code>execute</code> method?</p>
+
+<p>The reason for this is that the Firefox Driver also supports running
+tests written in pure Javascript. Normally, this would be an extremely
+difficult thing to support: the tests are running in the context of
+the browser's Javascript security sandbox, and so may not do a range
+of things that are useful in tests, such as traveling between domains
+or uploading files. The WebDriver Firefox extension, however, provides
+an escape hatch from the sandbox. It announces its presence by adding
+a <code>webdriver</code> property to the document element. The WebDriver
+Javascript API uses this as an indicator that it can add JSON
+serialized command objects as the value of a <code>command</code> property on
+the document element, fire a custom <code>webdriverCommand</code> event and
+then listen for a <code>webdriverResponse</code> event on the same element to
+be notified that the <code>response</code> property has been set.</p>
+
+<p>This suggests that browsing the web in a copy of Firefox with the
+WebDriver extension installed is a seriously bad idea as it makes it
+trivially easy for someone to remotely control the browser.</p>
+
+<p>Behind the scenes, there is a DOM messenger, waiting for the
+<code>webdriverCommand</code> this reads the serialized JSON object and calls
+the <code>execute</code> method on the command processor. This time, the
+callback is one that simply sets the <code>response</code> attribute on the
+document element and then fires the expected <code>webdriverResponse</code>
+event.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.7. The IE Driver</h2>
+
+<p>Internet Explorer is an interesting browser. It's constructed of a
+number of COM interfaces working in concert. This extends all the way
+into the Javascript engine, where the familiar Javascript variables
+actually refer to underlying COM instances. That Javascript
+<code>window</code> is an <code>IHTMLWindow</code>.  <code>document</code> is an
+instance of the COM interface <code>IHTMLDocument</code>. Microsoft have
+done an excellent job in maintaining existing behavior as they
+enhanced their browser. This means that if an application worked with
+the COM classes exposed by IE6 it will still continue to work with
+IE9.</p>
+
+<p>The Internet Explorer driver has an architecture that's evolved over
+time. One of the major forces upon its design has been a requirement
+to avoid an installer. This is a slightly unusual requirement, so
+perhaps needs some explanation. The first reason not to require an
+installer is that it makes it harder for WebDriver to pass the "5
+minute test", where a developer downloads a package and tries it out
+for a brief period of time. More importantly, it is relatively common
+for users of WebDriver to not be able to install software on their own
+machines. It also means that no-one needs to remember to log on to the
+continuous integration servers to run an installer when a project
+wants to start testing with IE. Finally, running installers just isn't
+in the culture of some languages. The common Java idiom is to simply
+drop JAR files on to the CLASSPATH, and, in my experience, those
+libraries that require installers tend not to be as well-liked or
+used.</p>
+
+<p>So, no installer. There are consequences to this choice.</p>
+
+<p>The natural language to use for programming on Windows would be
+something that ran on .Net, probably C#. The IE driver integrates
+tightly with IE by making use of the IE COM Automation interfaces that
+ship with every version of Windows. In particular, we use COM
+interfaces from the native MSHTML and ShDocVw DLLs, which form part of
+IE. Prior to C# 4, CLR/COM interoperability was achieved via the use of
+separate Primary Interop Assemblies (PIAs) A PIA is essentially a
+generated bridge between the managed world of the CLR and that of COM.</p>
+
+<p>Sadly, using C# 4 would mean using a very modern version of the .Net
+runtime, and many companies avoid living on the leading edge,
+preferring the stability and known issues of older releases. By using
+C# 4 we would automatically exclude a reasonable percentage of our
+user-base. There are also other disadvantages to using a PIA. Consider
+licensing restrictions.  After consultation with Microsoft, it became
+clear that the Selenium project would not have the rights to
+distribute the PIAs of either the MSHTML or ShDocVw libraries. Even if
+those rights had been granted, each installation of Windows and IE has
+a unique combination of these libraries, which means that we would
+have needed to ship a vast number of these things. Building the PIAs
+on the client machine on demand is also a non-starter, as they require
+developer tools that may not exist on a normal user's machine.</p>
+
+<p>So, although C# would have been an attractive language to do the bulk
+of the coding in, it wasn't an option. We needed to use something
+native, at least for the communication with IE. The next natural
+choice for this is C++, and this is the language that we chose in the
+end. Using C++ has the advantage that we don't need to use PIAs, but
+it does mean that we need to redistribute the Visual Studio C++
+runtime DLL unless we statically link against them.  Since we'd need
+to run an installer in order to make that DLL available, we statically
+link our library for communicating with IE.</p>
+
+<p>That's a fairly high cost to pay for a requirement not to use an
+installer. However, going back to the theme of where complexity should
+live, it is worth the investment as it makes our users' lives
+considerably easier. It is a decision we re-evaluate on an ongoing
+basis, as the benefit to the user is a trade-off with the fact that
+the pool of people able to contribute to an advanced C++ Open Source
+project seems significantly smaller than those able to contribute to
+an equivalent C# project.</p>
+
+<p>The initial design of the IE driver is shown in
+<a href="#fig.sel.sie">Figure&nbsp;16.5</a>.</p>
+
+<div class="figure" id="fig.sel.sie">
+  <img src="../images/selenium/simple-ie-stack.png" alt="[Original IE Driver]" />
+  <p>Figure&nbsp;16.5: Original IE Driver</p>
+</div>
+
+<p>Starting from the bottom of that stack, you can see that we're using
+IE's COM Automation interfaces.  In order to make these easier to deal
+with on a conceptual level, we wrapped those raw interfaces with a set
+of C++ classes that closely mirrored the main WebDriver API. In order
+to get the Java classes communicating with the C++ we made use of JNI,
+with the implementations of the JNI methods using the C++ abstractions
+of the COM interfaces.</p>
+
+<p>This approach worked reasonably well while Java was the only client
+language, but it would have been a source of pain and complexity if
+each language we supported needed us to alter the underlying
+library. Thus, although JNI worked, it didn't provide the correct
+level of abstraction.</p>
+
+<p>What was the correct level of abstraction? Every language that we
+wanted to support had a mechanism for calling down to straight C
+code. In C#, this takes the form of PInvoke. In Ruby there is FFI, and
+Python has ctypes. In the Java world, there is an excellent library
+called JNA (Java Native Architecture). We needed to expose our API
+using this lowest common denominator. This was done by taking our
+object model and flattening it, using a simple two or three letter
+prefix to indicate the "home interface" of the method: "wd" for
+"WebDriver" and "wde" for WebDriver Element. Thus
+<code>WebDriver.get</code> became <code>wdGet</code>, and
+<code>WebElement.getText</code> became <code>wdeGetText</code>. Each method
+returns an integer representing a status code, with "out" parameters
+being used to allow functions to return more meaningful data. Thus we
+ended up with method signatures such as:</p>
+
+<pre>
+int wdeGetAttribute(WebDriver*, WebElement*, const wchar_t*, StringWrapper**)
+</pre>
+
+<p class="continue">To calling code, the <code>WebDriver</code>, <code>WebElement</code> and
+<code>StringWrapper</code> are opaque types: we expressed the difference in
+the API to make it clear what value should be used as that parameter,
+though could just as easily have been "void *". You can also see
+that we were using wide characters for text, since we wanted to deal
+with internationalized text properly.</p>
+
+<p>On the Java side, we exposed this library of functions via an
+interface, which we then adapted to make it look like the normal object-oriented
+interface presented by WebDriver. For example, the Java definition of
+the <code>getAttribute</code> method looks like:</p>
+
+<pre>
+public String getAttribute(String name) {
+  PointerByReference wrapper = new PointerByReference();
+  int result = lib.wdeGetAttribute(
+      parent.getDriverPointer(), element, new WString(name), wrapper);
+
+  errors.verifyErrorCode(result, "get attribute of");
+
+  return wrapper.getValue() == null ? null : new StringWrapper(lib, wrapper).toString();
+}
+</pre>
+
+<p class="continue">This lead to the design shown in <a href="#fig.sel.ient">Figure&nbsp;16.6</a>.</p>
+
+<div class="figure" id="fig.sel.ient">
+  <img src="../images/selenium/ie-stack-no-threads.png" alt="[Modified IE Driver]" />
+  <p>Figure&nbsp;16.6: Modified IE Driver</p>
+</div>
+
+<p>While all the tests were running on the local machine, this worked out
+well, but once we started using the IE driver in the remote WebDriver
+we started running into random lock ups. We traced this problem back
+to a constraint on the IE COM Automation interfaces. They are designed
+to be used in a "Single Thread Apartment" model. Essentially, this
+boils down to a requirement that we call the interface from the same
+thread every time. While running locally, this happens by
+default. Java app servers, however, spin up multiple threads to handle
+the expected load. The end result? We had no way of being sure that
+the same thread would be used to access the IE driver in all cases.</p>
+
+<p>One solution to this problem would have been to run the IE driver in a
+single-threaded executor and serialize all access via Futures in the
+app server, and for a while this was the design we chose. However, it
+seemed unfair to push this complexity up to the calling code, and it's
+all too easy to imagine instances where people accidentally make use
+of the IE driver from multiple threads. We decided to sink the
+complexity down into the driver itself. We did this by holding the IE
+instance in a separate thread and using the <code>PostThreadMessage</code>
+Win32 API to communicate across the thread boundary. Thus, at the time
+of writing, the design of the IE driver looks like
+<a href="#fig.sel.fullie">Figure&nbsp;16.7</a>.</p>
+
+<div class="figure" id="fig.sel.fullie">
+  <img src="../images/selenium/full-ie-stack.png" alt="[IE Driver as of Selenium 2.0 alpha 7]" />
+  <p>Figure&nbsp;16.7: IE Driver as of Selenium 2.0 alpha 7</p>
+</div>
+
+<p>This isn't the sort of design that I would have chosen voluntarily,
+but it has the advantage of working and surviving the horrors that our
+users may chose to inflict upon it.</p>
+
+<p>One drawback to this design is that it can be hard to determine
+whether the IE instance has locked itself solid. This may happen if a
+modal dialog opens while we're interacting with the DOM, or it may
+happen if there's a catastrophic failure on the far side of the thread
+boundary. We therefore have a timeout associated with every thread
+message we post, and this is set to what we thought was a relatively
+generous 2 minutes. From user feedback on the mailing lists, this
+assumption, while generally true, isn't always correct, and later
+versions of the IE driver may well make the timeout configurable.</p>
+
+<p>Another drawback is that debugging the internals can be deeply
+problematic, requiring a combination of speed (after all, you've got
+two minutes to trace the code through as far as possible), the
+judicious use of break points and an understanding of the expected
+code path that will be followed across the thread boundary. Needless
+to say, in an Open Source project with so many other interesting
+problems to solve, there is little appetite for this sort of grungy
+work. This significantly reduces the bus factor of the system, and as
+a project maintainer, this worries me.</p>
+
+<p>To address this, more and more of the IE driver is being moved to sit
+upon the same Automation Atoms as the Firefox driver and Selenium
+Core. We do this by compiling each of the atoms we plan to use and
+preparing it as a C++ header file, exposing each function as a
+constant. At runtime, we prepare the Javascript to execute from these
+constants. This approach means that we can develop and test a
+reasonable percentage of code for the IE driver without needing a C
+compiler involved, allowing far more people to contribute to finding
+and resolving bugs. In the end, the goal is to leave only the
+interaction APIs in native code, and rely on the atoms as much as
+possible.</p>
+
+<p>Another approach we're exploring is to rewrite the IE driver to make
+use of a lightweight HTTP server, allowing us to treat it as a remote
+WebDriver. If this occurs, we can remove a lot of the complexity
+introduced by the thread boundary, reducing the total amount of code
+required and making the flow of control significantly easier to
+follow.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.8. Selenium RC</h2>
+
+<p>It's not always possible to bind tightly to a particular browser. In
+those cases, WebDriver falls back to the original mechanism used by
+Selenium. This means using Selenium Core, a pure Javascript framework,
+which introduces a number of drawbacks as it executes firmly in the
+context of the Javascript sandbox. From a user of WebDriver's APIs
+this means that the list of supported browsers falls into tiers, with
+some being tightly integrated with and offering exceptional control,
+and others being driven via Javascript and offering the same level of
+control as the original Selenium RC.</p>
+
+<p>Conceptually, the design used is pretty simple, as you can see in
+<a href="#fig.sel.arch">Figure&nbsp;16.8</a>.</p>
+
+<div class="figure" id="fig.sel.arch">
+  <img src="../images/selenium/selenium-rc.png" alt="[Outline of Selenium RC's Architecture]" />
+  <p>Figure&nbsp;16.8: Outline of Selenium RC's Architecture</p>
+</div>
+
+<p>As you can see, there are three moving pieces here: the client code,
+the intermediate server and the Javascript code of Selenium Core
+running in the browser. The client side is just an HTTP client that
+serializes commands to the server-side piece. Unlike the remote
+WebDriver, there is just a single end-point, and the HTTP verb used is
+largely irrelevant. This is partly because the Selenium RC protocol is
+derived from the table-based API offered by Selenium Core, and this
+means that the entire API can be described using three URL query
+parameters.</p>
+
+<p>When the client starts a new session, the Selenium server looks up the
+requested "browser string" to identify a matching browser
+launcher. The launcher is responsible for configuring and starting an
+instance of the requested browser. In the case of Firefox, this is as
+simple as expanding a pre-built profile with a handful of extensions
+pre-installed (one for handling a "quit" command, and another for
+modeling "document.readyState" which wasn't present on older
+Firefox releases that we still support). The key piece of
+configuration that's done is that the server configures itself as a
+proxy for the browser, meaning that at least some requests (those for
+"/selenium-server") are routed through it.  Selenium RC can operate
+in one of three modes: controlling a frame in a single window
+("singlewindow" mode), in a separate window controlling the AUT in a
+second window ("multiwindow" mode) or by injecting itself into the
+page via a proxy ("proxyinjection" mode). Depending on the mode of
+operation, all requests may be proxied.</p>
+
+<p>Once the browser is configured, it is started, with an initial URL
+pointing to a page hosted on the Selenium
+server&mdash;<code>RemoteRunner.html</code>. This page is responsible for
+bootstrapping the process by loading all the required Javascript files
+for Selenium Core. Once complete, the "runSeleniumTest" function is
+called. This uses reflection of the <code>Selenium</code> object to
+initialize the list of available commands that are available before
+kicking off the main command processing loop.</p>
+
+<p>The Javascript executing in the browser opens an XMLHttpRequest to a
+URL on the waiting server (<code>/selenium-server/driver</code>), relying on
+the fact that the server is proxying all requests to ensure that the
+request actually goes somewhere valid. Rather than making a request,
+the first thing that this does is send the response from the
+previously executed command, or "OK" in the case where the browser
+is just starting up. The server then keeps the request open until a
+new command is received from the user's test via the client, which is
+then sent as the response to the waiting Javascript.  This mechanism
+was originally dubbed "Response/Request", but would now be more
+likely to be called "Comet with AJAX long polling".</p>
+
+<p>Why does RC work this way? The server needs to be configured as a
+proxy so that it can intercept any requests that are made to it
+without causing the calling Javascript to fall foul of the "Single
+Host Origin" policy, which states that only resources from the same
+server that the script was served from can be requested via
+Javascript.  This is in place as a security measure, but from the
+point of view of a browser automation framework developer, it's pretty
+frustrating and requires a hack such as this.</p>
+
+<p>The reason for making an XmlHttpRequest call to the server is
+two-fold.  Firstly, and most importantly, until WebSockets, a part of
+HTML5, become available in the majority of browsers there is no way to
+start up a server process reliably within a browser.  That means that
+the server had to live elsewhere. Secondly, an XMLHttpRequest calls
+the response callback asynchronously, which means that while we're
+waiting for the next command the normal execution of the browser is
+unaffected. The other two ways to wait for the next command would have
+been to poll the server on a regular basis to see if there was another
+command to execute, which would have introduced latency to the users
+tests, or to put the Javascript into a busy loop which would have
+pushed CPU usage through the roof and would have prevented other
+Javascript from executing in the browser (since there is only ever one
+Javascript thread executing in the context of a single window).</p>
+
+<p>Inside Selenium Core there are two major moving pieces. These are the
+main <code>selenium</code> object, which acts as the host for all available
+commands and mirrors the API offered to users. The second piece is the
+<code>browserbot</code>. This is used by the Selenium object to abstract
+away the differences present in each browser and to present an
+idealized view of commonly used browser functionality. This means that
+the functions in <code>selenium</code> are clearer and easier to maintain,
+whilst the <code>browserbot</code> is tightly focused.</p>
+
+<p>Increasingly, Core is being converted to make use of the Automation
+Atoms. Both <code>selenium</code> and <code>browserbot</code> will probably need
+to remain as there is an extensive amount of code that relies on using
+the APIs it exposes, but it is expected that they will ultimately be
+shell classes, delegating to the atoms as quickly as possible.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.9. Looking Back</h2>
+
+<p>Building a browser automation framework is a lot like painting a room;
+at first glance, it looks like something that should be pretty easy to
+do.  All it takes is a few coats of paint, and the job's done. The
+problem is, the closer you get, the more tasks and details emerge, and
+the longer the task becomes. With a room, it's things like working
+around light fittings, radiators and the skirting boards that start to
+consume time.  For a browser automation framework, it's the quirks and
+differing capabilities of browsers that make the situation more
+complex. The extreme case of this was expressed by Daniel Wagner-Hall
+as he sat next to me working on the Chrome driver; he banged his hands
+on the desk and in frustration muttered, "It's all edge cases!" It
+would be nice to be able to go back and tell myself that, and that the
+project is going to take a lot longer than I expected.</p>
+
+<p>I also can't help but wonder where the project would be if we'd
+identified and acted upon the need for a layer like the automation
+atoms sooner than we did. It would certainly have made some of the
+challenges the project faced, internal and external, technically and
+socially, easier to deal with. Core and RC were implemented in a
+focused set of languages&mdash;essentially just Javascript and Java. Jason
+Huggins used to refer to this as providing Selenium with a level of
+"hackability", which made it easy for people to get involved with
+the project. It's only with the atoms that this level of hackability
+has become widely available in WebDriver. Balanced against this, the
+reason why the atoms can be so widely applied is because of the
+Closure compiler, which we adopted almost as soon as it was released
+as Open Source.</p>
+
+<p>It's also interesting to reflect on the things that we got right. The
+decision to write the framework from the viewpoint of the user is
+something that I still feel is correct. Initially, this paid off as
+early adopters highlighted areas for improvement, allowing the utility
+of the tool to increase rapidly. Later, as WebDriver gets asked to do
+more and harder things and the number of developers using it
+increases, it means that new APIs are added with care and attention,
+keeping the focus of the project tight. Given the scope of what we're
+trying to do, this focus is vital.</p>
+
+<p>Binding tightly to the browser is something that is both right and
+wrong.  It's right, as it has allowed us to emulate the user with
+extreme fidelity, and to control the browser extremely well. It's
+wrong because this approach is extremely technically demanding,
+particularly when finding the necessary hook point into the
+browser. The constant evolution of the IE driver is a demonstration of
+this in action, and, although it's not covered here, the same is true
+of the Chrome driver, which has a long and storied history. At some
+point, we'll need to find a way to deal with this complexity.</p>
+
+</div>
+
+<div class="sect">
+<h2>16.10. Looking to the Future</h2>
+
+<p>There will always be browsers that WebDriver can't integrate tightly
+to, so there will always be a need for Selenium Core. Migrating this
+from its current traditional design to a more modular design based on
+the same Closure Library that the atoms are using is underway. We also
+expect to embed the atoms more deeply within the existing WebDriver
+implementations.</p>
+
+<p>One of the initial goals of WebDriver was to act as a building block
+for other APIs and tools. Of course, Selenium doesn't live in a
+vacuum: there are plenty of other Open Source browser automation
+tools. One of these is Watir (Web Application Testing In Ruby), and
+work has begun, as a joint effort by the Selenium and Watir
+developers, to place the Watir API over the WebDriver core. We're keen
+to work with other projects too, as successfully driving all the
+browsers out there is hard work. It would be nice to have a solid
+kernel that others could build on. Our hope is that the kernel is
+WebDriver.</p>
+
+<p>A glimpse of this future is offered by Opera Software, who have
+independently implemented the WebDriver API, using the WebDriver test
+suites to verify the behavior of their code, and who will be
+releasing their own OperaDriver. Members of the Selenium team are also
+working with members of the Chromium team to add better hooks and
+support for WebDriver to that browser, and by extension to Chrome
+too. We have a friendly relationship with Mozilla, who have
+contributed code for the FirefoxDriver, and with the developers of the
+popular HtmlUnit Java browser emulator.</p>
+
+<p>One view of the future sees this trend continue, with automation hooks
+being exposed in a uniform way across many different browsers. The
+advantages for people keen to write tests for web applications are
+clear, and the advantages for browser manufacturers are also
+obvious. For example, given the relative expense of manual testing,
+many large projects rely heavily on automated testing. If it's not
+possible, or even if it's "only" extremely taxing, to test with a
+particular browser, then tests just aren't run for it, with knock-on
+effects for how well complex applications work with that
+browser. Whether those automation hooks are going to be based on
+WebDriver is an open question, but we can hope!</p>
+
+<p>The next few years are going to be very interesting. As we're an open
+source project, you'd be welcome to join us for the journey at
+<code class="url">http://selenium.googlecode.com/</code>.</p>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">http://fit.c2.com</code></li>
+<li id="footnote-2">This is very similar to
+FIT, and James Shore, one of that project's coordinators, helps
+explain some of the drawbacks at
+<code class="url">http://jamesshore.com/Blog/The-Problems-With-Acceptance-Testing.html</code>.</li>
+<li id="footnote-3">For example, the remote server returns a
+base64-encoded screen grab with every exception as a debugging aid
+but the Firefox driver doesn't.</li>
+<li id="footnote-4">I.e., always
+returns the same result.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

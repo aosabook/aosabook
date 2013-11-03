@@ -1,0 +1,1059 @@
+\begin{aosachapter}{Yesod}{s:yesod}{Michael Snoyman}
+
+Yesod is a web framework written in the Haskell programming
+language. While many popular web frameworks exploit the dynamic nature
+of their host languages, Yesod exploits the static nature of Haskell
+to produce safer, faster code.
+
+Development began about two years ago and has been going strong ever
+since. Yesod cut its teeth on real life projects, with all of its
+initial features born out of an actual, real-life need. At first,
+development was almost entirely a one-man show. After about a year of
+development the community efforts kicked in, and Yesod has since
+blossomed into a thriving open source project.
+
+During the embryonic phase, when Yesod was incredibly ephemeral and
+ill-defined, it would have been counter-productive to try and get a
+team to work on it. By the time it stabilized enough to be useful to
+others, it was the right time to find out the downsides to some of the
+decisions that had been made. Since then, we have made major changes
+to the user-facing API to make it more useful, and are quickly
+solidifying a 1.0 release.
+
+The question you may ask is: Why another web framework? Let's instead
+redirect to a different question: Why use Haskell? It seems that most
+of the world is happy with one of two styles of language:
+
+\begin{aosaitemize}
+
+\item Statically typed languages, like Java, C\# and C++. These
+  languages provide speed and type safety, but are more cumbersome to
+  program with.
+
+\item Dynamically typed languages, like Ruby and Python. These
+  languages greatly increase productivity (at least in the short run),
+  but run slowly and have very little support from the compiler to
+  ensure correctness. (The solution to this last point is unit
+  testing. We'll get to that later.)
+
+\end{aosaitemize}
+
+This is a false dichotomy. There's no reason why statically typed
+languages need to be so clumsy. Haskell is able to capture a huge
+amount of the expressivity of Ruby and Python, while remaining a
+strongly typed language. In fact, Haskell's type system catches many
+more bugs than Java and its ilk. Null pointer exceptions are
+completely eliminated; immutable data structures simplify reasoning
+about your code and simplify parallel and concurrent programming.
+
+So why Haskell? It is an efficient, developer-friendly language which
+provides many compile-time checks of program correctness.
+
+The goal of Yesod is to extend Haskell's strengths into web
+development. Yesod strives to make your code as concise as
+possible. As much as possible, every line of your code is checked for
+correctness at compile time. Instead of requiring large libraries of
+unit tests to test basic properties, the compiler does it all for
+you. Under the surface, Yesod uses as many advanced performance
+techniques as we can muster to make your high-level code fly.
+
+\begin{aosasect1}{Compared to Other Frameworks}
+
+In general terms, Yesod is more similar to than different than 
+the leading frameworks such as Rails and Django. It generally
+follows the Model-View-Controller (MVC) paradigm, has a templating
+system that separates view from logic, provides an Object-Relational
+Mapping (ORM) system, and has a front controller approach to routing.
+
+The devil is in the details. Yesod strives to push as much error
+catching to the compile phase instead of runtime, and to automatically
+catch both bugs and security flaws through the type system. While
+Yesod tries to maintain a user-friendly, high-level API, it uses a
+number of newer techniques from the functional programming world to
+achieve high performance, and is not afraid to expose these internals
+to developers.
+
+The main architectural challenge in Yesod is balancing these two
+seemingly conflicting goals. For example, there is nothing
+revolutionary about Yesod's approach to routing (called
+\emph{type-safe URLs}\footnote{\url{http://www.yesodweb.com/blog/2012/01/aosa-chapter#file1414-routes}}.
+%% This URL is misbehaving in the PDF, but it looks fine so it
+%% will be okay to print. --ARB
+Historically, implementing such a solution was a tedious, error-prone
+process. Yesod's innovation is to use Template Haskell (a form of code
+generation) to automate the boilerplate required to bootstrap the
+process. Similarly, type-safe HTML has been around for a long while;
+Yesod tries to keep the developer-friendly aspect of common template
+languages while keeping the power of type safety.
+
+\end{aosasect1}
+
+\begin{aosasect1}{Web Application Interface}
+
+A web application needs some way to communicate with a server. One
+possible approach is to bake the server directly into the framework,
+but doing so necessarily limits your options for deployment and leads
+to poor interfaces. Many languages have created standard interfaces to
+address this issue: Python has WSGI and Ruby has Rack. In Haskell, we
+have WAI: Web Application Interface.
+
+WAI is not intended to be a high-level interface. It has two specific
+goals: generality and performance. By staying general, WAI has been
+able to support backends for everything from standalone servers to old
+school CGI and even works directly with Webkit to produce faux desktop
+applications. The performance side will introduce us to a number of
+the cool features of Haskell.
+
+\aosafigure{../images/yesod/overview.png}{Overall structure of a Yesod application}{fig.yesod.overall}
+
+\begin{aosasect2}{Datatypes}
+
+One of the biggest advantages of Haskell---and one of the things we
+make the most use of in Yesod---is strong static typing. Before we
+begin to write the code for how to solve something, we need to think
+about what the data will look like. WAI is a perfect example of this
+paradigm. The core concept we want to express is that of an
+application. An application's most basic expression is a function that
+takes a request and returns a response. In Haskell lingo:
+
+\begin{verbatim}
+type Application = Request -> Response
+\end{verbatim}
+
+This just raises the question: what do \code{Request} and \code{Response} look like?
+A request has a number of pieces of information, but the most basic
+are the requested path, query string, request headers, and request
+body. And a response has just three components: a status code,
+response headers and response body.
+
+How do we represent something like a query string? Haskell keeps a
+strict separation between binary and textual data. The former is
+represented by \code{ByteString}, the latter by \code{Text}. Both are highly
+optimized datatypes that provide a high-level, safe API. In the case
+of a query string we store the raw bytes transferred over the wire as a
+\code{ByteString} and the parsed, decoded values as \code{Text}.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Streaming}
+
+A \code{ByteString} represents a single memory buffer. If we were to naively
+use a plain \code{ByteString} for holding the entire request or response
+bodies, our applications could never scale to large requests or
+responses. Instead, we use a technique called enumerators, very
+similar in concept to generators in Python. Our \code{Application} becomes a
+consumer of a stream of \code{ByteString}s representing the incoming request
+body, and a producer of a separate stream for the response.
+
+We now need to slightly revise our definition of an \code{Application}. An
+\code{Application} will take a \code{Request} value, containing headers, query
+string, etc., and will consume a stream of \code{ByteString}s, producing a
+\code{Response}. So the revised definition of an \code{Application} is:
+
+\begin{verbatim}
+type Application = Request -> Iteratee ByteString IO Response
+\end{verbatim}
+
+\noindent The \code{IO} simply explains what types of side effects an application can
+perform. In the case of \code{IO}, it can perform any kind of interaction
+with the outside world, an obvious necessity for the vast majority of
+web applications.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Builder}
+
+The trick in our arsenal is how we produce our response buffers. We
+have two competing desires here: minimizing system calls, and
+minimizing buffer copies. On the one hand, we want to minimize system
+calls for sending data over the socket. To do this we need to store
+outgoing data in a buffer. However, if we make this buffer too large,
+we will exhaust our memory and slow down the application's response
+time. On the other hand, we want to minimize the number of times data
+is copied between buffers, preferably copying just once from the
+source to destination buffer.
+
+Haskell's solution is the \emph{builder}. A builder is an instruction for how
+to fill a memory buffer, such as: place the five bytes "hello" in the
+next open position. Instead of passing a stream of memory buffers to
+the server, a WAI application passes a stream of these
+instructions. The server takes the stream and uses it to fill up
+optimally sized memory buffers. As each buffer is filled, the server
+makes a system call to send the data over over the wire and then
+starts filling up the next buffer.
+
+(The optimal size for a buffer will depend on many factors such as
+cache size. The underlying blaze-builder library underwent significant
+performance testing to determine the best trade-off.)
+
+In theory, this kind of optimization could be performed in the
+application itself. However, by encoding this approach in the
+interface, we are able to simply prepend the response headers
+to the response body. The result is that, for small to medium-sized
+responses, the entire response can be sent with a single system call
+and memory is copied only once.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Handlers}
+
+Now that we have an application, we need some way to run it. In WAI
+parlance, this is a \emph{handler}. WAI has some basic, standard
+handlers, such as the standalone server Warp (discussed below),
+FastCGI, SCGI and CGI. This spectrum allows WAI applications to be run
+on anything from dedicated servers to shared hosting. But in
+addition to these, WAI has some more interesting backends:
+
+\begin{aosadescription}
+  
+\item{Webkit:} This backend embeds a Warp server and calls out to
+  QtWebkit. By launching a server, then launching a new
+  standalone browser window, we have faux desktop applications.
+
+\item{Launch:} This is a slight variant on Webkit. Having to deploy
+  the Qt and Webkit libraries can be a bit burdensome, so instead we
+  just launch the user's default browser.
+
+\item{Test:} Even testing counts as a handler. After all, testing is
+  simply the act of running an application and inspecting the
+  responses.
+
+\end{aosadescription}
+
+Most developers will likely use Warp. It is lightweight enough to be
+used for testing. It requires no config files, no folder hierarchy and
+no long-running, administrator-owned process. It's a simple library
+that gets compiled into your application or run via the Haskell
+interpreter. Warp is an incredibly fast server, with
+protection from all kinds of attack vectors, such as Slowloris and
+infinite headers. Warp can be the only web server you need, though it
+is also quite happy to sit behind a reverse HTTP proxy.
+
+The PONG benchmark measures the requests per second of various servers
+for the 4-byte response body "PONG". In the graph shown in \aosafigref{fig.yesod.warp}, Yesod is measured
+as a framework on top of Warp. As can be seen, the Haskell servers
+(Warp, Happstack and Snap) lead the pack.
+
+\aosafigure[250pt]{../images/yesod/extra-large.png}{Warp PONG benchmark}{fig.yesod.warp}
+
+Most of the reasons for Warp's speed have already been spelled out in
+the overall description of WAI: enumerators, builders and packed
+datatypes. The last piece in the puzzle is from the Glasgow Haskell
+Compiler's (GHC's) multithreaded runtime. GHC, Haskell's flagship
+compiler, has light-weight green threads. Unlike system threads, it is
+possible to spin up thousands of these without serious performance
+hits. Therefore, in Warp each connection is handled by its own green
+thread.
+
+The next trick is asynchronous I/O. Any web server hoping to scale to
+tens of thousands of requests per second will need some type of
+asynchronous communication. In most languages, this involves
+complicated programming involving callbacks. GHC lets us cheat: we
+program as if we're using a synchronous API, and GHC automatically
+switches between different green threads waiting for activity.
+
+Under the surface, GHC uses whatever system is provided by the host
+operating system, such as \code{kqueue}, \code{epoll} and
+\code{select}. This gives us all the performance of an event-based I/O
+system, without worrying about cross-platform issues or writing in a
+callback-oriented way.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Middleware}
+
+% TA: \code{Application} or just application in this case?
+
+In between handlers and applications, we have
+\code{middleware}. Technically, middleware is an \emph{application
+  transformer}: it takes one \code{Application}, and returns a new one. This
+is defined as:
+
+\begin{verbatim}
+type Middleware = Application -> Application
+\end{verbatim}
+
+\noindent The best way to understand the purpose of middleware is to look at
+some common examples:
+
+\begin{aosaitemize}
+
+\item \code{gzip} automatically compresses the response from an
+  application.
+
+\item \code{jsonp} automatically converts JSON responses to JSON-P
+  responses when the client provided a callback parameter.
+
+\item \code{autohead} will generate appropriate HEAD responses based
+  on the GET response of an application.
+
+\item \code{debug} will print debug information to the console or a
+  log on each request.
+
+\end{aosaitemize}
+
+The idea here is to factor out common code from applications and let
+it be shared easily. Note that, based on the definition of 
+middleware, we can easily stack these things up. The general workflow
+of middleware is:
+
+\begin{aosaenumerate}
+
+\item Take the request value and apply some modifications.
+
+\item Pass the modified request to the application and receive a
+  response.
+
+\item Modify the response and return it to the handler.
+
+\end{aosaenumerate}
+
+In the case of stacked middleware, instead of passing to the
+application or handler, the in-between middleware will actually be passing to the
+inner and outer middleware, respectively.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Wai-test}
+
+No amount of static typing will obviate the need for testing. We all
+know that automated testing is a necessity for any serious
+applications. \code{wai-test} is the recommended approach to testing a
+WAI application. Since requests and responses are simple datatypes, it
+is easy to mock up a fake request, pass it to an application, and test
+properties about the response. \code{wai-test} simply provides some
+convenience functions for testing common properties like the presence
+of a header or a status code.
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\begin{aosasect1}{Templates}
+
+In the typical Model-View-Controller (MVC) paradigm, one of the goals
+is to separate logic from the view. Part of this separation is
+achieved through the use of a template language. However, there are
+many different ways to approach this issue. At one end of the
+spectrum, for example, PHP/ASP/JSP will allow you to embed any
+arbitrary code within your template. At the other end, you have
+systems like StringTemplate and QuickSilver, which are passed some
+arguments and have no other way of interacting with the rest of the
+program.
+
+Each system has its pros and cons. Having a more powerful template
+system can be a huge convenience. Need to show the contents of a
+database table? No problem, pull it in with the template. However,
+such an approach can quickly lead to convoluted code, interspersing
+database cursor updates with HTML generation. This can be commonly
+seen in a poorly written ASP project.
+
+While weak template systems make for simple code, they also tend
+towards a lot of redundant work. You will often need to not only keep
+your original values in datatypes, but also create dictionaries of
+values to pass to the template. Maintaining such code is not easy, and
+usually there is no way for a compiler to help you out.
+
+Yesod's family of template languages, the Shakespearean languages,
+strive for a middle ground. By leveraging Haskell's standard
+referential transparency, we can be assured that our templates produce
+no side effects. However, they still have full access to all the
+variables and functions available in your Haskell code. Also, since
+they are fully checked for both well-formedness, variable resolution
+and type safety at compile time, typos are much less likely to have
+you searching through your code trying to pin down a bug.
+
+\begin{aosabox}{Why the Name Shakespeare?}
+
+The HTML language, Hamlet, was the first language written, and
+originally based its syntax on Haml. Since it was at the time a
+"reduced" Haml, Hamlet seemed appropriate. As we added CSS and
+Javascript options, we decided to keep the naming theme with Cassius
+and Julius. At this point, Hamlet looks nothing like Haml, but the
+name stuck anyway.
+
+\end{aosabox}
+
+\begin{aosasect2}{Types}
+
+One of the overarching themes in Yesod is proper use of types to make
+developers' lives easier. In Yesod templates, we have two main
+examples:
+
+\begin{aosaenumerate}
+
+\item All content embedded into a Hamlet template must have a type of
+  \code{Html}. As we'll see later, this forces us to properly escape
+  dangerous HTML when necessary, while avoiding accidental
+  double-escaping as well.
+
+\item Instead of concatenating URLs directly in our template, we have
+  datatypes---known as type-safe URLs---which represent the routes in
+  our application.
+
+\end{aosaenumerate}
+
+As a real-life example, suppose that a user submits his/her name to an
+application via a form. This data would be represented with the \code{Text}
+datatype. Now we would like to display this variable, called
+\code{name}, in a page. The type system---at compile time---prevents
+it from being simply stuck into a Hamlet template, since it's not of
+type \code{Html}. Instead we must convert it somehow. For this, there are two
+conversion functions:
+
+\begin{aosaenumerate}
+
+\item \code{toHtml} will automatically escape any entities. So if a user
+  submits the string \code{{\textless}script src="http://example.com/evil.js"{\textgreater}{\textless}/script{\textgreater}}, the less-than signs will automatically be converted to \code{\&{\textless}}.
+
+\item \code{preEscapedText}, on the other hand, will leave the content
+  precisely as it is now.
+
+\end{aosaenumerate}
+
+So in the case of untrusted input from a possibly nefarious user,
+\code{toHtml} would be our recommended approach. On the other hand, let us
+say we have some static HTML stored on our server that we would like
+to insert into some pages verbatim. In that case, we could load it
+into a \code{Text} value and then apply \code{preEscapedText}, thereby
+avoiding any double-escaping.
+
+By default, Hamlet will use the \code{toHtml} function on any
+content you try to interpolate. Therefore, you only need to explicitly
+perform a conversion if you want to avoid escaping. This follows the
+dictum of erring on the side of caution.
+
+\begin{verbatim}
+name <- runInputPost $ ireq textField "name"
+snippet <- readFile "mysnippet.html"
+return [hamlet|
+    <p>Welcome #{name}, you are on my site!
+    <div .copyright>#{preEscapedText snippet}
+|]
+\end{verbatim}
+
+The first step in type-safe URLs is creating a datatype that
+represents all the routes in your site. Let us say you have a site for
+displaying Fibonacci numbers. The site will have a separate page for
+each number in the sequence, plus the homepage. This could be modeled
+with the Haskell datatype:
+
+\begin{verbatim}
+data FibRoute = Home | Fib Int
+\end{verbatim}
+
+\noindent We could then create a page like so:
+
+\begin{verbatim}
+<p>You are currently viewing number #{show index} in the sequence. Its value is #{fib index}.
+<p>
+    <a href=@{Fib (index + 1)}>Next number
+<p>
+    <a href=@{Home}>Homepage
+\end{verbatim}
+
+\noindent Then all we need is some function to convert a type-safe URL into a
+string representation. In our case, that could look something like
+this:
+
+\begin{verbatim}
+render :: FibRoute -> Text
+render Home = "/home"
+render (Fib i) = "/fib/" ++ show i
+\end{verbatim}
+
+Fortunately, all of the boilerplate of defining and rendering
+type-safe URL datatypes is handled for the developer automatically by
+Yesod. We will cover that in more depth later.
+
+\end{aosasect2}
+
+\begin{aosasect2}{The Other Languages}
+
+In addition to Hamlet, there are three other languages: Julius, Cassius 
+and Lucius.  Julius is used
+for Javascript; however, it's a simple pass-through language, just
+allowing for interpolation. In other words, barring accidental use of
+the interpolation syntax, any piece of Javascript could be dropped
+into Julius and be valid. For example, to test the performance of
+Julius, jQuery was run through the language without an issue.
+
+The other two languages are alternate CSS syntaxes. Those familiar
+with the difference between Sass and Less will recognize this
+immediately: Cassius is whitespace delimited, while Lucius uses
+braces. Lucius is in fact a superset of CSS, meaning all valid CSS
+files are valid Lucius files. In addition to allowing text
+interpolation, there are some helper datatypes provided to model unit
+sizes and colors. Also, type-safe URLs work in these languages, making
+it convenient for specifying background images.
+
+Aside from the type safety and compile-time checks mentioned above,
+having specialized languages for CSS and Javascript give us a few
+other advantages:
+
+\begin{aosaitemize}
+
+\item For production, all the CSS and Javascript is compiled into the
+  final executable, increasing performance (by avoiding file I/O) and
+  simplifying deployment.
+
+\item By being based around the efficient builder construct described
+  earlier, the templates can be rendered very quickly.
+
+\item There is built-in support for automatically including these in
+  final webpages. We will get into this in more detail when describing
+  widgets below.
+
+\end{aosaitemize}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\begin{aosasect1}{Persistent}
+
+Most web applications will want to store information in a
+database. Traditionally, this has meant some kind of SQL database. In
+that regard, Yesod continues a long tradition, with PostgreSQL as our
+most commonly used backend. But as we have been seeing in recent
+years, SQL isn't always the answer to the persistence
+question. Therefore, Yesod was designed to work well with NoSQL
+databases as well, and ships with a MongoDB backend as a first-class
+citizen.
+
+The result of this design decision is Persistent, Yesod's preferred
+storage option. There are really two guiding lights for Persistent:
+make it as back-end-agnostic as possible, and let user code be
+completely type-checked.
+
+At the same time, we fully recognize that it is impossible to
+completely shield the user from all details of the
+backend. Therefore, we provide two types of escape routes:
+
+\begin{aosaitemize}
+
+\item Back-end-specific functionality as necessary. For
+  example, Persistent provides features for SQL joins and MongoDB
+  lists and hashes. Proper portability warnings will apply, but if you
+  want this functionality, it's there.
+
+\item Easy access to performing raw queries. We don't believe it's
+  possible for any abstraction to cover every use case of the
+  underlying library. If you just have to write a 5-table, correlated
+  subquery in SQL, go right ahead.
+
+\end{aosaitemize}
+
+\begin{aosasect2}{Terminology}
+
+The most primitive datatype in Persistent is the
+\code{PersistValue}. This represents any raw data that can appear
+within the database, such as a number, a date, or a string. Of course,
+sometimes you'll have some more user-friendly datatypes you want to
+store, like HTML. For that, we have the \code{PersistField}
+class. Internally, a \code{PersistField} expresses itself to the
+database in terms of a \code{PersistValue}.
+
+All of this is very nice, but we will want to combine different fields
+together into a larger picture. For this, we have a
+\code{PersistEntity}, which is basically a collection of
+\code{PersistField}s. And finally, we have a \code{PersistBackend}
+that describes how to create, read, update and delete these entities.
+
+As a practical example, consider storing a person in a database. We
+want to store the person's name, birthday, and a profile image (a PNG
+file). We create a new entity \code{Person} with three fields: a
+\code{Text}, a \code{Day} and a \code{PNG}. Each of those gets stored
+in the database using a different \code{PersistValue} constructor:
+\code{PersistText}, \code{PersistDay} and \code{PersistByteString},
+respectively.
+
+There is nothing surprising about the first two mappings, but the last
+one is interesting. There is no specific constructor for storing PNG
+content in a database, so instead we use a more generic type (a
+\code{ByteString}, which is just a sequence of bytes). We could use the same
+mechanism to store other types of arbitrary data.
+
+(The commonly held best practice for storing images is to keep the data
+on the filesystem and just keep a path to the image in the
+database. We do not advocate against using that approach, but are
+rather using database-stored images as an illustrative example.)
+
+How is all this represented in the database? Consider SQL as an
+example: the \code{Person} entity becomes a table with three columns
+(name, birthday, and picture). Each field is stored as a different SQL
+type: \code{Text} becomes a \code{VARCHAR}, \code{Day} becomes a
+\code{Date} and \code{PNG} becomes a \code{BLOB} (or \code{BYTEA}).
+
+The story for MongoDB is very similar. \code{Person} becomes its own
+\emph{document}, and its three fields each become a MongoDB
+\emph{field}. There is no need for datatypes or creation of a schema
+in MongoDB.
+
+\vspace{8pt}
+\begin{tabular}{lll}
+Persistent & SQL & MongoDB \\
+PersistEntity & Table & Document \\
+PersistField & Column & Field \\
+PersistValue & Column type & N/A \\
+\end{tabular}
+ 
+\end{aosasect2}
+
+\begin{aosasect2}{Type Safety}
+
+Persistent handles all of the data marshaling concerns behind the
+scenes. As a user of Persistent, you get to completely ignore the fact
+that a \code{Text} becomes a \code{VARCHAR}. You are able to simply
+declare your datatypes and use them.
+
+Every interaction with Persistent is strongly typed. This prevents you
+from accidentally putting a number in the date fields; the compiler
+will not accept it. Entire classes of subtle bugs simply disappear at
+this point.
+
+Nowhere is the power of strong typing more pronounced than in
+refactoring. Let's say you have been storing users' ages in the
+database, and you realize that you really wanted to store birthdays
+instead. You are able to make a single line change to your entities
+declaration file, hit compile, and automatically find every single
+line of code that needs to be updated.
+
+In most dynamically-typed languages, and their web frameworks, the
+recommended approach to solving this issue is writing unit tests. If
+you have full test coverage, then running your tests will immediately
+reveal what code needs to be updated. This is all well and good, but
+it is a weaker solution than true types:
+
+\begin{aosaitemize}
+
+\item It is all predicated on having full test coverage. This takes
+  extra time, and worse, is boilerplate code that the compiler should
+  be able to do for you.
+
+\item You might be a perfect developer who never forgets to write a
+  test, but can you say the same for every person who will touch your
+  codebase?
+
+\item Even 100\% test coverage doesn't guarantee that you really have
+  tested every case. All it's done is proven you've tested every line
+  of code.
+
+\end{aosaitemize}
+
+\end{aosasect2}
+
+\begin{aosasect2}{Cross-Database Syntax}
+
+Creating an SQL schema that works for multiple SQL engines can be
+tricky enough. How do you create a schema that will also work with a
+non-SQL database like MongoDB?
+
+Persistent allows you to define your entities in a high-level syntax,
+and will automatically create the SQL schema for you. In the case of
+MongoDB, we currently use a schema-less approach. This also allows
+Persistent to ensure that your Haskell datatypes match perfectly with
+the database's definitions.
+
+Additionally, having all this information gives Persistent the ability
+to perform more advanced functions, such as migrations, for you automatically.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Migrations}
+
+Persistent not only creates schema files as necessary, but will also
+automatically apply database migrations if possible. Database
+modification is one of the less-developed pieces of the SQL standard,
+and thus each engine has a different take on the process. As such,
+each Persistent backend defines its own set of migration rules. In
+PostgreSQL, which has a rich set of \code{ALTER TABLE} rules, we use
+those extensively. Since SQLite lacks much of that functionality, we
+are reduced to creating temporary tables and copying rows. MongoDB's
+schema-less approach means no migration support is required.
+
+This feature is purposely limited to prevent any kind of data loss. It
+will not remove any columns automatically; instead, it will give you
+an error message, telling you the unsafe operations that are necessary
+in order to continue. You will then have the option of either manually
+running the SQL it provides you, or changing your data model to avoid the
+dangerous behavior.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Relations}
+
+Persistent is non-relational in nature, meaning it has no requirement
+for backends to support relations. However, in many use cases, we may
+want to use relations. In those cases, developers will have full
+access to them.
+
+Assume we want to now store a list of skills with each user. If we
+were writing a MongoDB-specific app, we could go ahead and just store
+that list as a new field in the original \code{Person} entity. But that
+approach would not work in SQL. In SQL, we call this kind of
+relationship a one-to-many relationship.
+
+The idea is to store a reference to the "one" entity (person) with
+each "many" entity (skill). Then if we want to find all the skills a
+person has, we simply find all skills that reference that person. For
+this reference, every entity has an ID. And as you might expect by
+now, these IDs are completely type-safe. The datatype for a Person ID
+is \code{PersonId}. So to add our new skill, we would just add the
+following to our entity definition:
+
+\begin{verbatim}
+Skill
+    person PersonId
+    name Text
+    description Text
+    UniqueSkill person name
+\end{verbatim}
+
+This ID datatype concept comes up throughout Persistent and Yesod. You
+can dispatch based on an ID. In such a case, Yesod will automatically
+marshal the textual representation of the ID to the internal one,
+catching any parse errors along the way. These IDs are used for lookup
+and deletion with the \code{get} and \code{delete} functions, and are
+returned by the insertion and query functions \code{insert} and
+\code{selectList}.
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\begin{aosasect1}{Yesod}
+
+If we are looking at the typical Model-View-Controller (MVC)
+paradigm, Persistent is the model and Shakespeare is the view. This
+would leave Yesod as the controller.
+
+% TA: should i18n -> internationalization?
+
+The most basic feature of Yesod is routing. It features a declarative
+syntax and type-safe dispatch. Layered on top of this, Yesod provides
+many other features: streaming content generation, widgets, i18n,
+static files, forms and authentication. But the core feature added by
+Yesod is really routing.
+
+This layered approach makes it simpler for users to swap different
+components of the system. Some people are not interested in using
+Persistent. For them, nothing in the core system even mentions
+Persistent. Likewise, while they are commonly used features, not everyone needs
+authentication or static file serving.
+
+On the other hand, many users \emph{will} want to integrate all of
+these features. And doing so, while enabling all the optimizations
+available in Yesod, is not always straightforward. To simplify the
+process, Yesod also provides a scaffolding tool that sets up a
+basic site with the most commonly used features.
+
+\begin{aosasect2}{Routes}
+
+Given that routing is really the main function of Yesod, let's start
+there. The routing syntax is very simple: a \emph{resource pattern}, a
+name, and request methods. For example, a simple blog site might look
+like:
+
+\begin{verbatim}
+/ HomepageR GET
+/add-entry AddEntryR GET POST
+/entry/#EntryId EntryR GET
+\end{verbatim}
+
+The first line defines the homepage. This says "I respond to the root
+path of the domain, I'm called HomepageR, and I answer GET requests."
+(The trailing "R" on the resource names is simply a convention, it
+doesn't hold any special meaning besides giving a cue to the developer
+that something is a route.)
+
+The second line defines the add-entry page. This time, we answer both
+GET and POST requests. You might be wondering why Yesod, as opposed to
+most frameworks, requires you to explicitly state your request
+methods. The reason is that Yesod tries to adhere to RESTful
+principles as much as possible, and GET and POST requests really have
+very different meanings. Not only do you state these two methods
+separately, but later you will define their handler functions
+separately. (This is actually an optional feature in Yesod. If you
+want, you can leave off the list of methods and your handler function
+will deal with all methods.)
+
+The third line is a bit more interesting. After the second slash we
+have \code{\#EntryId}. This defines a parameter of type
+\code{EntryId}. We already alluded to this
+feature in the Persistent section: Yesod will now automatically marshal the path component into
+the relevant ID value. Assuming an SQL backend (Mongo is addressed
+later), if a user requests \code{/entry/5}, the handler function will
+get called with an argument \code{EntryId 5}. But if the user requests
+\code{/entry/some-blog-post}, Yesod will return a 404.
+
+This is obviously possible in most other web frameworks as well. The
+approach taken by Django, for instance, would use a regular expression
+for matching the routes, e.g. \code{r"/entry/(\d+)"}. The Yesod
+approach, however, provides some advantages:
+
+\begin{aosaitemize}
+
+\item Typing "EntryId" is much more semantic/developer-friendly than a
+  regular expression.
+
+\item Regular expressions cannot express everything (or at least,
+  can't do so succinctly). We can use \code{/calendar/\#Day} in Yesod;
+  do you want to type a regex to match dates in your routes?
+
+\item Yesod also automatically marshals the data for us. In our
+  calendar case, our handler function would receive a \code{Day}
+  value. In the Django equivalent, the function would receive a piece
+  of text which it would then have to marshal itself. This is tedious,
+  repetitive and inefficient.
+
+\item So far we've assumed that a database ID is just a string of
+  digits. But what if it's more complicated? MongoDB uses GUIDs, for
+  example. In Yesod, your \code{\#EntryId} will still work, and the type
+  system will instruct Yesod how to parse the route. In a regex
+  system, you would have to go through all of your routes and change
+  the \verb=\d+= to whatever monstrosity of regex is needed to match GUIDs.
+
+\end{aosaitemize}
+
+\begin{aosasect3}{Type-Safe URLs}
+
+This approach to routing gives birth to one of Yesod's most powerful
+features: type-safe URLs. Instead of just splicing together pieces of
+text to refer to a route, every route in your application can be
+represented by a Haskell value. This immediately eliminates a large
+number of 404 Not Found errors: it is simply not possible to produce
+an invalid URL.  (It is still possible to produce a URL that would lead to a 404 error, such as
+by referring to a blog post that does not exist. However, all URLs
+will be formed correctly.)
+
+So how does this magic work? Each site has a route datatype, and each
+resource pattern gets its own constructor. In our previous example, we
+would get something that looks like:
+
+\begin{verbatim}
+data MySiteRoute = HomepageR
+                 | AddEntryR
+                 | EntryR EntryId
+
+\end{verbatim}
+
+If you want to link to the homepage, you use \code{HomepageR}. To link
+to a specific entry, you would use the \code{EntryR} constructor with
+an \code{EntryId} parameter. For example, to create a new entry and
+redirect to it, you could write:
+
+\begin{verbatim}
+entryId <- insert (Entry "My Entry" "Some content")
+redirect RedirectTemporary (EntryR entryId)
+\end{verbatim}
+
+Hamlet, Lucius and Julius all include built-in support for these
+type-safe URLs. Inside a Hamlet template you can easily create a link
+to the add-entry page:
+
+\begin{verbatim}
+<a href=@{AddEntryR}>Create a new entry.
+\end{verbatim}
+
+The best part? Just like Persistent entities, the compiler will keep
+you honest. If you change any of your routes (e.g., you want to
+include the year and month in your entry routes), Yesod will force you
+to update every single reference throughout your codebase.
+
+\end{aosasect3}
+
+\end{aosasect2}
+
+\begin{aosasect2}{Handlers}
+
+Once you define your routes, you need to tell Yesod how you want to
+respond to requests. This is where \emph{handler functions} come into
+play. The setup is simple: for each resource (e.g., \code{HomepageR})
+and request method, create a function named \code{methodResourceR}. For our
+previous example, we would need four functions: \code{getHomepageR},
+\code{getAddEntryR}, \code{postAddEntryR}, and \code{getEntryR}.
+
+All of the parameters collected from the route are passed in as
+arguments to the handler function. \code{getEntryR} will take a first
+argument of type \code{EntryId}, while all the other functions will take no
+arguments.
+
+The handler functions live in a \code{Handler} monad, which provides a
+great deal of functionality, such as redirecting, accessing sessions,
+and running database queries. For the last one, a typical way to start
+off the \code{getEntryR} function would be:
+
+\begin{verbatim}
+getEntryR entryId = do
+    entry <- runDB $ get404 entryId
+\end{verbatim}
+
+This will run a database action that will get the entry associated
+with the given ID from the database. If there is no such entry, it
+will return a 404 response.
+
+Each handler function will return some value, which must be an
+instance of \code{HasReps}. This is another RESTful feature at play:
+instead of just returning some HTML or some JSON, you can return a
+value that will return either one, depending on the HTTP Accept
+request header. In other words, in Yesod, a resource is a specific
+piece of data, and it can be returned in one of many
+\emph{representations}.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Widgets}
+
+Assume you want to include a navbar on a few different pages of your
+site. This navbar will load up the five most recent blog posts (stored
+in your database), generate some HTML, and then need some CSS and
+Javascript to style and enhance.
+
+Without a higher-level interface to tie these components together,
+this could be a pain to implement. You could add the CSS to the
+site-wide CSS file, but that's adding extra declarations you don't
+always need. Likewise with the Javascript, though a bit worse: having
+that extra Javascript might cause problems on a page it was not
+intended to live on. You will also be breaking modularity by having to
+generate the database results from multiple handler functions.
+
+In Yesod, we have a very simple solution: widgets. A widget is a piece
+of code that ties together HTML, CSS and Javascript, allowing you to
+add content to both the head and body, and can run any arbitrary code
+that belongs in a handler. For example, to implement our navbar:
+
+\begin{verbatim}
+-- Get last five blog posts. The "lift" says to run this code like we're in the handler.
+entries <- lift $ runDB $ selectList [] [LimitTo 5, Desc EntryPosted]
+toWidget [hamlet|
+<ul .navbar>
+    $forall entry <- entries
+        <li>#{entryTitle entry}
+|]
+toWidget [lucius| .navbar { color: red } |]
+toWidget [julius|alert("Some special Javascript to play with my navbar");|]
+\end{verbatim}
+
+But there is even more power at work here. When you produce a page in
+Yesod, the standard approach is to combine a number of widgets
+together into a single widget containing all your page content, and
+then apply \code{defaultLayout}. This function is defined per site, and
+applies the standard site layout.
+
+There are two out-of-the-box approaches to handling where the CSS and
+Javascript go:
+
+\begin{aosaenumerate}
+
+\item Concatenate them and place them into \code{style} and
+  \code{script} tags, respectively, within your HTML.
+
+\item Place them in external files and refer to them with \code{link}
+  and \code{script} tags, respectively.
+ 
+\end{aosaenumerate}
+
+In addition, your Javascript can be automatically minified. Option 2
+is the preferred approach, since it allows a few extra optimizations:
+
+\begin{aosaenumerate}
+ 
+\item The files are created with names based on a hash of the
+  contents. This means you can place cached values far in the future
+  without worries of users receiving stale content.
+ 
+\item Your Javascript can be asynchronously loaded.
+ 
+\end{aosaenumerate}
+
+The second point requires a bit of elaboration. Widgets not only
+contain raw Javascript, they also contain a list of Javascript
+dependencies. For example, many sites will refer to the jQuery library
+and then add some Javascript that uses it. Yesod is able to
+automatically turn all of that into an asynchronous load via
+\code{yepnope.js}.
+
+In other words, widgets allow you to create modular, composable code
+that will result in incredibly efficient serving of your static
+resources.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Subsites}
+
+Many websites share common areas of functionality. Perhaps the two
+most common examples of this are serving static files and
+authentication. In Yesod, you can easily drop in this code using a
+\emph{subsite}. All you need to do is add an extra line to your
+routes. For example, to add the static subsite, you would write:
+
+\begin{verbatim}
+/static StaticR Static getStatic
+\end{verbatim}
+
+The first argument tells where in the site the subsite starts. The
+static subsite is usually used at \code{/static}, but you could use whatever
+you want. \code{StaticR} is the name of the route; this is also entirely up
+to you, but convention is to use \code{StaticR}. \code{Static} is the name of the
+static subsite; this is one you do not have control
+over. \code{getStatic} is a function that returns the settings for the
+static site, such as where the static files are located.
+
+Like all of your handlers, the subsite handlers also have access to
+the \code{defaultLayout} function. This means that a well-designed
+subsite will automatically use your site skin without any extra
+intervention on your part.
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\begin{aosasect1}{Lessons Learned}
+
+Yesod has been a very rewarding project to work on. It has given me an
+opportunity to work on a large system with a diverse group of
+developers. One of the things that has truly shocked me is how
+different the end product has become from what I had originally
+intended. I started off Yesod by creating a list of goals. Very few of
+the main features we currently tout in Yesod are in that list, and a
+good portion of that list is no longer something I plan to
+implement. The first lesson is:
+
+\emph{You will have a better idea of the system you need after you
+  start working on it. Do not tie yourself down to your initial
+  ideas.}
+
+As this was my first major piece of Haskell code, I learned a lot
+about the language during Yesod's development. I'm sure others can
+relate to the feeling of "How did I ever write code like this?" Even
+though that initial code was not of the same caliber as the code we
+have in Yesod at this point, it was solid enough to kick-start the
+project. The second lesson is:
+
+\emph{Don't be deterred by supposed lack of mastery of the tools
+  at hand. Write the best code you can, and keep improving it.}
+
+One of the most difficult steps in Yesod's development was moving from
+a single-person team---me---to collaborating with others. It started
+off simply, with merging pull requests on GitHub, and eventually moved
+to having a number of core maintainers. I had established some of my
+own development patterns, which were nowhere explained or
+documented. As a result, contributors found it difficult to pull my
+latest unreleased changes and play around with them. This hindered
+others both when contributing and testing.
+
+When Greg Weber came aboard as another lead on Yesod, he put in place
+a lot of the coding standards that were sorely lacking. To compound
+the problems, there were some inherent difficulties playing with the
+Haskell development toolchain; specifically in dealing with Yesod's large
+number of packages. One of the goals of the entire Yesod team has
+since been to create standard scripts and tools to automate
+building. Many of these tools are making their way back into the
+general Haskell community. The final lesson is:
+
+\emph{Consider early on how to make your project approachable for
+  others.}
+
+\end{aosasect1}
+\end{aosachapter}

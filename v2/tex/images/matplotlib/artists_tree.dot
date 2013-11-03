@@ -1,0 +1,23 @@
+digraph G  {
+        rankdir=RL;
+        node[shape=box];
+        figure [label="Figure ①"];
+        axes [label="Axes ②"];
+        line [label="Line2D ③"];
+        title [label="Text ④"];
+        yaxis [label="YAxis ⑤"];
+        xaxis [label="XAxis ⑥"];
+        axes -> figure;
+        title -> axes;
+        xaxis -> axes;
+        yaxis -> axes;
+        line -> axes;
+        "x-label" -> xaxis;
+        "y-label" -> yaxis;
+        "x-ticks" -> xaxis;
+        tick1 [label="ticks …"];
+        tick1 -> "x-ticks";
+        "y-ticks" -> yaxis;
+        tick2 [label="ticks …"];
+        tick2 -> "y-ticks";
+}

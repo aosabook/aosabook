@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: intro1.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Introduction</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Introduction</h1>
+        <p><a href="intro1.html#brown-amy">Amy Brown</a> and <a href="intro1.html#wilson-greg">Greg Wilson</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Carpentry is an exacting craft, and people can spend their entire
+lives learning how to do it well.  But carpentry is not architecture:
+if we step back from pitch boards and miter joints, buildings as a
+whole must be designed, and doing that is as much an art as it is a
+craft or science.</p>
+
+<p>Programming is also an exacting craft, and people can spend their entire lives
+learning how to do it well.  But programming is not software architecture.
+Many programmers spend years thinking about
+(or wrestling with) larger design issues: Should this application be
+extensible?  If so, should that be done by providing a scripting
+interface, through some sort of plugin mechanism, or in some other way
+entirely?  What should be done by the client, what should be left to
+the server, and is "client-server" even a useful way to think about
+this application?  These are not programming questions, any more than
+where to put the stairs is a question of carpentry.</p>
+
+<p>Building architecture and software architecture have a lot in common,
+but there is one crucial difference.  While architects study
+thousands of buildings in their training and during their careers,
+most software developers only ever get to know a handful of large
+programs well.  And more often than not, those are programs they wrote
+themselves.  They never get to see the great programs of history, or
+read critiques of those programs' designs written by experienced
+practitioners.  As a result, they repeat one another's mistakes rather
+than building on one another's successes.</p>
+
+<p>This book is our attempt to change that.  Each chapter describes the
+architecture of an open source application: how it is structured, how
+its parts interact, why it's built that way, and what lessons have
+been learned that can be applied to other big design problems.  The
+descriptions are written by the people who know the software
+best, people with years or decades of experience designing and
+re-designing complex applications.  The applications themselves range
+in scale from simple drawing programs and web-based spreadsheets to
+compiler toolkits and multi-million line visualization packages.  Some
+are only a few years old, while others are approaching their thirtieth
+anniversary.  What they have in common is that their creators have
+thought long and hard about their design, and are willing to share
+those thoughts with you.  We hope you enjoy what they have written.</p>
+
+<div class="sect">
+<h2>Contributors</h2>
+
+<p id="allman-eric"><em>Eric P. Allman (Sendmail)</em>: Eric Allman is the
+original author of sendmail, syslog, and trek, and the co-founder
+of Sendmail, Inc.  He has been writing open source software since
+before it had a name, much less became a "movement".  He is a
+member of the <em>ACM Queue</em> Editorial Review Board and the Cal
+Performances Board of Trustees.  His personal web site
+is <a href="http://www.neophilic.com/~eric">http://www.neophilic.com/~eric</a>.</p>
+
+<p id="bostic-keith"><em>Keith Bostic (Berkeley DB)</em>: Keith was a member of the University
+of California Berkeley Computer Systems Research Group, where he was the
+architect of the 2.10BSD release and a principal developer of 4.4BSD and
+related releases.  He received the USENIX Lifetime Achievement Award ("The
+Flame"), which recognizes singular contributions to the Unix community, as well
+as a Distinguished Achievement Award from the University of California,
+Berkeley, for making the 4BSD release open source.  Keith was the
+architect and one of the original developers of Berkeley DB, the open source
+embedded database system.</p>
+
+<p id="brown-amy"><em>Amy Brown (editorial)</em>: Amy has a bachelor's degree in Mathematics
+from the University of Waterloo, and worked in the software industry for ten
+years.  She now writes and edits books, sometimes about software. She lives in
+Toronto and has two children and a very old cat.</p>
+
+<p id="brown-titus"><em>C. Titus Brown (Continuous Integration)</em>: Titus has worked in
+evolutionary modeling, physical meteorology, developmental biology, genomics,
+and bioinformatics. He is now an Assistant Professor at Michigan State
+University, where he has expanded his interests into several new areas,
+including reproducibility and maintainability of scientific software. He is
+also a member of the Python Software Foundation, and blogs at
+<a href="http://ivory.idyll.org">http://ivory.idyll.org</a>.</p>
+
+<p id="bryant-roy"><em>Roy Bryant (Snowflock)</em>: In 20 years as a software
+architect and CTO, Roy designed systems including Electronics
+Workbench (now National Instruments' Multisim) and the Linkwalker
+Data Pipeline, which won Microsoft's worldwide Winning Customer
+Award for High-Performance Computing in 2006. After selling his
+latest startup, he returned to the University of Toronto to do
+graduate studies in Computer Science with a research focus on
+virtualization and cloud computing. Most recently, he published
+his Kaleidoscope extensions to Snowflock at ACM's Eurosys
+Conference in 2011.  His personal web site
+is <a href="http://www.roybryant.net/">http://www.roybryant.net/</a>.</p>
+
+<p id="bryant-russell"><em>Russell Bryant (Asterisk)</em>: Russell is the Engineering
+Manager for the Open Source Software team at Digium, Inc. He has
+been a core member of the Asterisk development team since the Fall
+of 2004. He has since contributed to almost all areas of Asterisk
+development, from project management to core architectural design
+and development.  He blogs at
+<a href="http://www.russellbryant.net">http://www.russellbryant.net</a>.</p>
+
+<p id="canino-koning-rosangela"><em>Rosangela Canino-Koning (Continuous Integration)</em>:
+After 13 years of slogging in the software industry trenches,
+Rosangela returned to university to pursue a Ph.D. in Computer
+Science and Evolutionary Biology at Michigan State University. In
+her copious spare time, she likes to read, hike, travel, and hack
+on open source bioinformatics software.  She blogs at
+<a href="http://www.voidptr.net">http://www.voidptr.net</a>.</p>
+
+<p id="cesarini-francesco"><em>Francesco Cesarini (Riak)</em>: Francesco Cesarini has
+used Erlang on a daily basis since 1995, having worked in various
+turnkey projects at Ericsson, including the OTP R1 release. He is
+the founder of Erlang Solutions and co-author of
+O'Reilly's <em>Erlang Programming</em>. He currently works as
+Technical Director at Erlang Solutions, but still finds the time
+to teach graduates and undergraduates alike at Oxford University in
+the UK and the IT University of Gotheburg in Sweden.</p>
+
+<p id="chansler-robert"><em>Robert Chansler (HDFS)</em>: Robert is a Senior Manager for Software
+Development at Yahoo!  After graduate studies in distributed systems
+at Carnegie-Mellon University, he worked on compilers (Tartan Labs),
+printing and imaging systems (Adobe Systems), electronic commerce
+(Adobe Systems, Impresse), and storage area network management
+(SanNavigator, McDATA). Returning to distributed systems and HDFS, Rob
+found many familiar problems, but all of the numbers had two or three
+more zeros.</p>
+
+<p id="crook-james"><em>James Crook (Audacity)</em>: James is a contract software
+developer based in Dublin, Ireland. Currently he is working on
+tools for electronics design, though in a previous life he
+developed bioinformatics software.  He has many audacious plans
+for Audacity, and he hopes some, at least, will see the light of day.</p>
+
+<p id="davis-chris"><em>Chris Davis (Graphite)</em>: Chris is a software
+consultant and Google engineer who has been designing and building
+scalable monitoring and automation tools for over 12 years. Chris
+originally wrote Graphite in 2006 and has lead the open source
+project ever since. When he's not writing code he enjoys cooking,
+making music, and doing research. His research interests include
+knowledge modeling, group theory, information theory, chaos
+theory, and complex systems.</p>
+
+<p id="freire-juliana"><em>Juliana Freire (VisTrails)</em>: Juliana is an Associate Professor
+of Computer Science at the University of Utah. Before that, she was member
+of technical staff at the Database Systems Research Department at Bell
+Laboratories (Lucent Technologies) and an Assistant Professor at
+OGI/OHSU. Her research interests include provenance, scientific data
+management, information integration, and Web mining.  She is a
+recipient of an NSF CAREER and an IBM Faculty award.  Her research has
+been funded by the National Science Foundation, Department of Energy,
+National Institutes of Health, IBM, Microsoft and Yahoo!</p>
+
+<p id="geveci-berk"><em>Berk Geveci (VTK)</em>: Berk is the Director of Scientific
+Computing at Kitware. He is responsible for leading the
+development effort of ParaView, an award-winning visualization
+application based on VTK. His research interests include large
+scale parallel computing, computational dynamics, finite elements
+and visualization algorithms.</p>
+
+<p id="gross-andy"><em>Andy Gross (Riak)</em>: Andy Gross is Principal Architect at Basho
+Technologies, managing the design and development of Basho's Open
+Source and Enterprise data storage systems. Andy started at Basho in
+December of 2007 with 10 years of software and distributed systems
+engineering experience.  Prior to Basho, Andy held senior distributed
+systems engineering positions at Mochi Media, Apple, Inc., and Akamai
+Technologies.</p>
+
+<p id="hoffman-bill"><em>Bill Hoffman (CMake)</em>: Bill is CTO and co-Founder of
+Kitware, Inc.  He is a key developer of the CMake project, and has
+been working with large C++ systems for over 20 years.</p>
+
+<p id="horstmann-cay"><em>Cay Horstmann (Violet)</em>: Cay is a professor of
+computer science at San Jose State University, but every so often
+he takes a leave of absence to work in industry or teach in a
+foreign country.  He is the author of many books on programming
+languages and software design, and the original author of the
+Violet and GridWorld open-source programs.</p>
+
+<p id="ivov-emil"><em>Emil Ivov (Jitsi)</em>: Emil is the founder and project
+lead of the Jitsi project (previously SIP Communicator). He is
+also involved with other initiatives like the ice4j.org and JAIN
+SIP projects. Emil obtained his Ph.D. from the University of
+Strasbourg in early 2008, and has been focusing primarily on Jitsi
+related activities ever since.</p>
+
+<p id="koop-david"><em>David Koop (VisTrails)</em>: David is a Ph.D. candidate in computer
+science at the University of Utah (finishing in the summer of
+2011). His research interests include visualization, provenance, and
+scientific data management. He is a lead developer of the VisTrails
+system, and a senior software architect at VisTrails, Inc.</p>
+
+<p id="kuang-hairong"><em>Hairong Kuang (HDFS)</em> is a long time contributor and committer
+to the Hadoop project, which she has worked on passionately, currently
+at Facebook and previously at Yahoo! Prior to working in industry, she was an
+Assistant Professor at California State Polytechnic University,
+Pomona. She received a Ph.D. in Computer Science from the University of
+California at Irvine.  Her interests include cloud computing, mobile
+agents, parallel computing, and distributed systems.</p>
+
+<p id="lagar-cavilla-andres"><em>H. Andr&eacute;s Lagar-Cavilla (Snowflock)</em>:
+Andr&eacute;s is a software systems researcher who does
+experimental work on virtualization, operating systems, security,
+cluster computing, and mobile computing. He has a B.A.Sc. from
+Argentina, and an M.Sc. and Ph.D. in Computer Science from University
+of Toronto, and can be found online
+at <a href="http://lagarcavilla.org">http://lagarcavilla.org</a>.</p>
+
+<p id="lattner-chris"><em>Chris Lattner (LLVM)</em>: Chris is a software developer
+with a diverse range of interests and experiences, particularly in
+the area of compiler tool chains, operating systems, graphics and
+image rendering.  He is the designer and lead architect of the
+Open Source LLVM Project.
+See <a href="http://nondot.org/~sabre/">http://nondot.org/~sabre/</a>
+for more about Chris and his projects.</p>
+
+<p id="laudicina-alan"><em>Alan Laudicina (Thousand Parsec)</em>: Alan is an M.Sc.
+student in computer science at Wayne State University, where he
+studies distributed computing. In his spare time he codes, learns
+programming languages, and plays poker.  You can find more about
+him at <a href="http://alanp.ca/">http://alanp.ca/</a>.</p>
+
+<p id="madeley-danielle"><em>Danielle Madeley (Telepathy)</em>: Danielle is an
+Australian software engineer working on Telepathy and other magic
+for Collabora Ltd. She has bachelor's degrees in electronic
+engineering and computer science. She also has an extensive
+collection of plush penguins.  She blogs
+at <a href="http://blogs.gnome.org/danni/">http://blogs.gnome.org/danni/</a>.</p>
+
+<p id="marcus-adam"><em>Adam Marcus (NoSQL)</em>: Adam is a Ph.D. student focused on the
+intersection of database systems and social computing at MIT's Computer Science
+and Artificial Intelligence Lab.  His recent work ties traditional database
+systems to social streams such as Twitter and human computation platforms such
+as Mechanical Turk. He likes to build usable open source systems from his
+research prototypes, and prefers tracking open source storage systems to long
+walks on the beach. He blogs at <a href="http://blog.marcua.net">http://blog.marcua.net</a>.</p>
+
+<p id="martin-kenneth"><em>Kenneth Martin (CMake)</em>: Ken is currently Chairman
+and CFO of Kitware, Inc., a research and development company based
+in the US. He co-founded Kitware in 1998 and since then has helped
+grow the company to its current position as a leading R&amp;D
+provider with clients across many government and commercial
+sectors.</p>
+
+<p id="mavrinac-aaron"><em>Aaron Mavrinac (Thousand Parsec)</em>: Aaron is a
+Ph.D. candidate in electrical and computer engineering at the
+University of Windsor, researching camera networks, computer
+vision, and robotics. When there is free time, he fills some of it
+working on Thousand Parsec and other free software, coding in
+Python and C, and doing too many other things to get good at any
+of them.  His web site is <a href="http://www.mavrinac.com">http://www.mavrinac.com</a>.</p>
+
+<p id="moir-kim"><em>Kim Moir (Eclipse)</em>: Kim works at the IBM Rational
+Software lab in Ottawa as the Release Engineering lead for the
+Eclipse and Runtime Equinox projects and is a member of the
+Eclipse Architecture Council.  Her interests lie in build
+optimization, Equinox and building component based software.
+Outside of work she can be found hitting the pavement with her
+running mates, preparing for the next road race.  She blogs at
+<a href="http://relengofthenerds.blogspot.com/">http://relengofthenerds.blogspot.com/</a>.</p>
+
+<p id="ochtman-dirkjan"><em>Dirkjan Ochtman (Mercurial)</em>: Dirkjan graduated as a
+Master in CS in 2010, and has been working at a financial startup
+for 3 years. When not procrastinating in his free time, he hacks
+on Mercurial, Python, Gentoo Linux and a Python CouchDB
+library. He lives in the beautiful city of Amsterdam.  His
+personal web site is <a href="http://dirkjan.ochtman.nl/">http://dirkjan.ochtman.nl/</a>.</p>
+
+<p id="radia-sanjay"><em>Sanjay Radia (HDFS)</em>: Sanjay is the architect of the Hadoop
+project at Yahoo!, and a Hadoop committer and Project Management
+Committee member at the Apache Software Foundation. Previously he held
+senior engineering positions at Cassatt, Sun Microsystems and INRIA
+where he developed software for distributed systems and grid/utility
+computing infrastructures. Sanjay has a Ph.D. in Computer Science from
+University of Waterloo, Canada.</p>
+
+<p id="ramey-chet"><em>Chet Ramey (Bash)</em>: Chet has been involved with bash
+for more than twenty years, the past seventeen as primary
+developer.  He is a longtime employee of Case Western Reserve
+University in Cleveland, Ohio, from which he received his B.Sc.  and
+M.Sc. degrees.  He lives near Cleveland with his family and pets,
+and can be found online at <a href="http://tiswww.cwru.edu/~chet">http://tiswww.cwru.edu/~chet</a>.</p>
+
+<p id="santos-emanuele"><em>Emanuele Santos (VisTrails)</em>: Emanuele is a research scientist
+at the University of Utah. Her research interests include scientific
+data management, visualization, and provenance. She received her
+Ph.D. in Computing from the University of Utah in 2010. She is also a
+lead developer of the VisTrails system.</p>
+
+<p id="scheidegger-carlos"><em>Carlos Scheidegger (VisTrails)</em>: Carlos has a Ph.D. in
+Computing from the University of Utah, and is now a researcher at
+AT&amp;T Labs&ndash;Research. Carlos has won best paper awards at IEEE
+Visualization in 2007, and Shape Modeling International in 2008. His
+research interests include data visualization and analysis, geometry
+processing and computer graphics.</p>
+
+<p id="schroeder-will"><em>Will Schroeder (VTK)</em>: Will is President and
+co-Founder of Kitware, Inc. He is a computational scientist by
+training and has been one of the key developers of VTK. He enjoys
+writing beautiful code, especially when it involves computational
+geometry or graphics.</p>
+
+<p id="seltzer-margo"><em>Margo Seltzer (Berkeley DB)</em>: Margo is the Herchel
+Smith Professor of Computer Science at Harvard's School of
+Engineering and Applied Sciences and an Architect at Oracle
+Corporation.  She was one of the principal designers of Berkeley
+DB and a co-founder of Sleepycat Software.  Her research interests
+are in filesystems, database systems, transactional systems, and
+medical data mining.  Her professional life is online at
+<a href="http://www.eecs.harvard.edu/~margo">http://www.eecs.harvard.edu/~margo</a>, and she blogs at
+<a href="http://mis-misinformation.blogspot.com/">http://mis-misinformation.blogspot.com/</a>.</p>
+
+<p id="sheehy-justin"><em>Justin Sheehy (Riak)</em>: Justin is the CTO of Basho
+Technologies, the company behind the creation of Webmachine and
+Riak. Most recently before Basho, he was a principal scientist at
+the MITRE Corporation and a senior architect for systems
+infrastructure at Akamai. At both of those companies he focused on
+multiple aspects of robust distributed systems, including
+scheduling algorithms, language-based formal models, and
+resilience.</p>
+
+<p id="shimooka-richard"><em>Richard Shimooka (Battle for Wesnoth)</em>: Richard is a Research
+Associate at Queen's University's Defence Management Studies Program in
+Kingston, Ontario. He is also a Deputy Administrator and Secretary for the
+Battle for Wesnoth. Richard has written several works examining the
+organizational cultures of social groups, ranging from governments to open
+source projects.</p>
+
+<p id="shvachko-konstantin"><em>Konstantin V. Shvachko (HDFS)</em>, a veteran HDFS developer, is a
+principal Hadoop architect at eBay. Konstantin specializes in
+efficient data structures and algorithms for large-scale distributed
+storage systems. He discovered a new type of balanced trees, S-trees,
+for optimal indexing of unstructured data, and was a primary developer
+of an S-tree-based Linux filesystem, treeFS, a prototype of
+reiserFS. Konstantin holds a Ph.D. in computer science from Moscow
+State University, Russia. He is also a member of the Project
+Management Committee for Apache Hadoop.</p>
+
+<p id="silva-claudio"><em>Claudio Silva (VisTrails)</em>: Claudio is a full professor of
+computer science at the University of Utah. His research interests are
+in visualization, geometric computing, computer graphics, and
+scientific data management. He received his Ph.D. in computer science
+from the State University of New York at Stony Brook in 1996. Later in
+2011, he will be joining the Polytechnic Institute of New York
+University as a full professor of computer science and engineering.</p>
+
+<p id="srinivas-suresh"><em>Suresh Srinivas (HDFS)</em>: Suresh works on HDFS as a software
+architect at Yahoo! He is a Hadoop committer and PMC member at Apache
+Software Foundation. Prior to Yahoo!, he worked at Sylantro Systems,
+developing scalable infrastructure for hosted communication
+services. Suresh has a bachelor's degree in Electronics and
+Communication from National Institute of Technology Karnataka, India.</p>
+
+<p id="stewart-simon"><em>Simon Stewart (Selenium)</em>: Simon lives in London and
+works as a Software Engineer in Test at Google. He is a core
+contributor to the Selenium project, was the creator of WebDriver
+and is enthusiastic about open source. Simon enjoys beer and
+writing better software, sometimes at the same time.  His personal
+home page is <a href="http://www.pubbitch.org/">http://www.pubbitch.org/</a>.</p>
+
+<p id="tang-audrey"><em>Audrey Tang (SocialCalc)</em>: Audrey is a self-educated programmer
+and translator based in Taiwan.  She curently works at Socialtext,
+where her job title is "Untitled Page", as well as at Apple as
+contractor for localization and release engineering.  She previously
+designed and led the Pugs project, the first working Perl 6
+implementation; she has also served in language design committees for
+Haskell, Perl 5, and Perl 6, and has made numerous contributions to
+CPAN and Hackage.  She blogs at <a href="http://pugs.blogs.com/audreyt/">http://pugs.blogs.com/audreyt/</a>.</p>
+
+<p id="vo-huy"><em>Huy T. Vo (VisTrails)</em>: Huy is receiving his Ph.D. from the
+University of Utah in May 2011. His research interests include
+visualization, dataflow architecture and scientific data
+management. He is a senior developer at VisTrails, Inc. He also holds
+a Research Assistant Professor appointment with the Polytechnic
+Institute of New York University.</p>
+
+<p id="white-david"><em>David White (Battle for Wesnoth)</em>: David is the founder and lead
+developer of Battle for Wesnoth. David has been involved with several Open
+Source video game projects, including Frogatto which he also co-founded. David
+is a performance engineer at Sabre Holdings, a leader in travel technology.</p>
+
+<p id="wilson-greg"><em>Greg Wilson (editorial)</em>: Greg has worked over the
+past 25 years in high-performance scientific computing, data
+visualization, and computer security, and is the author or editor
+of several computing books (including the 2008 Jolt Award
+winner <em>Beautiful Code</em>) and two books for children.
+Greg received a Ph.D. in Computer Science from the University of
+Edinburgh in 1993.  He blogs at <a href="http://third-bit.com">http://third-bit.com</a>
+and <a href="http://software-carpentry.org">http://software-carpentry.org</a>.</p>
+
+<p id="ziade-tarek"><em>Tarek Ziad&eacute; (Python Packaging)</em>: Tarek lives in Burgundy, France.
+He's a Senior Software Engineer at Mozilla, building servers in Python. In his
+spare time, he leads the packaging effort in Python.</p>
+
+</div>
+
+<div class="sect">
+
+<h2>Acknowledgments</h2>
+
+<p>We would like to thank our reviewers:</p>
+
+<table width="100%">
+<tr><td width="33%">Eric Aderhold</td> <td width="33%">Muhammad Ali</td> <td width="33%">Lillian Angel</td></tr>
+<tr><td>Robert Beghian</td> <td>Taavi Burns</td> <td>Luis Pedro Coelho</td></tr>
+<tr><td>David Cooper</td> <td>Mauricio de Simone</td> <td>Jonathan Deber</td></tr>
+<tr><td>Patrick Dubroy</td> <td>Igor Foox</td> <td>Alecia Fowler</td></tr>
+<tr><td>Marcus Hanwell</td> <td>Johan Harjono</td> <td>Vivek Lakshmanan</td></tr>
+<tr><td>Greg Lapouchnian</td> <td>Laurie MacDougall Sookraj</td> <td>Josh McCarthy</td></tr>
+<tr><td>Jason Montojo</td> <td>Colin Morris</td> <td>Christian Muise</td></tr>
+<tr><td>Victor Ng</td> <td>Nikita Pchelin</td> <td>Andrew Petersen</td></tr>
+<tr><td>Andrey Petrov</td> <td>Tom Plaskon</td> <td>Pascal Rapicault</td></tr>
+<tr><td>Todd Ritchie</td> <td>Samar Sabie</td> <td>Misa Sakamoto</td></tr>
+<tr><td>David Scannell</td> <td>Clara Severino</td> <td>Tim Smith</td></tr>
+<tr><td>Kyle Spaans</td> <td>Sana Tapal</td> <td>Tony Targonski</td></tr>
+<tr><td>Miles Thibault</td> <td>David Wright</td> <td>Tina Yee</td></tr>
+</table>
+
+<p>We would also like to thank Jackie Carter, who helped with the early stages of editing.</p>
+
+<p>The cover image is a photograph by Peter Dutton of the <em>48 Free
+Street Mural</em> by Chris Denison in Portland, Maine. The photograph
+is licensed under
+the <a href="http://creativecommons.org/licenses/by-nc-sa">Creative
+Commons Attribution-NonCommercial-ShareAlike 2.0 Generic</a>
+license.</p>
+
+</div>
+
+  <div class="sect">
+
+    <h2>
+      Dedication
+    </h2>
+
+<p align="center">
+Dedicated to Brian Kernighan,<br/>
+who has taught us all so much;<br/>
+and to prisoners of conscience everywhere.
+</p>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

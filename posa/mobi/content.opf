@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package version="2.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>The Performance of Open Source Applications</dc:title>
+    <dc:language>en-CA</dc:language>
+    <dc:identifier id="BookId">urn:uuid:8090d795-a424-4e7a-808a-21c23aa03e1e</dc:identifier>
+    <dc:creator opf:role="aut">Tavish Armstrong</dc:creator>
+    <dc:date>2013-09-30T19:23:36Z</dc:date>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml" />
+    <item id="style" href="stylesheet.css" media-type="text/css" />
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" />
+    <item id="title_page" href="title_page.xhtml" media-type="application/xhtml+xml" />
+    <item id="intro" href="introduction.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch001" href="ch001.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch002" href="ch002.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch003" href="ch003.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch004" href="ch004.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch005" href="ch005.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch006" href="ch006.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch007" href="ch007.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch008" href="ch008.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch009" href="ch009.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch010" href="ch010.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch011" href="ch011.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch012" href="ch012.xhtml" media-type="application/xhtml+xml" />
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="title_page" linear="yes" />
+    <itemref idref="nav" linear="no" />
+    <itemref idref="intro" />
+    <itemref idref="ch001" />
+    <itemref idref="ch002" />
+    <itemref idref="ch003" />
+    <itemref idref="ch004" />
+    <itemref idref="ch005" />
+    <itemref idref="ch006" />
+    <itemref idref="ch007" />
+    <itemref idref="ch008" />
+    <itemref idref="ch009" />
+    <itemref idref="ch010" />
+    <itemref idref="ch011" />
+    <itemref idref="ch012" />
+  </spine>
+  <guide>
+    <reference type="toc" title="The Performance of Open Source Applications" href="nav.xhtml" />
+  </guide>
+</package>

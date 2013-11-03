@@ -1,0 +1,1133 @@
+\begin{aosachapter}{Violet}{s:violet}{Cay Horstmann}
+%% Based on EN-Revision r367
+
+%% In 2002, I wrote an undergraduate textbook on object-oriented design
+%% and patterns \cite{bib:horstmann:oodp}.  As with so many books, this one
+%% was motivated by frustration with the canonical curriculum.
+%% Frequently, computer science students learn how to design a single
+%% class in their first programming course, and then have no further
+%% training in object-oriented design until their senior level software
+%% engineering course. In that course, students rush through a couple of
+%% weeks of UML and design patterns, which gives no more than an illusion
+%% of knowledge. My book supports a semester-long course for students
+%% with a background in Java programming and basic data structures
+%% (typically from a Java-based CS1/CS2 sequence). The book covers object-oriented
+%% design principles and design patterns in the context of familiar
+%% situations. For example, the Decorator design pattern is introduced
+%% with a Swing \code{JScrollPane}, in the hope that this example is more
+%% memorable than the canonical Java streams example.
+2002年に、学部生向けにオブジェクト指向設計やパターンの教科書を執筆したことがある
+\cite{bib:horstmann:oodp}。
+きっと他の多くの人もそうだろうが、私がその本を書いたのは
+正規の教育カリキュラムに不満があったからである。
+よくありがちなカリキュラムでは、計算機科学の学生が最初に学ぶのは
+単一のクラスを設計する方法だ。そして、その先は
+オブジェクト指向設計に関するトレーニングを一切受けずに
+上級レベルのソフトウェア工学コースに進んでしまう。
+そのコースで学ぶ内容といえば、UMLだとかデザインパターンだとかを
+ほんの数週間で詰め込むだけ。そんなことしても、学生を混乱させてしまうだけのことだ。
+私が書いた教科書は、学生が半年かけて学ぶコースを想定したものだ。
+Javaのプログラミングとデータ構造に関する基礎知識
+(Javaベースのコースで1年程度学んでいる程度の知識)があることを前提としている。
+扱う内容は、オブジェクト指向設計の原則やデザインパターンを、
+よりなじみやすいシチュエーションにまとめたものだ。
+たとえばDecoratorパターンを紹介するときにはSwingの
+\code{JScrollPane}を使っている。この例のほうが、
+よくありがちなJavaのストリームを使った例より記憶に残りやすいだろう。
+
+%% \aosafigure[250pt]{../images/violet/object-sample.eps}{A Violet Object Diagram}{fig.vio.diagram}
+\aosafigure[250pt]{../images/violet/object-sample.eps}{Violetのオブジェクト図}{fig.vio.diagram}
+
+%% I needed a light subset of UML for the book: class diagrams, sequence
+%% diagrams, and a variant of object diagrams that shows Java object
+%% references (\aosafigref{fig.vio.diagram}).  I also wanted students to
+%% draw their own diagrams. However, commercial offerings such as
+%% Rational Rose were not only expensive but also cumbersome to learn and
+%% use~\cite{bib:shumba:ratrose}, and the open source alternatives
+%% available at the time were too limited or buggy to be
+%% useful\footnote{At the time, I was not aware of Diomidis Spinellis'
+%% admirable UMLGraph program~\cite{bib:spinellis:umlgraph}, in which
+%% diagrams are specified by textual declarations rather than the more
+%% common point-and-click interface.}.  In particular, sequence
+%% diagrams in ArgoUML were seriously broken.
+執筆にあたって、UMLのサブセットが必要になった。
+クラス図、シーケンス図、そしてオブジェクト図の変種で
+Javaのオブジェクト参照を示すものだ(\aosafigref{fig.vio.diagram})。
+また、学生が図を自分で描けるようにもしたかった。
+しかし、Rational Roseのような商用製品は、高価だし覚えにくい~\cite{bib:shumba:ratrose}。
+一方オープンソースの製品も、その当時は機能的な制限が多かったしバグも多くて使いづらかった
+\footnote{その当時の私はDiomidis Spinellisが作ったすばらしいUMLGraph~\cite{bib:spinellis:umlgraph}
+の存在を知らなかった。このプログラムによる図は、ありがちなマウスクリックによるインターフェイスではなく
+テキストによる宣言で指定するものだった。}。
+特に、ArgoUMLのシーケンス図はまったく使い物にならなかった。
+
+%% I decided to try my hand at implementing the simplest editor that is
+%% (a) useful to students and (b) an example of an extensible framework
+%% that students can understand and modify. Thus, Violet was born.
+そこで、シンプルなエディタを自前で作ってしまうことにした。このエディタは
+「学生にとって有用であること」「拡張可能なフレームワークとして、学生がその内容を学んで手を加えられること」
+を目指した。その結果として誕生したのがVioletである。
+
+%% \begin{aosasect1}{Introducing Violet}
+\begin{aosasect1}{Violetとは}
+
+%% Violet is a lightweight UML editor, intended for students, teachers,
+%% and authors who need to produce simple UML diagrams quickly. It is
+%% very easy to learn and use. It draws class, sequence, state, object
+%% and use-case diagrams. (Other diagram types have since been
+%% contributed.) It is open-source and cross-platform software. In its
+%% core, Violet uses a simple but flexible graph framework that takes
+%% full advantage of the Java 2D graphics API.
+Violetは軽量なUMLエディタである。
+学生や教師、そして書籍の執筆者など、
+シンプルなUML図を手早く描きたい人たちに向けて作った。
+使い方は簡単なので、すぐに使いこなせるようになる。
+対応している図は、クラス図とシーケンス図、ステート図、オブジェクト図、そしてユースケース図である
+(その後、他の開発者たちの強力でその他の図にも対応するようになった)。
+オープンソースのソフトウェアであり、クロスプラットフォームで動く。
+Violetの中心となるのが、シンプルながらも柔軟性のある
+グラフフレームワークで、これはJava 2DグラフィックAPIをフル活用したものである。
+
+%% The Violet user interface is purposefully simple. You don't have to go
+%% through a tedious sequence of dialogs to enter attributes and
+%% methods. Instead, you just type them into a text field. With a few
+%% mouse clicks, you can quickly create attractive and useful diagrams.
+Violetのユーザーインターフェイスは、敢えてシンプルにした。
+属性やメソッドを入力するために何段階ものダイアログをたどっていく必要はない。
+単にテキストフィールドに直接入力すればいいだけだ。
+マウスを数回クリックするだけで、見栄えが良くて使いやすい図をあっという間に作れる。
+
+%% Violet does not try to be an industrial-strength UML program. Here are
+%% some features that Violet does \emph{not} have:
+Violetは業務レベルでの使用に耐えうるUMLプログラムを目指しているわけではない。
+Violetに搭載されて\emph{いない}機能を以下にまとめた。
+
+\begin{aosaitemize}
+
+%% \item Violet does not generate source code from UML diagrams or UML
+%%   diagrams from source code.
+\item Violetには、UML図からソースコードを生成したりソースコードからUML図を生成したりする機能はない。
+
+%% \item Violet does not carry out any semantic checking of models; you
+%%   can use Violet to draw contradictory diagrams.
+\item Violetはモデルのセマンティックチェックをしない。Violetを使って、意味的に矛盾する図を描くこともできる。
+
+%% \item Violet does not generate files that can be imported into other
+%%   UML tools, nor can it read model files from other tools.
+\item Violetは、他のUMLツールに取り込めるような形式のファイルを生成する機能がない。また、他のツールが書き出したファイルを読み込む機能もない。
+
+%% \item Violet does not attempt to lay out diagrams automatically,
+%%   except for a simple ``snap to grid'' facility.
+\item Violetには、図のレイアウトを自動的に調整する機能はない。ただ単に「グリッドに揃える」機能があるだけである。
+
+\end{aosaitemize}
+
+%% \noindent (Attempting to address some of these limitations makes good student
+%% projects.)
+\noindent
+(この中のどれかに対応してみるっていうのも、学生向けのプロジェクトとしてよさそうだね)。
+
+%% When Violet developed a cult following of designers who wanted
+%% something more than a cocktail napkin but less than an
+%% industrial-strength UML tool, I published the code on SourceForge
+%% under the GNU General Public License. Starting in 2005, Alexandre de Pellegrin
+%% joined the project by providing an Eclipse plugin and a prettier user
+%% interface. He has since made numerous architectural changes and is now
+%% the primary maintainer of the project.
+Violetは、ある種のソフトウェアデザイナーたちから熱狂的な支持を得た。
+紙ナプキンに手書きするよりはましなツールが欲しいけど、
+別に業務レベルのUMLツールみたいなのはいらないといった人たちだ。
+そんな人たちの支持を受けて、私はそのコードをSourceForgeに
+GNU General Public Licenseで公開した。
+2005年にはAlexandre de Pellegrinがプロジェクトに合流し、
+Eclipseプラグインやインターフェイスの改善に貢献してくれた。
+彼はその後もアーキテクチャの改良を続け、
+今ではこのプロジェクトのメインメンテナーになっている。
+
+%% In this article, I discuss some of the original architectural choices
+%% in Violet as well as its evolution. A part of the article is focused
+%% on graph editing, but other parts---such as the use of JavaBeans
+%% properties and persistence, Java WebStart and plugin
+%% architecture---should be of general interest.
+本章では、Violetを最初に作ったときのアーキテクチャに関する決定だけでなく、
+その後どのように進化したのかも解説する。本章の一部はグラフの描画に特化した内容に
+なっているが、その他の部分
+(JavaBeansのプロパティや永続化の利用、Java WebStart、そしてプラグイン機構など)
+はより多くの人の興味をひく内容になっているはずだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Graph Framework}
+\begin{aosasect1}{グラフフレームワーク}
+
+%% Violet is based on a general graph editing framework that can render
+%% and edit nodes and edges of arbitrary shapes. The Violet UML editor
+%% has nodes for classes, objects, activation bars (in sequence
+%% diagrams), and so on, and edges for the various edge shapes in UML
+%% diagrams. Another instance of the graph framework might display
+%% entity-relationship diagrams or railroad diagrams.
+Violetのベースになっているのは汎用的なグラフ編集フレームワークで、
+このフレームワークは任意の形状のノードやエッジを表示したり編集したりできる。
+Violet UMLエディタにはクラスやオブジェクト、アクティベーションバー(シーケンス図用)などのノードがあり、
+UML図に登場するさまざまな形状のエッジもある。グラフフレームワークの利用例としては、ER図や路線図などの表示も考えられる。
+
+%% \aosafigure{../images/violet/Ch8-06.eps}{A Simple Instance of the Editor Framework}{fig.vio.editor}
+\aosafigure{../images/violet/Ch8-06.eps}{エディタフレームワークのシンプルな例}{fig.vio.editor}
+
+%% In order to illustrate the framework, let us consider an editor for
+%% very simple graphs, with black and white circular nodes and straight
+%% edges (\aosafigref{fig.vio.editor}).
+%% The \code{SimpleGraph} class specifies prototype objects for the node
+%% and edge types, illustrating the prototype pattern:
+このフレームワークを解説する前に、非常にシンプルなグラフを描くだけのエディタを考えてみよう。
+白と黒の円形のノード、そして直線のエッジだけを使えるようなものだ(\aosafigref{fig.vio.editor})。
+\code{SimpleGraph}クラスはノードとエッジの型を表すプロトタイプオブジェクトを指定するもので、
+プロトタイプパターンに沿っている。
+
+%% \pagebreak
+
+\begin{verbatim}
+public class SimpleGraph extends AbstractGraph
+{
+  public Node[] getNodePrototypes()
+  {
+    return new Node[] 
+    {
+      new CircleNode(Color.BLACK),
+      new CircleNode(Color.WHITE)
+    };
+  }
+  public Edge[] getEdgePrototypes()
+  {
+    return new Edge[] 
+    {
+      new LineEdge()
+    };
+  }
+}
+\end{verbatim}
+
+%% Prototype objects are used to draw the node and edge buttons at the
+%% top of \aosafigref{fig.vio.editor}. They are cloned whenever the
+%% user adds a new node or edge instance to the graph.
+%% \code{Node} and \code{Edge} are interfaces with the following
+%% key methods:
+プロトタイプオブジェクトを使って、ノードやエッジのボタンを\aosafigref{fig.vio.editor}
+の上部に描画する。ユーザーがノードやエッジのインスタンスを追加するたびに、
+プロトタイプオブジェクトがクローンされる。
+\code{Node}と\code{Edge}はインターフェイスで、それぞれ次のようなメソッドを持つ。
+
+\begin{aosaitemize}
+
+%% \item Both interfaces have a \code{getShape} method that returns a
+%%   Java2D \code{Shape} object of the node or edge shape.
+\item どちらのインターフェイスにも\code{getShape}メソッドがあり、これはそのノードあるいはエッジの形状を表す
+  Java2D \code{Shape}オブジェクトを返す。
+
+%% \item The \code{Edge} interface has methods that yield the nodes at
+%%   the start and end of the edge.
+\item \code{Edge}インターフェイスには、エッジの先頭と最後にノードを追加するためのメソッドがある。
+
+%% \item The \code{getConnectionPoint} method in the Node interface type
+%%   computes an optimal attachment point on the boundary of a node (see
+%%   \aosafigref{fig.vio.connection}).
+\item Nodeインターフェイスの\code{getConnectionPoint}メソッドは、ノードの境界上での
+  最適な接続ポイントを計算する(\aosafigref{fig.vio.connection}を参照)。
+
+%% \item The \code{getConnectionPoints} method of the \code{Edge}
+%%   interface yields the two end points of the edge. This method is
+%%   needed to draw the ``grabbers'' that mark the currently selected edge.
+\item \code{Edge}インターフェイスの\code{getConnectionPoints}メソッドは、
+  そのエッジの二つの端点を作る。このメソッドが必要なのは、現在選択中のエッジをマークする
+  「grabber」を描画するときである。
+
+%% \item A node can have children that move together with the parent. A number
+%%   of methods are provided for enumerating and managing children.
+\item ノードは子供を持つことができ、子供は親とともに移動する。
+  子供たちを列挙したり操作したりするための、一連のメソッドが用意されている。
+
+\end{aosaitemize}
+
+%% \aosafigure[200pt]{../images/violet/Ch8-07.eps}{Finding a Connection Point on the Boundary of the Node Shape}{fig.vio.connection}
+\aosafigure[200pt]{../images/violet/Ch8-07.eps}{ノードの境界上での接続ポイントを探す}{fig.vio.connection}
+
+%% Convenience classes \code{AbstractNode} and \code{AbstractEdge}
+%% implement a number of these methods, and classes
+%% \code{RectangularNode} and \code{SegmentedLineEdge} provide complete
+%% implementations of rectangular nodes with a title string and edges
+%% that are made up of line segments.
+便利なクラスである\code{AbstractNode}と\code{AbstractEdge}には
+これらのメソッドの多くが実装されている。そして\code{RectangularNode}
+や\code{SegmentedLineEdge}では、
+それぞれタイトル文字列つきの矩形ノードや破線エッジの完全な実装を提供している。
+
+%% In the case of our simple graph editor, we would need to supply
+%% subclasses \code{CircleNode} and \code{LineEdge} that provide a
+%% \code{draw} method, a \code{contains} method, and the
+%% \code{getConnectionPoint} method that describes the shape of the node
+%% boundary.
+%% The code is given below,
+%% and \aosafigref{fig.vio.classdiag} shows a class diagram of these classes
+%% (drawn, of course, with Violet).
+ここで扱うシンプルなグラフエディタの場合は、
+\code{CircleNode}や\code{LineEdge}といったサブクラスを用意する必要があるだろう。
+これらのクラスが\code{draw}メソッドや\code{contains}メソッドを提供し、
+さらにノードの境界の形状を示す\code{getConnectionPoint}メソッドも用意する。
+そのコードを次に示す。\aosafigref{fig.vio.classdiag}はこれらのクラスのクラス図である
+(もちろんVioletで描いたものだ)。
+
+\begin{verbatim}
+public class CircleNode extends AbstractNode
+{
+  public CircleNode(Color aColor)
+  {
+    size = DEFAULT_SIZE;
+    x = 0;
+    y = 0;
+    color = aColor;
+  }
+
+  public void draw(Graphics2D g2)
+  {
+    Ellipse2D circle = new Ellipse2D.Double(x, y, size, size);
+    Color oldColor = g2.getColor();
+    g2.setColor(color);
+    g2.fill(circle);
+    g2.setColor(oldColor);
+    g2.draw(circle);
+  }
+\end{verbatim}
+
+\begin{verbatim}
+  public boolean contains(Point2D p)
+  {
+    Ellipse2D circle = new Ellipse2D.Double(x, y, size, size);
+    return circle.contains(p);
+  }
+
+  public Point2D getConnectionPoint(Point2D other)
+  {
+    double centerX = x + size / 2;
+    double centerY = y + size / 2;
+    double dx = other.getX() - centerX;
+    double dy = other.getY() - centerY;
+    double distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance == 0) return other;
+    else return new Point2D.Double(
+      centerX + dx * (size / 2) / distance,
+      centerY + dy * (size / 2) / distance);
+  }
+
+  private double x, y, size, color;
+  private static final int DEFAULT_SIZE = 20;
+}
+
+public class LineEdge extends AbstractEdge
+{
+  public void draw(Graphics2D g2)
+  { g2.draw(getConnectionPoints()); }
+
+  public boolean contains(Point2D aPoint)
+  {
+    final double MAX_DIST = 2;
+    return getConnectionPoints().ptSegDist(aPoint) < MAX_DIST;
+  }
+}
+\end{verbatim}
+
+%% \aosafigure{../images/violet/SimpleGraph-in-Violet.eps}{Class Diagram for a Simple Graph}{fig.vio.classdiag}
+\aosafigure{../images/violet/SimpleGraph-in-Violet.eps}{Simple Graphのクラス図}{fig.vio.classdiag}
+
+%% In summary, Violet provides a simple framework for producing graph
+%% editors.  To obtain an editor instance, define node and edge classes
+%% and provide methods in a graph class that yield prototype node and
+%% edge objects.
+ここまでをまとめよう。Violetでは、グラフエディタを作るためのシンプルなフレームワークを提供している。
+エディタのインスタンスを取得するには、ノードやエッジのクラス群を定義して
+グラフ内でのメソッドを用意し、ノードオブジェクトやエッジオブジェクトの
+プロトタイプを作れるようにする。
+
+%% Of course, there are other graph frameworks available, such as
+%% JGraph~\cite{bib:alder:jgraph} and
+%% JUNG\footnote{\url{http://jung.sourceforge.net}}. However, those
+%% frameworks are considerably more complex, and they provide frameworks
+%% for drawing graphs, not for applications that draw graphs.
+もちろんグラフ用のフレームワークは他にも存在する。
+JGraph~\cite{bib:alder:jgraph}やJUNG\footnote{\url{http://jung.sourceforge.net}}などだ。
+でも、これらのフレームワークはかなり複雑だし、あくまでもグラフを描画するためのフレームワークであって
+グラフ描画アプリケーションを作るためのフレームワークではない。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Use of JavaBeans Properties}
+\begin{aosasect1}{JavaBeansのプロパティの利用}
+
+%% In the golden days of client-side Java, the JavaBeans specification
+%% was developed in order to provide portable mechanisms for editing GUI
+%% components in visual GUI builder environments. The vision was that a
+%% third-party GUI component could be dropped into any GUI builder, where
+%% its properties could be configured in the same way as the standard
+%% buttons, text components, and so on.
+クライアントサイドでのJavaが花盛りだった頃に、
+JavaBeansの仕様が策定された。ビジュアルGUIビルダー環境で、
+GUIコンポーネントを編集するポータブルな仕組みを提供するためだ。
+サードパーティのGUIコンポーネントをGUIビルダーにドロップして、
+標準のボタンやテキストボックスなどと同様にプロパティを設定できるようにするというのが狙いだった。
+
+%% Java does not have native properties. Instead, JavaBeans properties
+%% can be discovered as pairs of getter and setter methods, or specified
+%% with companion BeanInfo classes. Moreover, \emph{property editors} can
+%% be specified for visually editing property values. The JDK even
+%% contains a few basic property editors, for example for the type
+%% \code{java.awt.Color}.
+Javaでは、プロパティという仕組みはネイティブで提供されていない。
+JavaBeansのプロパティはゲッターメソッドとセッターメソッドのペアになっていたり、
+付随するBeanInfoクラスで指定されていたりする。
+さらに、\emph{プロパティエディタ}を指定してビジュアルにプロパティの値を編集できる。
+JDKにも基本的なプロパティエディタが含まれている。\code{java.awt.Color}
+がその一例だ。
+
+%% The Violet framework makes full use of the 
+%% JavaBeans specification. For example, the \code{CircleNode} class can
+%% expose a color property simply by providing two methods:
+VioletフレームワークはJavaBeansの仕様をフル活用している。
+たとえば\code{CircleNode}クラスは、次の二つのメソッドを用意すれば
+colorプロパティを公開できる。
+
+\begin{verbatim}
+public void setColor(Color newValue)
+public Color getColor()
+\end{verbatim}
+
+%% \noindent No further work is necessary. The graph editor can now edit node
+%% colors of circle nodes (\aosafigref{fig.vio.circlecolors}).
+\noindent
+たったこれだけだ。グラフエディタは、これで円ノードの色を編集できるようになった(\aosafigref{fig.vio.circlecolors})。
+
+%% \aosafigure{../images/violet/Ch8-11.eps}{Editing Circle Colors with the default JavaBeans Color Editor}{fig.vio.circlecolors}
+\aosafigure{../images/violet/Ch8-11.eps}{デフォルトのJavaBeans Color Editorによる円の色の編集}{fig.vio.circlecolors}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Long-Term Persistence}
+\begin{aosasect1}{長期持続性}
+
+%% Just like any editor program, Violet must save the user's creations in
+%% a file and reload them later. I had a look at the XMI
+%% specification\footnote{\url{http://www.omg.org/technology/documents/formal/xmi.htm}}
+%% which was designed as a common interchange format for UML models. I
+%% found it cumbersome, confusing, and hard to consume. I don't think I
+%% was the only one---XMI had a reputation for poor interoperability even
+%% with the simplest models~\cite{bib:persson:osstools}.
+どんなエディタプログラムでもそうだが、Violetは
+ユーザーが作った図をファイルに保存したり図をファイルから読み込めるようにしたりしないといけない。
+そこで私は、XMIの仕様
+\footnote{\url{http://www.omg.org/technology/documents/formal/xmi.htm}}
+を調べてみた。これはUMLのモデル用のデータ交換フォーマットとして作られたものだ。
+その結果わかったことは、こいつはやたら面倒くさくて紛らわしくて、
+処理しづらいものだということだった。そう思ったのは私だけではないと思う。
+XMIを使うと、極めてシンプルなモデルであっても相互運用性に乏しくなるという評価がある\cite{bib:persson:osstools}。
+
+%% I considered simply using Java serialization, but it is difficult to
+%% read old versions of a serialized object whose implementation has
+%% changed over time.  This problem was also anticipated by the JavaBeans
+%% architects, who developed a standard XML format for long-term
+%% persistence\footnote{\url{http://jcp.org/en/jsr/detail?id=57}}.  A
+%% Java object---in the case of Violet, the UML diagram---is serialized
+%% as a sequence of statements for constructing and modifying it. Here is
+%% an example:
+単純にJavaのシリアライズ機能を使おうかとも考えた。
+しかし、旧バージョンでシリアライズしたオブジェクトを読み込むのが難しい。
+シリアライズの実装は変化し続けているからである。
+同じ問題を心配していたJavaBeansアーキテクトたちは、
+標準化したXMLフォーマットで長期持続性を確保しようとした\footnote{\url{http://jcp.org/en/jsr/detail?id=57}}。
+Javaオブジェクト(Violetの場合ならUML図)を、それを構築したり修正したりするための一連の文で表すというものだ。
+例を示そう。
+
+\begin{verbatim}
+<?xml version="1.0" encoding="UTF-8"?>
+<java version="1.0" class="java.beans.XMLDecoder">
+ <object class="com.horstmann.violet.ClassDiagramGraph"> 
+  <void method="addNode"> 
+   <object id="ClassNode0" class="com.horstmann.violet.ClassNode"> 
+    <void property="name">...</void> 
+   </object> 
+   <object class="java.awt.geom.Point2D$Double"> 
+    <double>200.0</double> 
+    <double>60.0</double> 
+   </object> 
+  </void> 
+  <void method="addNode"> 
+   <object id="ClassNode1" class="com.horstmann.violet.ClassNode"> 
+    <void property="name">...</void> 
+   </object> 
+   <object class="java.awt.geom.Point2D$Double"> 
+    <double>200.0</double> 
+    <double>210.0</double> 
+   </object> 
+  </void> 
+  <void method="connect"> 
+   <object class="com.horstmann.violet.ClassRelationshipEdge"> 
+    <void property="endArrowHead"> 
+     <object class="com.horstmann.violet.ArrowHead" field="TRIANGLE"/> 
+    </void> 
+   </object> 
+   <object idref="ClassNode0"/> 
+   <object idref="ClassNode1"/> 
+  </void> 
+ </object> 
+</java>
+\end{verbatim}
+
+%% When the \code{XMLDecoder} class reads this file, it executes these
+%% statements (package names are omitted for simplicity).
+\code{XMLDecoder}クラスがこのファイルを読み込むと、こんな文を実行する
+(単純にするために、パッケージ名は省略した)。
+
+\begin{verbatim}
+ClassDiagramGraph obj1 = new ClassDiagramGraph();
+ClassNode ClassNode0 = new ClassNode();
+ClassNode0.setName(...);
+obj1.addNode(ClassNode0, new Point2D.Double(200, 60));
+ClassNode ClassNode1 = new ClassNode();
+ClassNode1.setName(...);
+obj1.addNode(ClassNode1, new Point2D.Double(200, 60));
+ClassRelationShipEdge obj2 = new ClassRelationShipEdge();
+obj2.setEndArrowHead(ArrowHead.TRIANGLE);
+obj1.connect(obj2, ClassNode0, ClassNode1);
+\end{verbatim}
+
+%% As long as the semantics of the constructors, properties, and methods
+%% has not changed, a newer version of the program can read a file that
+%% has been produced by an older version.
+コンストラクタやプロパティそしてメソッドといった構文が変わらない限り、
+プログラムのバージョンが新しくなっても旧バージョンで保存したファイルを読み込める。
+
+%% Producing such files is quite straightforward. The encoder
+%% automatically enumerates the properties of each object and writes
+%% setter statements for those property values that differ from the
+%% default. Most basic datatypes are handled by the Java platform;
+%% however, I had to supply special handlers for \code{Point2D},
+%% \code{Line2D}, and \code{Rectangle2D}. Most importantly,
+%% the encoder must know that a graph can be serialized as a sequence of
+%% \code{addNode} and \code{connect} method calls:
+こんなファイルを作るのは極めて簡単なことだ。
+エンコーダーが自動的にオブジェクトのプロパティを列挙し、
+デフォルトと違う値が設定されているプロパティについてその値を設定するセッターを書き出せばよい。
+ほとんどの基本データ型はJavaプラットフォームが処理してくれる。しかし、
+\code{Point2D}や\code{Line2D}そして\code{Rectangle2D}については特別なハンドラを用意しなければいけなかった。
+最も大切なのは、グラフが一連の\code{addNode}メソッドと\code{connect}メソッドに
+シリアライズできるということをエンコーダーが知っておく必要があるということだ。
+
+\begin{verbatim}
+encoder.setPersistenceDelegate(Graph.class, new DefaultPersistenceDelegate()
+{
+  protected void initialize(Class<?> type, Object oldInstance, 
+    Object newInstance, Encoder out)
+  {
+    super.initialize(type, oldInstance, newInstance, out);
+    AbstractGraph g = (AbstractGraph) oldInstance;
+    for (Node n : g.getNodes())
+      out.writeStatement(new Statement(oldInstance, "addNode", new Object[]
+      {
+        n, 
+        n.getLocation()
+      }));
+    for (Edge e : g.getEdges())
+      out.writeStatement(new Statement(oldInstance, "connect", new Object[]
+      {
+        e, e.getStart(), e.getEnd()
+      }));
+   } 
+ });
+\end{verbatim}
+
+%% Once the encoder has been configured, saving a graph is as simple as:
+エンコーダーをきちんと設定してしまえば、グラフを保存するのは簡単で、単にこのようにするだけだ。
+
+\begin{verbatim}
+encoder.writeObject(graph);
+\end{verbatim}
+
+%% \noindent Since the decoder simply executes statements, it requires no
+%% configuration.  Graphs are simply read with:
+\noindent
+デコーダーは単純に文を実行するだけなので、設定は何もいらない。
+グラフを読むにはこうするだけでいい。
+
+\begin{verbatim}
+Graph graph = (Graph) decoder.readObject();
+\end{verbatim}
+
+%% This approach has worked exceedingly well over numerous versions of
+%% Violet, with one exception. A recent refactoring changed
+%% some package names and thereby broke backwards compatibility.
+%% One option would have been to keep the classes in the original packages,
+%% even though they no longer matched the new package structure.
+%% Instead, the maintainer provided an XML
+%% transformer for rewriting the package names when reading a legacy
+%% file.
+この手法は大成功を収め、これまでのさまざまなバージョンのVioletでうまく動いてきたが、唯一の例外があった。
+最近施したリファクタリングでパッケージ名を変更してしまい、過去との互換性が崩れてしまったのだ。
+新しいパッケージ構成からは外れてしまうが、旧パッケージのクラスをそのまま残しておくという選択肢もあった。
+そうはせず、メンテナ—がXMLトランスレーターを用意することにした。
+旧バージョンのファイルを読み込むときにパッケージ名を自動的に書き換えるようにしたのだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Java WebStart}
+\begin{aosasect1}{Java Web Start}
+
+%% Java WebStart is a technology for launching an application from a web
+%% browser. The deployer posts a JNLP file that triggers a helper
+%% application in the browser which downloads and runs the Java
+%% program. The application can be digitally signed, in which case the
+%% user must accept the certificate, or it can be unsigned, in which case
+%% the program runs in a sandbox that is slightly more permissive than
+%% the applet sandbox.
+Java Web Startを使えば、アプリケーションをWebブラウザから起動することができる。
+JNLPファイルをデプロイしておけばこれがブラウザ内でヘルパーアプリケーションを起動し、
+Javaのプログラムをダウンロードして実行してくれる。アプリケーションにデジタル署名を施すこともできる。
+その場合、ユーザーは証明書を受け入れないとアプリケーションを実行できない。
+署名なしの場合は、プログラムはサンドボックス内で実行される。
+このサンドボックスは、アプレットのサンドボックスより若干制限の緩いものだ。
+
+%% I do not think that end users can or should be trusted to judge the
+%% validity of a digital certificate and its security implications. One
+%% of the strengths of the Java platform is its security, and I feel it
+%% is important to play to that strength.
+私は、デジタル証明書の妥当性やそのセキュリティ的に意味するところを一般の利用者が判断できるとは思っていないし、
+またそんな判断をさせるべきではないと考える。Javaプラットフォームの強みの一つが
+そのセキュリティなのだから、その強みを利用することが重要だろう。
+
+%% The Java WebStart sandbox is sufficiently powerful to enable users to
+%% carry out useful work, including loading and saving files and
+%% printing.  These operations are handled securely and conveniently from
+%% the user perspective. The user is alerted that the application wants
+%% to access the local filesystem and then chooses the file to be read
+%% or written. The application merely receives a stream object, without
+%% having an opportunity to peek at the filesystem during the file
+%% selection process.
+Java Web Startのサンドボックスは、一般の利用者が作業を進めるのには十分なほど強力で、
+ファイルの読み込みや保存もできるし印刷もできる。利用者から見たときに、
+これらの操作は安全かつ便利に利用できる。アプリケーションがローカルのファイルシステムに
+アクセスしようとしたときには確認のメッセージが出るので、それを見て
+ファイルの読み書きをさせるかどうかを選べるようになる。
+アプリケーションは単にストリームオブジェクトを受け取るだけであり、
+ファイル選択の間にも実際にファイルシステムを見ることはない。
+
+%% It is annoying that the developer must write
+%% custom code to interact with a \code{FileOpenService} and a
+%% \code{FileSaveService} when the application is running under WebStart,
+%% and it is even more annoying that there is no WebStart API call to
+%% find out whether the application was launched by WebStart.
+開発者にとっては少し面倒になる。アプリケーションをWeb Startの配下で実行させるには
+\code{FileOpenService}や\code{FileSaveService}を使うコードを書かなければいけないからである。
+さらに面倒なのは、アプリケーションがWeb Start経由で起動されたのかどうかを調べるための
+Web Start APIが存在しないということだ。
+
+%% Similarly, saving user preferences must be implemented in two ways:
+%% using the Java preferences API when the application runs normally, or
+%% using the WebStart preferences service when the application is under
+%% WebStart. Printing, on the other hand, is entirely transparent to the
+%% application programmer.
+同様に、ユーザーの設定項目を保存するにも二通りの実装方法がある。
+アプリケーションを普通に実行している場合はJava preferences APIを使うし、
+Web Start配下で動いている場合はWeb Start preferences serviceを使うことになる。
+一方印刷については、アプリケーションのプログラマー側からはまったく同じように扱える。
+
+%% Violet provides simple abstraction layers over these services to
+%% simplify the lot of the application programmer. For example, here is
+%% how to open a file:
+Violetではこれらのサービスの上にシンプルな抽象化層を提供し、
+アプリケーションのプログラマーの作業を単純化させている。
+たとえばファイルを開くには次のようにすればよい。
+
+%% \begin{verbatim}
+%% FileService service = FileService.getInstance(initialDirectory);
+%%   // detects whether we run under WebStart
+%% FileService.Open open = fileService.open(defaultDirectory, defaultName, 
+%%   extensionFilter);
+%% InputStream in = open.getInputStream();
+%% String title = open.getName();
+%% \end{verbatim}
+\begin{verbatim}
+FileService service = FileService.getInstance(initialDirectory);
+  // Web Starth配下で動いているかどうかを検出する
+FileService.Open open = fileService.open(defaultDirectory, defaultName, 
+  extensionFilter);
+InputStream in = open.getInputStream();
+String title = open.getName();
+\end{verbatim}
+
+%% \noindent The \code{FileService.Open} interface is implemented by two classes: a
+%% wrapper over \code{JFileChooser} or the JNLP \code{FileOpenService}.
+\noindent
+\code{FileService.Open}インターフェイスを実装しているクラスは二つで、\code{JFileChooser}
+のラッパーかあるいはJNLPの\code{FileOpenService}である。
+
+%% No such convenience is a part of the JNLP API itself, but that API has
+%% received little love over its lifetime and has been widely
+%% ignored. Most projects simply use a self-signed certificate for their
+%% WebStart application, which gives users no security. This is a
+%% shame---open source developers should embrace the JNLP sandbox as a
+%% risk-free way to try out a project.
+この便利な仕組みはJNLP APIそのものの機能だというわけではない。
+しかしこのAPIはこれまでほとんど顧みられることがなく、無視され続けてきた。
+大半のプロジェクトは自己署名の証明書を使ってWeb Startアプリケーションを公開しており、利用者側のセキュリティを無視している。
+これは恥ずべきことだ。オープンソースの開発者は、
+JNLPのサンドボックスを受け入れてリスクなくプログラムを動かせるようにするべきだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Java 2D}
+\begin{aosasect1}{Java 2D}
+
+%% Violet makes intensive use of the Java2D library, one of the lesser
+%% known gems in the Java API\@. Every node and edge has a method
+%% \code{getShape} that yields a \code{java.awt.Shape}, the common
+%% interface of all Java2D shapes. This interface is implemented by
+%% rectangles, circles, paths, and their unions, intersections, and
+%% differences. The \code{GeneralPath} class is useful for making shapes
+%% that are composed of arbitrary line and quadratic/cubic curve
+%% segments, such as straight and curved arrows.
+VioletはJava2Dライブラリを徹底的に使いまくっている。このライブラリは、Java APIの中でも認知度の低いもののひとつだ。
+すべてのノードやエッジには\code{getShape}メソッドがあり、\code{java.awt.Shape}
+を返すようになっている。これは、Java2Dのすべての図形の共通インターフェイスだ。
+このインターフェイスを実装して、矩形や円やパスそしてそれらの和集合や積集合、差分などができあがる。
+\code{GeneralPath}クラスは、任意の直線および二次曲線・三次曲線を合成した図形(直線の矢印や曲線の矢印など)
+を作るのに有用なクラスだ。
+
+%% To appreciate the flexibility of the Java2D API, consider the
+%% following code for drawing a
+%% shadow in the \code{AbstractNode.draw} method:
+Java2D APIの柔軟性を理解するために、次のコードを見てみよう。
+これは\code{AbstractNode.draw}メソッドで影を描画するためのコードだ。
+
+\begin{verbatim}
+Shape shape = getShape();
+if (shape == null) return;
+g2.translate(SHADOW_GAP, SHADOW_GAP);
+g2.setColor(SHADOW_COLOR);
+g2.fill(shape);
+g2.translate(-SHADOW_GAP, -SHADOW_GAP);
+g2.setColor(BACKGROUND_COLOR);
+g2.fill(shape);
+\end{verbatim}
+
+%% \noindent A few lines of code produce a shadow for any shape, even shapes that a
+%% developer may add at a later point.
+\noindent
+ほんの数行のコードで、あらゆる図形に影をつけることができる。
+開発者が後から追加した図形でも同じだ。
+
+%% Of course, Violet saves bitmap images in any format that the
+%% \code{javax.imageio} package supports; that is, GIF, PNG, JPEG, and so
+%% on. When my publisher asked me for vector images, I noted another
+%% advantage of the Java 2D library. When you print to a PostScript
+%% printer, the Java2D operations are translated into PostScript vector
+%% drawing operations. If you print to a file, the result can be consumed
+%% by a program such as \code{ps2eps} and then imported into Adobe
+%% Illustrator or Inkscape. Here is the code, where \code{comp} is the
+%% Swing component whose \code{paintComponent} method paints the graph:
+もちろん、Violetが保存する画像はビットマップ形式だ。\code{javax.imageio}
+パッケージがサポートするあらゆるフォーマット、つまりGIFやPNGそしてJPEGなどに対応している。
+出版社からベクター形式の画像を求められたときには、Java 2Dライブラリを使う別のメリットを説明した。
+PostScriptプリンタに印字するときに、Java2Dでの操作はPostScriptのベクター描画操作に変換されるのだ。
+ファイルに印刷すれば、その結果を\code{ps2eps}などに食わせてAdobe IllustratorあるいはInkscapeにインポートできるようになる。
+そのコード例を示す。ここで\code{comp}はSwingコンポーネントであり、その\code{paintComponent}
+メソッドがグラフを描画する。
+
+\begin{verbatim}
+DocFlavor flavor = DocFlavor.SERVICE_FORMATTED.PRINTABLE;
+String mimeType = "application/postscript";
+StreamPrintServiceFactory[] factories;
+StreamPrintServiceFactory.lookupStreamPrintServiceFactories(flavor, mimeType);
+FileOutputStream out = new FileOutputStream(fileName);
+PrintService service = factories[0].getPrintService(out);            
+SimpleDoc doc = new SimpleDoc(new Printable() {
+  public int print(Graphics g, PageFormat pf, int page) {
+      if (page >= 1) return Printable.NO_SUCH_PAGE;
+      else {
+        double sf1 = pf.getImageableWidth() / (comp.getWidth() + 1);
+        double sf2 = pf.getImageableHeight() / (comp.getHeight() + 1);
+        double s = Math.min(sf1, sf2);
+        Graphics2D g2 = (Graphics2D) g;
+        g2.translate((pf.getWidth() - pf.getImageableWidth()) / 2, 
+            (pf.getHeight() - pf.getImageableHeight()) / 2);
+        g2.scale(s, s);
+                        
+        comp.paint(g);
+        return Printable.PAGE_EXISTS;
+      }
+  }
+}, flavor, null);
+DocPrintJob job = service.createPrintJob();
+PrintRequestAttributeSet attributes = new HashPrintRequestAttributeSet();
+job.print(doc, attributes);
+\end{verbatim}
+
+%% At the beginning, I was concerned that there might be a performance
+%% penalty when using general shapes, but that has proven not to be the
+%% case. Clipping works well enough that only those shape operations
+%% that are required for updating the current viewport are actually
+%% executed.
+当初私が気にかけていたのは、汎用的な図形クラスを使えばパフォーマンスが落ちるのではないかということだった。
+しかし、実際はそうでもないことがわかった。クリッピングを使って、
+現在のビューポイントの更新に必要な図形だけを処理するようにすればよかったのだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{No Swing Application Framework}
+\begin{aosasect1}{Swingアプリケーションのフレームワークがない}
+
+%% Most GUI frameworks have some notion of an application that manages a
+%% set of documents that deals with menus, toolbars, status bars,
+%% etc. However, this was never a part of the Java
+%% API\@. JSR~296\footnote{\url{http://jcp.org/en/jsr/detail?id=296}} was
+%% supposed to supply a basic framework for Swing applications, but it is
+%% currently inactive.  Thus, a Swing application author has two choices:
+%% reinvent a good number of wheels or base itself on a third party
+%% framework. At the time that Violet was written, the primary choices
+%% for an application framework were the Eclipse and NetBeans platform,
+%% both of which seemed too heavyweight at the time. (Nowadays, there are
+%% more choices, among them JSR~296 forks such as
+%% GUTS\footnote{\url{http://kenai.com/projects/guts}}.)  Thus, Violet
+%% had to reinvent mechanisms for handling menus and internal frames.
+たいていのGUIフレームワークでは、メニューやツールバーそしてステータスバーなどを
+使ってドキュメント群を扱うアプリケーションを作ることを想定している。
+しかし、Java APIにはそんな仕組みはなかった。
+かつてJSR~296\footnote{\url{http://jcp.org/en/jsr/detail?id=296}}
+でSwingアプリケーション用の基本的なフレームワークを提供しようとしていたが、
+今では活動していない。そこで、Swingアプリケーションの作者は二つの選択肢のいずれかを選ぶことになる。
+車輪の再発明を大量に繰り返すか、あるいはサードパーティのフレームワークを使うかだ。
+Violetを書き始めた頃、アプリケーションフレームワークとして最も有力な選択肢は
+EclipseとNetBeansだった。しかし当時は、どちらも重量級過ぎるように感じられた
+(最近は他の選択肢も増えた。中にはJSR~296からのフォークである
+GUTS\footnote{\url{http://kenai.com/projects/guts}}のようなものもある)。
+そのため、Violetでは車輪の再発明をする道を選ばざるを得なかった。
+メニューや内部ウィンドウを扱う仕組みを自前で用意したのだ。
+
+%% In Violet, you specify menu items in property files, like this:
+Violetでは、メニューの項目はプロパティファイルで次のように指定する。
+
+\begin{verbatim}
+file.save.text=Save
+file.save.mnemonic=S
+file.save.accelerator=ctrl S
+file.save.icon=/icons/16x16/save.png
+\end{verbatim}
+
+%% \noindent A utility method creates the menu item from the prefix (here
+%% \code{file.save}). The suffixes \code{.text}, \code{.mnemonic}, and so
+%% on, are what nowadays would be called ``convention over
+%% configuration''.  Using resource files for describing these settings
+%% is obviously far superior to setting up menus with API calls because
+%% it allows for easy localization. I reused that mechanism in another
+%% open source project, the GridWorld environment for high school
+%% computer science
+%% education\footnote{\url{http://horstmann.com/gridworld}}.
+\noindent
+ユーティリティメソッドが、メニューの項目をプレフィックス(ここでは\code{file.save})から作る。
+サフィックスである\code{.text}や\code{.mnemonic}などは、
+今風に言うと「設定より規約」というやつだ。
+リソースファイルを使ってこれらの設定をするという方法は、
+APIを呼んでメニューを作る方法よりも遙かに優れている。
+ローカライゼーションが簡単にできるからだ。
+私は別のオープンソースプロジェクトでもこの仕組みを流用した。ハイスクールでのコンピュータサイエンス教育用環境である
+GridWorld\footnote{\url{http://horstmann.com/gridworld}}だ。
+
+%% An application such as Violet allows users to open multiple
+%% ``documents'', each containing a graph. When Violet was first written,
+%% the multiple document interface (MDI) was still commonly used.  With
+%% MDI, the main frame has a menu bar, and each view of a document is
+%% displayed in an internal frame with a title but no menu bar. Each
+%% internal frame is contained in the main frame and can be resized or
+%% minimized by the user. There are operations for cascading and tiling
+%% windows.
+Violetのようなアプリケーションでは、複数の「ドキュメント」を開くことができる。
+そしてそれぞれのドキュメントにグラフが含まれる。
+Violetを最初に書いた頃は、マルチドキュメントインターフェイス(MDI)がまだ主流だった。
+MDIではメインウィンドウがメニューバーを持っており、
+個々のドキュメントはその内部ウィンドウに表示される。タイトルはあるがメニューバーは持っていない。
+メインウィンドウに含まれる内部ウィンドウは、ユーザーがサイズを変更したり最小化させたりできる。
+さらに、ウィンドウを重ねて表示したり並べて表示したりすることもできる。
+
+%% Many developers disliked MDI, and so this style user interface has 
+%% gone out of fashion. For a while, a single document interface (SDI), in which an
+%% application displays multiple top level frames, was considered
+%% superior, presumably because those frames can be manipulated with the
+%% standard window management tools of the host operating system. When it
+%% became clear that having lots of top level windows isn't so great
+%% after all, tabbed interfaces started to appear, in which multiple
+%% documents are again contained in a single frame, but now all displayed
+%% at full size and selectable with tabs. This does not allow users
+%% to compare two documents side by side, but seems to have won out.
+開発者の多くはMDIを嫌っており、この形式のユーザーインターフェイスは時代遅れになってしまった。
+しばらくすると、シングルドキュメントインターフェイス(SDI)
+つまり一つのアプリケーションが複数のトップレベルウィンドウを表示する形式のほうが優れていると見なされるようになった。
+これはおそらく、SDIのウィンドウならホストOSの標準的なウィンドウ管理ツールで管理できるようになるからだろう。
+トップレベルウィンドウが多すぎるのも考え物だということがはっきりしてきた頃に登場したのが
+タブインターフェイスだ。ここにきて再び、複数のドキュメントを一つのウィンドウにまとめるようになった。
+しかし今度はそのすべてをフルサイズで表示して、タブで選択できるようにする方式だ。
+二つのドキュメントを並べて比較することはできなくなったが、最終的にこの方式が勝ち残ったようだ。
+
+%% The original version of Violet used an MDI interface. The Java API has
+%% a internal frames feature, but I had to add support for tiling and
+%% cascading.  Alexandre switched to a tabbed interface, which is
+%% somewhat better-supported by the Java API\@. It would be desirable to
+%% have an application framework where the document display policy was
+%% transparent to the developer and perhaps selectable by the user.
+Violetの最初のバージョンはMDI形式だった。
+Java APIには内部ウィンドウの機能があったが、ウィンドウを並べて表示したり重ねて表示したりする
+機能は自分で追加する必要があった。そして、後にAlexandreがタブインターフェイスに変更した。
+こちらのインターフェイスはJava APIできちんとサポートされていた。
+ドキュメントの表示ポリシーが開発者から透過的に扱え、
+そして利用者からも選択可能なアプリケーションフレームワークが求められる。
+
+%% Alexandre also added support for sidebars, a status bar, a welcome
+%% panel, and a splash screen. All this should ideally be a part of a
+%% Swing application framework.
+Alexandreはさらに、サイドバーやステータスバー、ようこそ画面、スプラッシュスクリーンなどにも対応した。
+これらはすべて、本来ならSwingアプリケーションフレームワークに含まれているべきものだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Undo/Redo}
+\begin{aosasect1}{Undo/Redo}
+
+%% Implementing multiple undo/redo seems like a daunting task, but the
+%% Swing undo package (\cite{bib:topley:coreswing}, Chapter 9) gives good
+%% architectural guidance. An \code{UndoManager} manages a stack of
+%% \code{UndoableEdit} objects. Each of them has an \code{undo} method
+%% that undoes the effect of the edit operation, and a \code{redo} method
+%% that undoes the undo (that is, carries out the original edit
+%% operation). A \code{CompoundEdit} is a sequence of \code{UndoableEdit}
+%% operations that should be undone or redone in their entirety. You are
+%% encouraged to define small, atomic edit operations (such as adding or
+%% removing a single edge or node in the case of a graph) that are
+%% grouped into compound edits as necessary.
+複数回のundo/redoを実装するのは手強い作業に思えるが、
+Swing undoパッケージ(\cite{bib:topley:coreswing}, Chapter 9)
+がよい設計指針になる。
+\code{UndoManager}が\code{UndoableEdit}オブジェクトのスタックを管理する。
+それぞれのオブジェクトが\code{undo}メソッドを持ち、このメソッドが編集操作を取り消す。
+そして\code{redo}メソッドは、取り消し自体を取り消す
+(つまり、本来の編集操作をもう一度実行する)。
+\code{CompoundEdit}は一連の\code{UndoableEdit}操作で、
+undoやredoは全体をひとまとめにして行わないといけない。
+小規模でアトミックな編集操作(グラフの場合だと、単一のエッジやノードの追加・削除など)
+を定義し、それを必要に応じて複合編集にまとめるとよい。
+
+%% A challenge is to define a small set of atomic operations, each of
+%% which can be undone easily. In Violet, they are:
+小規模でアトミック、そして簡単にundoできる操作を定義するのは難しい。
+Violetではこんな感じになる。
+
+\begin{aosaitemize}
+
+  %% \item adding or removing a node or edge
+  \item ノードやエッジの追加あるいは削除
+
+  %% \item attaching or detaching a node's child
+  \item 子ノードのアタッチあるいはデタッチ
+
+  %% \item moving a node
+  \item ノードの移動
+
+  %% \item changing a property of a node or edge
+  \item ノードあるいはエッジのプロパティの変更
+
+\end{aosaitemize}
+
+%% Each of these operations has an obvious undo. For example the undo of
+%% adding a node is the node's removal. The undo of moving a node is to
+%% move it by the opposite vector.
+これらの操作はどれも、undoの方法がはっきりしている。
+たとえばノードの追加をundoしたければ、そのノードを削除すればよい。
+ノードの移動をundoしたければ、逆向きのベクターを使って移動させればよい。
+
+%% \aosafigure{../images/violet/undo.eps}{An Undo Operation Must Undo Structural Changes in the Model}{fig.vio.undo}
+\aosafigure{../images/violet/undo.eps}{Undo操作はモデル内の構造の変更を取り消す必要がある}{fig.vio.undo}
+
+%% Note that these atomic operations are \emph{not} the same as the
+%% actions in the user interface or the methods of the \code{Graph}
+%% interface that the user interface actions invoke. For example,
+%% consider the sequence diagram in \aosafigref{fig.vio.undo},
+%% and suppose the user drags the mouse from the activation bar to the
+%% lifeline on the right. When the mouse button is released, the method:
+注意すべきなのは、こういったアトミックな操作が、
+ユーザーインターフェイス上での操作やその元となる\code{Graph}
+インターフェイスのメソッドと必ずしも一致するとは\emph{限らない}
+ということだ。たとえば\aosafigref{fig.vio.undo}のようなシーケンス図で、
+ユーザーがアクティベーションバーをドラッグして右側のライフラインに移動させたとしよう。
+マウスのボタンを離したときには、こんなメソッドが実行される。
+
+\begin{verbatim}
+public boolean addEdgeAtPoints(Edge e, Point2D p1, Point2D p2)
+\end{verbatim}
+
+%% \noindent
+%% is invoked. That method adds an edge, but it may also carry out other
+%% operations, as specified by the participating \code{Edge} and
+%% \code{Node} subclasses. In this case, an activation bar will be added
+%% to the lifeline on the right. Undoing the operation needs to remove
+%% that activation bar as well. Thus, the \emph{model} (in our case, the
+%% graph) needs to record the structural changes that need to be
+%% undone. It is not enough to collect controller operations.
+\noindent
+このメソッドはエッジを追加するだけでなく、それ以外の操作も行う。
+その操作にかかわる\code{Edge}や\code{Node}のサブクラスで指定されているものだ。
+今回の場合だと、アクティベーションバーが右側のライフラインに追加されることになる。
+この操作をundoするには、アクティベーションバーも削除しなければいけない。
+つまり、\emph{モデル}(今回の場合はグラフ)自身がその構造の変更を記録して、
+あとで取り消せるようにしておく必要がある。コントローラの操作を記録するだけでは不十分だ。
+
+%% As envisioned by the Swing undo package, the graph, node, and edge
+%% classes should send \code{UndoableEditEvent} notifications to an
+%% \code{UndoManager} whenever a structural edit occurs. Violet has a
+%% more general design where the graph itself manages listeners for the
+%% following interface:
+Swing undoパッケージが示すように、グラフやノードそしてエッジのクラスは、
+もし構造の変更があったら
+\code{UndoableEditEvent}通知を\code{UndoManager}に送らないといけない。
+Violetはもう少し汎用的な設計を採用しており、グラフ自身がこんなインターフェイスのリスナーを管理している。
+
+\begin{verbatim}
+public interface GraphModificationListener
+{
+  void nodeAdded(Graph g, Node n);
+  void nodeRemoved(Graph g, Node n);
+  void nodeMoved(Graph g, Node n, double dx, double dy);
+  void childAttached(Graph g, int index, Node p, Node c);
+  void childDetached(Graph g, int index, Node p, Node c);
+  void edgeAdded(Graph g, Edge e);
+  void edgeRemoved(Graph g, Edge e);
+  void propertyChangedOnNodeOrEdge(Graph g, PropertyChangeEvent event);
+}
+\end{verbatim}
+
+%% The framework installs a listener into each graph that is a bridge to
+%% the undo manager. For supporting undo, adding generic listener support to 
+%% the model is overdesigned---the graph operations could directly interact
+%% with the undo manager. However, I also wanted to support an experimental
+%% collaborative editing feature.
+フレームワークが各グラフにリスナーをインストールし、それがundoマネージャーとの橋渡しをする。
+undoをサポートするだけなら、モデルにこんな汎用リスナーを追加するというのはやり過ぎだ。
+グラフ上の操作を直接undoマネージャーに通知すればいいのだから。
+しかし私は、将来的に共有編集機能を追加したいという希望もあったのだ。
+
+%% If you want to support undo/redo in your application, think carefully
+%% about the atomic operations in your model (and not your user
+%% interface).  In the model, fire events when a structural change
+%% happens, and allow the Swing undo manager to collect and group these
+%% events.
+もしあなたが自分のアプリケーションでundo/redoをサポートしたいのなら、
+そのアプリケーションのモデルにおいてアトミックな操作とは何かを伸長に考えるようにしよう
+(ユーザーインターフェイス上でアトミックかどうか、ではない)。
+モデルの構造が変わったときにはイベントを発生させ、Swing undoマネージャーが
+イベントをとりまとめられるようにすればいい。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Plugin Architecture}
+\begin{aosasect1}{プラグインアーキテクチャ}
+
+%% For a programmer familiar with 2D graphics, it is not difficult to add
+%% a new diagram type to Violet. For example, the activity diagrams were
+%% contributed by a third party. When I needed to create railroad
+%% diagrams and ER diagrams, I found it faster to write Violet extensions
+%% instead of fussing with Visio or Dia. (Each diagram type took a day to
+%% implement.)
+2Dグラフィックになじみの深いプログラマーなら、新たな図形の型をVioletに追加するのも
+そんなに難しくない。たとえばアクティビティ図は、サードパーティから寄贈されたものだ。
+路線図やER図を描く必要が出てきたら、VisioやDiaをいじくり回すよりもVioletの拡張を書いたほうが
+よっぽど早い(どちらの型も、一日もあれば実装できる)。
+
+%% These implementations do not require knowledge of the full Violet
+%% framework.  Only the graph, node, and edge interfaces and convenience
+%% implementations are needed. In order to make it easier for
+%% contributors to decouple themselves from the evolution of the
+%% framework, I designed a simple plugin architecture.
+型を実装するのには、Violetフレームワーク全体を把握している必要はない。
+グラフとノード、そしてエッジのインターフェイスを知っていさえすれば、お手軽に実装できるのだ。
+貢献者たちがフレームワーク自体の変化を気にせずに済むように、私はシンプルなプラグインアーキテクチャを設計した。
+
+%% Of course, many programs have a plugin architecture, many quite
+%% elaborate.  When someone suggested that Violet should support OSGi, I
+%% shuddered and instead implemented the simplest thing that works.
+もちろんプラグインアーキテクチャを持つプログラムはいくらでもある。
+入念に作り込まれたアーキテクチャを持つものだ。
+VioletはOSGiに対応すべきだと誰かに言われたことがあったが、あのときは身震いしたね。
+代わりに、最小限の機能を持つ単純な仕組みを実装したんだ。
+
+%% Contributors simply produce a JAR file with their graph, node, and
+%% edge implementations and drop it into a \code{plugins} directory. When
+%% Violet starts, it loads those plugins, using the Java
+%% \code{ServiceLoader} class. That class was designed to load services
+%% such as JDBC drivers. A \code{ServiceLoader} loads JAR files that
+%% promise to provide a class implementing a given interface (in our
+%% case, the \code{Graph} interface.)
+貢献者たちは、単にグラフやノードそしてエッジの実装を含むJARファイルを作って
+それを\code{plugins}ディレクトリに置くだけでいい。
+Violetが起動するときにこれらのプラグインが読み込まれる。このときに使うのはJavaの\code{ServiceLoader}クラスだ。
+このクラスは、JDBCドライバのようなサービスを読み込むために作られたものである。
+\code{ServiceLoader}は、指定したインターフェイス(今回の場合は\code{Graph}インターフェイス)
+を実装しているであろうJARファイルを読み込む。
+
+%% Each JAR file must have a subdirectory \code{META-INF/services}
+%% containing a file whose name is the fully qualified classname of the
+%% interface (such as \code{com.horstmann.violet.Graph}), and that
+%% contains the names of all implementing classes, one per line.
+%% The \code{ServiceLoader} constructs a class loader for the plugin
+%% directory, and loads all plugins:
+個々のJARファイルはサブディレクトリ\code{META-INF/services}を持つ必要がある。
+この中には、インターフェイスの完全修飾名(\code{com.horstmann.violet.Graph}など)
+と同じ名前のファイルがあり、その中にはすべての実装クラスの名前が1行ずつ記されている。
+\code{ServiceLoader}はプラグインディレクトリ用のクラスローダーを作り、すべてのプラグインを読み込む。
+
+\begin{verbatim}
+ServiceLoader<Graph> graphLoader = ServiceLoader.load(Graph.class, classLoader);
+for (Graph g : graphLoader) // ServiceLoader<Graph> implements Iterable<Graph>
+  registerGraph(g); 
+\end{verbatim}
+
+%% This is a simple but useful facility of standard Java that you might
+%% find valuable for your own projects.
+これは標準のJavaが持つ単純ながらも便利な機能であり、あなた自身のプロジェクトでもうまく使えるかもしれない。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Conclusion}
+\begin{aosasect1}{結論}
+
+%% Like so many open source projects, Violet was born of an unmet
+%% need---to draw simple UML diagrams with a minimum of fuss. Violet was
+%% made possible by the amazing breadth of the Java SE platform, and it
+%% draws from a diverse set of technologies that are a part of that
+%% platform. In this article, I described how Violet makes use of Java
+%% Beans, Long-Term Persistence, Java Web Start, Java 2D, Swing
+%% Undo/Redo, and the service loader facility.  These technologies are
+%% not always as well understood as the basics of Java and Swing, but
+%% they can greatly simplify the architecture of a desktop
+%% application. They allowed me, as the initial sole developer, to
+%% produce a successful application in a few months of part-time work.
+%% Relying on these standard mechanisms also made it easier for others to
+%% improve on Violet and to extract pieces of it into their own projects.
+オープンソースのプロジェクトではよくあることだが、
+Violetが産まれたきっかけは、必要な作業
+(シンプルなUMLをお手軽に作る)をこなせるものがなかったことだ。
+Violetがここまでに至ったのは、すばらしいJava SEプラットフォームによるところが大きい。
+このプラットフォームからはさまざまな技術を利用している。
+本章では、VioletがJava Beansや長期持続性、Java Web Start、Java 2D、
+SwingのUndo/Redo、サービスローダーなどの機能をどのように使っているかを解説した。
+これらの技術は、JavaそのものやSwingに比べるとあまり知られていない。
+しかし、これらを活用すればデスクトップアプリケーションのアーキテクチャを劇的に単純化できる。
+これらのおかげで、空き時間に一人で作っていたプログラムが
+ほんの数か月で立派なアプリケーションになったのだ。
+また、こういった標準の仕組みを使うことで、他の人たちがViolet
+を改良したりその一部を自分のプロジェクトに取り込んだりといったことも簡単にできるようになった。
+
+\end{aosasect1}
+
+\end{aosachapter}

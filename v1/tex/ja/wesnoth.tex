@@ -1,0 +1,896 @@
+\begin{aosachapter}{Battle for Wesnoth}{s:wesnoth}{Richard Shimooka and David White}
+%% Based on EN-Revision r272
+
+%% Programming tends to be considered a straightforward problem solving
+%% activity; a developer has a requirement and codes a solution. Beauty
+%% is often judged on the technical implementation's elegance or
+%% effectiveness; this book is replete with excellent examples. Yet
+%% beyond its immediate computing functions, code can have a profound
+%% effect on people's lives. It can inspire people to participate and
+%% create new content. Unfortunately, serious barriers exist that prevent
+%% individuals from participating in a project.
+プログラミングって、単なる問題解決の方法だととらえられがちだ。
+要件を聞いた開発者が、それを解決すべくコードを書くっていう感じ。
+評価の基準は、技術的な実装の美しさとか効率とかそんなところになる。
+この本にも、そういった内容が満載だ。
+ただ、直接的な機能だけでなく、コードは人々の生活にも影響を及ぼすことがある。
+ここに参加して何か新しいものを作りたいという気持ちにさせることもできるんだ。
+残念ながら、プロジェクトに参加したいと考える人たちの前には、大きな壁が立ちはだかっている。
+
+%% Most programming languages require significant technical expertise to
+%% utilize, which is out of reach for many. In addition, enhancing the
+%% accessibility of code is technically difficult and is not necessary
+%% for many programs. It rarely translates into neat coding scripts or
+%% clever programming solutions. Achieving accessibility requires
+%% considerable forethought in project and program design, which often
+%% runs counter-intuitive to normal programming standards. Moreover most
+%% projects rely upon an established staff of skilled professionals that
+%% are expected to operate at a reasonably high level. They do not
+%% require additional programming resources. Thus, code accessibility
+%% becomes an afterthought, if considered at all.
+たいていのプログラミング言語は、いろいろな知識がないと使いこなせない。そこまでたどり着けない人も多いだろう。
+さらに、誰でも手を加えやすいコードを書くのは技術的に難しいし、別に手を加えやすくしなくたって、たいていのプログラムは書ける。
+ちょっとした書き捨てのスクリプトがきちんとしたきれいなプログラムに成長することなんか、ほとんどない。
+手を加えやすいコードにするには、プロジェクトやプログラムの設計に関して事前にしっかり考えないといけない。
+これは、ふつうにプログラミングを進めるときの直感に反することが多い。
+さらに、たいていのプロジェクトはある程度の実力があるメンバーに依存しており、
+十分に高いスキルを持っている。彼らにすれば、別に新たなメンバーが増えなくてもぜんぜん困らないんだ。
+その結果、他の人から見たコードのわかりやすさは軽視されるようになる。
+考慮するにしても、後付けで対応することになる。
+
+%% Our project, the Battle for Wesnoth, attempted to address this issue
+%% from its origins. The program is a turn-based fantasy strategy game,
+%% produced in an open source model based on a GPL2 license. It has been
+%% a moderate success, with over four million downloads at the time of
+%% this writing. While this is an impressive metric, we believe the real
+%% beauty of our project is the development model that allowed a band of
+%% volunteers from widely different skill levels to interact in a
+%% productive way.
+Battle for Wesnothプロジェクトでは、最初からこの問題に取り組んできた。
+これはターン制のファンタジー戦略ゲームで、GPL2ライセンスのもとでオープンソースで公開されている。
+それなりに成功を収め、執筆時点では4百万ダウンロードをこえている。
+これはこれですごい数字だ。しかし、それよりも自慢したいことがある。
+いろんなスキルレベルの多数の人たちが、それぞれのやりかたで開発に参加するモデルだ。
+
+%% Enhancing accessibility was not a vague objective set by developers,
+%% it was viewed as essential for the project's survival. Wesnoth's open
+%% source approach meant that the project could not immediately expect
+%% large numbers of highly skilled developers.  Making the project
+%% accessible to a wide a number of contributors, with varying skill
+%% levels, would ensure its long-term viability.
+コードに手を加えやすくするのは、開発者たちにとっては単なるあいまいな目標ではない。
+このプロジェクトの存亡に関わる重大なことだと考えられている。
+Wesnothはオープンソースで開発されており、
+高いスキルを持つ開発者がたくさん集まってくれることはあまり期待できない。
+スキルレベルを問わずあらゆる人たちがプロジェクトにかかわれるようにしておくことを、
+長期的な生存戦略として考えた。
+
+%% Our developers attempted to lay the foundations for broadening
+%% accessibility right from its earliest iteration. This would have
+%% undeniable consequences for all aspect of the programming
+%% architecture. Major decisions were made largely with this objective in
+%% mind. This chapter will provide an in-depth examination of our program
+%% with a focus on the efforts to increase accessibility.
+このプロジェクトでは、開発者たちが最初から、幅広い人たちが開発にかかわれるようにすることを試みてきた。
+それがプログラムのアーキテクチャ全体にわたって何らかの影響を及ぼしたことは間違いない。
+何らかの決断をするときは、たいていこのことを重視した。
+この章では、プログラムの内部について深く掘り下げ、
+どうやって手の加えやすさを向上させてきたかに注目して紹介する。
+
+%% The first part of this chapter offers a general overview of the
+%% project's programming, covering its language, dependencies and
+%% architecture. The second part will focus on Wesnoth's unique data
+%% storage language, known as Wesnoth Markup Language (WML). It will
+%% explain the specific functions of WML, with a particular emphasis on
+%% its effects on in-game units. The next section covers multiplayer
+%% implementation and external programs.  The chapter will end with some
+%% concluding observations on our structure and the challenges of
+%% broadening participation.
+まずは、このプロジェクトでのプログラミングの概要を紹介する。
+使っている言語や依存関係、そしてアーキテクチャなどに関して扱う。
+次に、Wesnothで使っている独自のデータストレージ言語であるWesnoth Markup Language (WML)について紹介する。
+WMLの個別の機能について、特にゲーム内でのユニットへの効果を中心に説明する。
+それから、マルチプレイヤー機能の実装や外部プログラムについてとりあげる。
+最後に、プロジェクトの構造や参加者を増やすための取り組みについてまとめる。
+
+%% \begin{aosasect1}{Project Overview}
+\begin{aosasect1}{プロジェクトの概要}
+
+%% Wesnoth's core engine is written in C++, totalling around 200,000 lines
+%% at the time of this publication. This represents the core game engine,
+%% approximately half of the code base without any content.  The program
+%% also allows in game content to be defined in a unique data language
+%% known as Wesnoth Markup Language (WML). The game ships with another
+%% 250,000 lines of WML code. The proportion has shifted over the
+%% project's existence. As the program matured, game content that was
+%% hardcoded in C++ has increasingly been rewritten so that WML can
+%% be used to define its operation. \aosafigref{fig.wes.arch} gives a
+%% rough picture of the program's architecture; green areas are
+%% maintained by Wesnoth developers, while white areas are external
+%% dependencies.
+WesnothのコアエンジンはC++で書かれている。執筆時点での行数は、ぜんぶで200,000行程度だ。
+これはゲームエンジンの中核となる部分で、コードベース全体からコンテンツを除いた半分程度になる。
+このプログラムでは、ゲームのコンテンツを独自のデータ言語で定義できるようになっている。
+その名はWesnoth Markup Language (WML)だ。
+このゲームに同梱されているWMLのコードは250,000行程度になる。
+プロジェクトの存在感が増すにつれて、コンテンツの割合が増えてきた。
+プログラムが成熟するにつれて、C++でハードコードされたゲームコンテンツも新たに書き直され、
+WMLを使ってその動きを定義できるようになった。
+\aosafigref{fig.wes.arch}はプログラムのアーキテクチャの概要を示したもので、
+色が付いている部分はWesnothの開発者が保守するところ、そして白い部分は外部の依存関係を表す。
+
+%% \aosafigure{../images/wesnoth/architecture.eps}{Program Architecture}{fig.wes.arch}
+\aosafigure{../images/wesnoth/architecture.eps}{プログラムのアーキテクチャ}{fig.wes.arch}
+
+%% Overall, the project attempts to minimize dependencies in most cases
+%% so as to maximize the portability of the application. This has the
+%% added benefit of reducing the program's complexity, and decreases the
+%% need for developers to learn the nuances of a large number of third
+%% party APIs.  At the same time, the prudent use of some dependencies
+%% can actually achieve the same effect. For example, Wesnoth uses the
+%% Simple Directmedia Layer (SDL) for video, I/O and event handling. It
+%% was chosen because it is easy to use and provides a common I/O
+%% interface across many platforms.  This allows it to be portable to a
+%% wide array of platforms, rather than the alternative of coding to
+%% specific APIs on different platforms. This comes at a price however;
+%% it is harder to take advantage of some platform specific features. SDL
+%% also has an accompanying family of libraries that are used by Wesnoth
+%% for various purposes:
+総合的には、このプロジェクトではできるだけ依存関係を減らすよう心がけている。
+アプリケーションのポータビリティを高めるためだ。
+こうしておけば、プログラムの複雑度がさがるという効果もある。
+さらに、開発者がいろんなサードパーティのAPIを学ぶ手間も省ける。
+もちろん、使うべきところでは適切な依存関係を利用する。それもまた同じ効果を与えてくれる。
+Wesnothでは、Simple Directmedia Layer (SDL)を使って画像処理やI/Oそしてイベント処理を書いている。
+これを選んだ理由は、使いやすいことと多数のプラットフォームで共通のI/Oインターフェイスが使えることだ。
+そのおかげで、プラットフォームごとに独自のAPIを書いていくのに比べてより幅広いプラットフォームへのポータビリティを確保できた。
+しかし、見返りとして失ったものもある。プラットフォームごとの独自機能を使うのが難しくなったのだ。
+SDLにはいろんなライブラリが添付されており、Wesnothでもいろんなところでそれを使っている。
+
+\begin{aosaitemize}
+
+  %% \item SDL\_Mixer for audio and sound
+  \item SDL\_Mixer(音楽や音声)
+
+  %% \item SDL\_Image for loading PNG and other image formats
+  \item SDL\_Image(PNGなどの画像フォーマットの読み込み)
+
+  %% \item SDL\_Net for network I/O
+  \item SDL\_Net(ネットワークI/O)
+
+\end{aosaitemize}
+
+%% Additionally, Wesnoth uses several other libraries:
+さらに、Wesnothではその他のライブラリも使っている。
+
+\begin{aosaitemize}
+
+  %% \item Boost for a variety of advanced C++ features
+  \item Boost(C++の高度な機能)
+
+  %% \item Pango with Cairo for internationalized fonts
+  \item PangoとCairo(国際化フォント)
+
+  %% \item zlib for compression
+  \item zlib(圧縮)
+
+  %% \item Python and Lua for scripting support
+  \item PythonとLua(スクリプトによる拡張への対応)
+
+  %% \item GNU gettext for internationalization
+  \item GNU gettext(国際化)
+
+\end{aosaitemize}
+
+%% Throughout Wesnoth's engine, the use of WML objects---that is, string
+%% dictionaries with child nodes---is fairly ubiquitous.  Many objects
+%% can be constructed from a WML node, and also serialize themselves to a
+%% WML node. Some parts of the engine keep data in this WML dictionary
+%% based format, interpreting it directly rather than parsing it into a
+%% C++ data structure.
+Wesnothエンジンでは、WMLオブジェクト(文字列のディレクトリと子ノード群)をあらゆるところで使っている。
+WMLノードからさまざまなオブジェクトを構築したり、
+逆にオブジェクトをWMLノードにシリアライズしたりできる。
+エンジン内部ではこのWMLディレクトリベースの形式でデータを保持しているところもあり、
+C++のデータ構造を介さずに直接それをパースしている。
+
+%% Wesnoth utilizes several important subsystems, most of which are as
+%% self-contained as possible. This segmented structure has advantages
+%% for accessibility. An interested party can easily work a code in a
+%% specific area and introduce changes without damaging the rest of the
+%% program. The major subdivisions include:
+Wesnothではいくつかの重要なサブシステムを使っているが、
+その多くはできるだけ自己完結型になるようにしている。
+このように分割された作りにしておくことで、可読性をあげている。
+何か特定の部分に興味を持った人はすぐにその部分の作業にとりかかれるし、
+手を加えるときにも、それがプログラムの他の部分に悪影響を及ぼすことを心配せずに済む。
+主なサブシステムを次にまとめる。
+
+\begin{aosaitemize}
+
+  %% \item A WML parser with preprocessor
+  \item WMLパーサーとプリプロセッサ
+
+  %% \item Basic I/O modules that abstract underlying libraries and
+  %% system calls---a video module, a sound module, a network module
+  \item 基本I/Oモジュール(ベースになる映像モジュールや音声モジュール、ネットワークモジュールのライブラリやシステムコールの抽象化)
+
+  %% \item A GUI module containing widget implementations for buttons,
+  %% lists, menus, etc.
+  \item GUIモジュール(ボタンやリスト、メニューなどのウィジェットの実装を含む)
+
+  %% \item A display module for rendering the game board, units,
+  %% animations, and so forth
+  \item ディスプレイモジュール(ゲーム盤やユニット、アニメーションなどのレンダリング)
+
+  %% \item An AI module
+  \item AIモジュール
+
+  %% \item A pathfinding module that includes many utility functions for
+  %% dealing with a hexagonal gaming board
+  \item パスファインディングモジュール(六角形のゲーム盤を扱うさまざまなユーティリティ関数を含む)
+
+  %% \item A map generation module for generating different kinds of
+  %% random maps
+  \item マップ生成モジュール(さまざまな形式のマップをランダムに生成する)
+
+\end{aosaitemize}
+
+%% There are also different modules for controlling different parts of
+%% the game flow:
+ゲームの流れを制御するモジュールも用意されている。
+
+\begin{aosaitemize}
+
+  %% \item The titlescreen module, for controlling display of the
+  %% title screen.
+  \item タイトルスクリーンモジュール(タイトル画面の表示を制御する)
+
+  %% \item The storyline module, for showing cut-scene sequences.
+  \item ストーリーラインモジュール(一連のカットシーンを表示する)
+
+  %% \item The lobby module, for displaying and allowing setup of games
+  %% on the multiplayer server.
+  \item ロビーモジュール(マルチプレイヤーサーバー上でのゲームの設定画面を表示する)
+
+  %% \item The ``play game'' module that controls the main gameplay.
+  \item ``play game''モジュール(ゲーム全体を制御するモジュール)
+
+\end{aosaitemize}
+
+%% The ``play game'' module and the main display module are the largest
+%% within Wesnoth.  Their purpose is the least well defined, as their
+%% function is ever-changing and thus difficult to have a clear
+%% specification for. Consequently, the modules has often been in danger
+%% of suffering from the Blob anti-pattern over the program's
+%% history---i.e., becoming huge dominant segments without well-defined
+%% behaviors.  The code in the display and play game modules are
+%% regularly reviewed to see if any of it can be separated into a module
+%% of its own.
+``play game''モジュールとディスプレイモジュールが、Wesnothの中でも最大のものだ。
+その役割をはっきり定義することはできない。
+というのも、このモジュールの機能は常に変わり続けるものだし、明確な仕様を定めることなどできないからだ。
+そのため、このモジュールは常に、Blobアンチパターンに陥る危険にさらされている。
+いったい何をするものなのかわからない巨大な塊として君臨してしまう、というパターンだ。
+ディスプレイモジュールとこのモジュールのコードについては常にレビューされており、
+何か別のモジュールに切り出せるコードがないかどうかを調べている。
+
+%% There are also ancillary features that are part of the overall
+%% project, but are separate from the main program. This includes a
+%% multiplayer server that facilitates multiplayer network games, as well
+%% as a content server that allows users to upload their content to a
+%% common server and share it with others. Both are written in C++.
+さらに、プロジェクト全体にかかわる補助機能もあって、これはメインプログラムとは切り離されている。
+マルチプレイヤーでのネットワークゲームを進行するマルチプレイヤーサーバー、
+そしてユーザーがコンテンツをアップロードして他のユーザーと共有できるようにするコンテンツサーバーなどがこれにあたる。
+どちらもC++で書かれている。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Wesnoth Markup Language}
+\begin{aosasect1}{Wesnoth Markup Language}
+
+%% As an extensible game engine, Wesnoth uses a simple data language to
+%% store and load all game data. Although XML was considered initially,
+%% we decided that we wanted something a little more friendly to non-technical
+%% users, and a little more relaxed with regard to use of visual data.
+%% We therefore developed our own data language,
+%% called Wesnoth Markup Language (WML). It was designed with the least
+%% technical of users in mind: the hope was that even users who find
+%% Python or HTML intimidating would be able to make sense of a WML
+%% file. All Wesnoth game data is stored in WML, including unit
+%% definitions, campaigns, scenarios, GUI definitions, and other game
+%% logic configuration.
+拡張可能なゲームエンジンであるWesnothでは、シンプルなデータ言語を使って
+すべてのゲームデータの保存や読み込みをしている。XMLを使うことも検討したけれど、結局は使わなかった。
+技術者じゃないユーザーにも使いやすいものにしたかったし、
+ビジュアルデータを使うときにも難しく考えずに済ませたかったからだ。
+そこで、独自のデータ言語を開発した。それがWesnoth Markup Language (WML)だ。
+技術者じゃない普通の人たちが使うことを念頭に設計した。
+PythonやHTMLですら尻込みしてしまうような人たちでも、WMLなら何とかなるというふうにしたかったんだ。
+WesnothのゲームデータはすべてWML形式で格納される。
+ユニットの定義、キャンペーン、シナリオ、GUI定義、その他ゲームのロジックに関する設定も含めてすべてがこの形式になる。
+
+%% WML shares the same basic attributes as XML: elements and attributes,
+%% though it doesn't support text within elements. WML attributes are
+%% represented simply as a dictionary mapping strings to strings, with
+%% the program logic responsible for interpretation of attributes. A
+%% simple example of WML is a trimmed definition for the Elvish Fighter
+%% unit within the game:
+WMLの基本構造はXMLと同じで、要素と属性で構成されている。
+しかし、要素の中にテキストを置くことはできない。
+WMLの属性は、単に文字列と文字列をマップする辞書形式だ。
+そこに、属性を解釈するプログラムロジックを組み合わせたものになる。
+シンプルなWMLの例を示す。これは、ゲームの中で使うエルフの戦士
+ユニットの定義を整えたものだ。
+
+\begin{verbatim}
+[unit_type]
+    id=Elvish Fighter
+    name= _ "Elvish Fighter"
+    race=elf
+    image="units/elves-wood/fighter.png"
+    profile="portraits/elves/fighter.png"
+    hitpoints=33
+    movement_type=woodland
+    movement=5
+    experience=40
+    level=1
+    alignment=neutral
+    advances_to=Elvish Captain,Elvish Hero
+    cost=14
+    usage=fighter
+    {LESS_NIMBLE_ELF}
+    [attack]
+        name=sword
+        description=_"sword"
+        icon=attacks/sword-elven.png
+        type=blade
+        range=melee
+        damage=5
+        number=4
+    [/attack]
+[/unit_type]
+\end{verbatim}
+
+%% Since internationalization is important in Wesnoth, WML does have
+%% direct support for it: attribute values which have an underscore
+%% prefix are translatable. Any translatable string is converted using
+%% GNU \code{gettext} to the translated version of the string when the
+%% WML is parsed.
+Wesnothでは国際化を重視しているので、WMLにも国際化機能が組み込まれている。
+属性の値の先頭にアンダースコアがついているものは、翻訳できるようになっている。
+翻訳可能な文字列の変換にはGNU \code{gettext}を使う。
+WMLをパースするときには、翻訳されたバージョンを利用する。
+
+%% Rather than have many different WML documents, Wesnoth opts for the
+%% approach of all main game data being presented to the game engine in
+%% just a single document. This allows for a single global variable to
+%% hold the document, and when the game is loaded all unit definitions,
+%% for instance, are loaded by looking for elements with the name
+%% \code{unit\_type} within a \code{units} element.
+Wesnothでは、大量のWMLドキュメントを用意する方法ではなく一つのドキュメントにまとめてしまう方法を選んだ。
+ゲームエンジンの中に登場させるすべてのゲームデータを単一のドキュメントで管理することにしたのだ。
+これで、グローバル変数ひとつでドキュメントを維持できるようになった。
+たとえば、すべてのユニット定義を読み込むには、
+\code{units}要素の中にある\code{unit\_type}という要素を読めばいい。
+
+%% Though all data is stored in a single conceptual WML
+%% document, it would be unwieldy to have it all in a single file.
+%% Wesnoth therefore supports a preprocessor that is run over all WML
+%% before parsing. This preprocessor allows one file to include the
+%% contents of another file, or an entire directory. For instance:
+すべてのデータを対年的に単一のWMLドキュメントに格納するとはいえ、
+それをすべて一つのファイルにまとめてしまうと扱いづらくなる。
+そこで、Wesnothではプリプロセッサをサポートすることにした。
+このプリプロセッサがすべてのWMLを処理してから、パースを行う。
+プリプロセッサを使えば、別のファイルの内容をインクルードしたり、
+特定のディレクトリの内容をすべてインクルードしたりもできるようになる。
+たとえば、
+
+\begin{verbatim}
+{gui/default/window/}
+\end{verbatim}
+
+%% \noindent
+%% will include all the \code{.cfg} files within \code{gui/default/window/}.
+\noindent
+のように書くと、\code{gui/default/window/}の中にあるすべての\code{.cfg}ファイルをインクルードする。
+
+%% Since WML can become very verbose, the preprocessor also allows
+%% macros to be defined to condense things. For instance, the
+%% \code{\{LESS\_NIMBLE\_ELF\}} invocation in the definition of the
+%% Elvish Fighter is a call to a macro that makes certain elf units less
+%% nimble under certain conditions, such as when they are stationed in a
+%% forest:
+WMLはとても冗長になることがあるので、プリプロセッサではマクロも定義できるようにしている。
+マクロを使えば、冗長な部分を簡略化できる。たとえばエルフの戦士の定義の中で
+\code{\{LESS\_NIMBLE\_ELF\}}を起動しているところは、マクロの呼び出しになっている。
+このマクロは、森の中にいるなどの特定の条件のもとで、敏捷性に劣るエルフの宇ニットを作る。
+
+\begin{verbatim}
+#define LESS_NIMBLE_ELF
+    [defense]
+        forest=40
+    [/defense]
+#enddef
+\end{verbatim}
+
+%% This design has the advantage of making the engine agnostic to how the
+%% WML document is broken up into files. It is the responsibility of WML
+%% authors to decide how to structure and divide all game data into
+%% different files and directories.
+この設計の利点は、エンジン自体はWMLドキュメントがいくつのファイルに分かれているのかを知らなくて済むということだ。
+ゲームのデータをどのような構造にするのかを決めるのはWMLの作者の役割となり、
+ファイルやディレクトリをどのように分けるのかも作者が決める。
+
+%% When the game engine loads the WML document, it also defines some
+%% preprocessor symbols according to various game settings.  For
+%% instance, a Wesnoth campaign can define different difficulty settings,
+%% with each difficulty setting resulting in a different preprocessor
+%% symbol being defined. As an example, a common way to vary difficulty
+%% is by varying the amount of resources given to an opponent
+%% (represented by gold). To facilitate this, there is a WML macro
+%% defined like this:
+ゲームエンジンがWMLドキュメントを読み込むときには、
+ゲームの各種設定に関連するプリプロセッサシンボルもいくつか定義する。
+たとえば、Wesnothのキャンペーンではさまざまな難易度の設定を定義できる。
+このとき、それぞれの難易度設定が、別々のプリプロセッサシンボルとして定義される。
+たとえば、難易度を変える方法としてありがちなのが、敵に渡すリソース(ゴールド)
+の量を調整するというものだ。これを実現するには、こんなWMLマクロを定義する。
+
+\begin{verbatim}
+#define GOLD EASY_AMOUNT NORMAL_AMOUNT HARD_AMOUNT
+  #ifdef EASY
+    gold={EASY_AMOUNT}
+  #endif
+  #ifdef NORMAL
+    gold={NORMAL_AMOUNT}
+  #endif
+  #ifdef HARD
+    gold={HARD_AMOUNT}
+  #endif
+#enddef
+\end{verbatim}
+
+%% \noindent This macro can be invoked using, for instance, \code{\{GOLD 50 100
+%%   200\}} within the definition of an opponent to define how much gold
+%% the opponent has based on the difficulty level.
+\noindent
+このマクロを、敵の定義の中でたとえば\code{\{GOLD 50 100   200\}}
+のようにして使う。これで、難易度レベルに応じて敵に渡すゴールドの量を変えられる。
+
+%% Since the WML is processed conditionally, if any of the
+%% symbols provided to the WML document change during execution of the
+%% Wesnoth engine, the entire WML document must be re-loaded and
+%% processed. For instance, when the user starts the game, the WML
+%% document is loaded and available campaigns among other things are
+%% loaded. But then, if the user chooses to start a campaign and chooses
+%% a certain difficulty level---easy for instance---then the entire
+%% document will have to be re-loaded with EASY defined.
+WMLの処理方法は条件によって変わるので、WMLドキュメントに渡したシンボルのどれかが
+Wesnothエンジンの実行中に変化した場合は、WMLドキュメント全体を読み込み直してふたたび処理しないといけない。
+たとえば、ユーザーがゲームを開始したときにWMLドキュメントが読み込まれ、
+利用可能なキャンペーンやその他のデータが使えるようになる。
+しかしその後、ユーザーが何かのキャンペーンを開始して難易度レベルを(たとえばeasyなど)指定したら、
+EASYを定義した上でドキュメント全体を読み直さないといけない。
+
+%% This design is convenient in that a single document contains all game
+%% data, and that symbols can allow easy configuration of the WML
+%% document. However, as a successful project, more and more content is
+%% available for Wesnoth, including much downloadable content---all of
+%% which ends up inserted into the core document tree---which means the
+%% WML document is many megabytes in size. This has become a performance
+%% issue for Wesnoth: Loading the document may take up to a minute on
+%% some computers, causing delays in-game any time the document needs to
+%% be reloaded. Additionally, it uses a substantial amount of
+%% memory. Some measures are used to counter this: when a campaign is
+%% loaded, it has a symbol unique to that campaign defined in the
+%% preprocessor. This means that any content specific to that campaign
+%% can be \code{\#ifdef}ed to only be used when that campaign is needed.
+この設計が便利なのは、単一のドキュメントにすべてのゲームデータをまとめられるという点と、
+シンボルを使ってWMLドキュメントを簡単に設定できるという点だ。
+しかし、プロジェクトがうまく進むようになると、Wesnothでもいろんなコンテンツが使えるようになってくる。
+その中にはダウンロード可能なコンテンツも含まれる。これらはすべて、最終的にはコアドキュメントツリーに追加されるわけで、
+WMLドキュメントのサイズがメガバイト単位にふくれあがってしまうことになる。
+これはパフォーマンス的な問題の原因になる。
+ドキュメントを読み込むだけで1分ほどかかってしまうことになるかもしれないし、
+ゲームの途中でドキュメントの再読み込みが発生したときなどに遅延が生じてしまう。
+さらに、メモリも大量に消費することになる。
+その対策として、ちょっとした手を使っている。キャンペーンを読み込むときには、
+キャンペーンごとに一意なシンボルをプリプロセッサで定義する。
+そして、その作戦に固有のコンテンツは\code{\#ifdef}
+し、必要なときだけ使うようにするのだ。
+
+%% Additionally, Wesnoth uses a caching system to cache the fully
+%% preprocessed version of the WML document for a given set of key
+%% definitions. Naturally this caching system must inspect the timestamp
+%% of all WML files so that if any have changed, the cached document is
+%% regenerated.
+さらに、Wesnothにはキャッシングシステムがあり、あらかじめ指定したキー定義群に関して
+プリプロセス済みのWMLドキュメントをキャッシュしている。
+もちろん、このキャッシングシステムではWMLファイルのタイムスタンプをチェックしており、
+ファイルに変更があった場合はキャッシュを再生成する。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Units in Wesnoth}
+\begin{aosasect1}{Wesnothのユニット}
+
+%% The protagonists of Wesnoth are its units. An Elvish Fighter and an
+%% Elvish Shaman might battle against a Troll Warrior and an Orcish
+%% Grunt.  All units share the same basic behavior, but many have special
+%% abilities that alter the normal flow of gameplay. For example, a troll
+%% regenerates some of its health every turn, an Elvish shaman slows its
+%% opponents with an entangling root, and a Wose is invisible in a
+%% forest. 
+Wesnothの主役はユニットだ。
+エルフの戦士やエルフの女呪術師が、トロルの戦士やオークの兵卒と戦うことになる。
+基本的な挙動はすべてのユニットで共通だが、通常のゲームの流れを変えるような特別な能力もいろいろある。
+たとえばトロルはターンごとに自分の体を部分的に再生するし、
+エルフの女呪術師はエンタングリング・ルーツで敵を遅くさせることができ、
+ウーズは森の中では目に見えない。
+
+%% What is the best way to represent this in an engine? It is
+%% tempting to make a base \code{unit} class in C++, with different types
+%% of units derived from it. For instance, a \code{wose\_unit} class could
+%% derive from \code{unit}, and \code{unit} could have a virtual
+%% function, \code{bool is\_invisible() const}, which returns false, which
+%% the \code{wose\_unit} overrides, returning true if the unit happens to
+%% be in forest.
+これらをエンジンの中で表す、最適な方法は何だろうか。
+C++で基底クラス\code{unit}を作って、その派生クラスとしていろんなタイプのユニットを用意したくなるところだ。
+たとえば\code{unit}の派生クラスとして\code{wose\_unit}クラスを作り、
+\code{unit}のほうでは仮想関数\code{bool is\_invisible() const}を用意してfalseを返すようにしておく。
+\code{wose\_unit}ではそれをオーバーライドして、森の中にいるときはtrueを返すようにすればいい。
+
+%% Such an approach would work reasonably well for a game with a limited
+%% set of rules. Unfortunately Wesnoth is quite a large game and such an
+%% approach is not easily extendable. If a person wanted to add a new
+%% type of unit under this approach, it would require the addition of a
+%% new C++ class to the game. Additionally, it does not allow different
+%% characteristics to be combined well: what if you had a unit that
+%% regenerated, could slow enemies with a net, and was invisible in a
+%% forest? You would have to write an entirely new class that duplicates
+%% code in the other classes.
+ルールが限られているときは、こんな手法でもうまくいくことだろう。
+ただ、残念ながらWesnothはとても大規模なゲームなので、
+そんなやりかたをしていれば拡張性を損ねてしまう。
+この方式の場合、もし新たなタイプのユニットを追加したくなったら
+新しくC++のクラスを作らないといけなくなる。
+さらに、別々の特性を組み合わせて使うことができない。
+再生能力があって、網で的のスピードを抑えられ、かつ森の中では見えなくなるというユニットがでてきたらどうする？
+それ用に新しくクラスを書かないといけなくなって、コードが重複してしまうことになる。
+
+%% Wesnoth's unit system doesn't use inheritance at all to accomplish
+%% this task. Instead, it uses a \code{unit} class to represent instances
+%% of units, and a \code{unit\_type} class, which represents the
+%% immutable characteristics that all units of a certain type share. The
+%% \code{unit} class has a reference to the type of object that it is.
+%% All the possible \code{unit\_type} objects are stored in a globally
+%% held dictionary that is loaded when the main WML document is loaded.
+Wesnothのユニットシステムは、継承を一切使わずにこの仕組みを実現した。
+\code{unit}クラスはユニットのインスタンスを表すものとして使い、
+それとは別に\code{unit\_type}クラスを用意して、
+その型の全ユニットが共有する不変な性質を表した。
+\code{unit}クラスは、自分自身のオブジェクトの型への参照を持っている。
+考え得るすべての\code{unit\_type}オブジェクトはグローバルな辞書で保持されており、
+メインWMLドキュメントを読み込むときにこの辞書も読み込まれる。
+
+%% A unit type has a list of all the abilities that that unit has. For
+%% instance, a Troll has the ``regeneration'' ability that makes it heal
+%% life every turn. A Saurian Skirmisher has the ``skirmisher'' ability
+%% that allows it to move through enemy lines. Recognition of these
+%% abilities is built into the engine---for instance, the pathfinding
+%% algorithms will check if a unit has the ``skirmisher'' flag set to see
+%% if it can move freely past enemy lines. This approach allows an
+%% individual to add new units, which have any combination of abilities
+%% made by the engine, by only editing WML\@. Of course, it doesn't allow
+%% adding completely new abilities and unit behavior without modifying
+%% the engine.
+ユニットタイプは、そのユニットが持つすべての能力のリストになる。
+たとえばトロルは``regeneration(再生)''能力を持っていて、ターンごとに生命力を回復できる。
+トカゲの散兵には``skirmisher(散兵)''能力があって、敵地を移動できる。
+これらの能力を認識する仕組みがエンジンに組み込まれている。
+たとえば開拓のアルゴリズムは、そのユニットに``skirmisher''
+フラグが設定されているかどうかを調べ、敵陣を自由に動けるかどうかを判断する。
+この手法だと、誰でも新しいユニットを追加できるようになる。
+エンジンが作った能力を自由に組み合わせるには、単にWMLを編集するだけでいい。
+もちろん、まったく新しい能力やユニットの挙動を追加したりするには
+エンジン自体を編集する必要がある。
+
+%% Additionally, each unit in Wesnoth may have any number of ways to
+%% attack.  For instance, an Elvish Archer has a long-range bow attack
+%% and also a short-range sword attack. Each deals different damage
+%% amounts and characteristics. To represent an attack, there is an
+%% \code{attack\_type} class, with every \code{unit\_type} instance
+%% having a list of possible \code{attack\_types}.
+さらに、Wesnothの各ユニットには任意の数の攻撃方法を持たせることができる。
+たとえばエルフの射手は、長距離用の弓による攻撃と短距離用の剣による攻撃ができる。
+それぞれ、ダメージの量も違うし特徴も違う。
+こんな攻撃方法を表すために用意したのが\code{attack\_type}クラスで、
+すべての\code{unit\_type}のインスタンスは自分が使える\code{attack\_types}のリストを持っている。
+
+%% To give each unit more character, Wesnoth has a feature known as
+%% traits. Upon recruitment, most units are assigned two traits at random
+%% from a predefined list. For instance, a strong unit does more damage
+%% with its melee attacks, while an intelligent unit needs less
+%% experience before it ``levels up.'' Also, it is possible for units to
+%% acquire equipment during the game that make them more powerful. For
+%% instance, there might be a sword a unit can pick up that makes their
+%% attacks do more damage. To implement traits and equipment Wesnoth
+%% allows modifications on units, which are WML-defined alterations to a
+%% unit's statistics. The modification can even be applied to certain
+%% types of attacks. For instance, the strong trait gives strong units
+%% more damage when attacking in melee, but not when using a ranged
+%% strike.
+各ユニットにさらに個性を持たせるために、Wesnothにはトレイトという機能もある。
+ユニットを補充するときに、ほとんどのユニットには定義済みトレイトからランダムに選ばれた
+二種類のトレイトが設定される。たとえばstrongユニットは格闘でより多くのダメージを与え、
+intelligentユニットはレベルアップに要する経験値が減らせる。
+また、ゲームの中でユニットの装備を増やし、さらに強力にできる。
+たとえば、剣を手に取ったユニットは、攻撃時によりダメージを与えられるようになる。
+トレイトや装備の仕組みを実装するために、Wesnothはユニットに手を加えられるようにした。
+WMLで定義した変更を、ユニットのデータに適用する。
+この変更は、ある種の攻撃にも適用できる。
+たとえばstrongトレイトは、格闘の際の攻撃のダメージは増やすが
+投射のときに使っても効果はない。
+
+%% Allowing completely configurable unit behavior with WML would be an
+%% admirable goal, so it is instructional to consider why Wesnoth has
+%% never achieved such a goal.  WML would need to be much more flexible
+%% than it is if it were to allow arbitrary unit behavior. Rather than
+%% being a data-oriented language, WML would have to be extended into a
+%% full-fledged programming language and that would be intimidating for
+%% many aspiring contributors.
+ユニットの挙動をWMLだけで完全に設定可能にできればお見事というところだろう。
+じゃあ、いったいなぜWesnothはそこにたどり着けていないのかを考えよう。
+もしユニットの挙動を好きにいじれるようにしようと思えば、
+WMLはもっと柔軟にする必要があるだろう。
+データ指向の言語にするのではなく、もっと高機能なプログラミング言語にしてしまう必要がある。
+でも、そんなことをしたら、何か貢献しようと思っている多くの人たちが敷居を高く感じてしまうようになる。
+
+%% Additionally, the Wesnoth AI, which is developed in C++, recognizes
+%% the abilities present in the game. It takes into account regeneration,
+%% invisibility, and so forth, and attempts to maneuver its units to take
+%% best advantage of these different abilities. Even if a unit ability
+%% could be created using WML, it would be difficult to make the AI
+%% sophisticated enough to recognize this ability to take advantage of
+%% it.  Implementing an ability but not having it accounted for by the AI
+%% would not be a very satisfying implementation.  Similarly,
+%% implementing an ability in WML and then having to modify the AI in C++
+%% to account for the ability would be awkward. Thus, having units
+%% definable in WML, but having abilities hard-wired into the engine is
+%% considered a reasonable compromise that works best for Wesnoth's
+%% specific requirements.
+さらに、WesnothのAIはC++で開発されており、ゲーム内のさまざまな能力を認識する。
+再生能力や見えなくなる力なども考慮してユニットの動きを決め、
+さまざまな能力を最大限に活用する。ユニットの能力をWMLで定義することもできたが、
+今のように洗練されたAIで能力を活用できるようにするのは難しくなっただろう。
+能力を使えるようにするけれどもAIはそれを活用しないというのは、
+あまりうまい実装ではない。同様に、能力をWMLで実装して、
+それを使うにはAIのC++コードも修正しないといけないっていうのもうまくない。
+そこで、ユニットの定義はWMLで行うけれども能力に関してはエンジンに組み込むという
+妥協案を採用した。これはWesnothの仕様の要件を十分満たす。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Wesnoth's Multiplayer Implementation}
+\begin{aosasect1}{Wesnothのマルチプレイヤー機能}
+
+%% The Wesnoth multiplayer implementation uses a simple-as-possible
+%% approach to implementing multiplayer in Wesnoth. It attempts to
+%% mitigate the possibility of malicious attacks on the server, but
+%% doesn't make a serious attempt to prevent cheating.  Any movement that
+%% is made in a Wesnoth game---moving of a unit, attacking an enemy,
+%% recruiting a unit, and so forth---can be saved as a WML node. For
+%% instance, a command to move a unit might be saved into WML like this:
+Wesnothのマルチプレイヤー機能の実装は、できるだけシンプルな手法を使うようにした。
+サーバーへの悪意のある攻撃の可能性をできるだけ減らすことには注意したが、
+チート対策にはそんなに力を入れていない。Wesnothのゲーム中のあらゆる操作
+(ユニットの移動、敵への攻撃、ユニットの追加など)はすべて、WMLのノードとして保存される。
+たとえば、ユニットを移動させるコマンドはこんなWMLファイルになるだろう。
+
+\begin{verbatim}
+[move]
+    x="11,11,10,9,8,7"
+    y="6,7,7,8,8,9"
+[/move]
+\end{verbatim}
+
+%% \noindent This shows the path that a unit follows as a result of a player's
+%% commands. The game then has a facility to execute any such WML command
+%% given to it. This is very useful because it means that a complete
+%% replay can be saved, by storing the initial state of the game and then
+%% all subsequent commands. Being able to replay games is useful both for
+%% players to observe each other playing, as well as to help in certain
+%% kinds of bug reports.
+\noindent
+これは、プレイヤーのコマンドに従ってユニットがたどる道を示している。
+このゲームには、このようなWMLのコマンドを受け取って実行する仕組みがある。
+これはとても有用だ。つまり、ゲームの初期状態とその後のすべてのコマンドを保存しておけば、
+そのゲームを完全に再現できるということだからだ。
+ゲームを再現できるようにしておけば、プレイヤーどうしがお互いのプレイを見るのにも便利だし、
+バグレポートのときにも便利に使える。
+
+%% We decided that the community would try to focus on friendly, casual
+%% games for the network multiplayer implementation of Wesnoth.  Rather
+%% than fight a technical battle against anti-social crackers trying to
+%% compromise cheat prevention systems, the project would simply not try
+%% hard to prevent cheating. An analysis of other multiplayer games
+%% indicated that competitive ranking systems were a key source of
+%% anti-social behavior. Deliberately preventing such functions on the
+%% server greatly reduced the motivation for individuals to cheat.
+%% Moreover the moderators try to encourage a positive gaming community
+%% where individuals develop personal rapport with other players and play
+%% with them. This placed a greater emphasis on relationships rather than
+%% competition. The outcome of these efforts has been deemed successful,
+%% as thus far efforts to maliciously hack the game have been largely
+%% isolated.
+私たちコミュニティは、フレンドリーでカジュアルなゲームであることを心がけながら
+Wesnothのネットワークマルチプレイヤー環境を作った。
+チート防止システムを組み込んで悪意のあるクラッカーと技術的に争うのではやめて、
+チート防止に無駄に力を入れすぎないようにした。
+私たちの競合だとみられている他のマルチプレイヤーゲーム(ランキングシステムで競争しあうもの)
+を分析して、クラッカー対策をどうするのかの参考にした。
+サーバー上のチート防止機能を意図的に外していると、チートしようとする人のやる気を大きくそぐようだった。
+さらに、モデレーターが前向きなコミュニティを作るようにし、
+個々の開発者とプレイヤーの信頼関係を築いて遊んでもらえるようにした。
+争うことよりもいい関係を保つことに注力したんだ。
+その努力の結果はうまくいっているものと見られる。
+悪意を持ってゲームをクラックしようという動きはほぼなくなったからだ。
+
+%% Wesnoth's multiplayer implementation consists of a typical
+%% client-server infrastructure. A server, known as wesnothd, accepts
+%% connections from the Wesnoth client, and sends the client a summary of
+%% available games.  Wesnoth will display a 'lobby' to the player who can
+%% choose to join a game or create a new game for others to join. Once
+%% players are in a game and the game starts, each instance of Wesnoth
+%% will generate WML commands describing the actions the player
+%% makes. These commands are sent to the server, and then the server
+%% relays them on to all the other clients in the game. The server will
+%% thus act as a very thin, simple relay. The replay system is used on
+%% the other clients to execute the WML commands.  Since Wesnoth is a
+%% turn-based game, TCP/IP is used for all network communication.
+Wesnothのマルチプレイヤー実装は、ありがちなクライアント・サーバー型のインフラで構成されている。
+サーバー(wesnothd)はWesnothクライアントからの接続を受け付け、遊べるゲームの概要をクライアントに送信する。
+Wesnothはプレイヤーに「ロビー」を表示し、どのゲームに参加するか、
+あるいは新たなゲームを作って他のユーザーを呼ぶのかを選べるようにする。
+プレイヤーが何かのゲームを選んでゲームが始まると、
+Wesnothの各インスタンスはプレイヤーのアクションにしたがってWMLコマンドを生成する。
+このコマンドはサーバーに送られ、サーバーは参加しているすべてのクライアントにそのコマンドを中継する。
+つまり、サーバーは、薄くシンプルな中継役として働くことになる。
+リプレイシステムを他のクライアントで使って、WMLコマンドを実行する。
+Wesnothはターン制のゲームなので、すべてのネットワーク通信にはTCP/IPを使う。
+
+%% This system also allows observers to easily watch a game. An observer
+%% can join a game in-progress, in which case the server will send the
+%% WML representing the initial state of the game, followed by a history
+%% of all commands that have been carried out since the start of the
+%% game. This allows new observers to get up to speed on the state of
+%% the game. They can see a history of the game, although it does take
+%% time for the observer to get to the game's current position---the
+%% history of commands can be fast forwarded but it still takes
+%% time. The alternative would be to have one of the clients generate a
+%% snapshot of the game's current state as WML and send it to the new
+%% observer; however this approach would burden clients with overhead
+%% based on observers, and could facilitate denial-of-service attacks by
+%% having many observers join a game.
+このシステムでは、プレイヤー以外もオブザーバーとしてゲームを観戦できるようになっている。
+オブザーバーは進行中のゲームに途中参加できる。このとき、サーバーはゲームの初期状態を表す
+WMLを送信してから、それ以降に実行されたすべてのコマンドの履歴を送信する。
+これで、途中から参加したオブザーバーもゲームの状態についていけるようになる。
+この時点でゲームの履歴を見られるようになるが、オブザーバーがゲームの現在の状態に追いつくには
+多少時間がかかる。コマンドの履歴は高速に転送されるとはいえ、それでも少し時間がかかるからだ。
+もうひとつの方法としては、クライアントのひとつがゲームの現状のスナップショットをWMLとして生成して、
+それを新しいオブザーバーに送るというやりかたもある。
+しかし、この手法だとクライアント側にオブザーバーのオーバーヘッドを押しつけることになり、
+大量のオブザーバーを同時にゲームに参加させるDoS攻撃もできるようになってしまう。
+
+%% Of course, since Wesnoth clients do not share any kind of game state
+%% with each other, only sending commands, it is important that they
+%% agree on the rules of the game. The server is segmented by version,
+%% with only players using the same version of the game able to
+%% interact. Players are immediately alerted if their client's game
+%% becomes out of sync with others. This also is a useful system to
+%% prevent cheating. Although it is rather easy for a player to cheat by
+%% modifying their client, any difference between versions will
+%% immediately be identified to players where it can be dealt with.
+もちろん、Wesnothクライアントはゲームの状態を何も共有せずただコマンドを送信するだけなので、
+クライアントがゲームのルールに合意することが重要になる。
+サーバーはバージョンによって分けられており、同じバージョンのゲームを使っているプレイヤーとしかやりとりできない。
+もし自分のクライアントのゲームのバージョンが他のクライアントとずれてしまったら、そのときにはプレイヤーにすぐ警告が出る。
+これは、チートを防ぐにも便利な仕組みだ。たとえクライアントをいじれば簡単にチートできるとしても、
+バージョンが変わればすぐに気づかれてしまうってことだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Conclusion}
+\begin{aosasect1}{結論}
+
+%% We believe that the beauty of the Battle for Wesnoth as a program is
+%% how it made coding accessible to a wide variety of individuals. To
+%% achieve this aim, the project often made compromises that do not look
+%% elegant whatsoever in the code. It should be noted that many of the
+%% project's more talented programmers frown upon WML for its inefficient
+%% syntax. Yet this compromise enabled one of the project's greatest
+%% successes. Today Wesnoth can boast of hundreds of user-made campaigns
+%% and eras, created mostly by users with little or no programming
+%% experience. Furthermore it has inspired a number of people to take up
+%% programming as a profession, using the project as a learning
+%% tool. Those are tangible accomplishments that few programs can equal.
+Battle for Wesnothのプログラムとしての長所は、
+幅広い人たちがコーディングに参加できるようになっているところだと思っている。
+この狙いを達成するため、あまりエレガントではないコードで妥協することも少なくない。
+ただ、プロジェクトに参加しているプログラマーの中でもデキる人たちはいて、
+そんな人たちはWMLの構文が非効率的であることに不満を持っている。
+でも、ここでの妥協は、このプロジェクトの大成功の一因になった。
+今やWesnothは、ユーザーが作った何百ものキャンペーンやEraを誇る。
+これらの大半は、プログラミングの経験がほとんどない(あるいはまったくない)人が作ったものだ。
+さらに、このプロジェクトがきっかけとなってプログラミングの仕事をするようになったという人も多い。
+彼らはこのプロジェクトでプログラミングを学んだんだ。
+これらが私たちのプロジェクトの目に見える成果で、ちょっと他のプログラムには類を見ないものだろう。
+
+%% One of the key lessons a reader should take away from Wesnoth's
+%% efforts is to consider the challenges faced by lesser skilled
+%% programmers. It requires an awareness of what blocks contributors from
+%% actually performing coding and developing their skills. For example an
+%% individual might want to contribute to the program but does not
+%% possess any programming skills. Dedicated technological editors like
+%% \code{emacs} or \code{vim} possess a significant learning curve that
+%% might prove daunting for such an individual. Thus WML was designed to
+%% allow a simple text editor to open up its files, giving anybody the
+%% tools to contribute.
+Wesnothの歴史から学んで欲しい大切なことがひとつある。
+それは、経験の浅いプログラマーがどんな苦労をすることになるか、気をつけるということだ。
+実際にコードを書いて自分の力を伸ばしたいと思っている貢献者たちに立ちはだかる壁は何なのか、
+そこを気にしないといけない。たとえば、プログラムに対して何らかの貢献をしたいけれども
+プログラミングに関する知識はまったくないという人もいるかもしれない。
+技術者向けのエディタ、たとえば\code{emacs}や\code{vim}
+の学習曲線は急勾配で、そんな人たちにとっては恐れ多いものだろう。
+そこで、WMLはシンプルなテキストエディタでも扱えるような形式にした。
+誰でも貢献できるようなツールを用意したというわけだ。
+
+%% However, increasing a code base's accessibility is not a simple
+%% objective to achieve. There are no hard and fast rules for increasing
+%% code's accessibility. Rather it requires a balance between different
+%% considerations, which can have negative consequences that the
+%% community must be aware of. This is apparent in how the program dealt
+%% with dependencies. In some cases, dependencies can actually increase
+%% barriers to participation, while in others they can allow people to
+%% contribute more easily. Every issue must be considered on a
+%% case-by-case basis.
+しかし、コードを誰でも扱いやすくするというのは決して容易なことではない。
+「こうすればOK」というような明確なルールがないからだ。
+いろんな要素を比較した上でうまくバランスを取る必要がある。
+下手をすると、まったく逆効果になってしまうかもしれない。
+これがはっきりするのが、依存関係の扱いかた。
+依存関係が増えると参入障壁が高くなってしまうこともあるが、
+場合によっては依存関係のおかげで参入しやすくなることもある。
+あらゆる問題を、ケースバイケースで考えないといけないということだ。
+
+%% We should also be careful not to overstate some of Wesnoth's
+%% successes.  The project enjoyed some advantages that are not easily
+%% replicated by other programs. Making code accessible to a wider public
+%% is partly a result of the program's setting. As an open source
+%% program, Wesnoth had several advantages in this regard. Legally the
+%% GNU license allows someone to open up an existing file, understand how
+%% it works and makes changes.  Individuals are encouraged to experiment,
+%% learn and share within this culture, which might not be appropriate
+%% for other programs. Nevertheless we hope that there are certain
+%% elements that might prove useful for all developers and help them in
+%% their effort to find beauty in coding.
+Wesnothの成功の一部については、誇張しすぎないように注意が必要だ。
+このプロジェクトはかなり恵まれていたところもあって、そのあたりは他のプログラムではまねできないだろうからだ。
+コードを幅広い層に扱ってもらえるようにするためのひとつの要素は、そのプログラムの背景だ。
+Wesnothはオープンソースのプログラムだったので、この点ではいろいろ恵まれていた。
+より厳密に言うと、GNUライセンスのおかげで誰でも既存のファイルを見ることができたし、
+その動きを理解したり手を加えたりも自由にできたんだ。
+いろいろ試してみながら学んで、それを他の人たちと共有することが推奨される文化だが、
+これが他のプログラムにもうまくあてはまるとは限らない。
+とは言え、本章の中にはあらゆる開発者にとって有用な内容も含まれていると思う。
+自分たちが美しいコードを書いていく上での参考になれば幸いだ。
+
+\end{aosasect1}
+
+\end{aosachapter}

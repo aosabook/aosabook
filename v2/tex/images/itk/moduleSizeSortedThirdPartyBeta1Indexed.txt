@@ -1,0 +1,17 @@
+ 1      19112	Modules/ThirdParty/VNL                  VNL
+ 2      13128	Modules/ThirdParty/HDF5                 HDF5
+ 3      12944	Modules/ThirdParty/GDCM                 GDCM
+ 9      1608	Modules/ThirdParty/TIFF                 TIFF
+ 10     1528	Modules/ThirdParty/NIFTI                NIFTI
+ 11     1392	Modules/ThirdParty/JPEG                 JPEG
+ 14     1240	Modules/ThirdParty/PNG                  PNG
+ 15     1200	Modules/ThirdParty/KWSys                KWSys
+ 19     1000	Modules/ThirdParty/OpenJPEG             OpenJPEG
+ 23     880	Modules/ThirdParty/MetaIO                 MetaIO
+ 24     796	Modules/ThirdParty/NrrdIO                 NrrdIO
+ 32     544	Modules/ThirdParty/ZLIB                   ZLIB
+ 35     432	Modules/ThirdParty/GIFTI                  GIFTI
+ 38     376	Modules/ThirdParty/Expat                  Expat
+ 51     232	Modules/ThirdParty/DICOMParser            DICOMParser
+ 54     220	Modules/ThirdParty/Netlib                 Netlib
+ 81     120	Modules/ThirdParty/VNLInstantiation       VNLInstantiation

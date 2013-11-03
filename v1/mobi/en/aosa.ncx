@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
+	"http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+
+<!--
+	For a detailed description of NCX usage please refer to:
+	http://www.idpf.org/2007/opf/OPF_2.0_final_spec.html#Section2.4.1
+-->
+
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="en-US">
+<head>
+<meta name="dtb:uid" content="BookId"/>
+<meta name="dtb:depth" content="2"/>
+<meta name="dtb:totalPageCount" content="0"/>
+<meta name="dtb:maxPageNumber" content="0"/>
+</head>
+<docTitle><text>The Architecture of open Source Applications</text></docTitle>
+<docAuthor><text>Amy Brown and Greg Wilson (eds.)</text></docAuthor>
+  <navMap>
+    <navPoint class="toc" id="toc" playOrder="1">
+      <navLabel>
+        <text>Table of Contents</text>
+      </navLabel>
+      <content src="toc.html"/>
+    </navPoint>
+    <navPoint class="welcome" id="welcome" playOrder="2">
+      <navLabel>
+        <text>Introduction</text>
+      </navLabel>
+      <content src="intro.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_1" playOrder="3">
+      <navLabel>
+        <text>Chapter 1. Asterisk</text>
+      </navLabel>
+      <content src="01_asterisk.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_2" playOrder="4">
+      <navLabel>
+        <text>Chapter 2. Audacity</text>
+      </navLabel>
+      <content src="02_audacity.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_3" playOrder="5">
+      <navLabel>
+        <text>Chapter 3. The Bourne-Again Shell</text>
+      </navLabel>
+      <content src="03_bash.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_4" playOrder="6">
+      <navLabel>
+        <text>Chapter 4. Berkeley DB</text>
+      </navLabel>
+      <content src="04_bdb.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_5" playOrder="7">
+      <navLabel>
+        <text>Chapter 5. CMake</text>
+      </navLabel>
+      <content src="05_cmake.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_6" playOrder="8">
+      <navLabel>
+        <text>Chapter 6. Continuous Integration</text>
+      </navLabel>
+      <content src="06_integration.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_7" playOrder="9">
+      <navLabel>
+        <text>Chapter 7. Eclipse</text>
+      </navLabel>
+      <content src="07_eclipse.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_8" playOrder="10">
+      <navLabel>
+        <text>Chapter 8. Graphite</text>
+      </navLabel>
+      <content src="08_graphite.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_9" playOrder="11">
+      <navLabel>
+        <text>Chapter 9. The Hadoop Distributed File System</text>
+      </navLabel>
+      <content src="09_hdfs.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_10" playOrder="12">
+      <navLabel>
+        <text>Chapter 10. Jitsi</text>
+      </navLabel>
+      <content src="10_jitsi.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_11" playOrder="13">
+      <navLabel>
+        <text>Chapter 11. LLVM</text>
+      </navLabel>
+      <content src="11_llvm.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_12" playOrder="14">
+      <navLabel>
+        <text>Chapter 12. Mercurial</text>
+      </navLabel>
+      <content src="12_mercurial.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_13" playOrder="15">
+      <navLabel>
+        <text>Chapter 13. The NoSQL Ecosystem</text>
+      </navLabel>
+      <content src="13_nosql.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_14" playOrder="16">
+      <navLabel>
+        <text>Chapter 14. Python Packaging</text>
+      </navLabel>
+      <content src="14_packaging.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_15" playOrder="17">
+      <navLabel>
+        <text>Chapter 15. Riak and Erlang/OTP</text>
+      </navLabel>
+      <content src="15_riak.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_16" playOrder="18">
+      <navLabel>
+        <text>Chapter 16. Selenium WebDriver</text>
+      </navLabel>
+      <content src="16_selenium.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_17" playOrder="19">
+      <navLabel>
+        <text>Chapter 17. Sendmail</text>
+      </navLabel>
+      <content src="17_sendmail.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_18" playOrder="20">
+      <navLabel>
+        <text>Chapter 18. SnowFlock</text>
+      </navLabel>
+      <content src="18_snowflock.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_19" playOrder="21">
+      <navLabel>
+        <text>Chapter 19. SocialCalc</text>
+      </navLabel>
+      <content src="19_socialcalc.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_20" playOrder="22">
+      <navLabel>
+        <text>Chapter 20. Telepathy</text>
+      </navLabel>
+      <content src="20_telepathy.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_21" playOrder="23">
+      <navLabel>
+        <text>Chapter 21. Thousand Parsec</text>
+      </navLabel>
+      <content src="21_thousandparsec.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_22" playOrder="24">
+      <navLabel>
+        <text>Chapter 22. Violet</text>
+      </navLabel>
+      <content src="22_violet.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_23" playOrder="25">
+      <navLabel>
+        <text>Chapter 23. VisTrails</text>
+      </navLabel>
+      <content src="23_vistrails.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_24" playOrder="26">
+      <navLabel>
+        <text>Chapter 24. VTK</text>
+      </navLabel>
+      <content src="24_vtk.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="chapter_25" playOrder="27">
+      <navLabel>
+        <text>Chapter 25. The Battle of Wesnoth</text>
+      </navLabel>
+      <content src="25_wesnoth.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="bibliography" playOrder="28">
+      <navLabel>
+        <text>Bibliography</text>
+      </navLabel>
+      <content src="bibliography.html"/>
+    </navPoint>
+
+  </navMap>
+</ncx>

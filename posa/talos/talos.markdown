@@ -1,0 +1,377 @@
+title: Talos
+author: Clint Talbert and Joel Maher
+
+At Mozilla, one of our very first automation systems was a performance
+testing framework we dubbed Talos. Talos had been faithfully
+maintained without substantial modification since its inception in
+2007, even though many of the original assumptions and design
+decisions behind Talos were lost as ownership of the tool changed
+hands.
+
+In the summer of 2011, we finally began to look askance at the noise
+and the variation in the Talos numbers, and we began to wonder how we
+could make some small modification to the system to start improving
+it. We had no idea we were about to open Pandora’s Box.
+
+In this chapter, we will detail what we found as we peeled back layer
+after layer of this software, what problems we uncovered, and what
+steps we took to address them in hopes that you might learn from both
+our mistakes and our successes.
+
+## Overview
+
+Let's unpack the different parts of Talos. At its heart, Talos is a
+simple test harness which creates a new Firefox profile, initializes
+the profile, calibrates the browser, runs a specified test, and
+finally reports a summary of the test results. The tests live inside
+the Talos repository and are one of two types: a single page which
+reports a single number (e.g., startup time via a web page’s `onload`
+handler) or a collection of pages that are cycled through to measure
+page load times. Internally, a Firefox extension is used to cycle the
+pages and collect information such as memory and page load time, to
+force garbage collection, and to test different browser modes. The
+original goal was to create as generic a harness as possible to allow
+the harness to perform all manner of testing and measure some
+collection of performance attributes as defined by the test itself.
+
+To report its data, the Talos harness can send JSON to _Graph Server_:
+an in-house graphing web application that accepts Talos data as long
+as that data meets a specific, predefined format for each test, value,
+platform, and configuration. Graph Server also serves as the interface
+for investigating trends and performance regressions. A local instance
+of a standard Apache web server serve the pages during a test run.
+
+The final component of Talos is the regression reporting tools. For
+every check-in to the Firefox repository, several Talos tests are run,
+these tests upload their data to Graph Server, and another script
+consumes the data from Graph Server and ascertains whether or not
+there has been a regression. If a regression is found (i.e., the
+script's analysis indicates that the code checked in made performance
+on this test significantly worse), the script emails a message to a
+mailing list as well as to the individual that checked in the
+offending code.
+
+While this architecture---summarized in \aosafigref{fig.talos.f1}---seems fairly
+straightforward, each piece of Talos has morphed over the years as
+Mozilla has added new platforms, products, and tests. With minimal
+oversight of the entire system as an end to end solution, Talos wound
+up in need of some serious work:
+
+* Noise---the script watching the incoming data flagged as many
+  spikes in test noise as actual regressions and was impossible to
+  trust.
+* To determine a regression, the script compared each check-in to
+  Firefox with the values for three check-ins prior and three
+  afterward. This meant that the Talos results for your check-in might
+  not be available for several hours.
+* Graph Server had a hard requirement that all incoming data be tied
+  to a previously defined platform, branch, test type, and
+  configuration. This meant that adding new tests was difficult as it
+  involved running a SQL statement against the database for each new
+  test.
+* The Talos harness itself was hard to run because it took its
+  requirement to be generic a little too seriously---it had a
+  "configure" step to generate a configuration script that it would
+  then use to run the test in its next step.
+
+\aosafigure[210pt]{talos-images/arch.png}{Talos architecture}{fig.talos.f1}
+
+While hacking on the Talos harness in the summer of 2011 to add
+support for new platforms and tests, we encountered the results from
+Jan Larres's master's thesis, in which he investigated the large
+amounts of noise that appeared in the Talos tests. He analyzed various
+factors including hardware, the operating system, the file system,
+drivers, and Firefox that might influence the results of a Talos
+test. Building on that work, Stephen Lewchuk devoted his internship to
+trying to statistically reduce the noise we saw in those tests.
+
+Based on their work and interest, we began forming a plan to eliminate
+or reduce the noise in the Talos tests. We brought together harness
+hackers to work on the harness itself, web developers to update Graph
+Server, and statisticians to determine the optimal way to run each
+test to produce predictable results with minimal noise.
+
+## Understanding What You Are Measuring
+
+When doing performance testing, it is important to have useful tests
+which provide value to the developers of the product and help
+customers to see how this product will perform under certain
+conditions. It is also important to have a repeatable environment so
+you can reproduce results as needed. But, what is most important is
+understanding what tests you have and what you measure from those
+tests.
+
+A few weeks into our project, we had all been learning more about the
+entire system and started experimenting with various parameters to run
+the tests differently. One recurring question was “what do the numbers
+mean?” This was not easily answered. Many of the tests had been around
+for years, with little to no documentation.
+
+Worse yet, it was not possible to produce the same results locally
+that were reported from an automated test run. It became evident that
+the harness itself performed calculations, (it would drop the highest
+value per page, then report the average for the rest of the cycles)
+and Graph Server did as well (drop the highest page value, then
+average the pages together). The end result was that no historical
+data existed that could provide much value, nor did anybody understand
+the tests we were running.
+
+We did have some knowledge about one particular test. We knew that
+this test took the top 100 websites snapshotted in time and loaded
+each page one at a time, repeating 10 times. Talos loaded the page,
+waited for the `mozAfterPaint` event, (a standard event which is fired
+when Firefox has painted the canvas for the webpage) and then recorded
+the time from loading the page to receiving this event. Looking at the
+1000 data points produced from a single test run, there was no obvious
+pattern. Imagine boiling those 10,000 points down to a single number
+and tracking that number over time. What if we made CSS parsing
+faster, but image loading slower? How would we detect that? Would it
+be possible to see page 17 slow down if all 99 other pages remained
+the same? To showcase how the values were calculated in the original
+version of Talos, consider the following numbers.
+
+For the following page load values:
+
+* Page 1: 570, 572, 600, 503, 560
+* Page 2: 780, 650, 620, 700, 750
+* Page 3: 1220, 980, 1000, 1100, 1200
+
+First, the Talos harness itself would drop the first value and
+calculate the median:
+
+* Page 1: 565.5
+* Page 2: 675
+* Page 3: 1050
+
+These values would be submitted to Graph Server. Graph Server would
+drop the highest value and calculate the mean using these per page
+values and it would report that one value:
+
+<markdown>
+* (565.5 + 675)/2 = 620.25
+</markdown>
+<latex>
+$$ \frac{565.5 + 675}{2} = 620.25 $$
+</latex>
+
+This final value would be graphed over time, and as you can see it
+generates an approximate value that is not good for anything more than
+a coarse evaluation of performance. Furthermore, if a regression is
+detected using a value like this, it would be extremely difficult to
+work backwards and see which pages caused the regression so that a
+developer could be directed to a specific issue to fix.
+
+We were determined to prove that we could reduce the noise in the data
+from this 100 page test. Since the test measured the time to load a
+page, we first needed to isolate the test from other influences in the
+system like caching. We changed the test to load the same page over
+and over again, rather than cycling between pages, so that load times
+were measured for a page that was mostly cached. While this approach
+is not indicative of how end users actually browse the web, it reduced
+some of the noise in the recorded data. Unfortunately, looking at only
+10 data points for a given page was not a useful sample size.
+
+By varying our sample size and measuring the standard deviation of the
+page load values from many test runs, we determined that noise was
+reduced if we loaded a page at least 20 times. After much
+experimentation, this method found a sweet spot with 25 loads and
+ignoring the first 5 loads. In other words, by reviewing the standard
+deviation of the values of multiple page loads, we found that 95% of
+our noisy results occurred within the first five loads. Even though
+we do not use those first 5 data points, we do store them so that we
+can change our statistical calculations in the future if we wish.
+
+All this experimentation led us to some new requirements for the data
+collection that Talos was performing:
+
+* All data collected needs to be stored in the database, not just
+averages of averages.
+* A test must collect at least 20 useful data points per test (in this
+case, per page).
+* To avoid masking regressions in one page by improvements in another
+page, each page must be calculated independently. No more averaging
+values across pages.
+* Each test that is run needs to have a developer who owns the test
+and documentation on what is being collected and why.
+* At the end of a test, we must be able to detect a regression for any
+given page at the time of reporting the results.
+
+Applying these new requirements to the entire Talos system was the
+right thing to do, but with the ecosystem that had grown up around
+Talos it would be a major undertaking to switch to this new model. We
+had a decision to make as to whether we would refactor or rewrite the
+system.
+
+## Rewrite vs. Refactor
+
+Given our research into what had to change on Talos, we knew we would
+be making some drastic changes. However, all historical changes to
+Talos at Mozilla had always suffered from a fear of “breaking the
+numbers.” The many pieces of Talos were constructed over the years by
+well-intentioned contributors whose additions made sense at the time,
+but without documentation or oversight into the direction of the tool
+chain, it had become a patchwork of code that was not easy to test,
+modify, or understand.
+
+Given our fear of the undocumented dark matter in the code base,
+combined with the issue that we would need to verify our new
+measurements against the old measurements, we began a refactoring
+effort to modify Talos and Graph Server in place. However, it was
+quickly evident that without a massive re-architecture of the database
+schema, The Graph Server system would never be able to ingest the full
+set of raw data from the performance tests. Additionally, we had no
+clean way to apply our newly-researched statistical methods into Graph
+Server's backend. Therefore, we decided to rewrite Graph Server from
+scratch, creating a project called Datazilla. This was not a decision
+made lightly, as other open source projects had forked the Graph
+Server code base for their own performance automation. On the Talos
+harness side of the equation, we also did a prototype from scratch. We
+even had a working prototype that ran a simple test and was about 2000
+lines of code lighter.
+
+While we rewrote Graph Server from scratch, we were worried about
+moving ahead with our new Talos test runner prototype. Our fear was
+that we might lose the ability to run the numbers “the old way” so
+that we could compare the new approach with the old. So, we abandoned
+our prototype and modified the Talos harness itself piecemeal to
+transform it into a data generator while leaving the existing pieces
+that performed averages to upload to the old Graph Server system. This
+was a singularly bad decision. We should have built a separate harness
+and then compared the new harness with the old one.
+
+Trying to support the original flow of data and the new method for
+measuring data for each page proved to be difficult. On the positive
+side, it forced us to restructure much of the code internal to the
+framework and to streamline quite a few things. But, we had to do all
+this piecemeal on a running piece of automation, which caused us
+several headaches in our continuous integration rigs.
+
+It would have been far better to develop both Talos the framework and
+Datazilla its reporting system in parallel from scratch, leaving all
+of the old code behind. Especially when it came to staging, it would
+have been far easier to stage the new system without attempting to
+wire in the generation of development data for the upcoming Datazilla
+system in running automation. We had thought it was necessary to do
+this so that we could generate test data with real builds and real
+load to ensure that our design would scale properly. In the end, that
+build data was not worth the complexity of modifying a production
+system. If we had known at the time that we were embarking on a year
+long project instead of our projected six month project, we would have
+rewritten Talos and the results framework from scratch.
+
+## Creating a Performance Culture
+
+Being an open source project, we need to embrace the ideas and
+criticisms from other individuals and projects. There is no director
+of development saying how things will work. In order to get the most
+information possible and make the right decision, it was a requirement
+to pull in many people from many different teams. The project started
+off with two developers on the Talos framework, two on Datazilla/Graph
+Server, and two statisticians on loan from our metrics team. We opened
+up this project to our volunteers from the beginning and pulled in
+many fresh faces to Mozilla as well as others who used Graph Server
+and some Talos tests for their own projects. As we worked together,
+slowly understanding what permutations of test runs would give us less
+noisy results, we reached out to include several Mozilla developers in
+the project. Our first meetings with them were understandably rocky,
+due to the large changes we were proposing to make. The mystery of
+“Talos” was making this a hard sell for many developers who cared a
+lot about performance.
+
+The important message that took a while to settle in was why rewriting
+large components of the system was a good idea, and why we couldn’t
+simply “fix it in place.” The most common feedback was to make a few
+small changes to the existing system, but everyone making that
+suggestion had no idea how the underlying system worked. We gave many
+presentations, invited many people to our meetings, held special
+one-off meetings, blogged, posted, tweeted, etc. We did everything we
+could to get the word out. Because the only thing more horrible than
+doing all this work to create a better system would be to do all the
+work and have no one use it.
+
+It has been a year since our first review of the Talos noise problem.
+Developers are looking forward to what we are releasing. The Talos
+framework has been refactored so that it has a clear internal
+structure and so that it can simultaneously report to Datazilla and
+the old Graph Server. We have verified that Datazilla can handle the
+scale of data we are throwing at it (1 TB of data per six months) and
+have vetted our metrics for calculation results. Most excitingly, we
+have found a way to deliver a regression/improvement analysis in real
+time on a per-change basis to the Mozilla trees, which is a big win
+for developers.
+
+So, now when someone pushes a change to Firefox, here is what Talos
+does:
+
+
+* Talos collects 25 data points for each page.
+* All of those numbers are uploaded to Datazilla.
+* Datazilla performs the statistical analysis after dropping the first
+  five data points. (95% of noise is found in the first 5 data
+  points.)
+* A Welch’s T-Test is then used to analyze the numbers and detect if
+  there are any outliers in the per-page data as compared to previous
+  trends from previous pushes.[^ttest]
+* All results of the T-Test analysis are then pushed through a False
+  Discovery Rate filter which ensures that Datazilla can detect any
+  false positives that are simply due to noise.[^fdr]
+* Finally, if the results are within our tolerance, Datazilla runs the
+  results through an exponential smoothing algorithm to generate a new
+  trend line.[^data_smoothing] If the results are not within our
+  tolerance, they do not form a new trend line and the page is marked
+  as a failure.
+* We determine overall pass/fail metrics based on the percentage of
+  pages passing. 95% passing is a “pass”.
+
+The results come back to the Talos harness in real time, and Talos can
+then report to the build script whether or not there is a performance
+regression. All of this takes place with 10-20 Talos runs completing
+every minute (hence the 1 TB of data) while updating the calculations
+and stored statistics at the same time.
+
+Taking this from a working solution to replacing the existing solution
+requires running both systems side by side for a full release of
+Firefox. This process ensures that we look at all regressions reported
+by the original Graph Server and make sure they are real and reported
+by Datazilla as well. Since Datazilla reports on a per-page basis
+instead of at the test suite level, there will be some necessary
+acclimation to the new UI and way we report regressions.
+
+Looking back, it would have been faster to have replaced the old Talos
+harness up front. By refactoring it, however, Mozilla brought many new
+contributors into the Talos project. Refactoring has also forced us to
+understand the tests better, which has translated into fixing a lot of
+broken tests and turning off tests with little to no value. So, when
+considering whether to rewrite or refactor, total time expended is not
+the only metric to review.
+
+## Conclusion
+
+In the last year, we dug into every part of performance testing
+automation at Mozilla. We have analyzed the test harness, the
+reporting tools, and the statistical soundness of the results that
+were being generated. Over the course of that year, we used what we
+learned to make the Talos framework easier to maintain, easier to run,
+simpler to set up, easier to test experimental patches with, and less
+error prone. We have created Datazilla as an extensible system for
+storing and retrieving all of our performance metrics from Talos and
+any future performance automation. We have rebooted our performance
+statistical analysis and created statistically viable, per-push
+regression/improvement detection. We have made all of these systems
+easier to use and more open so that any contributor anywhere can take
+a look at our code and even experiment with new methods of statistical
+analysis on our performance data. Our constant commitment to reviewing
+the data again and again at each milestone of the project and our
+willingness to throw out data that proved inconclusive or invalid
+helped us retain our focus as we drove this gigantic project
+forward. Bringing in people from across teams at Mozilla as well as
+many new volunteers helped lend the effort validity and also helped to
+establish a resurgence in performance monitoring and data analysis
+across several areas of Mozilla’s efforts, resulting in an even more
+data-driven, performance-focused culture.
+
+<!-- TODO These urls are pretty long; can you shorten? -->
+
+[^ttest]: https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/ttest.py
+[^fdr]: https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/fdr.py
+[^data_smoothing]: https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/data_smoothing.py

@@ -1,0 +1,174 @@
+How to make a Kindle ebook from the AOSA web pages
+
+This assumes that the reader is comfortable editing HTML and XML files
+directly but no other expertise is required.
+
+There are two high-level stages to creating a Kindle ebook from a set of
+html files:
+1) Get kindlegen and create opf, ncx and toc files
+2) Edit the html content files to give the best format for Kindle.
+
+1) Kindlegen and OPF files...
+
+You can get the latest version of kindlegen from Amazon. Google gave me this
+link
+http://www.amazon.com/gp/feature.html?ie=UTF8&docId=1000234621
+Kindlegen is available for Windows, Mac and Linux (I use Linux).
+In the kindlegen zip is the executable file and some examples. The example
+for the Kindle guide is useful as it is an opf file.
+
+I also found a Kindle publishing guide that was useful.
+
+It is possible to create simple ebooks from a single HTMl file but more
+complex ones require a more powerful format. The opf format supports a cover
+picture, table of contents and multiple content files.
+
+To use the opf format, first edit the .opf file. This includes meta-data
+such as author, ISBN and publication data and it lists the component parts
+of the ebook. The best approach is to take a working example and edit. The
+opf file for the Kindle Guide is included with kindlegen and has excellent
+comments internally.
+
+The opf file will refer to two Table of Contents (ToC) files. One is a HTML
+file with links to each chapter and the other is a ncx file that is (I think)
+part of the opf format. As with the opf file, it is easiest to take a working
+example and edit it.
+
+Given the opf and ToC files (as well as the HTML content files), you can run
+kindlegen from the command line:
+kindlegen aosa.opf
+will read the file aosa.opf and generate a aosa.mobi file. It also reports
+errors usefully.
+
+Note that it is not necessary to include entries for images in the .opf file -
+they will just be picked up automatically.
+
+2) Content files...
+
+Kindlegen accepts HTML files with a subset of formatting. You should be aware 
+of how the Kindle has to handle different sizes of text and this is why some
+formatting is ignored.
+
+At its simplest, if you have a collection of HTML files, one per chapter,
+and have referred to them correctly from the opf and ToC files then kindlegen
+will build an ebook.
+
+Detailed issues are covered below:
+
+*Saving Pages*
+I saved each page from the web site to a named file in the working directory.
+For my own reasons (because I used to use Calibre), I named them with a chapter
+number. This is unnecessary (and caused linking problems). If I was doing this
+again, I would simply save each one with the default name for the chapter.
+
+In most browsers (at least Firefox), this results in a separate directory
+for each page with images and other dependencies). For some chapters, I moved
+diagrams from these directories but I then realised that I did not need to and
+it is simpler just to leave them - this is why the file layout and references are
+not consistent.
+
+Therefore, saving the pages results in a set of HTML files, each with an
+accompanying directory in a working directory along with the opf and ToC files.
+
+
+*HTML Structure*
+The AOSA web pages all included a standard section at the start including 
+an image and Google analytics. I removed these to get a vanilla start of
+page. In general, javascript won't work but a range of css embedded in styles
+in the file headers work. I haven't tried external style sheets.
+
+*Diagrams*
+These are saved by default and the references work so they should require no
+extra work.
+
+*Links*
+Kindlegen is able to resolve links within and between chapters. Internal links
+follow the HTML #convention and require no editing.
+
+Links betweeen chapters are included in the saved web pages as full http:
+references and are not affected by being saved. If they are changed to simply
+refer to the file in the same directopry then kindlegen will resolve them
+within the ebook. This just requires removing the 
+http://www.aosabook.org/en/ part of all links. I wrote a script to do this along
+with other changes. This is where renaming the saved files breaks links so it
+really is better to save with the default name.
+
+Some of the links to the bibliography have multiple internal anchors which do
+not work as links. Kindlegen identifies these during document generation and
+they can then be manually corrected.
+
+When editing content, remember that any element with an id can be linked to.
+Therefore, if removing elements as part of re-formatting, consider adding the
+original id to one of the new elements. If you miss any of these then helpful 
+errors will be raised by kindlegen.
+
+*Boxes / sidebars*
+Kindlegen does not support the paragraph borders so the boxes or sidebars
+end up as default text. To provide some visual distinction, I manually added
+<hr /> elements and bolded the box title.
+
+I found boxes in chapters 4, 10, 14, 16, 17 and 20 but Amy found some in
+chapter 2 so I may have missed more.
+
+
+*Tables*
+Tables do not work at all well on the Kindle and the guide includes numerous
+examples of why they should not be used. If they are used then they can cause
+the table width to be wider than the page. As the Kindle doesn't let you scroll
+sideways easily, these end up unreadable.
+
+I had to manually break up the content of tables to try to make it readable.
+When doing this, remember that existing tables may have an id that can be 
+linked to so ensure that one of the new elements has the same id.
+
+I found tables in chapters 4, 17, 18, 19, 20 and 24.
+
+*Unexpected characters*
+The Kindle does not handle all Unicode characters. I encountered problems with
+some vertical bars, some quotation marks and a character to denote a space.
+In all (most?) cases, these are stored as entities in the HTML and can be 
+replaced by similar characters automatically.
+
+Not all Unicode or entity characters cause problems. I found the best approach 
+was to leave them alone and then manually proof-read the kindle version, spot
+invalid characters and then go and replace all occurences. This risks missing
+some.
+
+I used a sinple Python script pygrep.py to make general modifications.
+
+*Whitespace*
+
+I put blank lines around h1, h2, h3 and sidebars. I did this using scripts. It
+might have been possible to create a class with a gap for these but I didn't
+think to try it in time.
+
+*Smaller text*
+
+In general, one should be careful about changing text size for the Kindle but it
+is possible. Both the CSS font-size style or the <font> tag work but you need to
+select the smallest text size to get smaller. There are several larger text sizes
+although I didn't use them.
+
+I did some unnecessary work with code text in sidebars. I made all code small
+and all sidebars small and then I manually removed the code sizes within sidebars.
+This was probably unnecessary.
+
+This was a case where simply setting the CSS font-style for code, pre and
+sidebars would be trhe elegant answer.
+
+*Unindenting*
+
+Some paragraphs were unindented. It turned out that almost all of these had a
+continue class so I was able to just define this. The same technique would have
+saved work in other areas if I had thought of it earlier.
+
+*Scripts*
+
+I wrote some Python scripts to do various transformations. As these were done
+sequentially, they are a number of separate files. If I was doing a fresh book
+and knew what I was doing, I might well be able to combine them into one.
+
+
+Ian McDowall
+10 June 2011
+

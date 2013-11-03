@@ -1,0 +1,2166 @@
+\begin{aosachapter}{Berkeley DB}{s:bdb}{Margo Seltzer and Keith Bostic}
+%% Based on EN-Revision r229
+
+%% Conway's Law states that a design reflects the structure of the
+%% organization that produced it. Stretching that a bit, we might
+%% anticipate that a software artifact designed and initially produced by
+%% two people might somehow reflect, not merely the structure of the
+%% organization, but the internal biases and philosophies each brings to
+%% the table. One of us (Seltzer) has spent her career between the worlds
+%% of filesystems and database management systems. If questioned, she'll
+%% argue the two are fundamentally the same thing, and furthermore,
+%% operating systems and database management systems are essentially both
+%% resource managers and providers of convenient abstractions. The
+%% differences are ``merely'' implementation details. The other (Bostic)
+%% believes in the tool-based approach to software engineering and in the
+%% construction of components based on simpler building blocks, because
+%% such systems are invariably superior to monolithic architectures in
+%% the important ``-bilities'': understandability, extensibility,
+%% maintainability, testability, and flexibility.
+コンウェイの法則によると、ソフトウェアの設計はそれを作った組織の構造を反映したものとなるらしい。
+もう少し話を広げると、こんなことも言えないだろうか。
+あるソフトウェアがたった二人によって設計されて作り出されたのなら、
+単に組織の構造を反映しているだけにとどまらず、二人の好みや思想も持ち込まれているのでは?
+二人の片割れであるSeltzerは、そのキャリアをずっとファイルシステムやデータベース管理システムの世界に捧げている。
+彼女はきっとこう言うだろう。「その二つは基本的にまったく同じものでしょう?
+もっと言うなら、OSとデータベース管理システムだってそう。
+本質的にはどちらも、リソース管理と便利な抽象化をしているに過ぎないのだから」
+単に、ちょっとした実装の詳細が違う``だけ''だということだ。
+もう一方のBosticはツールベースのアプローチによるソフトウェア開発を信じており、
+シンプルなブロックを組み合わせて部品を作っていこうとする。
+そういったシステムの方が常に、モノリシックなアーキテクチャに比べて各種の「○○性」
+に優れているからである。そう、理解容易性とか拡張性とか保守性とかテスト可能性とか柔軟性といかいうやつだ。
+
+%% When you combine those two perspectives, it's not surprising to learn
+%% that together we spent much of the last two decades working on
+%% Berkeley DB---a software library that provides fast, flexible,
+%% reliable and scalable data management.  Berkeley DB provides much of
+%% the same functionality that people expect from more conventional
+%% systems, such as relational databases, but packages it differently.
+%% For example, Berkeley DB provides fast data access, both keyed and
+%% sequential, as well as transaction support and recovery from failure.
+%% However, it provides those features in a library that links directly
+%% with the application that needs those services, rather than being made
+%% available by a standalone server application.
+この考えを組み合わせると、私たち二人がこの二十年間の大半をBerkeley DBに費やしてきたと知っても驚かないだろう。
+高速で柔軟性・信頼性・拡張性に富むデータ管理用のソフトウェアライブラリ、それがBerkeley DBだ。
+Berkeley DBは、人々がもっと伝統的なシステム、たとえばリレーショナルデータベースなどに期待する機能の多くを提供する。
+しかし、そのまとめかたは異なっている。
+たとえば、Berkeley DBはキーによるアクセスもシーケンシャルアクセスも高速に行え、
+トランザクションにも対応しているし障害回復機能もある。
+しかし、そういった機能はライブラリとして提供しており、
+それを使いたいアプリケーション側で直接リンクして使うようになっている。
+スタンドアロンのサーバーアプリケーションとして提供しているわけではない。
+
+%% In this chapter, we'll take a deeper look at Berkeley DB and see that
+%% it is composed of a collection of modules, each of which embodies the
+%% Unix ``do one thing well'' philosophy.  Applications that embed
+%% Berkeley DB can use those components directly or they can simply use
+%% them implicitly via the more familiar operations to get, put, and
+%% delete data items.  We'll focus on architecture---how we got started,
+%% what we were designing, and where we've ended up and why. Designs can
+%% (and certainly will!) be forced to adapt and change---what's vital is
+%% maintaining principles and a consistent vision over time. We will also
+%% briefly consider the code evolution of long-term software
+%% projects. Berkeley DB has over two decades of on-going development,
+%% and that inevitably takes its toll on good design.
+本章ではBerkeley DBの詳細を扱う。さまざまなモジュールの集まりで作られていることや、
+それぞれがUnixの思想である``ひとつのことをうまくやらせる(do one thing well)''を体現していることもわかるだろう。
+Berkeley DBを組み込んだアプリケーション側からは、これらのコンポーネントを直接使うこともできるし、
+あるいはもっとシンプルに、慣れ親しんだget、put、deleteといった操作を通じて暗黙的に使うこともできる。
+ここでは、そのアーキテクチャに注目する。最初はどう考えたのか、どんな設計をしたのか、そして最終的にどうなったのか、それはなぜか、そういったことだ。
+設計は、状況に合わせて変化することもあり得る(実際、あったし!)。
+大切なのは、原則を外さずに一貫したビジョンを持ち続けることだ。
+また本章では、長期間にわたるソフトウェア開発プロジェクトにおけるコードの成長についても簡単に検討する。
+Berkeley DBはふたつのディケイドにまたがる現在進行中のプロジェクトであり、
+必然的に「よい設計」にも打撃を与えている。
+
+%% \begin{aosasect1}{In the Beginning}
+\begin{aosasect1}{はじまり}
+
+%% Berkeley DB dates back to an era when the Unix operating system was
+%% proprietary to AT\&T and there were hundreds of utilities and libraries
+%% whose lineage had strict licensing constraints. Margo Seltzer was a
+%% graduate student at the University of California, Berkeley, and Keith
+%% Bostic was a member of Berkeley's Computer Systems Research Group. At
+%% the time, Keith was working on removing AT\&T's proprietary software
+%% from the Berkeley Software Distribution.
+Berkeley DBが生まれたのは、まだUnixオペレーティングシステムがAT\&Tに独占されていた頃のことだ。
+何百ものユーティリティやライブラリがあったが、厳しいライセンスの制約に縛られていた。
+Margo Seltzerはその当時カリフォルニア大学バークレー校の大学院生。
+一方Keith BosticはバークレーのComputer Systems Research Groupに属していた。
+当時のKeithが携わっていたのは、AT\&Tのプロプライエタリなソフトウェアを
+Berkeley Software Distributionから取り除く作業だった。
+
+%% The Berkeley DB project began with the modest goal of replacing the
+%% in-memory \code{hsearch} hash package and the on-disk \code{dbm/ndbm} hash
+%% packages with a new and improved hash implementation able to operate
+%% both in-memory and on disk, as well as be freely redistributed without
+%% a proprietary license. The \code{hash} library that Margo Seltzer
+%% wrote~\cite{bib:seltzer:hash} was based on
+%% Litwin's Extensible Linear Hashing research. It boasted a clever
+%% scheme allowing a constant time mapping between hash values and page
+%% addresses, as well as the ability to handle large data---items
+%% larger than the underlying hash bucket or filesystem page size,
+%% typically four to eight kilobytes.
+Berkeley DBプロジェクトが立ち上がった当時のささやかな目標は、
+インメモリのハッシュパッケージである\code{hsearch}やディスク上でのハッシュパッケージである\code{dbm/ndbm}を置き換えることだった。
+新しい、そしてより改善されたハッシュ実装を作り、メモリ上でもディスク上でも扱えるようにする。
+そしてプロプライエタリなライセンスに縛られずに自由に配布できる。それを目指していた。
+Margo Seltzerが書いた~\cite{bib:seltzer:hash}\code{hash}ライブラリは、LitwinのExtensible Linear Hashingに関する研究を利用したものだった。
+巧妙な方法で一定時間でのハッシュ値とページアドレスのマッピングを実現しただけでなく、
+ハッシュのバケットやファイルシステムのページサイズ（たいていは4kバイトや8kバイト）を超える大きなアイテムも扱えるようにした。
+
+%% If hash tables were good, then Btrees and hash tables would be better.
+%% Mike Olson, also a graduate student at the University of California,
+%% Berkeley, had written a number of Btree implementations, and agreed to
+%% write one more. The three of us transformed Margo's hash software and
+%% Mike's Btree software into an access-method-agnostic API, where
+%% applications reference hash tables or Btrees via database handles
+%% that had handle methods to read and modify data.
+ハッシュテーブルがうまくいくのなら、Btreeとハッシュテーブルの組み合わせはもっとうまくいくだろう。
+同じくカリフォルニア大学バークレー校の大学院生だったMike Olsonはこれまでに数多くのBtreeを実装しており、
+新たにまた実装することにも同意してくれた。我々三人は、Margoのhashソフトウェアと
+MikeのBtreeソフトウェアをアクセスメソッドに依存しないAPIに変換した。
+アプリケーション側からはデータベースハンドルを通じてハッシュテーブルあるいはBtreeを参照でき、
+データベースハンドルがデータの読み込みや変更をするメソッドを保持していた。
+
+%% Building on these two access methods, Mike Olson and Margo Seltzer
+%% wrote a research paper (\cite{bib:seltzer:libtp}) describing LIBTP, a
+%% programmatic transactional library that ran in an application's
+%% address space.
+これら二つのアクセスメソッドを元にして、Mike OlsonとMargo Seltzerは研究論文を共著した(\cite{bib:seltzer:libtp})。
+この論文で論じているのはLIBTPで、これはアプリケーションのアドレス空間で動くプログラムのトランザクションライブラリである。
+
+%% The hash and Btree libraries were incorporated into the final 4BSD
+%% releases, under the name Berkeley DB 1.85.  Technically, the Btree
+%% access method implements a B+link tree, however, we will use the
+%% term Btree for the rest of this chapter, as that is what the access
+%% method is called.
+%% Berkeley DB 1.85's
+%% structure and APIs will likely be familiar to anyone who has used any
+%% Linux or BSD-based system.
+ハッシュとBtreeのライブラリは最終的に4BSDのリリースに組み込まれ、ここでBerkeley DB 1.85と名付けられた。
+偽寿的にはBtreeアクセスメソッドが実装しているのはB+link木だったが、本章では今後Btreeと呼ぶことにする。
+アクセスメソッドの名前がそうなっているからだ。
+Berkeley DB 1.85の構造やAPIは、
+これまでに何らかのLinuxやBSD系システムを使ったことがある人にはなじみやすいものだろう。
+
+%% The Berkeley DB 1.85 library was quiescent for a few years, until 1996
+%% when Netscape contracted with Margo Seltzer and Keith Bostic to build
+%% out the full transactional design described in the LIBTP paper and
+%% create a production-quality version of the software. This effort
+%% produced the first transactional version of Berkeley DB, version 2.0.
+Berkeley DB 1.85ライブラリはその後数年ほとんど動きがなかったが、
+1996年にNetscapeがMargo SeltzerやKeith Bosticと契約を結び、
+LIBTPの論文で示された完全にトランザクショナルな設計による商用に耐えるバージョンを作ることになった。
+その結果できあがったのが、初めてトランザクションをサポートしたバージョンであるBerkeley DB 2.0だ。
+
+%% The subsequent history of Berkeley DB is a simpler and more
+%% traditional timeline: Berkeley DB 2.0 (1997) introduced transactions
+%% to Berkeley DB; Berkeley DB 3.0 (1999) was a re-designed version,
+%% adding further levels of abstraction and indirection to accommodate
+%% growing functionality. Berkeley DB 4.0 (2001) introduced replication
+%% and high availability, and Oracle Berkeley DB 5.0 (2010) added SQL
+%% support.
+それ以降のBerkeley DBの歴史はシンプルで、よくありがちな流れになっている。
+Berkeley DB 2.0 (1997)で、トランザクションがBerkeley DBに導入された。
+Berkeley DB 3.0 (1999)は新たに設計しなおしたバージョンで、
+さらに高度な抽象化によってさまざまな機能の増加に対応した。
+Berkeley DB 4.0 (2001)ではレプリケーションや高可用性に関する機能が導入され、
+Oracle Berkeley DB 5.0 (2010)ではSQLが使えるようになった。
+
+%% At the time of writing, Berkeley DB is the most widely used database
+%% toolkit in the world, with hundreds of millions of deployed copies
+%% running in everything from routers and browsers to mailers and
+%% operating systems. Although more than twenty years old, the Berkeley
+%% DB tool-based and object-oriented approach has allowed it to
+%% incrementally improve and re-invent itself to match the requirements
+%% of the software using it. 
+本章の執筆時点では、Berkeley DBは世界で最も広く使われているデータベースツールキットである。
+何億ものコピーが、ルーターやブラウザからメールソフトやOSまであらゆるところで動いている。
+20年以上たった現在でもBerkeley DBのツールベースでオブジェクト指向なアプローチは現役であり、
+自身をインクリメンタルに改良して使う側のソフトウェアの要求に応え続けている。
+
+%% \begin{aosabox}{Design Lesson 1}
+\begin{aosabox}{設計講座1}
+
+%% It is vital for any complex software package's testing and maintenance
+%% that the software be designed and built as a cooperating set of
+%% modules with well-defined API boundaries. The boundaries can (and
+%% should!) shift as needs dictate, but they always need to be there.
+%% The existence of those boundaries prevents the software from becoming
+%% an unmaintainable pile of spaghetti. Butler Lampson once said that all
+%% problems in computer science can be solved by another level of
+%% indirection. More to the point, when asked what it meant for something
+%% to be object-oriented, Lampson said it meant being able to have
+%% multiple implementations behind an API\@. The Berkeley DB design and
+%% implementation embody this approach of permitting multiple
+%% implementations behind a common interface, providing an
+%% object-oriented look and feel, even though the library is written in
+%% C.
+複雑なソフトウェアパッケージをテストしたり保守したりしていく上で必須なのが、
+ソフトウェアをうまくモジュール分割した設計にしておいて
+モジュール間をよくできたAPIで連携させることだ。
+モジュールの境界はニーズにあわせて移動できる(移動できるべき!)
+が、常に境界が必須だというわけではない。
+モジュールの境界があれば、ソフトウェアがメンテナンス不能なスパゲッティ状態になることを防げる。
+Butler Lampsonはかつてこう言った。
+「計算機科学の世界のあらゆる問題は、別のレベルの手段で解決できる」。
+さらに、何かがオブジェクト指向であるとはどういうことなのかと聞かれたLampsonの答えは
+「APIを介して複数の実装を持てるということさ」だった。
+Berkeley DBの設計や実装はこの考え方を具現化したものであり、
+複数の実装を共通のインターフェイスで扱えるようになっている。
+オブジェクト指向の見た目を持っているが、実際のところこのライブラリはCで書かれているのだ。
+
+\end{aosabox}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Architectural Overview}
+\begin{aosasect1}{アーキテクチャの概要}
+
+%% In this section, we'll review the Berkeley DB library's architecture,
+%% beginning with LIBTP, and highlight key aspects of its evolution.
+この節ではBerkeley DBライブラリのアーキテクチャを取り上げる。
+まずはLIBTPから始め、そしてその進化の鍵となる局面を強調する。
+
+%% \aosafigref{fig.bdb.libtp}, which is taken from Seltzer and Olson's
+%% original paper, illustrates the original LIBTP architecture, while
+%% \aosafigref{fig.bdb.bdb20} presents the Berkeley DB 2.0 designed
+%% architecture.
+\aosafigref{fig.bdb.libtp}はSeltzerとOlsonの最初の論文から引用したもので、
+当初のLIBTPのアーキテクチャを示している。一方\aosafigref{fig.bdb.bdb20}
+は、Berkeley DB 2.0で計画していたアーキテクチャである。
+
+%% \aosafigure[300pt]{../images/bdb/libtp.eps}{Architecture of the LIBTP Prototype System}{fig.bdb.libtp}
+\aosafigure[300pt]{../images/bdb/libtp.eps}{LIBTPプロトタイプシステムのアーキテクチャ}{fig.bdb.libtp}
+
+%% \aosafigure[300pt]{../images/bdb/bdb20.eps}{Intended Architecture for Berkeley DB-2.0.}{fig.bdb.bdb20}
+\aosafigure[300pt]{../images/bdb/bdb20.eps}{Berkeley DB-2.0で意図していたアーキテクチャ}{fig.bdb.bdb20}
+
+%% The only significant difference between the LIBTP implementation and
+%% the Berkeley DB 2.0 design was the removal of the process
+%% manager. LIBTP required that each thread of control register itself with the
+%% library and then synchronized the individual threads/processes rather
+%% than providing subsystem level synchronization. As is discussed in
+%% \aosasecref{sec.bdb.int}, that original design might have served us
+%% better.
+LIBTPの実装とBerkeley DB 2.0の設計との間での唯一の大きな違いは、
+プロセスマネージャーが削除されたという点である。
+LIBTPではコントロールするスレッドが自分自身をライブラリに登録してから
+個々のスレッド/プロセスを同期させなければならず、
+サブシステムレベルでの同期処理は用意していなかった。
+\aosasecref{sec.bdb.int}で議論するが、
+オリジナルの設計のほうがうまく機能したかもしれない。
+
+%% \aosafigure{../images/bdb/bdb20-actual.eps}{Actual Berkeley DB 2.0.6 Architecture.}{fig.bdb.bdbact}
+\aosafigure{../images/bdb/bdb20-actual.eps}{実際のBerkeley DB 2.0.6のアーキテクチャ}{fig.bdb.bdbact}
+
+%% The difference between the design and the actual released db-2.0.6
+%% architecture, shown in \aosafigref{fig.bdb.bdbact}, illustrates the
+%% reality of implementing a robust recovery manager. The recovery
+%% subsystem is shown in gray. Recovery includes both the driver
+%% infrastructure, depicted in the recovery box, as well as a set of
+%% recovery redo and undo routines that recover the operations performed
+%% by the access methods. These are represented by the circle labelled
+%% ``access method recovery routines.'' There is a consistent design to
+%% how recovery is handled in Berkeley DB 2.0 as opposed to hand-coded
+%% logging and recovery routines in LIBTP particular to specific
+%% access methods.  This
+%% general purpose design also produces a much richer interface between
+%% the various modules.
+当初の設計と、実際にリリースされたdb-2.0.6のアーキテクチャ(\aosafigref{fig.bdb.bdbact})
+の違いを見れば、現実には堅牢なリカバリーマネージャーを実装したことがわかる。
+図の中でグレーで表記されている部分がリカバリーサブシステムである。
+リカバリー処理には、ドライバの基盤として図中に「recovery」と記されている部分だけではなく
+redoやundoのルーチンのリカバリーも含まれる。後者は、アクセスメソッドによる操作をリカバーするものだ。
+後者については``access method recovery routines''と書かれた円で表記している。
+このように、Berkeley DB 2.0では一貫性のある設計でリカバリーを扱っている。
+LIBTPではこれと対照的に、ログやリカバリーのルーチンを個々のアクセスメソッドごとに手書きしていた。
+この汎用的な設計により、さまざまなモジュール間でのよりリッチなインターフェイスができあがった。
+
+%% \aosafigref{fig.bdb.bdb50} illustrates the Berkeley DB-5.0.21
+%% architecture.  The numbers in the diagram reference the APIs listed
+%% in the table in \aosatblref{tbl.bdb.apitab}. Although the original
+%% architecture is still visible, the current architecture shows its age
+%% with the addition of new modules, the decomposition of old modules
+%% (e.g., \code{log} has become \code{log} and \code{dbreg}), and a 
+%% significant increase in
+%% the number of intermodule APIs).
+\aosafigref{fig.bdb.bdb50}にBerkeley DB-5.0.21のアーキテクチャを示す。
+図中の番号は、\aosatblref{tbl.bdb.apitab}にまとめたAPIの番号を表す。
+中には当初から変わらない部分も見受けられるが、現在のアーキテクチャは時を経て変化している。
+新たなモジュールが追加されたり古いモジュールが分割されたり
+(たとえば、かつての\code{log}は\code{log}と\code{dbreg}に分かれた)、
+さらにモジュール間のAPIが激増したりしている。
+
+%% Over a decade of evolution, dozens of commercial releases, and
+%% hundreds of new features later, we see that the architecture is
+%% significantly more complex than its ancestors.  The key things to note
+%% are: First, replication adds an entirely new layer to the system, but
+%% it does so cleanly, interacting with the rest of the system via the
+%% same APIs as does the historical code.  Second, the \code{log} module is
+%% split into \code{log} and \code{dbreg} (database registration).  This is discussed
+%% in more detail in \aosasecref{sec.bdb.log}.  Third, we have placed all
+%% inter-module calls into a namespace identified with leading
+%% underscores, so that applications won't collide with our function
+%% names. We discuss this further in Design Lesson 6.
+この10年の進化、十回を超える商用リリース、そして何百もの新機能。
+これらを経て、以前のバージョンよりもアーキテクチャがかなり複雑化してきた。
+中でも特筆すべき点をいくつか取り上げる。
+まずは、レプリケーション機能がまったく新しいレイヤーとしてシステムに追加されたこと。
+しかしこれは完全にクリーンな状態で追加されており、
+おもしろいことにシステムの残りの部分で同じAPIを使っているところは以前のコードがそのまま動く。
+二点目が、\code{log}モジュールを\code{log}と\code{dbreg} (database registration)に分割したことだ。
+この件については\aosasecref{sec.bdb.log}で詳しく説明する。
+三点目が、すべてのモジュール間呼び出しを先頭にアンダースコアをつけた名前空間にまとめたという点だ。
+これで、システムを使うアプリケーション側が関数名の重複を気にせずに済むようになった。
+この件については設計講座6で解説する。
+
+%% Fourth, the logging subsystem's API is now cursor based (there is no
+%% \code{log\_get} API; it is replaced by the \code{log\_cursor} API).
+%% Historically, Berkeley DB never had more than one thread of control
+%% reading or writing the log at any instant in time, so the library had
+%% a single notion of the current seek pointer in the log.  This was
+%% never a good abstraction, but with replication it became
+%% unworkable. Just as the application API supports iteration using
+%% cursors, the log now supports iteration using cursors.  Fifth, the
+%% \code{fileop} module inside of the access methods provides support for
+%% transactionally protected database create, delete, and rename
+%% operations. It took us multiple attempts to make the implementation
+%% palatable (it is still not as clean as we would like), and after
+%% reworking it numerous time, we pulled it out into its own module. 
+四点目が、ログ出力サブシステムのAPIがカーソルベースとなった
+(\code{log\_get} API がなくなって、\code{log\_cursor} APIに置き換えられた)という点だ。
+Berkeley DBはこれまで、ログの読み書きの制御に複数のスレッドを持つことは一度たりともなかった。
+したがって、ライブラリはログ内の現在のシーク位置を一か所気にするだけだった。
+これは決してうまい抽象化であるとは言えず、レプリケーション環境では動作しなくなった。
+アプリケーションのAPIがカーソルを使った反復処理に対応したことで、
+ログもカーソルを使った反復処理をサポートするようになった。
+五点目が、アクセスメソッドの中の\code{fileop}モジュールが
+データベースの作成・削除・リネームをトランザクション内でできるようにしたことだ。
+この実装をうまくまとめるために何度か試行錯誤をした
+(そしてまだ満足のいくレベルにはなっていない)
+が、何度も作りなおした後でモジュール内に組み込んだ。
+
+%% \begin{aosabox}{Design Lesson 2}
+\begin{aosabox}{設計講座2}
+
+%% A software design is simply one of several ways to force yourself to
+%% think through the entire problem before attempting to solve it.
+%% Skilled programmers use different techniques to this end: some write a
+%% first version and throw it away, some write extensive manual pages or
+%% design documents, others fill out a code template where every
+%% requirement is identified and assigned to a specific function or
+%% comment. For example, in Berkeley DB, we created a complete set of
+%% Unix-style manual pages for the access methods and underlying
+%% components before writing any code. Regardless of the technique used,
+%% it's difficult to think clearly about program architecture after code
+%% debugging begins, not to mention that large architectural changes
+%% often waste previous debugging effort. Software architecture requires
+%% a different mind set from debugging code, and the architecture you
+%% have when you begin debugging is usually the architecture you'll
+%% deliver in that release.
+ソフトウェアの設計というものは、単に問題の全体像を把握してから
+解決を試みようという流れを強制するための手段のひとつにすぎない。
+熟練したプログラマーは、その目的を達成するためにさまざまなテクニックを使う。
+まずはとりあえず動くものを書いて、最終的にそれを捨ててしまうという人もいるだろう。
+詳細なマニュアルや設計文書を書くところから始める人もいるだろう。
+すべての要件を明確化したコードのテンプレートを作ってから、
+個別に関数やコメントをはめ込んでいく人もいるだろう。
+Berkeley DBの場合は、まず最初に完全なUnixマニュアルページを作るところから始めた。
+各アクセスメソッドやその土台となるコンポーネントのマニュアルを、
+まだ一切コードを書いていない状態で作ったのだ。
+どんな手法を使うにせよ、コードを書いてデバッグが始まってから
+プログラムのアーキテクチャについて考えるのは難しい。
+大規模なアーキテクチャの変更をしようとすると、
+それまでのデバッグの労力が無駄になってしまうこともよくあるだろう。
+ソフトウェアのアーキテクチャを考えるときにはコードのデバッグをするときとは異なる考え方が要求される。
+そして、デバッグを始めた時点でのアーキテクチャが、
+通常はリリースの時まで引き継がれることになる。
+
+\end{aosabox}
+
+%% \aosafigure{../images/bdb/bdb50.eps}{Berkeley DB-5.0.21 Architecture}{fig.bdb.bdb50}
+\aosafigure{../images/bdb/bdb50.eps}{Berkeley DB-5.0.21のアーキテクチャ}{fig.bdb.bdb50}
+
+\begin{table}[t]\scriptsize\centering
+\begin{tabular}[c] { | l | l | l | l | l | }
+\hline
+%% \multicolumn{5}{|c|}{Application APIs} \\
+\multicolumn{5}{|c|}{アプリケーションAPI} \\
+\hline
+%% \multicolumn{2}{|c|}{1. DBP handle operations} & \multicolumn{2}{|c|}{2. DB\_ENV Recovery} & 3. Transaction APIs \\
+\multicolumn{2}{|c|}{1. DBPハンドル操作} & \multicolumn{2}{|c|}{2. DB\_ENVリカバリー} & 3. トランザクションAPI \\
+\multicolumn{2}{|l|}{open}  & \multicolumn{2}{|l|}{open(... DB\_RECOVER ...)} & DB\_ENV->txn\_begin \\
+\multicolumn{2}{|l|}{get}   & \multicolumn{2}{|l|} { }& DB\_TXN->abort \\
+\multicolumn{2}{|l|}{put}   & \multicolumn{2}{|l|} { }& DB\_TXN->commit \\
+\multicolumn{2}{|l|}{del}   & \multicolumn{2}{|l|} { }& DB\_TXN->prepare \\
+\multicolumn{2}{|l|}{cursor} & \multicolumn{2}{|l|} { }& \\
+\hline
+%% \multicolumn{5} { | c | }{APIs Used by the Access Methods} \\
+\multicolumn{5} { | c | }{各アクセスメソッドが使うAPI} \\
+\hline
+%% 4. Into Lock        & 5. Into Mpool    & 6. Into Log           & 7. Into Dbreg & \\
+4. Lockへ        & 5. Mpoolへ    & 6. Logへ           & 7. Dbregへ & \\
+\_\_lock\_downgrade & \_\_memp\_nameop & \_\_log\_print\_record & \_\_dbreg\_setup & \\
+\_\_lock\_vec       & \_\_memp\_fget   &                    & \_\_dbreg\_net\_id & \\
+\_\_lock\_get       & \_\_memp\_fput   &                    & \_\_dbreg\_revoke & \\
+\_\_lock\_put       & \_\_memp\_fset   &                    & \_\_dbreg\_teardown & \\
+                 & \_\_memp\_fsync  &                    & \_\_dbreg\_close\_id & \\
+                 & \_\_memp\_fopen  &                    & \_\_dbreg\_log\_id & \\
+                 & \_\_memp\_fclose &                    & & \\
+                 & \_\_memp\_ftruncate       &                    & & \\
+                 & \_\_memp\_extend\_freelist &                    & & \\
+\hline
+%% \multicolumn{5} { | c | }{Recovery APIs} \\
+\multicolumn{5} { | c | }{リカバリーAPI} \\
+\hline
+%% 8. Into Lock     & 9. Into Mpool & 10. Into Log     & 11. Into Dbreg         & 12. Into Txn \\
+8. Lockへ     & 9. Mpoolへ & 10. Logへ     & 11. Dbregへ         & 12. Txnへ \\
+\_\_lock\_getlocker & \_\_memp\_fget   & \_\_log\_compare    & \_\_dbreg\_close\_files    & \_\_txn\_getckp \\
+\_\_lock\_get\_list  & \_\_memp\_fput   & \_\_log\_open       & \_\_dbreg\_mark\_restored  & \_\_txn\_checkpoint \\
+                 & \_\_memp\_fset   & \_\_log\_earliest   & \_\_dbreg\_init\_recover   & \_\_txn\_reset \\
+                 & \_\_memp\_nameop & \_\_log\_backup     &                        & \_\_txn\_recycle\_id \\
+                 &               & \_\_log\_cursor     &                        & \_\_txn\_findlastckp \\
+                 &               & \_\_log\_vtruncate  &                        & \_\_txn\_ckp\_read \\
+\hline
+%% \multicolumn{5} { | c | }{APIs Used by the Transaction Module} \\
+\multicolumn{5} { | c | }{トランザクションモジュールが使うAPI} \\
+\hline
+%% 13. Into Lock    & 14. Into Mpool & 15. Into Log      & 16. Into Dbreg & \\
+13. Lockへ    & 14. Mpoolへ & 15. Logへ      & 16. Dbregへ & \\
+\_\_lock\_vec       & \_\_memp\_sync   & \_\_log\_cursor       & \_\_dbreg\_invalidate\_files & \\
+\_\_lock\_downgrade & \_\_memp\_nameop & \_\_log\_current\_lsn  & \_\_dbreg\_close\_files & \\
+                 &               &                    & \_\_dbreg\_log\_files & \\
+\hline
+%% \multicolumn{5} { | c | }{API Into the Replication System} \\
+\multicolumn{5} { | c | }{レプリケーションシステムへのAPI} \\
+\hline
+%% & & 17. From Log       & & 18. From Txn \\
+& & 17. Logから       & & 18. Txnから \\
+& & \_\_rep\_send\_message & & \_\_rep\_lease\_check \\
+& & \_\_rep\_bulk\_message & & \_\_rep\_txn\_applied \\
+& &                    & & \_\_rep\_send\_message \\
+\hline
+%% \multicolumn{5} { | c | }{API From the Replication System} \\
+\multicolumn{5} { | c | }{レプリケーション日ステムからのAPI} \\
+\hline
+%% 19. Into Lock & 20. Into Mpool & 21. Into Log           & 22. Into Dbreg           & 23. Into Txn \\
+19. Lockへ & 20. Mpoolへ & 21. Logへ           & 22. Dbregへ           & 23. Txnへ \\
+\_\_lock\_vec    & \_\_memp\_fclose  & \_\_log\_get\_stable\_lsn   & \_\_dbreg\_mark\_restored    & \_\_txn\_recycle\_id \\
+\_\_lock\_get    & \_\_memp\_fget    & \_\_log\_cursor           & \_\_dbreg\_invalidate\_files & \_\_txn\_begin \\
+\_\_lock\_id     & \_\_memp\_fput    & \_\_log\_newfile          & \_\_dbreg\_close\_files      & \_\_txn\_recover \\
+              & \_\_memp\_fsync   & \_\_log\_flush            &                          & \_\_txn\_getckp \\
+              &                & \_\_log\_rep\_put          &                          & \_\_txn\_updateckp \\
+              &                & \_\_log\_zero             &                          &  \\
+              &                & \_\_log\_vtruncate        &                          &  \\
+\hline
+\end{tabular}
+%% \caption{Berkeley DB 5.0.21 APIs}
+\caption{Berkeley DB 5.0.21のAPI}
+\label{tbl.bdb.apitab}
+\end{table}
+
+%% Why architect the transactional library out of components rather than
+%% tune it to a single anticipated use? There are three answers to this
+%% question. First, it forces a more disciplined design. Second, without
+%% strong boundaries in the code, complex software packages inevitably
+%% degenerate into unmaintainable piles of glop. Third, you can never
+%% anticipate all the ways customers will use your software; if you
+%% empower users by giving them access to software components, they will
+%% use them in ways you never considered.
+なぜアーキテクトはトランザクションライブラリをコンポーネントから外に出したのだろう?
+想定されるたったひとつの使い方にあわせてチューニングすればよかったのではないだろうか?
+この問いへの答えは次の三つである。
+まず、外に出せばよりしっかりとした設計を強要できる。
+次に、コードの間にきちんとした境界がなければ、
+複雑なソフトウェアパッケージは必然的に退化して保守不能な状態になってしまう。
+最後に、ユーザーがそのソフトウェアをどのように使うかなど、完全に予測するのは不可能だ。
+ユーザーにソフトウェアコンポーネントへのアクセスを許可すると、
+きっと思いもよらない方法でそれを使われることになるだろう。
+
+%% In subsequent sections we'll consider each component of Berkeley DB,
+%% understand what it does and how it fits into the larger picture.
+これ以降のセクションではBerkeley DBの各コンポーネントについて検討し、
+その動きを理解して全体の中でどのような位置づけになっているのかを把握する。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Access Methods: Btree, Hash, Recno, Queue}
+\begin{aosasect1}{アクセスメソッド: Btree, Hash, Recno, Queue}
+
+%% The Berkeley DB access methods provide both keyed lookup of, and
+%% iteration over, variable and fixed-length byte strings.  Btree and
+%% Hash support variable-length key/value pairs. Recno and Queue support
+%% record-number/value pairs (where Recno supports variable-length values
+%% and Queue supports only fixed-length values).
+Berkeley DBのアクセスメソッドが提供する機能は、
+キー指定による検索や反復処理を、可変長バイト文字列および固定長バイト文字列に対して行うことだ。
+BtreeとHashは、可変長のキー/バリューペアに対応している。
+RecnoとQueueは、レコード番号/バリューペアに対応している(Recnoは可変長の値に対応しているが、Queueがサポートするのは固定長の値だけである)。
+
+%% \pagebreak
+
+%% The main difference between Btree and Hash access methods is that
+%% Btree offers locality of reference for keys, while Hash does not. This
+%% implies that Btree is the right access method for almost all data sets;
+%% however, the Hash access method is appropriate for data sets so large
+%% that not even the Btree indexing structures fit into memory. At that
+%% point, it's better to use the memory for data than for indexing
+%% structures. This trade-off made a lot more sense in 1990 when main
+%% memory was typically much smaller than today.
+BtreeとHashの主な違いは、Btreeがキーの参照の局所性を提供するのに対してHashはそうではないということだ。
+つまり、Btreeはほぼすべてのデータセットに対して適切なアクセスメソッドとなる。
+一方、Hashアクセスメソッドが適切に使えるのは、
+データセットが大きすぎてBtreeインデックス構造すらメモリ内に収まらないような場面となる。
+当時は、メモリはインデックス構造ではなくデータのために使うほうがよかったのだ。
+このトレードオフは、1990年の時点では十分納得できるものだった。
+そのころのマシンは、現在のものと比べてメインメモリの量が圧倒的に少なかったのだ。
+
+%% The difference between Recno and Queue is that Queue supports
+%% record-level locking, at the cost of requiring fixed-length values.
+%% Recno supports variable-length objects, but like Btree and Hash,
+%% supports only page-level locking.
+RecnoとQueueの違いは、Queueがレコードレベルのロックに対応しているという点だ。
+その代償として、Queueは固定長の値しか受け付けない。
+Recnoは可変長のオブジェクトに対応しているが、BtreeやHashと同様にページレベルのロックしかサポートしていない。
+
+%% We originally designed Berkeley DB such that the CRUD functionality
+%% (create, read, update and delete) was key-based and the primary
+%% interface for applications. We subsequently added cursors to support
+%% iteration. That ordering led to the confusing and wasteful case of
+%% largely duplicated code paths inside the library.  Over time, this
+%% became unmaintainable and we converted all keyed operations to cursor
+%% operations (keyed operations now allocate a cached cursor, perform the
+%% operation, and return the cursor to the cursor pool).  This is an
+%% application of one of the endlessly-repeated rules of software
+%% development: don't optimize a code path in any way that detracts from
+%% clarity and simplicity until you know that it's necessary to do so. 
+もともとのBerkeley DBの設計は、いわゆるCRUD機能(Create:作成、Read:読み込み、Update:更新、Delete:削除)
+をキーベースで行うもので、それがアプリケーションからの主なインターフェイスだった。
+そこに後付けでカーソルを追加し、反復処理に対応させた。
+その結果としてコードが混乱してしまい、
+ライブラリの内部で同じようなコードの流れが重複してしまうことになった。
+時を経てそのコードは保守不能になってしまい、
+キーベースの操作をすべてカーソル操作で書き換えるはめになった
+(キー指定による操作は、現在はキャッシュカーソルを割り当てて
+操作を実行してからカーソルをカーソルプールに返すという流れになっている)。
+これは、ソフトウェア開発の世界で何度となく繰り返されるルールの適用例のひとつである。
+「コードの可読性を落としたり複雑化させたりしてしまうような最適化は、
+本当にそれが必要となるまでは決してしてはいけない」ということだ。
+
+%% \begin{aosabox}{Design Lesson 3}
+\begin{aosabox}{設計講座3}
+
+%% Software architecture does not age gracefully. Software architecture
+%% degrades in direct proportion to the number of changes made to the
+%% software: bug fixes corrode the layering and new features stress
+%% design. Deciding when the software architecture has degraded
+%% sufficiently that you should re-design or re-write a module is a hard
+%% decision. On one hand, as the architecture degrades, maintenance and
+%% development become more difficult and at the end of that path is a
+%% legacy piece of software maintainable only by having an army of
+%% brute-force testers for every release, because nobody understands how
+%% the software works inside. On the other hand, users will bitterly
+%% complain over the instability and incompatibilities that result from
+%% fundamental changes. As a software architect, your only guarantee is
+%% that someone will be angry with you no matter which path you choose.
+ソフトウェアのアーキテクチャが優雅に成熟していくなんてことはない。
+ソフトウェアのアーキテクチャは、ソフトウェアに加えた変更の数に正比例して退化する。
+バグ修正のおかげでレイヤー化が崩れたり、
+新機能の追加で設計に無理が出てきたりといった具合だ。
+徐々に崩れていくソフトウェアアーキテクチャに対して、
+どの時点でモジュールの設計を見直して書き直すべきか。
+これはとても難しい決断だ。
+アーキテクチャが退化するにつれて、そのソフトウェアの保守や開発はより難しくなる。
+最終的にはリリースのたびに大量の手動テスト部隊を動員しなければいけないような
+レガシーコードの塊になってしまう。ソフトウェアの内部構造を理解できる人が誰もいなくなってしまうのだ。
+一方、根本的に書き直そうとすると、使う側から見れば不安定で互換性のない状態に悩まされることになる。
+ソフトウェアアーキテクトであるあなたに対して確実に保障できるのは、
+どちらの道を選んだところで結局誰かに恨まれるということくらいだ。
+
+\end{aosabox}
+
+%% We omit detailed discussions of the Berkeley DB access method
+%% internals; they implement fairly well-known Btree and hashing
+%% algorithms (Recno is a layer on top of the Btree code, and Queue is a
+%% file block lookup function, albeit complicated by the addition of
+%% record-level locking).
+Berkeley DBの各アクセスメソッドの内部構造に関する議論はここでは省略する。
+単に、よく知られているBtreeやハッシュのアルゴリズムを実装しているにすぎない
+(RecnoはBtreeのコードの上位に重ねたレイヤーである。
+またQueueはファイルブロックのルックアップ処理だが、
+レコードレベルのロックを追加したために多少複雑になっている)。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Library Interface Layer}
+\begin{aosasect1}{ライブラリインターフェイス層}
+\label{sec.bdb.int}
+
+%% Over time, as we added additional functionality, we discovered that
+%% both applications and internal code needed the same top-level
+%% functionality (for example, a table join operation uses multiple
+%% cursors to iterate over the rows, just as an application might use a
+%% cursor to iterate over those same rows).
+長年にわたって機能追加を続けていくうちに、ようやく気付いたことがある。
+アプリケーションのコードと内部のコードとで同じ機能を共有する必要があるということだ
+(たとえばテーブルのJOIN操作では複数のカーソルを使って行の反復処理を行う。
+一方アプリケーション側でも、カーソルを使って同じ行を反復処理することになるだろう)。
+
+%% \begin{aosabox}{Design Lesson 4}
+\begin{aosabox}{設計講座4}
+
+%% It doesn't matter how you name your variables, methods, functions, or
+%% what comments or code style you use; that is, there are a large number
+%% of formats and styles that are ``good enough.'' What does matter, and
+%% matters very much, is that naming and style be consistent. Skilled
+%% programmers derive a tremendous amount of information from code format
+%% and object naming. You should view naming and style inconsistencies as
+%% some programmers investing time and effort to lie to the other
+%% programmers, and vice versa. Failing to follow house coding
+%% conventions is a firing offense.
+変数やメソッドや関数の名前の付けかた、コメントの書きかた、
+そしてコードの書きかた。どんなスタイルを選んでもかまわない。
+世の中には「よい書きかた」とされている書式やスタイルがいろいろある。
+そんなことより大切なのは、どう書くかではなく命名規約やコーディングスタイルの一貫性を保つことだ。
+熟練したプログラマーは、コードのフォーマットやオブジェクトの命名から
+大量の情報を引き出す。命名規約やスタイルが一貫していないと、
+コードの内容を読み取るのに時間と労力がかかってしまい、
+他のプログラマーに誤読されてしまうことになるだろう。
+内部的なコーディング規約に反するのは、そのシステムに対して発砲しているのに等しい。
+
+\end{aosabox}
+
+%% For this reason, we decomposed the access method APIs into precisely
+%% defined layers. These layers of interface routines perform all of the
+%% necessary generic error checking, function-specific error checking,
+%% interface tracking, and other tasks such as automatic transaction
+%% management. When applications call into Berkeley DB, they call the
+%% first level of interface routines based on methods in the object
+%% handles. (For example, \code{\_\_dbc\_put\_pp}, is the interface call
+%% for the Berkeley DB cursor ``put'' method, to update a data item. The
+%% ``\_pp'' is the suffix we use to identify all functions that an
+%% application can call.) 
+というわけで、アクセスメソッドAPIを分割してきちんと定義された階層に分けることにした。
+インターフェイスルーチン層は、必要となる汎用的なエラーチェックや
+関数固有のエラーチェック、インターフェイスの追跡などをすべて行う。
+それ以外にも、自動トランザクション管理などもこの層の仕事だ。
+アプリケーションがBerkeley DBの機能を利用するときには、
+処理対象のオブジェクトが持つメソッドにもとづいた第一レベルのインターフェイスを呼び出す。
+(たとえば、\code{\_\_dbc\_put\_pp}はBerkeley DBのカーソルの
+``put''メソッドに対応するインターフェイスの呼び出しで、データアイテムを更新する。
+最後の``\_pp''は、アプリケーションから呼び出せる関数であることを示すサフィックスである)。
+
+%% One of the Berkeley DB tasks performed in the interface layer is
+%% tracking what threads are running inside the Berkeley DB library. This
+%% is necessary because some internal Berkeley DB operations may be
+%% performed only when no threads are running inside the
+%% library. Berkeley DB tracks threads in the library by marking that a
+%% thread is executing inside the library at the beginning of every
+%% library API and clearing that flag when the API call returns. This
+%% entry/exit checking is always performed in the interface layer, as is
+%% a similar check to determine if the call is being performed in a
+%% replicated environment.
+Berkeley DBがインターフェイス層で行うタスクの一つが、
+どのスレッドがBerkeley DBライブラリ内で動作中なのかを追跡することだ。
+追跡が必要となる理由は、Berkeley DBの内部的な操作の中には
+ライブラリ内でスレッドが立ち上がっていないときにしか実行できないものもあるからである。
+Berkeley DBがライブラリ内でのスレッドの動きを追跡する方法は、
+ライブラリのAPIをコールするたびにそのスレッドが実行中であるというフラグを立てておき、
+APIコールの結果が返ってきた時点でフラグをクリアするというものだ。
+この「入場/退場のチェック」が、常にインターフェイス層で行われる。
+これは、そのコールがレプリケーション環境から行われたのかをチェックするのと同じ方法である。
+
+%% The obvious question is ``why not pass a thread identifier into the
+%% library, wouldn't that be easier?'' The answer is yes, it would be a
+%% great deal easier, and we surely wish we'd done just that. But, that
+%% change would have modified every single Berkeley DB application, most
+%% of every application's calls into Berkeley DB, and in many cases would
+%% have required application re-structuring. 
+当然、こんな疑問が出てくるはずだ。
+「スレッドIDを直接ライブラリに渡したほうがずっと簡単なのでは?」
+答えはイエスだ。そのほうがずっと簡単だろうし、できることならそうしたかった。
+しかし、そんな変更をしてしまうと、Berkeley DBを使ったアプリケーションはすべて修正が必要となる。
+アプリケーションからのBerkeley DBの機能の呼び出しの大半を書き換えることになり、
+たいていの場合はアプリケーションの構造を再考することになるだろう。
+
+%% \begin{aosabox}{Design Lesson 5}
+\begin{aosabox}{設計講座5}
+
+%% Software architects must choose their upgrade battles carefully: users
+%% will accept minor changes to upgrade to new releases (if you guarantee
+%% compile-time errors, that is, obvious failures until the upgrade is
+%% complete; upgrade changes should never fail in subtle ways). But to
+%% make truly fundamental changes, you must admit it's a new code base
+%% and requires a port of your user base. Obviously, new code bases and
+%% application ports are not cheap in time or resources, but neither is
+%% angering your user base by telling them a huge overhaul is really a
+%% minor upgrade.
+ソフトウェアアーキテクトは、アップグレードに伴ういざこざへの対応に気をつける必要がある。
+新しいリリースに対応するために要する変更が少しで済むのなら、ユーザーはそれを許容するだろう
+(コンパイル時にエラーが出るようにしておけば、まだアップグレードが完了していないことが明白になる。
+アップグレードの際によくわからないエラーで悩まされることもなくなるだろう)。
+しかし、まったく根本的に変化させるには、新しいコードベースを使わざるを得ない。そしてユーザーにも新たなコードベースへの移行を求めることになる。
+明らかに、アプリケーションを一から書き直してユーザーの移行を促すのは、時間的にもリソース的にもたやすいことではない。
+しかし、実際にはちょっとしたアップグレードなのに大規模な改修が必要となってユーザーを怒らせるといったことはしなくて済む。
+
+\end{aosabox}
+
+%% Another task performed in the interface layer is transaction
+%% generation.  The Berkeley DB library supports a mode where every
+%% operation takes place in an automatically generated transaction (this
+%% saves the application having to create and commit its own explicit
+%% transactions). Supporting this mode requires that every time an
+%% application calls through the API without specifying its own
+%% transaction, a transaction is automatically created.
+インターフェイス層で行われるもうひとつのタスクが、トランザクションの生成だ。
+Berkeley DBライブラリがサポートするモードのひとつに、すべての操作が自動生成されたトランザクション内で行われるというモードがある
+(これによって、アプリケーション側で明示的にトランザクションを作成したりコミットしたりする手間を省ける)。
+このモードをサポートするには、アプリケーション側からトランザクションを明示せずに
+APIをコールされるたびに、トランザクションを自動生成することになる。
+
+%% Finally, all Berkeley DB APIs require argument checking. In Berkeley
+%% DB there are two flavors of error checking---generic checks to
+%% determine if our database has been corrupted during a previous
+%% operation or if we are in the midst of a replication state change (for
+%% example, changing which replica allows writes). There are also checks
+%% specific to an API: correct flag usage, correct parameter usage,
+%% correct option combinations, and any other type of error we can check
+%% before actually performing the requested operation.
+最後に、すべてのBerkeley DB APIは引数のチェックを要する。
+Berkeley DBのエラーチェックには二種類ある。
+ひとつは汎用的なチェックで、直近の操作でデータベースが破壊されていないかどうかを調べたり
+レプリケーションの状態が変わっている最中(たとえば、書き込み可能なレプリカの切り替え中など)であるかどうかを調べたりといったものだ。
+もうひとつは個々のAPIに固有のチェックで、
+フラグの用法やパラメータの使い方、オプションの組み合わせ、
+その他実際にリクエストを処理する前に確認できるあらゆるエラーのチェックを行う。
+
+%% This API-specific checking is all encapsulated in functions suffixed
+%% with \code{\_arg}. Thus, the error checking specific to the cursor
+%% \code{put} method is located in the function \code{\_\_dbc\_put\_arg},
+%% which is called by the \code{\_\_dbc\_put\_pp} function.
+API固有のチェックはすべて、最後に\code{\_arg}がつく名前の関数にカプセル化されている。
+つまり、カーソルの\code{put}メソッドに関するエラーチェックは\code{\_\_dbc\_put\_arg}関数にまとめられており、
+これが\code{\_\_dbc\_put\_pp}関数から呼び出される。
+
+%% Finally, when all the argument verification and transaction generation
+%% is complete, we call the worker method that actually performs the
+%% operation (in our example, it would be \code{\_\_dbc\_put}), which is
+%% the same function we use when calling the cursor put functionality
+%% internally.
+最終的に、引数の検証やトランザクションの生成が完了したら、
+実際の処理を行うワーカーメソッド(今回の場合は\code{\_\_dbc\_put})を呼び出す。
+これは、我々がカーソルのput機能を内部的に使うときに利用するのと同じ関数である。
+
+%% This decomposition evolved during a period of intense activity, when
+%% we were determining precisely what actions we needed to take when
+%% working in replicated environments. After iterating over the code base
+%% some non-trivial number of times, we pulled apart all this preamble
+%% checking to make it easier to change the next time we identified a
+%% problem with it.
+このように分割することで、大がかりな操作があったときに
+レプリケーション環境で実際にどんなアクションが必要となるのかを判断しやすくなった。
+コードベースに手を加える作業を数え切れないほど繰り返した結果、
+すべての事前チェックを分離することができた。
+そして、今後もし何か問題が発生したときにもより手を加えやすくなったのだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Underlying Components}
+\begin{aosasect1}{基盤となるコンポーネント}
+
+%% There are four components underlying the access methods: a buffer
+%% manager, a lock manager, a log manager and a transaction
+%% manager. We'll discuss each of them separately, but they all have some
+%% common architectural features.
+アクセスメソッドの基盤となるのが、
+バッファマネージャー・ロックマネージャー・ログマネージャーそしてトランザクションマネージャーの
+四つのコンポーネントだ。それぞれについて個別に扱うが、
+これらすべてに共通するアーキテクチャ上の特性もある。
+
+%% First, all of the subsystems have their own APIs, and initially each
+%% subsystem had its own object handle with all methods for that
+%% subsystem based on the handle. For example, you could use Berkeley
+%% DB's lock manager to handle your own locks or to write your own remote
+%% lock manager, or you could use Berkeley DB's buffer manager to handle
+%% your own file pages in shared memory. Over time, the
+%% subsystem-specific handles were removed from the API in order to
+%% simplify Berkeley DB applications. Although the subsystems are still
+%% individual components that can be used independently of the other
+%% subsystems, they now share a common object handle, the \code{DB\_ENV}
+%% ``environment'' handle. This architectural feature enforces layering
+%% and generalization. Even though the layer moves from time-to-time, and
+%% there are still a few places where one subsystem reaches across into
+%% another subsystem, it is good discipline for programmers to think about
+%% the parts of the system as separate software products in their own right.
+まず、すべてのサブシステムには自前のAPIが存在する。
+当初は各サブシステムが自身のオブジェクトハンドルを保持しており、
+そのハンドルでサブシステムのすべてのメソッドを扱っていた。
+たとえばBerkeley DBのロックマネージャーを使うと、自身のロックを処理したりリモートのロックマネージャーに書き出したりできる。
+あるいはBerkeley DBのバッファマネージャーを使うと、自身のファイルページを共有メモリで扱える。
+時を経て、これらのサブシステム固有のハンドルはAPIから削除された。Berkeley DBを使うアプリケーションをシンプルにするためだ。
+サブシステム群は今でも個別のコンポーネントだし他のサブシステムとは独立して使えるようになっているが、
+今では共通のオブジェクトハンドルである\code{DB\_ENV} ``environment''ハンドルを共有するようになった。
+このアーキテクチャが、レイヤー化と汎化を強制する。
+レイヤーの区切りは時とともに変化するし、あるサブシステムが別のサブシステムの役割に立ち入っている部分もいくつか存在する。
+しかし、プログラマーにとっては、システムの各部分を個別のソフトウェアプロダクトとして考えるのはよいことだ。
+
+%% Second, all of the subsystems (in fact, all Berkeley DB functions)
+%% return error codes up the call stack.  As a library, Berkeley DB
+%% cannot step on the application's name space by declaring global
+%% variables, not to mention that forcing errors to return in a single
+%% path through the call stack enforces good programmer discipline. 
+次に、すべてのサブシステム(実際のところ、すべてのBerkeley DBの関数)はエラーコードをコールスタックに返す。
+Berkeley DBはライブラリであり、グローバル変数を宣言したりしてアプリケーションの名前空間に立ち入ることができない。
+言うまでもないが、すべてのエラーをコールスタック経由の単一のパスで返すことはよい習慣である。
+
+%% \begin{aosabox}{Design Lesson 6}
+\begin{aosabox}{設計講座6}
+
+%% In library design, respect for the namespace is vital. Programmers who
+%% use your library should not need to memorize dozens of reserved names
+%% for functions, constants, structures, and global variables to avoid
+%% naming collisions between an application and the library.
+ライブラリを設計する際には、名前空間を利用することが大切である。
+そうしなければ、ライブラリを使う側のプログラマーからすれば、
+関数や定数そして構造体やグローバル変数の名前を何十個も覚えておかないと
+アプリケーション側で名前が衝突してしまうことになる。
+
+\end{aosabox}
+
+%% Finally, all of the subsystems support shared memory. Because Berkeley
+%% DB supports sharing databases between multiple running processes, all
+%% interesting data structures have to live in shared memory. The most
+%% significant implication of this choice is that in-memory data
+%% structures must use base address and offset pairs instead of pointers
+%% in order for pointer-based data structures to work in the context of
+%% multiple processes. In other words, instead of indirecting through a
+%% pointer, the Berkeley DB library must create a pointer from a base
+%% address (the address at which the shared memory segment is mapped into
+%% memory) plus an offset (the offset of a particular data structure in
+%% that mapped-in segment). To support this feature, we
+%% wrote a version of the Berkeley Software Distribution \code{queue} package
+%% that implemented a wide variety of linked lists. 
+最後に、すべてのサブシステムは共有メモリをサポートする。
+Berkeley DBは複数のプロセスからのデータベースの共有をサポートしているので、
+すべてのデータ構造は共有メモリ上に存在することになる。
+この方式を選んだことによる最大の影響は、
+インメモリのデータ構造がポインタではなくベースアドレスとオフセットのペアを使わなければならないということだ。
+これは、ポインタベースのデータ構造をマルチプロセスのコンテキストでも動作させるために必要となる。
+言い換えると、ポインタ経由で間接参照するのではなく、
+Berkeley DBライブラリはベースアドレス(メモリ内で共有メモリセグメントがマップされたアドレス)
+にオフセット(マップされたセグメントの中で、そのデータ構造が存在する位置)
+を足した場所を参照しなければならないということである。
+この機能をサポートするために、我々はBerkeley Software Distribution \code{queue}
+パッケージの別バージョンを書いた。これはさまざまな種類のリンクリストを実装したものである。
+
+%% \begin{aosabox}{Design Lesson 7}
+\begin{aosabox}{設計講座7}
+
+%% Before we wrote a shared-memory linked-list package, Berkeley DB
+%% engineers hand-coded a variety of different data structures in shared
+%% memory, and these implementations were fragile and difficult to
+%% debug. The shared-memory list package, modeled after the BSD list
+%% package (\code{queue.h}), replaced all of those efforts.  Once it was
+%% debugged, we never had to debug another shared memory linked-list
+%% problem.  This illustrates three important design principles: First,
+%% if you have functionality that appears more than once, write the
+%% shared functions and use them, because the mere existence of two
+%% copies of any specific functionality in your code guarantees that one
+%% of them is incorrectly implemented.  Second, when you develop a set of
+%% general purpose routines, write a test suite for the set of routines,
+%% so you can debug them in isolation.  Third, the harder code is to
+%% write, the more important for it to be separately written and
+%% maintained; it's almost impossible to keep surrounding code from
+%% infecting and corroding a piece of code.
+実際に共有メモリのリンクリストパッケージを書き始める前に、
+Berkeley DBエンジニアは共有メモリ内でのさまざまなデータ構造を手書きしていた。
+しかしこれらの実装はどれも脆く、デバッグしにくいものだった。
+共有メモリのリストパッケージはBSDのリストパッケージ(\code{queue.h})を参考にして作ったもので、
+今まで苦労した結果をこれがすべて置き換えてくれた。
+一度デバッグをしてからは、共有メモリのリンクリストに関する問題は二度と発生しなかった。
+このことから得られる重要な設計指針は次の三つだ。
+まず、もし複数回登場する機能があるのなら、共有関数を作ってそれを使うようにする。
+なぜなら、コードの中に同じような機能が複数回登場するということはそのうちのどれかが間違った実装になっているだろうからだ。
+次に、汎用目的のルーチンを開発するときにはそのルーチン群用のテストスイートを書く。
+そうすれば、そのルーチンだけを個別にデバッグできる。
+最後に、書くのが難しいコードであればあるほど、その部分を個別に書いて保守していくことが重要になる。
+そうしないと、その周辺のコードの影響を受けて浸食されていることを防げなくなる。
+
+\end{aosabox}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Buffer Manager: Mpool}
+\begin{aosasect1}{バッファマネージャー: Mpool}
+
+%% The Berkeley DB Mpool subsystem is an in-memory buffer pool of file
+%% pages, which hides the fact that main memory is a limited resource,
+%% requiring the library to move database pages to and from disk when
+%% handling databases larger than memory. Caching database pages in
+%% memory was what enabled the original hash library to significantly
+%% out-perform the historic \code{hsearch} and \code{ndbm}
+%% implementations.
+Berkeley DBのMpoolサブシステムは、ファイルページを扱うインメモリのバッファプールである。
+メインメモリが有限なリソースであるという事実を隠し、
+メモリの量を超える大きさのデータベースを扱うときには
+データベースのページをディスクとの間で移動させる。
+データベースのページをメモリ内でキャッシュすることで、
+オリジナルのhashライブラリの性能は劇的に向上した。
+かつての\code{hsearch}や\code{ndbm}の実装の性能を大きく上回る。
+
+%% Although the Berkeley DB Btree access method is a fairly traditional
+%% B+tree implementation, pointers between tree nodes are represented as
+%% page numbers, not actual in-memory pointers, because the library's
+%% implementation uses the on-disk format as its in-memory format
+%% as well. The advantage of this representation is that a page can be
+%% flushed from the cache without format conversion; the disadvantage is
+%% that traversing an index structures requires (costlier) repeated
+%% buffer pool lookups rather than (cheaper) memory indirections.
+Berkeley DBのBtreeアクセスメソッドは極めて伝統的なB+木の実装であるが、
+ツリーノード間のポインタはページ番号で表しており、実際のインメモリのポインタではない。
+その理由は、ライブラリの実装がインメモリだけではなくディスク上でのフォーマットも扱うからである。
+このようにする利点は、ページをキャッシュからフラッシュするときにフォーマット変換が不要になることだ。
+逆に欠点は、インデックスを走査する際にバッファプールのルックアップが必要になるということだ。
+バッファプールのルックアップは、間接メモリ参照よりもコストの高い操作である。
+
+%% There are other performance implications that result from the
+%% underlying assumption that the in-memory representation of Berkeley DB
+%% indices is really a cache for on-disk persistent data. For example,
+%% whenever Berkeley DB accesses a cached page, it first pins the page in
+%% memory. This pin prevents any other threads or processes from 
+%% evicting it from the buffer pool. Even if an index
+%% structure fits entirely in the cache and need never be flushed to
+%% disk, Berkeley DB still acquires and releases these pins on every
+%% access, because the underlying model provided by Mpool is that of a
+%% cache, not persistent storage.
+それ以外にも、パフォーマンスに関する暗黙の影響がある。それは、
+インメモリでのBerkeley DBのインデックスの表現方法が
+実際のところはディスク上の永続データのキャッシュであるという前提から得られるものだ。
+たとえば、Berkeley DBがキャッシュされたページにアクセスするときには、まずメモリ内のページを固定する。
+固定することで、他のスレッドやプロセスがそのページをバッファプールから削除できないようにする。
+インデックスが完全にキャッシュ内に収まってディスクへのフラッシュが不要だったとしても、
+Berkeley DBはアクセスのたびにページを固定する。
+その理由は、Mpoolが提供する基盤モデルがキャッシュであって永続ストレージではないからだ。
+
+%% \begin{aosasect2}{The Mpool File Abstraction}
+\begin{aosasect2}{Mpoolのファイル抽象化}
+
+%% Mpool assumes it sits atop a filesystem, exporting the file
+%% abstraction through the API\@. For example, \code{DB\_MPOOLFILE} handles
+%% represent an on-disk file, providing methods to get/put pages to/from
+%% the file.  While Berkeley DB supports temporary and purely in-memory
+%% databases, these too are referenced by \code{DB\_MPOOLFILE} handles
+%% because of the underlying Mpool abstractions. The \code{get} and
+%% \code{put} methods are the primary Mpool APIs: \code{get} ensures a
+%% page is present in the cache, acquires a pin on the page and returns a
+%% pointer to the page.  When the library is done with the page, the
+%% \code{put} call unpins the page, releasing it for 
+%% eviction.  Early versions of Berkeley DB did not differentiate between
+%% pinning a page for read access versus pinning a page for write
+%% access. However, in order to increase concurrency, we extended the
+%% Mpool API to allow callers to indicate their intention to update a
+%% page. This ability to distinguish read access from write access was
+%% essential to implement multi-version concurrency control.
+%% A page pinned for reading that happens to be dirty can be written to
+%% disk, while a page pinned for writing cannot, since it may be in an
+%% inconsistent state at any instant.
+Mpoolはファイルシステム上で動かすことを前提としており、ファイルを抽象化したAPIを公開している。
+たとえば\code{DB\_MPOOLFILE}ハンドルはディスク上のファイルを表し、
+ファイルからページを取得したりページをファイルに書き出したりといったメソッドを提供する。
+Berkeley DBではインメモリのテンポラリデータベースに対応しているが、
+これらもまた\code{DB\_MPOOLFILE}ハンドルから参照されている。
+これは、ベースになるMpoolの抽象化によるものだ。Mpoolの主要なAPIは
+\code{get}メソッドと\code{put}メソッドである。
+\code{get}はページがキャッシュ内にあることを確かめてからそのページを固定し、
+そしてページへのポインタを返す。ライブラリがそのページでの処理を終えたら、
+\code{put}を呼んでページの固定を解除し、明け渡す。
+初期のBerkeley DBは、読み込み用にページを固定するときと書き込み用にページを固定するときを区別していなかった。
+しかし、同時実行性を向上させるためにMpoolのAPIを拡張し、
+呼び出し側でページの書き込み意図を明示できるようにした。
+このように読み込みアクセスと書き込みアクセスを区別できることは、
+多版型同時実行制御を実装するために不可欠だ。
+読み込み用として固定したページはダーティになったとしてもディスクに書き込めるが、
+書き込み用に固定した場合はできない。整合性を欠く状態になっている可能性があるからである。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{ Write-ahead Logging}
+\begin{aosasect2}{ログ先行書き込み}
+
+%% Berkeley DB uses write-ahead-logging (WAL) as its transaction
+%% mechanism to make recovery after failure possible.  The term
+%% write-ahead-logging defines a policy requiring log records describing
+%% any change be propagated to disk \emph{before} the actual data updates
+%% they describe. Berkeley DB's use of WAL as its transaction mechanism
+%% has important implications for Mpool, and Mpool must balance its
+%% design point as a generic caching mechanism with its need to support
+%% the WAL protocol.
+Berkeley DBは、ログ先行書き込み（WAL）をトランザクションの仕組みとして使っており、
+処理に失敗した場合の復旧をできるようにしている。ログ先行書き込みという用語は、
+実際にデータを更新する\emph{前に}変更内容のログをディスクに書き込ませるという方針を表している。
+Berkeley DBがWALをトランザクション機構に採用しているということは
+Mpoolにとって大切な前提となる。Mpoolは、汎用的なキャッシュの機能と
+WALプロトコルのサポートとの間でバランスをとった設計でなければならない。
+
+%% Berkeley DB writes log sequence numbers (LSNs) on all data pages to
+%% document the log record corresponding to the most recent update to a
+%% particular page.  Enforcing WAL requires that before Mpool writes any
+%% page to disk, it must verify that the log record corresponding to the
+%% LSN on the page is safely on disk.  The design challenge is how to
+%% provide this functionality without requiring that all clients of Mpool
+%% use a page format identical to that used by Berkeley DB\@. Mpool
+%% addresses this challenge by providing a collection of \code{set} (and
+%% \code{get}) methods to direct its behavior.  The \code{DB\_MPOOLFILE} method
+%% \code{set\_lsn\_offset} provides a byte offset into a page, indicating
+%% where Mpool should look for an LSN to enforce WAL\@.  If the method is
+%% never called, Mpool does not enforce the WAL protocol. Similarly, the
+%% \code{set\_clearlen} method tells Mpool how many bytes of a page
+%% represent metadata that should be explicitly cleared when a page is
+%% created in the cache. These APIs allow Mpool to provide the
+%% functionality necessary to support Berkeley DB's transactional
+%% requirements, without forcing all users of Mpool to do so. 
+Berkeley DBは、すべてのデータページにログシーケンス番号（LSN）を書き込む。
+これを使って、特定のページへの直近の変更に対応するログレコードを記録するのだ。
+WALを強制すると、Mpoolがページをディスクに書き出す前に
+そのページのLSNに対応するログレコードがディスク上にあることを確認しなければならない。
+ここで設計上の難題が発生する。
+この機能を提供しつつ、Mpoolのクライアントで
+Berkeley DBとは違うページフォーマットを使えるようにするにはどうすればいいだろうか。
+Mpoolがこの難題にこたえるために用意したメソッドが\code{set}（および\code{get}）
+のコレクションだ。これを使って振る舞いを指示する。
+\code{DB\_MPOOLFILE}のメソッド\code{set\_lsn\_offset}はページ内のバイトオフセットを提供し、
+どこにLSNがあるのかをMpoolに指示する。これは、WALを確実にするために必要なものだ。
+このメソッドが一切呼ばれなければ、MpoolはWALプロトコルを強要しない。
+同様に\code{set\_clearlen}メソッドは、
+ページをキャッシュ内で作るときにメタデータを何バイトぶん明示的にクリアする必要があるのかを
+Mpoolに伝える。これらのAPIのおかげで、MpoolはBerkeley DBの
+トランザクション要件に対応した機能を提供できるようになる。
+Mpoolを使う全ユーザーに対応を要求せずに済むのだ。
+
+%% \begin{aosabox}{Design Lesson 8}
+\begin{aosabox}{設計講座8}
+
+%% Write-ahead logging is another example of providing encapsulation and
+%% layering, even when the functionality is never going to be useful to
+%% another piece of software: after all, how many programs care about
+%% LSNs in the cache?  Regardless, the discipline is useful and makes the
+%% software easier to maintain, test, debug and extend.
+ログ先行書き込みはカプセル化とレイヤー化の一例でもある。
+たとえその機能がソフトウェアの他の箇所では一切使わないものだったとしても。
+結局のところ、キャッシュの中のLSNを気にかけているプログラムがいったいどれほどあるのだというのだろう？
+にもかかわらず、こういう指針は有用だ。
+ソフトウェアの保守やテスト、デバッグ、拡張をしやすくしてくれる。
+
+\end{aosabox}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Lock Manager: Lock}
+\begin{aosasect1}{ロックマネージャー: Lock}
+
+% Granularity of Locks and Degrees of Consistency in a Shared Data Base
+
+%% Like Mpool, the lock manager was designed as a general-purpose
+%% component: a hierarchical lock manager (see \cite{bib:gray:lock}),
+%% designed to support a hierarchy of objects that can be locked (such as
+%% individual data items), the page on which a data item lives, the file
+%% in which a data item lives, or even a collection of files. As we
+%% describe the features of the lock manager, we'll also explain how
+%% Berkeley DB uses them.  However, as with Mpool, it's important to
+%% remember that other applications can use the lock manager in
+%% completely different ways, and that's OK---it was designed to be
+%% flexible and support many different uses.
+Mpoolと同様、ロックマネージャーも汎用コンポーネントとして作られた。
+階層化ロックマネージャー（\cite{bib:gray:lock}を参照）として
+オブジェクトの階層（個々のデータ項目など）のロックに対応しており、
+それだけでなくデータ項目が存在するページやファイルあるいはファイルのコレクションにも対応している。
+ロックマネージャーの機能を説明するとともに、
+Berkeley DBがそれをどう活用しているのかについても解説する。
+しかし、Mpoolの場合と同様、
+他のアプリケーションからもまったく違う方法でロックマネージャーを使えるという点が重要だ。
+もともとそういった使い方を想定して柔軟に作られており、
+さまざまな使い方に対応している。
+
+%% The lock manager has three key abstractions: a ``locker'' that identifies
+%% on whose behalf a lock is being acquired, a ``lock\_object'' that
+%% identifies the item being locked, and a ``conflict matrix''.
+ロックマネージャーが抽象化している重要な概念は次の三つ。
+``ロッカー（locker）''は誰がロックを獲得したのかを表し、
+``ロックオブジェクト（lock\_object）''はロックされれている項目を表す。
+そして最後が``衝突マトリクス（conflict matrix）''である。
+
+%% Lockers are 32-bit unsigned integers. Berkeley DB divides this 32-bit
+%% name space into transactional and non-transactional lockers (although
+%% that distinction is transparent to the lock manager).  When Berkeley
+%% DB uses the lock manager, it assigns locker IDs in the range 0 to
+%% 0x7fffffff to non-transactional lockers and the range 0x80000000 to
+%% 0xffffffff to transactions. For example, when an application opens a
+%% database, Berkeley DB acquires a long-term read lock on that database
+%% to ensure no other thread of control removes or renames it while it is
+%% in-use. As this is a long-term lock, it does not belong to any
+%% transaction and the locker holding this lock is non-transactional.
+ロッカーは32ビット符号なし整数である。
+Berkeley DBは、この32ビットの名前空間
+トランザクショナルなロッカーと非トランザクショナルなロッカーの二つに分割する
+（ただしロックマネージャー側からはこれらを区別しない）。
+Berkeley DBがロックマネージャーを使うときは、
+非トランザクショナルなロッカーについては0から0x7fffffff、
+トランザクショナルなロッカーについては0x80000000から0xffffffff
+の範囲のロッカーIDをトランザクションに割り当てる。
+たとえば、あるアプリケーションがデータベースを開いたとする。
+このときBerkeley DBはそのデータベースに対して長期間の読み込みロックを確保し、
+利用中は他の制御スレッドからの削除やリネームができないようにする。
+このロックは長期間のロックなのでトランザクションには属さず、
+ロッカーはこのロックを非トランザクショナルとして保持する。
+
+%% Any application using the lock manager needs to assign locker ids, so
+%% the lock manager API provides both \code{DB\_ENV\--{\textgreater}lock\_id}
+%% and \code{DB\_ENV\--{\textgreater}lock\_id\_free} calls to allocate and
+%% deallocate lockers.  So applications need not implement
+%% their own locker ID allocator, although they certainly can.
+ロックマネージャーを使うすべてのアプリケーションは、ロッカーIDを割り当てる必要がある。
+そこで、ロックマネージャーのAPIでは\code{DB\_ENV\--{\textgreater}lock\_id}と
+\code{DB\_ENV\--{\textgreater}lock\_id\_free}の両方を提供している。
+これらを呼べば、ロッカーの割り当てと解放ができる。
+なので、アプリケーション側ではロッカーIDの割り当て処理の実装は不要だ。
+
+%% \begin{aosasect2}{Lock Objects}
+\begin{aosasect2}{ロックオブジェクト}
+
+%% Lock objects are arbitrarily long opaque byte-strings that represent
+%% the objects being locked. When two different lockers want to lock a
+%% particular object, they use the same opaque byte string to reference
+%% that object.  That is, it is the application's responsibility to agree
+%% on conventions for describing objects in terms of opaque byte strings.
+ロックオブジェクトは任意の長さの不透明なバイト文字列で、
+これがロック対象のオブジェクトを表す。
+二つの異なるロッカーが特定のオブジェクトをロックしようとしたときは、
+どちらも同じバイト文字列でそのオブジェクトを表す。
+つまり、オブジェクトを不透明なバイト文字列で表すときの規約については
+アプリケーション側で決めておく必要がある。
+
+%% For example, Berkeley DB uses a DB\_LOCK\_ILOCK structure to describe
+%% its database locks. This structure contains three fields: a file
+%% identifier, a page number, and a type.
+たとえばBerkeley DBでは、DB\_LOCK\_ILOCK構造体をつかってデータベースロックを表す。
+この構造体に含まれるフィールドは三つ。ファイルIDとページ番号、そして型である。
+
+%% In almost all cases, Berkeley DB needs to describe only the particular
+%% file and page it wants to lock. Berkeley DB assigns a unique 32-bit
+%% number to each database at create time, writes it into the database's
+%% metadata page, and then uses it as the database's unique identifier
+%% in the Mpool, locking, and logging subsystems. This is the
+%% \code{fileid} to which we refer in the DB\_LOCK\_ILOCK structure. Not
+%% surprisingly, the page number indicates which page of the particular
+%% database we wish to lock.  When we reference page locks, we set the
+%% type field of the structure to DB\_PAGE\_LOCK\@.  However, we can also
+%% lock other types of objects as necessary. As mentioned earlier, we
+%% sometimes lock a database handle, which requires a DB\_HANDLE\_LOCK
+%% type. The DB\_RECORD\_LOCK type lets us perform record level locking
+%% in the queue access method, and the DB\_DATABASE\_LOCK type lets us
+%% lock an entire database. 
+%% \hspace{-.5cm}
+ほとんどの場合、Berkeley DBで表す必要があるのは
+ロックしたい特定のファイルやページだけである。
+Berkeley DBはデータベースの作成時に一意な32ビット数値を割り当てており、
+データベースのメタデータページにそれを書き込んでいる。
+Mpoolやロック、ログなどのサブシステムでは、これをデータベースの一意なIDとして使う。
+DB\_LOCK\_ILOCK構造体の\code{fileid}が、そのIDである。
+おそらく予想通りだろうが、ページ番号が指すのはデータベース内でロックしたいページである。
+ページロックを指すときには、構造体のtypeフィールドにDB\_PAGE\_LOCKを設定する。
+しかし、必要に応じて他の型のオブジェクトもロックできる。
+先述のとおり、時にはデータベースのハンドルをロックすることもあり、
+その場合に指定する型はDB\_HANDLE\_LOCKとなる。
+DB\_RECORD\_LOCK型を使えばqueueアクセスメソッドでレコードレベルのロックができ、
+DB\_DATABASE\_LOCK型を使えばデータベース全体をロックする。
+\hspace{-.5cm}
+%% \begin{aosabox}{Design Lesson 9}
+\begin{aosabox}{設計講座9}
+
+%% Berkeley DB's choice to use page-level locking was made for good
+%% reasons, but we've found that choice to be problematic at times. Page-level locking
+%% limits the concurrency of the application as one thread of control
+%% modifying a record on a database page will prevent other threads of
+%% control from modifying other records on the same page, while
+%% record-level locks permit such concurrency as long as the two threads
+%% of control are not modifying the same record.  Page-level locking
+%% enhances stability as it limits the number of recovery paths that are
+%% possible (a page is always in one of a couple of states during
+%% recovery, as opposed to the infinite number of possible states a page
+%% might be in if multiple records are being added and deleted to a
+%% page). As Berkeley DB was intended for use as an embedded system where
+%% no database administrator would be available to fix things should
+%% there be corruption, we chose stability over increased concurrency.
+Berkeley DBがページレベルのロックを選んだことにはそれなりの理由がある。
+しかし、時にはその選択が問題となることも出てきた。
+ページレベルのロックはアプリケーションの同時実行性を制限してしまう。
+ある制御スレッドがデータベースのレコードを変更すると、
+他のスレッドからは同じページにあるそれ以外のレコードを変更できなくなる。
+一方レコードレベルのロックなら、全く同じレコードを変更しようとしない限りはそんな制限を受けない。
+ページレベルのロックをすれば安定性が向上する。
+考えうるリカバリーパスが絞り込めるからである
+（リカバリ中は、ページは常にいくつかの状態の中のひとつでいる。
+しかし、もしひとつのページの中で複数のレコードが追加されたり削除されたりしていたら、
+無数の可能性が存在しうることになる）。
+Berkeley DBは組み込みシステムでの利用を想定して作られたものである。
+そんな環境では、何か問題があったときに対応してくれるようなデータベース管理者がいるとは限らない。
+そこで私たちは、同時実行性よりも安定性を重視することにしたのだ。
+
+\end{aosabox}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{The Conflict Matrix}
+\begin{aosasect2}{衝突マトリクス}
+
+%% The last abstraction of the locking subsystem we'll discuss is the
+%% conflict matrix. A conflict matrix defines the different types of
+%% locks present in the system and how they interact. Let's call the
+%% entity holding a lock, the holder and the entity requesting a lock the
+%% requester, and let's also assume that the holder and requester have
+%% different locker ids.  The conflict matrix is an array indexed by
+%% \code{[requester][holder]}, where each entry contains a zero if there
+%% is no conflict, indicating that the requested lock can be granted, and
+%% a one if there is a conflict, indicating that the request cannot be
+%% granted.
+ロックのサブシステムの中で最後に取り上げる抽象概念が、衝突マトリクスだ。
+これは、システム内に存在するさまざまな型のロックとその相互作用について定義する。
+ロックを保持するエンティティを「ホルダー」、
+ロックを要求するエンティティを「リクエスター」と呼び、
+ホルダーとリクエスターがそれぞれ別のロッカーIDを持っているものとする。
+このとき、衝突マトリクスは\code{[requester][holder]}をインデックスとする配列になる。
+もし衝突がなければそのエントリの値は0で、これはロックが認められることを表す。
+衝突が発生する場合の値は1で、これは要求が認められなかったことを表す。
+
+%% The lock manager contains a default conflict matrix, which happens to
+%% be exactly what Berkeley DB needs, however, an application is free to
+%% design its own lock modes and conflict matrix to suit its own
+%% purposes.  The only requirement on the conflict matrix is that it is
+%% square (it has the same number of rows and columns) and that the
+%% application use 0-based sequential integers to describe its lock
+%% modes (e.g., read, write, etc.).   \aosatblref{tbl.bdb.two}
+%%  shows the Berkeley DB conflict matrix.
+ロックマネージャーにはデフォルトの衝突マトリクスが組み込まれており、
+これはたまたまBerkeley DBが必要とするものと完全に一致している。
+しかし、アプリケーション側で目的に合わせて
+自前のロックモードと衝突マトリクスを作ってもかまわない。
+衝突マトリクスに関する条件は、正方行列である
+（行の数と列の数が等しい）ことと、
+ロックモード（read、writeなど）をゼロから始まる整数の連番で表すということだけである。
+\aosatblref{tbl.bdb.two}に、Berkeley DBの衝突マトリクスを示す。
+
+\begin{table}[h]\small\centering
+\begin{tabular} { | l | c | c | c | c | c | c | c | c | c | }
+\hline
+%% & {\bf Holder} & & & & & & & & \\
+& {\bf ホルダー} & & & & & & & & \\
+%% {\bf Requester} & {\bf No-Lock}	& {\bf Read} & {\bf Write} & {\bf Wait}	& {\bf iWrite} & {\bf iRead} & {\bf iRW} & {\bf uRead} & {\bf wasWrite}\\
+{\bf リクエスター} & {\bf No-Lock}	& {\bf Read} & {\bf Write} & {\bf Wait}	& {\bf iWrite} & {\bf iRead} & {\bf iRW} & {\bf uRead} & {\bf wasWrite}\\
+\hline
+{\bf No-Lock}	&	&	& &	& & &	& & \\
+\hline
+{\bf Read}	& 		& 		& \checkmark & 		& \checkmark   & 	     & \checkmark & 	       & \checkmark\\
+\hline
+{\bf Write}	& 		& \checkmark	& \checkmark & \checkmark & \checkmark & \checkmark   & \checkmark & \checkmark	& \checkmark\\
+\hline
+{\bf Wait}	& 		& 		& 	   & 		& 	       & 	     & 	 	& 	       & \\
+\hline
+{\bf iWrite}	& 		& \checkmark	& \checkmark & 		& 	       & 	     & 	 	& \checkmark   & \checkmark\\
+\hline
+{\bf iRead}	& 		& 		& \checkmark & 		& 	       & 	     & 	 	& 	       & \checkmark\\
+\hline
+{\bf iRW}	& 		& \checkmark	& \checkmark & 		& 	       & 	     & 	 	& \checkmark   & \checkmark\\
+\hline
+{\bf uRead}	& 		& 		& \checkmark & 		& \checkmark   & 	     & \checkmark & 	       & \\
+\hline
+{\bf iwasWrite}	& 		& \checkmark	& \checkmark & 		& \checkmark   & \checkmark  & \checkmark & 	       & \checkmark\\
+\hline
+\end{tabular}
+%% \caption{Read-Writer Conflict Matrix.}
+\caption{Read-Writer衝突マトリクス}
+\label{tbl.bdb.two}
+\end{table}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Supporting Hierarchical Locking}
+\begin{aosasect2}{階層化ロックのサポート}
+
+%% Before explaining the different lock modes in the Berkeley DB conflict
+%% matrix, let's talk about how the locking subsystem supports
+%% hierarchical locking. Hierarchical locking is the ability to lock
+%% different items within a containment hierarchy. For example, files
+%% contain pages, while pages contain individual elements. When modifying
+%% a single page element in a hierarchical locking system, we want to
+%% lock just that element; if we were modifying every element on the
+%% page, it would be more efficient to simply lock the page, and if we
+%% were modifying every page in a file, it would be best to lock the
+%% entire file. Additionally, hierarchical locking must understand the
+%% hierarchy of the containers because locking a page also says something
+%% about locking the file: you cannot modify the file that contains a
+%% page at the same time that pages in the file are being modified.
+Berkeley DBの衝突マトリクスにおけるさまざまなロックモードについて説明する前に、
+ロックサブシステムがどうやって階層化ロックに対応しているのかを説明しよう。
+階層化ロックとは、さまざまな項目を階層を保ったままロックすることだ。
+たとえば、ファイルの中には複数のページがあり、ページの中には個々の要素が含まれる。
+あるページの要素を階層化ロックのもとで変更するときは、
+その要素だけをロックしておきたい。
+ページ上の全要素を変更するなら、各要素をロックするよりも
+単にそのページを丸ごとロックしたほうが効率的だ。
+同様に、ファイル内のすべてのページを変更するのなら
+ファイル全体をロックするのがいちばんだ。
+さらに、階層化ロックを行うにはコンテナの階層についても知っておく必要がある。
+あるページをロックするということは、ファイルをロックするということでもあるからだ。
+あるページが変更されているとき、そのページを含むファイルを同時に変更することはできない。
+
+%% The question then is how to allow different lockers to lock at
+%% different hierarchical levels without chaos resulting.  The answer
+%% lies in a construct called an intention lock. A locker acquires an
+%% intention lock on a container to indicate the intention to lock things
+%% within that container. So, obtaining a read-lock on a page implies
+%% obtaining an intention-to-read lock on the file. Similarly, to write a
+%% single page element, you must acquire an intention-to-write lock on
+%% both the page and the file. In the conflict matrix above, the \code{iRead},
+%% \code{iWrite}, and \code{iWR} locks are all intention locks that indicate an
+%% intention to read, write or do both, respectively.
+というわけで、問題は、
+さまざまなロッカーが異なる階層レベルを見るときに混乱を引き起こさずに済ませるには
+どうすればいいか？ということになる。その答えはインテンションロックと呼ばれる概念にある。
+あるロッカーがコンテナに対するインテンションロックを獲得すると、
+そのコンテナの中身に対してもロックする意図があるということを表す。
+つまり、ページへの書き込みロックを獲得するということは、
+ファイルへの書き込みインテンションロックを獲得することを意味する。
+同様に、あるページのひとつの要素に書き込むには、
+ページとファイルの両方に対する書き込みインテンションロックを獲得しなければならない。
+さきほどの衝突マトリクスにおいて
+\code{iRead}、\code{iWrite}、そして\code{iWR}はすべてインテンションロックであり、
+それぞれ読み込み、書き込み、その両方に対する意図を指す。
+
+%% Therefore, when performing hierarchical locking, rather than
+%% requesting a single lock on something, it is necessary to request
+%% potentially many locks: the lock on the actual entity as well as
+%% intention locks on any containing entities. This need leads to the
+%% Berkeley DB \code{DB\_ENV\--{\textgreater}lock\_vec} interface, which
+%% takes an array of lock requests and grants them (or rejects them),
+%% atomically.
+したがって、単に何かを単体でロックするのではなく階層化ロックを実行しようとした場合は、
+多数のロックを要求しなければならなくなる。実際にロックしたいエンティティだけでなく、
+それを含むエンティティに対するインテンションロックも必要となる。
+そのためにはBerkeley DBの\code{DB\_ENV\--{\textgreater}lock\_vec}
+インターフェイスが必要だ。これは、ロック要求の配列を受け取って、
+その承認（あるいは却下）をアトミックに行う。
+
+%% Although Berkeley DB doesn't use hierarchical locking internally, it
+%% takes advantage of the ability to specify different conflict
+%% matrices, and the ability to specify multiple lock requests at once.
+%% We use the default conflict matrix when providing transactional
+%% support, but a different conflict matrix to provide simple concurrent
+%% access without transaction and recovery support.  We use 
+%% \code{DB\_ENV\--{\textgreater}lock\_vec} to perform lock
+%% coupling, a technique that enhances the concurrency of Btree
+%% traversals~\cite{bib:comer:btree}.  In lock coupling, you hold
+%% one lock only long enough to acquire the next lock.  That is, you lock
+%% an internal Btree page only long enough to read the information that
+%% allows you to select and lock a page at the next level.
+Berkeley DBは内部的には階層化ロックを使っていないが、
+異なる衝突マトリクスを指定できるという機能や
+複数のロック要求を一度に指定できる機能は活用している。
+デフォルトの衝突マトリクスはトランザクションをサポートするときに使うが、
+トランザクションやリカバリーのサポートをやめてシンプルな同時アクセス機能を提供するときには
+別の衝突マトリクスを使う。
+我々は\code{DB\_ENV\--{\textgreater}lock\_vec}を使ってロックの結合をする。
+これはBtreeの走査の同時並行性をあげるためのテクニックだ\cite{bib:comer:btree}。
+ロックを結合するときには、ひとつのロックを保持するのは次のロックを獲得するまでの間となる。
+つまり、内部のBtreeページをロックするのは、
+次のレベルのページを選んでロックするための情報を読み込むまでの間である。
+
+%% \begin{aosabox}{Design Lesson 10}
+\begin{aosabox}{設計講座10}
+
+%% Berkeley DB's general-purpose design was well rewarded when we added
+%% concurrent data store functionality. Initially Berkeley
+%% DB provided only two modes of operation: either you ran without any
+%% write concurrency or with full transaction support. Transaction
+%% support carries a certain degree of complexity for the developer and
+%% we found some applications wanted improved concurrency without the
+%% overhead of full transactional support. To provide this feature, we
+%% added support for API-level locking that allows concurrency, while
+%% guaranteeing no deadlocks.  This required a new and different lock
+%% mode to work in the presence of cursors. Rather than adding special
+%% purpose code to the lock manager, we were able to create an alternate
+%% lock matrix that supported only the lock modes necessary for the
+%% API-level locking.  Thus, simply by configuring the lock manager
+%% differently, we were able provide the locking support we
+%% needed. (Sadly, it was not as easy to change the access methods; there
+%% are still significant parts of the access method code to handle this
+%% special mode of concurrent access.)
+Berkeley DBを汎用性重視の設計にしておいたことが、
+並列データ格納機能を追加するときに役立った。
+当初Berkeley DBが用意していた操作モードは二種類だけで、
+並列書き込みを一切考慮しないモードと
+完全なトランザクションに対応したモードだけだった。
+トランザクションに対応すると開発者にとってはそれなりに複雑になってしまうし、
+アプリケーションによっては、トランザクションのサポートが不完全でもいいから
+並列処理を改善してほしいという場合もあった。
+この機能を提供するために、まずはAPIレベルのロックに対応して並列処理をできるようにし、
+デッドロックが発生しないことを保証した。
+そのために必要なのは、新たなロックモードを別途用意してカーソル上で動作させるということだった。
+これを実現するために新たなコードをロックマネージャーに追加する必要はなく、
+APIレベルのロックに必要なロックモードだけに対応したロックマトリクスを用意するだけでよかった。
+このようにして、単にロックマネージャーの設定を調整するだけで、
+必要となるロックサポートを提供できたのだ
+（残念ながら、アクセスメソッドの変更は、それほどお手軽にはできなかった。
+アクセスメソッド側には、並列アクセスのための特別なモードに対応するためのコードが大量に存在する）。
+
+\end{aosabox}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Log Manager: Log}
+\begin{aosasect1}{ログマネージャー: Log}
+\label{sec.bdb.log}
+
+%% The log manager provides the abstraction of a structured, append-only
+%% file. As with the other modules, we intended to design a
+%% general-purpose logging facility, however the logging subsystem is
+%% probably the module where we were least successful. 
+ログマネージャーは、構造化された追記限定のファイルを抽象化したものである。
+他のモジュールと同様、汎用的なログ機能を念頭に置いて作っている。
+しかしログ出力サブシステムは、各種モジュール群の中でおそらく最もできの悪いものであろう。
+
+%% \begin{aosabox}{Design Lesson 11}
+\begin{aosabox}{設計講座11}
+
+%% When you find an architectural problem you don't want to fix ``right
+%% now'' and that you're inclined to just let go, remember that being
+%% nibbled to death by ducks will kill you just as surely as being
+%% trampled by elephants. Don't be too hesitant to change entire
+%% frameworks to improve software structure, and when you make the
+%% changes, don't make a partial change with the idea that you'll clean
+%% up later---do it all and then move forward. As has been often
+%% repeated, ``If you don't have the time to do it right now, you won't
+%% find the time to do it later.'' And while you're changing the
+%% framework, write the test structure as well.
+アーキテクチャ上の問題が見つかったけれども「とりあえず今のところは」
+修正したくない。できればそのままにしておきたいなあ…だって？
+アヒルのくちばしでの突っつきも、数え切れないほど続いたら死に至るかもよ。
+そう、ゾウに踏みつぶされたら死んでしまうのと同じように。
+ソフトウェアの構造を改良するため根本的にフレームワークを変更してしまうことを恐れてはいけない。
+また、一部だけ変更して後で徐々に整えていこうなんて考えではいけない。
+やるなら全体的にやってしまって、それから次に進もう。何度となく言われているように、
+「今それをする時間がないのなら、いつまでたってもそんな時間はひねり出せないだろう」
+ってことだ。また、フレームワークを変更するときにはテストもきちんと書いておこう。
+
+\end{aosabox}
+
+%% A log is conceptually quite simple: it takes opaque byte strings and
+%% writes them sequentially to a file, assigning each a unique
+%% identifier, called a log sequence number (LSN). Additionally, the log
+%% must provide efficient forward and backward traversal and retrieval by
+%% LSN\@.  There are two tricky parts: first, the log must guarantee it is
+%% in a consistent state after any possible failure (where consistent
+%% means it contains a contiguous sequence of uncorrupted log records);
+%% second, because log records must be written to stable storage for
+%% transactions to commit, the performance of the log is usually what
+%% bounds the performance of any transactional application.
+ログの概念は極めてシンプルである。
+不透明なバイト文字列を受け取り、それをシーケンシャルにファイルへ書き出し、
+各レコードに一意な識別子を付与する。この識別子はログシーケンス番号(LSN)と呼ばれる。
+さらに、このLSNを使って両方向への効率的な走査やレコードの取得をできるようにしておく必要がある。
+注意すべき点は次の二カ所だ。まず、考え得るあらゆる障害があった後でもその一貫性を保証しなければならない
+(ここでいう一貫性とは、障害の前後の一連のレコードは正常な状態で残らなければいけないということである)。
+次に、ログレコードはトランザクションのコミットのたびに安定したストレージに書き出す必要があるので、
+ログのパフォーマンスはトランザクションを利用するあらゆるアプリケーションに影響する。
+
+%% As the log is an append-only data structure, it can grow without
+%% bound.  We implement the log as a collection of sequentially numbered
+%% files, so log space may be reclaimed by simply removing old log
+%% files. Given the multi-file architecture of the log, we form LSNs as
+%% pairs specifying a file number and offset within the file. Thus, given
+%% an LSN, it is trivial for the log manager to locate the record: it
+%% seeks to the given offset of the given log file and returns the record
+%% written at that location. But how does the log manager know how many
+%% bytes to return from that location?
+ログは追記しかしないデータ構造なので、何の束縛もなしにサイズを増やせる。
+我々はログを連番のファイルとして実装したので、
+ログ用のスペースを確保するには単に古いログファイルを削除するだけでよい。
+ログのアーキテクチャを複数ファイル形式にしたので、
+LSNの形式はファイル番号とファイル内オフセットのペアとした。
+したがって、LSNさえわかれば、ログマネージャーは簡単にレコードを見つけられる。
+指定されたファイルの指定されたオフセットまでシークし、そこに書かれているレコードを返すだけのことだ。
+しかし、場所はわかったとして、そこから何バイトぶん返せばいいのかはどうやって知るのだろう?
+
+%% \begin{aosasect2}{Log Record Formatting}
+\begin{aosasect2}{ログレコードの書式}
+
+%% The log must persist per-record metadata so that, given an LSN, the
+%% log manager can determine the size of the record to return. At a
+%% minimum, it needs to know the length of the record. We prepend every
+%% log record with a log record header containing the record's length,
+%% the offset of the previous record (to facilitate backward traversal),
+%% and a checksum for the log record (to identify log corruption and the
+%% end of the log file). This metadata is sufficient for the log manager
+%% to maintain the sequence of log records, but it is not sufficient to
+%% actually implement recovery; that functionality is encoded in the
+%% contents of log records and in how Berkeley DB uses those log records.
+ログには必ずレコード単位のメタデータが含まなければならない。
+そうすれば、LSNさえわかれば返すレコードのサイズもわかるようになる。
+最低限、レコードの長さが取得できなければいけない。
+我々が選んだのは、すべてのログレコードの前にレコードヘッダを付加する方法だ。
+レコード長や前のレコードからのオフセット(逆方向の走査用)、そしてログレコードのチェックサム
+(ログの破壊やファイルの終端を検出するため)といった情報がヘッダに含まれる。
+このメタデータがあれば、ログマネージャーがレコードの並びを保守するには十分だ。
+しかしこれだけでは、リカバリー処理を実装することができない。
+リカバリー機能はログレコードの中身に組み込まれており、
+Berkeley DBはログレコード自体を使ってリカバリー処理を行う。
+
+% Principles of transaction-oriented database recovery
+
+%% Berkeley DB uses the log manager to write before- and after-images of
+%% data before updating items in the database
+%% \cite{bib:haerder:recovery}.  These log records contain enough
+%% information to either redo or undo operations on the
+%% database. Berkeley DB then uses the log both for transaction abort
+%% (that is, undoing any effects of a transaction when the transaction is
+%% discarded) and recovery after application or system failure.
+Berkeley DBは、ログマネージャーを利用して
+更新前・更新後のイメージをそれぞれ記録してからデータベース内のアイテムを更新する
+\cite{bib:haerder:recovery}。
+このログレコードには、データベース上での操作を取り消したりやり直したりするために
+必要な情報が含まれている。
+Berkeley DBはこのログを利用して、トランザクションのアボート
+(それまで行われた変更をすべて取り消してトランザクションを破棄する処理)
+やアプリケーションあるいはシステムが異常終了したときのリカバリーを行う。
+
+%% In addition to APIs to read and write log records, the log manager
+%% provides an API to force log records to disk
+%% (\code{DB\_ENV\--{\textgreater}log\_flush}).  This allows Berkeley DB to
+%% implement write-ahead logging---before evicting a page from Mpool,
+%% Berkeley DB examines the LSN on the page and asks the log manager to
+%% guarantee that the specified LSN is on stable storage. Only then does
+%% Mpool write the page to disk. 
+ログレコードの読み書き用のAPI以外に、
+ログレコードを強制的にディスクに書き込むAPI
+(\code{DB\_ENV\--{\textgreater}log\_flush})も用意されている。
+このAPIを利用して、Berkeley DBのログ先行書き込みを実装しているのだ。
+ページをMpoolから削除する前に、Berkeley DBがページのLSNを調べ、
+そのLSNがストレージ上に格納されているかどうかをログマネージャに問い合わせる。
+それが確認できたときにだけMpoolがページをディスクに書き出すのだ。
+
+%% \begin{aosabox}{Design Lesson 12}
+\begin{aosabox}{設計講座12}
+
+%% Mpool and Log use internal handle methods to facilitate write-ahead
+%% logging, and in some cases, the method declaration is longer than the
+%% code it runs, since the code is often comparing two integral values
+%% and nothing more. Why bother with such insignificant methods, just to
+%% maintain consistent layering?  Because if your code is not so
+%% object-oriented as to make your teeth hurt, it is not object-oriented
+%% enough. Every piece of code should do a small number of things and
+%% there should be a high-level design encouraging programmers to build
+%% functionality out of smaller chunks of functionality, and so on. If
+%% there's anything we have learned about software development in the
+%% past few decades, it is that our ability to build and maintain
+%% significant pieces of software is fragile. Building and maintaining
+%% significant pieces of software is difficult and error-prone, and as
+%% the software architect, you must do everything that you can, as early
+%% as you can, as often as you can, to maximize the information conveyed
+%% in the structure of your software.
+MpoolとLogは内部処理のメソッドでログ先行書き込みを利用しており、
+場合によってはメソッドの宣言のほうが実際のコードよりも長くなることもある。
+メソッドで実際に行っているのが単なる積分値の比較だけだということが多いからである。
+一貫したレイヤー構造を保つためだけに、わざわざそこまでする必要があるのかって?
+歯が痛くなるほどのオブジェクト指向じゃなければ、
+十分にオブジェクト指向しているとは言えないのだよ。
+あらゆるコード片は、あまり多くのことをやりすぎないようにしなければならない。
+また、小規模な機能のかたまりを取りまとめて一つの機能を構築させるよう、
+上位レベルの設計をしていかなければいけない。
+過去数十年間でソフトウェア開発について学んだことがあるとすれば、
+大量のソフトウェア部品を組み上げたり保守したりする能力はとてもはかないものだということである。
+大量のソフトウェア部品を組み上げたり保守したりするのは
+難しくて間違いを犯しやすい。そして、ソフトウェアアーキテクトとして、
+できる限りのことをしてできるだけ早くできるだけ頻繁に
+ソフトウェアが運ぶ情報を最大化しなければならない。
+
+\end{aosabox}
+
+%% Berkeley DB imposes structure on the log records to facilitate
+%% recovery.  Most Berkeley DB log records describe transactional
+%% updates. Thus, most log records correspond to page modifications to a
+%% database, performed on behalf of a transaction. This description
+%% provides the basis for identifying what metadata Berkeley DB must
+%% attach to each log record: a database, a transaction, and a record
+%% type. The transaction identifier and record type fields are present in every
+%% record at the same location.  This allows the recovery system to
+%% extract a record type and dispatch the record to an appropriate
+%% handler that can interpret the record and perform appropriate
+%% actions. The transaction identifier lets the recovery process identify the
+%% transaction to which a log record belongs, so that during the various
+%% stages of recovery, it knows whether the record can be ignored or must
+%% be processed.
+Berkeley DBは、リカバリー機能を提供できるようなログレコードの構造を強いている。
+Berkeley DBのログレコードの大半は、トランザクションの更新を記録するものである。
+したがって、ログレコードの大半はデータベースのページを書き換えるものであり、
+トランザクション上で実行されていることになる。
+これを踏まえると、Berkeley DBのログレコードに付加すべきメタデータが決まる。
+それがデータベース・トランザクション・レコードタイプである。
+トランザクションIDおよびレコードタイプのフィールドは、
+すべてのレコードで同じ位置に存在する。
+こうすることで、リカバリーシステムがレコードタイプを取得し、
+レコードの処理を適切なハンドラに振り分けて正しく処理できるようになる。
+トランザクションIDを見ればそのログレコードがどのトランザクションに属するのかがわかるので、
+リカバリー中にそのレコードを無視できるのか処理が必要なのかも判断できる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Breaking the Abstraction}
+\begin{aosasect2}{抽象化違反}
+
+%% There are also a few ``special'' log records.  Checkpoint records are,
+%% perhaps, the most familiar of those special records. Checkpointing is
+%% the process of making the on-disk state of the database consistent as
+%% of some point in time. In other words, Berkeley DB aggressively caches
+%% database pages in Mpool for performance. However, those pages must
+%% eventually get written to disk and the sooner we do so, the more
+%% quickly we will be able to recover in the case of application or
+%% system failure. This implies a trade-off between the frequency of
+%% checkpointing and the length of recovery: the more frequently a system
+%% takes checkpoints, the more quickly it will be able to
+%% recover. Checkpointing is a transaction function, so we'll describe
+%% the details of checkpointing in the next section.  For the purposes of
+%% this section, we'll talk about checkpoint records and how the log
+%% manager struggles between being a stand-alone module and a
+%% special-purpose Berkeley DB component.
+「特別な」ログレコードがいくつかある。
+その中でもおそらく最もなじみ深いのが、チェックポイントレコードだろう。
+チェックポイントとは、ある特定時点のデータベースの状態を
+ディスク上に書き出す処理のことである。
+言い換えれば、Berkeley DBはかなりアグレッシブに
+データベースのページをMpoolにキャッシュしているということだ。
+これはパフォーマンスを稼ぐためである。
+しかし、キャッシュしたページもいずれはディスクに書き出さねばならず、
+早めに書けば書くほど障害時のリカバリーを素早く行えるようになる。
+これらを考慮すると、チェックポイントの頻度とリカバリーに要する時間との間に
+トレードオフが発生することがわかる。
+つまり、チェックポイントを頻繁に行えば行うほどリカバリーが素早くできるようになる。
+チェックポイントはトランザクションの機能なので、その詳細は次のセクションで扱う。
+このセクションは、まずチェックポイントレコードについて解説する。
+そして、スタンドアロンのモジュールの場合と
+特化型のBerkeley DBコンポーネントの場合に
+ログマネージャーがそれをどう扱うのかを見ていく。
+
+%% In general, the log manager, itself, has no notion of record types, so
+%% in theory, it should not distinguish between checkpoint records and
+%% other records---they are simply opaque byte strings that the log
+%% manager writes to disk. In practice, the log maintains metadata
+%% revealing that it does understand the contents of some records. For
+%% example, during log startup, the log manager examines all the log
+%% files it can find to identify the most recently written log file. It
+%% assumes that all log files prior to that one are complete and intact,
+%% and then sets out to examine the most recent log file and determine
+%% how much of it contains valid log records. It reads from the beginning
+%% of a log file, stopping if/when it encounters a log record header that
+%% does not checksum properly, which indicates either the end of the log
+%% or the beginning of log file corruption. In either case, it determines
+%% the logical end of log.
+一般に、ログマネージャー自身はレコードタイプを気にしないものだ。
+したがって、チェックポイントレコードだろうがそれ以外のレコードだろうが区別してはいけない。
+どちらも単なる不透明なバイト文字列であり、ログマネージャーは単にそれをディスクに書き込むだけのことである。
+実際には、ログはいくつかのレコードの内容を理解するようなメタデータを維持する。
+たとえばログを立ち上げるときに、ログマネージャーがすべてのログファイルを吟味して
+直近に書き込まれたログファイルがどれであるかを調べる。
+それより前のログファイルはすべて完全で壊れていないものとみなし、
+さらに最新のログファイル内に有効なログレコードが何件あるかを調べる。
+ログファイルの先頭から読み込み、チェックサムが適切に設定されていない
+レコードヘッダが見つかった時点で停止する。つまりそこが、
+ログの終端あるいはログファイルが壊れている場所ということだ。
+いずれにせよ、ログの論理的な終端はその位置になる。
+
+%% During this process of reading the log to find the current end, the
+%% log manager extracts the Berkeley DB record type, looking for
+%% checkpoint records. It retains the position of the last checkpoint
+%% record it finds in log manager metadata as a ``favor'' to the
+%% transaction system. That is, the transaction system needs to find the
+%% last checkpoint, but rather than having both the log manager and
+%% transaction manager read the entire log file to do so, the transaction
+%% manager delegates that task to the log manager. This is a classic
+%% example of violating abstraction boundaries in exchange for
+%% performance.
+ログを読んで現在の終端位置を探す処理の間に、
+ログマネージャーはBerkeley DBのレコードタイプを展開して
+チェックポイントレコードを探す。ログマネージャーのメタデータの中で見つけた
+最後のチェックポイントレコードの位置を、トランザクションシステム用に保持する。
+どういうことかというと、まずトランザクションシステムは
+直近のチェックポイントの位置を知る必要がある。しかし、
+ログマネージャーとトランザクションマネージャーがそれぞれ
+ログをまるごと読み込んで位置を調べるのではなく、
+トランザクションマネージャーがその処理をログマネージャーに委譲するということだ。
+抽象化による処理の切り分けに違反してでもパフォーマンスを求めたという、ありがちな話だ。
+
+%% What are the implications of this tradeoff? Imagine that a system
+%% other than Berkeley DB is using the log manager. If it happens to
+%% write the value corresponding to the checkpoint record type in the
+%% same position that Berkeley DB places its record type, then the log
+%% manager will identify that record as a checkpoint record. However,
+%% unless the application asks the log manager for that information (by
+%% directly accessing \code{cached\_ckp\_lsn} field in the log metadata),
+%% this information never affects anything. In short, this is either a
+%% harmful layering violation or a savvy performance optimization.
+このトレードオフから、いったい何が導けるだろう?
+たとえば、Berkeley DB以外のシステムがこのログマネージャーを使う場面を想像してみよう。
+Berkeley DBがレコードタイプを書き込んでいるのと同じ位置に、
+たまたまチェックポイントレコードタイプに対応する値が書かれてしまったとすると、
+ログマネージャーはそのレコードをチェックポイントだと解釈してしまう。
+しかし、アプリケーション側から
+(ログのメタデータの\code{cached\_ckp\_lsn}フィールドに直接アクセスして)
+問い合わせない限り、この情報は何も影響を及ぼさない。
+要するにこれは、有害なレイヤー化違反あるいは
+抜け目のないパフォーマンス最適化だということだ。
+
+%% File management is another place where the separation between the log
+%% manager and Berkeley DB is fuzzy. As mentioned earlier, most Berkeley
+%% DB log records have to identify a database. Each log record could
+%% contain the full filename of the database, but that would be
+%% expensive in terms of log space, and clumsy, because recovery would
+%% have to map that name to some sort of handle it could use to access
+%% the database (either a file descriptor or a database handle). Instead,
+%% Berkeley DB identifies databases in the log by an integer identifier,
+%% called a log file id, and implements a set of functions, called
+%% \code{dbreg} (for ``database registration''), to maintain mappings
+%% between filenames and log file ids. The persistent version of this
+%% mapping (with the record type \code{DBREG\_REGISTER})
+%% is written to log records when the database is opened.  However, we also need
+%% in-memory representations of this mapping to facilitate transaction
+%% abort and recovery. What subsystem should be responsible for
+%% maintaining this mapping?
+ファイル管理もまた、ログマネージャーとBerkeley DBの役割分担が曖昧になっているところのひとつだ。
+先述のとおり、Berkeley DBのログレコードの大半はデータベースを特定できなければならない。
+各ログレコードにデータベースファイルのフルパスを含めてもよいが、そんなことをすればログの容量が肥大化するし
+あまり美しくない。リカバリーのときにはそのファイル名をデータベースアクセス用のハンドル的な何か
+(ファイルディスクリプタあるいはデータベースハンドル)に変換する処理が必要になってしまうからだ。
+そのかわりにBerkeley DBが使っているのが、ログに一意な整数値を記録する方法だ。
+これはファイルIDと呼ばれており、このIDを処理するための\code{dbreg}
+(``DataBase REGistration'')関数群を用意してファイル名とログファイルIDのマッピングを管理している。
+永続版のマッピング(レコードタイプ\code{DBREG\_REGISTER})がログレコードに書き込まれるのは、
+データベースをオープンしたときである。しかし、それだけではなく
+このマッピングのインメモリでの表現も必要だ。
+トランザクションの異常終了やリカバリーに対応するために、これが必要となる。
+このマッピングは、どのサブシステムに任せるべきだろうか?
+
+%% In theory, the file to log-file-id mapping is a high-level Berkeley DB
+%% function; it does not belong to any of the subsystems, which were
+%% intended to be ignorant of the larger picture. In the original design,
+%% this information was left in the logging subsystems data structures
+%% because the logging system seemed like the best choice. However, after
+%% repeatedly finding and fixing bugs in the implementation, the mapping
+%% support was pulled out of the logging subsystem code and into its own
+%% small subsystem with its own object-oriented interfaces and private
+%% data structures.  (In retrospect, this information should logically
+%% have been placed with the Berkeley DB environment information itself,
+%% outside of any subsystem.) 
+理屈の上では、ファイルとログファイルIDのマッピングは上位レベルのBerkeley DB
+の機能だろう。どれかのサブシステムに属するような機能ではない。
+サブシステムは全体像を意識せずに済むように作られるものだ。
+当初の設計では、このマッピング情報はログ記録用サブシステムのデータ構造にあった。
+あの頃はそこに置くのが最適だと思っていたんだ。
+でも、それから何度となく実装のバグを見つけては修正をしているうちに、
+マッピングの機能はログ記録用サブシステムから切り出された。
+そしてそれ単体で小さなサブシステムとし、
+オブジェクト指向のインターフェイスとprivateなデータ構造を用意した
+(今思えば、この情報はBerkeley DBの環境情報自体に持たせるべきだった。
+サブシステムにするべきではなかった)。
+
+%% \begin{aosabox}{Design Lesson 13}
+\begin{aosabox}{設計講座13}
+
+%% There is rarely such thing as an unimportant bug. Sure, there's a typo
+%% now and then, but usually a bug implies somebody didn't fully
+%% understand what they were doing and implemented the wrong thing.
+%% When you fix a bug, don't look for the symptom: look for the
+%% underlying cause, the misunderstanding, if you will, because that
+%% leads to a better understanding of the program's architecture as well
+%% as revealing fundamental underlying flaws in the design itself.
+どうでもいいバグなどというものはめったにない。
+ああ、確かにちょっとしたtypoとかは時々あるだろう。
+でもふつうは、バグが発生したということは、
+何をしたいのかを把握せずに間違った実装をした可能性があるということだ。
+バグを修正するときには、単におかしなところを見つけるだけではいけない。
+なぜそうなったのか、何か誤解があったのではないかということを探るようにしよう。
+そうすれば、そのプログラムのアーキテクチャをより深く理解できるようになるし、
+そもそもの設計自体に根本的な問題があればそれもはっきりするだろう。
+
+\end{aosabox}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Transaction Manager: Txn}
+\begin{aosasect1}{トランザクションマネージャー: Txn}
+
+%% Our last module is the transaction manager, which ties together the
+%% individual components to provide the transactional ACID properties of
+%% atomicity, consistency, isolation, and durability. The transaction
+%% manager is responsible for beginning and completing (either committing
+%% or aborting) transactions, coordinating the log and buffer managers to
+%% take transaction checkpoints, and orchestrating recovery. We'll visit
+%% each of these areas in order.
+最後に取り上げるモジュールはトランザクションマネージャーだ。
+このモジュールは、独立したコンポーネントたちをとりまとめて
+トランザクショナルなACID特性を提供する。
+トランザクションマネージャーの役割は、トランザクションの開始と終了
+(コミットあるいはアボート)・ログマネージャーやバッファマネージャーとの協調による
+トランザクションチェックポイントの受け取り・リカバリーのとりまとめである。
+それぞれについて、順に説明する。
+
+% The transaction concept: virtues and limitations
+
+%% Jim Gray invented the ACID acronym to
+%% describe the key properties that transactions provide \cite{bib:gray:trans}.  Atomicity
+%% means that all the operations performed within a transaction appear in
+%% the database in a single unit---they either are all present in the
+%% database or all absent. Consistency means that a transaction moves the
+%% database from one logically consistent state to another. For example,
+%% if the application specifies that all employees must be assigned to a
+%% department that is described in the database, then the consistency
+%% property enforces that (with properly written transactions). Isolation
+%% means that from the perspective of a transaction, it appears that the
+%% transaction is running sequentially without any concurrent
+%% transactions running. Finally, durability means that once a
+%% transaction is committed, it stays committed---no failure can cause a
+%% committed transaction to disappear.
+ジム・グレイはACIDという言葉の生みの親である。これは、トランザクションが提供する機能をまとめた略語だ\cite{bib:gray:trans}。
+原子性(Atomicity)とは、一つのトランザクションで実行するすべての操作をひとまとめにして扱うという意味である。
+データベースにすべて反映されるかひとつも反映されないか、そのいずれかしかない。
+整合性(Consistency)とは、トランザクションの実行前後がそれぞれ論理的に整合性のある状態になっているという意味である。
+たとえば、あるアプリケーションでは、すべての従業員が何らかの部署に所属している必要があるものとする。
+このとき、そうなっているように強制するのが整合性の役割である。
+独立性(Isolation)とは、トランザクションの観点からはすべてのトランザクションがシーケンシャルに実行されるという意味である。
+他のトランザクションと並列で実行されることはない。
+最後の永続性(Durability)とは、トランザクションをいったんコミットしたらそれはコミットされたままになるという意味である。
+一度コミットした内容は、どんな障害があっても消えることはない。
+
+%% The transaction subsystem enforces the ACID properties, with the
+%% assistance of the other subsystems. It uses traditional transaction
+%% begin, commit, and abort operations to delimit the beginning and
+%% ending points of a transaction. It also provides a prepare call, which
+%% facilitates two phase commit, a technique for providing transactional
+%% properties across distributed transactions, which are not discussed in
+%% this chapter. Transaction begin allocates a new transaction identifier
+%% and returns a transaction handle, \code{DB\_TXN}, to the application.
+%% Transaction commit writes a commit log record and then forces the log
+%% to disk (unless the application indicates that it is willing to forego
+%% durability in exchange for faster commit processing), ensuring that
+%% even in the presence of failure, the transaction will be
+%% committed. Transaction abort reads backwards through the log records
+%% belonging to the designated transaction, undoing each operation that
+%% the transaction had done, returning the database to its
+%% pre-transaction state. 
+トランザクションサブシステムは、ACID特性を強要するために他のサブシステムにも力を借りている。
+昔ながらのbegin・commit・abort方式でトランザクションを扱い、
+トランザクションの開始位置を終了位置を区切る。
+また、準備済みの呼び出し機能も用意しており、これを使えば2フェーズコミットを実現できる。
+2フェーズコミットとは分散トランザクション環境でトランザクション扱うためのテクニックだが、
+本章では扱わない。トランザクションの開始(begin)では、
+新しいトランザクションIDを割り当ててトランザクションハンドル\code{DB\_TXN}をアプリケーションに返す。
+トランザクションの確定(commit)では、コミットログレコードを記録してからログをディスクに書き出させる
+(ただし、アプリケーション側でディスクに書き出さないよう指定していた場合はその限りではない。
+後々の永続性を犠牲にしてでもコミット処理を高速化させたいということもある)。
+これで、その後何かの障害が発生したとしても、確定したトランザクションの内容はそのまま残るようになる。
+トランザクションの取り消し(abort)は、ログレコードを逆から読んでそのトランザクションでの作業を取得し、
+ここまでにそのトランザクションで行ったすべての操作を取り消して、
+データベースをトランザクション開始前の状態に戻す。
+
+%% \begin{aosasect2}{Checkpoint Processing}
+\begin{aosasect2}{チェックポイントの処理}
+
+% Principles of transaction-oriented database recovery
+
+%% The transaction manager is also responsible for taking checkpoints.
+%% There are a number of different techniques in the literature for
+%% taking checkpoints~\cite{bib:haerder:recovery}. Berkeley DB uses a
+%% variant of fuzzy checkpointing.  Fundamentally, checkpointing involves
+%% writing buffers from Mpool to disk. This is a potentially expensive
+%% operation, and it's important that the system continues to process new
+%% transactions while doing so, to avoid long service disruptions. At the
+%% beginning of a checkpoint, Berkeley DB examines the set of currently
+%% active transactions to find the lowest LSN written by any of
+%% them. This LSN becomes the checkpoint LSN\@. The transaction manager
+%% then asks Mpool to flush its dirty buffers to disk; writing those
+%% buffers might trigger log flush operations. After all the buffers are
+%% safely on disk, the transaction manager then writes a checkpoint
+%% record containing the checkpoint LSN\@.  This record states that all the
+%% operations described by log records before the checkpoint LSN are now
+%% safely on disk.  Therefore, log records prior to the checkpoint LSN
+%% are no longer necessary for recovery. This has two implications:
+%% First, the system can reclaim any log files prior to the checkpoint
+%% LSN\@. Second, recovery need only process records after the checkpoint
+%% LSN, because the updates described by records prior to the checkpoint
+%% LSN are reflected in the on-disk state.
+トランザクションマネージャーには、チェックポイントを受け取る役割もある。
+チェックポイントを受け取るには、いくつかの方法がある~\cite{bib:haerder:recovery}。
+Berkeley DBで使っているのは、ファジーチェックポイント方式の一種である。
+基本的に、チェックポイントとはバッファの内容をMpoolからディスクへと書き出すことだ。
+これは大掛かりな操作になる可能性もあるが、チェックポイント処理の間でも
+新たなトランザクションを開始できるようにしておくことが大切だ。
+そうしないと、サービスの停止時間が長くなってしまう。
+チェックポイント処理を始めるにあたって、Berkeley DBは現在アクティブな
+トランザクション群を調べて、それらが書き出した中で一番小さなLSNを探す。
+このLSNが、チェックポイントのLSNになる。
+次に、トランザクションマネージャーがMpoolに対して、ダーティなバッファをディスクに
+書き出すよう指示する。この書き込みが、ログのフラッシュ操作の引き金となることだろう。
+すべてのバッファをきちんとディスクに書き込めたら、
+チェックポイントLSNを含むチェックポイントレコードをトランザクションマネージャーが書き込む。
+このレコードが記録された時点で、チェックポイントLSN以前のログレコードに書かれた操作が
+すべてディスク上に記録されたことになる。
+したがって、チェックポイントLSNより前のログレコードは、もはやリカバリー不要である。
+ここから得られる結論は次の二つだ。まず、チェックポイントLSN
+より前のログファイルは消してしまってもかまわないということ。
+そして、リカバリー処理ではチェックポイントLSN移行のレコードだけを処理すればよいということ。
+なぜなら、それより前のレコードの内容は既にディスク上に反映されているからである。
+
+%% Note that there may be many log records between the checkpoint LSN and
+%% the actual checkpoint record.  That's fine, since those records describe
+%% operations that logically happened after the checkpoint and that may
+%% need to be recovered if the system fails.
+注意すべき点は、チェックポイントLSNと実際のチェックポイントレコードの間には
+多くのログレコードがある可能性があるということだ。
+しかし、それでも問題ない。というのも、そういったレコードの内容は
+論理的なチェックポイントより後に発生したものであり、
+システムに障害が発生した場合にはそれらもリカバリーが必要になるだろうから。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Recovery}
+\begin{aosasect2}{リカバリー}
+
+%% The last piece of the transactional puzzle is recovery. The goal of
+%% recovery is to move the on-disk database from a potentially
+%% inconsistent state to a consistent state. Berkeley DB uses a fairly
+%% conventional two-pass scheme that corresponds loosely to ``relative to
+%% the last checkpoint LSN, undo any transactions that never committed
+%% and redo any transactions that did commit.'' The details are a bit
+%% more involved.
+トランザクションに関するあれこれの中で最後のピースとなるのがリカバリー処理だ。
+リカバリーの目標は、ディスク上のデータベースを
+(おそらく整合性が崩れてしまっている状態から)
+整合性のある状態に戻すことである。
+Berkeley DBが使っているのは、由緒正しい2パス方式で、簡単に言えば
+「直近のチェックポイントLSNに対して、
+コミットされていないすべてのトランザクションを取り消し(UNDO)、
+コミットされていたトランザクションをすべて再現する(REDO)」
+といったものである。その詳細は、多少込み入っている。
+
+%% Berkeley DB needs to reconstruct its mapping between log file ids and
+%% actual databases so that it can redo and undo operations on the
+%% databases. The log contains a full history of \code{DBREG\_REGISTER}
+%% log records, but since databases stay open for a long time and we do
+%% not want to require that log files persist for the entire duration a
+%% database is open, we'd like a more efficient way to access this
+%% mapping. Prior to writing a checkpoint record, the transaction manager
+%% writes a collection of \code{DBREG\_REGISTER} records describing the
+%% current mapping from log file ids to databases.  During recovery,
+%% Berkeley DB uses these log records to reconstruct the file mapping.
+Berkeley DBはまず、ログファイルのIDと実際のデータベースとのマッピングを
+再構築しなければいけない。それを使ってデータベース上の操作の
+REDOやUNDOを行うのだ。ログには\code{DBREG\_REGISTER}レコードの
+完全な歴史が含まれている。しかし、データベースは長期間稼働しているわけだし、
+その間のログファイルをずっと残しておかなければいけないというのもあまり望ましくない。
+そこで、もう少し効率的な方法でこのマッピングにアクセスしていく。
+チェックポイントレコードを書き込む前に、トランザクションマネージャーが
+一連の\code{DBREG\_REGISTER}レコード群を書き込む。
+これは、その時点でのログファイルIDとデータベースのマッピングを表すものである。
+リカバリーの際には、Berkeley DBはこれらのログレコードを使ってファイルのマッピングを再構築する。
+
+%% When recovery begins, the transaction manager probes the log manager's
+%% \code{cached\_ckp\_lsn} value to determine the location of the last
+%% checkpoint record in the log. This record contains the checkpoint LSN.
+%% Berkeley DB needs to recover from that checkpoint LSN, but in order to
+%% do so, it needs to reconstruct the log file id mapping that existed at
+%% the checkpoint LSN; this information appears in the checkpoint
+%% \emph{prior} to the checkpoint LSN\@. Therefore, Berkeley DB must look
+%% for the last checkpoint record that occurs before the checkpoint LSN.
+%% Checkpoint records contain, not only the checkpoint LSN, but the LSN
+%% of the previous checkpoint to facilitate this process. Recovery begins
+%% at the most recent checkpoint and using the \code{prev\_lsn} field in
+%% each checkpoint record, traverses checkpoint records backwards through
+%% the log until it finds a checkpoint record appearing
+%% before the checkpoint LSN\@. Algorithmically:
+リカバリーが始まると、トランザクションマネージャーがログマネージャーの
+\code{cached\_ckp\_lsn}の値を見て、
+ログの中での直近のチェックポイントレコードの場所を調べる。
+このレコードに、チェックポイントのLSNが含まれている。
+このLSN移行のリカバーが必要になるわけだが、そのためには
+チェックポイントのLSNの時点でのログファイルIDのマッピングを再構築しなければいけない。
+この情報が含まれているのは、チェックポイントのLSN\emph{より前の}チェックポイントだ。
+したがってBerkeley DBは、チェックポイントのLSNの直前に発生したチェックポイントの
+レコードを読まなければいけない。チェックポイントレコードには、
+そのチェックポイントのLSNだけではなく直前のチェックポイントのLSNも
+含まれているので、これを使えばよい。リカバリーは最新のチェックポイントから始まり、
+各チェックポイントレコードの\code{prev\_lsn}フィールドを使って
+チェックポイントレコードをさかのぼっていく。そして、チェックポイントのLSNの
+ひとつ前のチェックポイントに到達した時点で終了する。アルゴリズム的にはこのようになる。
+
+\vspace{-0.2cm}
+\begin{verbatim}
+ckp_record = read (cached_ckp_lsn)
+ckp_lsn = ckp_record.checkpoint_lsn
+cur_lsn = ckp_record.my_lsn
+while (cur_lsn > ckp_lsn) {
+    ckp_record = read (ckp_record.prev_ckp)
+    cur_lsn = ckp_record.my_lsn
+}
+\end{verbatim}
+\vspace{-0.2cm}
+
+%% Starting with the checkpoint selected by the previous algorithm,
+%% recovery reads sequentially until the end of the log to reconstruct
+%% the log file id mappings. When it reaches the end of the log, its
+%% mappings should correspond exactly to the mappings that existed when
+%% the system stopped.  Also during this pass, recovery keeps track of
+%% any transaction commit records encountered, recording their 
+%% transaction identifiers. Any transaction for which log records appear, but
+%% whose transaction identifier does not appear in a transaction commit record,
+%% was either aborted or never completed and should be treated as
+%% aborted. When recovery reaches the end of the log, it reverses
+%% direction and begins reading backwards through the log.  For each
+%% transactional log record encountered, it extracts the transaction identifier
+%% and consults the list of transactions that have committed, to
+%% determine if this record should be undone. If it finds that the transaction
+%% identifier does not belong to a committed transaction, it extracts the record
+%% type and calls a recovery routine for that log record, directing it to
+%% undo the operation described. If the record belongs to a committed
+%% transaction, recovery ignores it on the backwards pass. This backward
+%% pass continues all the way back to the checkpoint LSN\footnote{Note that we only
+%% need to go backwards to the checkpoint LSN, not the checkpoint record
+%% preceding it.}. Finally, recovery reads the log one last time in the
+%% forward direction, this time redoing any log records belonging to
+%% committed transactions. When this final pass completes, recovery takes
+%% a checkpoint. At this point, the database is fully consistent and
+%% ready to begin running the application.
+先ほどのアルゴリズムで選んだチェックポイントから始まって、
+ログをシーケンシャルに読みながらリカバリーを進めて
+ログファイルIDのマッピングを再構築する。
+ログの終端に達した時点で、システムが停止したときと
+まったく同じマッピングが復元されているはずだ。
+またこのとき同時に、トランザクションのコミットのレコードがあれば
+そのトランザクションIDも記録しておく。ログレコードの中に登場する
+トランザクションの中でそのトランザクションIDがコミットレコードに
+登場しないものがあれば、それはアボートされたか完了しなかったものとみなす。
+そのトランザクションは、リカバリー処理でもアボートされたものとして扱わなければいけない。
+リカバリーがログの終端まで進んだら、向きを反転させて逆向きにログを読んでいく。
+トランザクションログレコードが見つかるたびにトランザクションIDを取り出し、
+そのトランザクションがコミットされたものかどうかを調べてレコードの扱い方を判断する。
+取り出したトランザクションIDがコミット済みトランザクションのリストに存在しない場合は、
+さらにレコードタイプを調べてそのログレコード用のリカバリールーチンを呼び、
+ログに記録された操作をUNDOする。取り出したトランザクションIDが
+コミット済みのものであった場合は、ここでは何もせずそのまま流す。
+この逆向きのパスを、チェックポイントLSNに戻るまで続ける
+\footnote{ここではチェックポイントLSNまで戻れば十分であり、
+そのひとつ前のチェックポイントレコードまで戻る必要はないことに注意}。
+最後に、再び方向転換して順方向にログを読む。
+このときに、コミット済みのトランザクションに属するすべてのログレコードを
+REDOしていく。
+この最後のパスが完了したら、チェックポイントを作成する。
+これでデータベースは完全に整合性のある状態になり、
+アプリケーションを実行する準備が整った。
+
+%% Thus, recovery can be summarized as:
+リカバリー処理をまとめると、次のようになる。
+
+\vspace{-0.2cm}
+
+\begin{aosaenumerate}
+
+  %% \item Find the checkpoint prior to the checkpoint LSN in the most
+  %% recent checkpoint
+  \item 直近のチェックポイントのチェックポイントLSNのひとつ前のチェックポイントを探す
+
+  %% \item Read forward to restore log file id mappings and construct a
+  %% list of committed transactions
+  \item そこから順方向に読み進め、ログファイルIDのマッピングとコミット済みトランザクションのリストを構築する
+
+  %% \item Read backward to the checkpoint LSN, undoing all operations for
+  %% uncommitted transactions
+  \item チェックポイントLSNに向かって逆方向に読み進め、コミットしていないトランザクション上の操作をすべてUNDOする
+
+  %% \item Read forward, redoing all operations for committed transactions
+  \item 順方向に読み進め、コミット済みトランザクション上の操作をすべてREDOする
+
+  %% \item Checkpoint
+  \item チェックポイントを作る
+
+\end{aosaenumerate}
+
+\vspace{-0.2cm}
+
+%% In theory, the final checkpoint is unnecessary. In practice, it bounds
+%% the time for future recoveries and leaves the database in a consistent
+%% state. 
+理屈の上では、最後のチェックポイント処理は不要である。
+しかし実用性を考慮して、今後のリカバリー処理の時間を短縮したり
+データベースを整合性のある状態にしたりするためにチェックポイント処理をしている。
+
+%% \begin{aosabox}{Design Lesson 14}
+\begin{aosabox}{設計講座14}
+
+%% Database recovery is a complex topic, difficult to write and harder to
+%% debug because recovery simply shouldn't happen all that often. In his
+%% Turing Award Lecture, Edsger Dijkstra argued that programming was
+%% inherently difficult and the beginning of wisdom is to admit we are
+%% unequal to the task. Our goal as architects and programmers is to use
+%% the tools at our disposal: design, problem decomposition, review,
+%% testing, naming and style conventions, and other good habits, to
+%% constrain programming problems to problems we \emph{can} solve.
+データベースのリカバリーは複雑なトピックであり、
+実装するのも難しいしデバッグも困難だ。というのも、
+リカバリー処理はそんなに頻繁に発生するものではないからである。
+エドガー・ダイクストラは、チューリング賞受賞講演で
+「プログラミングとは本質的に難しいものであり、
+そのとてつもない難しさを真摯に認めることからすべてが始まる」と主張した。
+アーキテクトとして、そしてプログラマーとしての私たちの目標は、
+さまざまな道具を自由に使いこなすことだ。設計・問題の分割・
+レビュー・テスト・命名規約やコーディングスタイルなどの道具を使いこなし、
+プログラミングに関するさまざまな問題を、自分たちで解決\emph{可能}な問題に落とし込む。
+
+\end{aosabox}
+
+\end{aosasect2}
+
+\end{aosasect1}
+\newpage
+%% \begin{aosasect1}{Wrapping Up}
+\begin{aosasect1}{まとめ}
+
+%% Berkeley DB is now over twenty years old. It was arguably the first
+%% general-purpose transactional key/value store and is the grandfather
+%% of the NoSQL movement. Berkeley DB continues as the underlying storage
+%% system for hundreds of commercial products and thousands of Open
+%% Source applications (including SQL, XML and NoSQL engines) and has
+%% millions of deployments across the globe. The lessons we've learned
+%% over the course of its development and maintenance are encapsulated in
+%% the code and summarized in the design tips outlined above. We offer
+%% them in the hope that other software designers and architects will
+%% find them useful.
+Berkeley DBが誕生してから既に20年以上が経過した。
+Berkeley DBは史上初の汎用的かつトランザクション対応なキーバリューストアであり、
+昨今のNoSQLムーブメントの始祖だと言っても過言ではないだろう。
+Berkeley DBは、今でも何百もの商用製品のストレージシステムとして使われており、
+また何千ものオープンソースアプリケーション(SQLエンジンやXMLエンジン、
+NoSQLエンジンなど)でも同様に使われている。そして、
+世界中で数え切れないほどの環境にデプロイされている。
+我々がその開発や保守を通じて学んできたことがコードに込められており、
+その設計時のちょっとした小技については本章でまとめた。
+他のソフトウェアデザイナーやアーキテクトにも、ぜひこれらを活用してもらいたいものだ。
+
+\end{aosasect1}
+
+\end{aosachapter}

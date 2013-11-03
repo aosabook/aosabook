@@ -1,0 +1,1512 @@
+\begin{aosachaptertoc}{The Hadoop Distributed File System}{s:hdfs}{Robert Chansler, Hairong Kuang, Sanjay Radia, \\ Konstantin Shvachko, and Suresh Srinivas}{Robert Chansler, Hairong Kuang, Sanjay Radia, \\ \hspace*{0.9cm} Konstantin Shvachko, and Suresh Srinivas}
+%% Based on EN-Revision r229
+
+%% The Hadoop Distributed File System (HDFS) is designed to store very
+%% large data sets reliably, and to stream those data sets at high
+%% bandwidth to user applications. In a large cluster, thousands of
+%% servers both host directly attached storage and execute user
+%% application tasks. By distributing storage and computation across many
+%% servers, the resource can grow with demand while remaining economical
+%% at every size. We describe the architecture of HDFS and report on
+%% experience using HDFS to manage 40 petabytes of enterprise data at
+%% Yahoo!
+Hadoop Distributed File System (HDFS)は、大規模なデータセットを
+高い信頼性で格納するために作られたシステムである。
+また、そのデータセットを広帯域でユーザーアプリケーションに流せるようにもなっている。
+大規模なクラスター環境では、数千台ものサーバーが
+自身にアタッチされたストレージを管理したりユーザーアプリケーションのタスクを実行したりする。
+ストレージや計算処理を多くのサーバーに分散させることで、
+どんな規模であっても必要に応じてリソースを成長させ続けられ、
+かつ無駄なく使うことができる。
+本章ではHDFSのアーキテクチャについて解説し、
+HDFSで40ペタバイトものエンタープライズデータを管理する
+Yahoo!の例を紹介する。
+
+%% \begin{aosasect1}{Introduction}
+\begin{aosasect1}{はじめに}
+
+%% Hadoop\footnote{\url{http://hadoop.apache.org}} provides a distributed
+%% filesystem and a framework for the analysis and transformation of
+%% very large data sets using the MapReduce~\cite{bib:dean:mapreduce}
+%% paradigm.  While the interface to HDFS is patterned after the Unix
+%% filesystem, faithfulness to standards was sacrificed in favor of
+%% improved performance for the applications at hand.
+Hadoop\footnote{\url{http://hadoop.apache.org}}が提供するのは分散ファイルシステムであり、
+さらに、大規模なデータセットをMapReduce~\cite{bib:dean:mapreduce}
+のパラダイムで分析したり変換したりするフレームワークも用意している。
+HDFSのインターフェイスはUnixのファイルシステムのパターンに従っているが、
+アプリケーション側でのパフォーマンスを向上させるためなら
+標準の規約から外れることもいとわない。
+
+%% An important characteristic of Hadoop is the partitioning of data and
+%% computation across many (thousands) of hosts, and the execution of
+%% application computations in parallel close to their data. A Hadoop
+%% cluster scales computation capacity, storage capacity and I/O
+%% bandwidth by simply adding commodity servers. Hadoop clusters at
+%% Yahoo!\ span 40,000 servers, and store 40 petabytes of application
+%% data, with the largest cluster being 4000 servers. One hundred other
+%% organizations worldwide report using Hadoop.
+Hadoopの重要な特徴は、データや計算処理を多数の(数千台もの)ホストに分散できることであり、
+アプリケーションから実行した計算処理をデータ側で並列実行できることである。
+Hadoopクラスターで計算能力やストレージそしてI/Oの帯域を拡張するには、
+そこらにあるごく普通のサーバーを追加するだけでかまわない。
+Yahoo!のHadoopクラスターをすべて合わせると40,000台のサーバーで構成されており、
+40ペタバイトのデータを管理している。最大のクラスターは4000サーバーである。
+それ以外にも、世界中で100社以上がHadoopを採用しているという報告がある。
+
+%% HDFS stores filesystem metadata and application data separately. As
+%% in other distributed filesystems, like PVFS~\cite{bib:carns:pvfs},
+%% Lustre\footnote{\url{http://www.lustre.org}}, and GFS~\cite{bib:ghemawat:gfs,bib:mckusick:gfs},
+%% HDFS stores metadata on a
+%% dedicated server, called the NameNode. Application data are stored on
+%% other servers called DataNodes.  All servers are fully connected and
+%% communicate with each other using TCP-based protocols.  Unlike Lustre
+%% and PVFS, the DataNodes in HDFS do not rely on data protection mechanisms
+%% such as RAID to make the data durable.  Instead, like GFS, the file
+%% content is replicated on multiple DataNodes for reliability. While
+%% ensuring data durability, this strategy has the added advantage that
+%% data transfer bandwidth is multiplied, and there are more
+%% opportunities for locating computation near the needed data.
+HDFSは、ファイルシステムのメタデータとアプリケーションのデータを分けて格納する。
+PVFS~\cite{bib:carns:pvfs}やLustre\footnote{\url{http://www.lustre.org}}そしてGFS~\cite{bib:ghemawat:gfs,bib:mckusick:gfs}
+といった他の分散ファイルシステムと同様、HDFSもメタデータは専用のサーバーに格納しており、これをNameNodeと呼んでいる。
+一方、アプリケーションデータを格納する他のサーバー群はDataNodesと呼んでいる。
+すべてのサーバーが完全に接続されており、お互いのやりとりにはTCPベースのプロトコルを利用する。
+LustreやPVFSとは異なり、HDFSのDataNodesはRAIDなどのデータ保護機構を使わずにデータを永続化する。
+そのかわり、GFSと同様に、ファイルの内容を複数のDataNodeにレプリケートして信頼性を確保する。
+この方式には、データの永続性を確保するだけでなくそれ以外の利点もある。
+データ転送の帯域が拡大し、計算に必要なデータに近い場所で計算をできる可能性が高まるのだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Architecture}
+\begin{aosasect1}{アーキテクチャ}
+
+%% \begin{aosasect2}{NameNode}
+\begin{aosasect2}{NameNode}
+
+%% The HDFS namespace is a hierarchy of files and directories. Files and
+%% directories are represented on the NameNode by inodes.  Inodes record
+%% attributes like permissions, modification and access times, namespace
+%% and disk space quotas. The file content is split into large blocks
+%% (typically 128 megabytes, but user selectable file-by-file), and each
+%% block of the file is independently replicated at multiple DataNodes
+%% (typically three, but user selectable file-by-file). The NameNode
+%% maintains the namespace tree and the mapping of blocks to DataNodes.
+%%  The current design has a single
+%% NameNode for each cluster. The cluster can have thousands of DataNodes
+%% and tens of thousands of HDFS clients per cluster, as each DataNode
+%% may execute multiple application tasks concurrently.
+HDFSの名前空間は、ファイルとディレクトリの階層構造になっている。
+ファイルとディレクトリは、NameNode上のinodeで表される。
+inodeには、各種の属性が記録されている。
+パーミッション・変更時刻・アクセス時刻・名前空間・ディスクスペース上の割り当て領域などである。
+ファイルの中身は大きめのブロック(一般的には128メガバイトだが、ファイルごとに指定可能)に分割されており、
+各ブロックを複数(一般的には3つだが、ファイルごとに指定可能)のDataNodeへと個別にレプリケートできる。
+NameNodeでは名前空間ツリーを管理し、ブロックとDataNodeの対応も管理する。
+現時点の設計では、クラスターごとにひとつのNameNodeを保持している。
+ひとつのクラスターで何千ものDataNodeと何万ものHDFSクライアントを保持でき、
+それぞれのDataNodeが複数のアプリケーションタスクを並列実行できる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Image and Journal}
+\begin{aosasect2}{イメージおよびジャーナル}
+
+%% The inodes and the list of blocks that define the metadata of the name
+%% system are called the \emph{image}. NameNode keeps the entire namespace image
+%% in RAM\@. The persistent record of the image stored in the NameNode's
+%% local native filesystem is called a checkpoint. The NameNode records
+%% changes to HDFS in a write-ahead log called the journal in
+%% its local native filesystem. The location of block replicas are not
+%% part of the persistent checkpoint.
+inode、そして名前システムのメタデータを定義するブロックのリストのことを
+\emph{イメージ}と呼ぶ。
+NameNodeは、名前空間全体のイメージをRAMに保持する。
+イメージの永続レコードをそのNameNodeのローカルにあるネイティブファイルシステム上に
+格納したものをチェックポイントと呼ぶ。
+NameNodeはHDFSへの変更をログ先行書き込み方式で記録する。
+これをジャーナルと呼び、ネイティブファイルシステム上につくられる。
+ブロックのレプリカは、永続チェックポイントとは別の場所にある。
+
+%% Each client-initiated transaction is recorded in the journal, and the
+%% journal file is flushed and synced before the acknowledgment is sent
+%% to the client. The checkpoint file is never changed by the NameNode;
+%% a new file is written when a checkpoint is created during
+%% restart, when requested by the administrator, or by the CheckpointNode
+%% described in the next section. During startup the NameNode initializes
+%% the namespace image from the checkpoint, and then replays changes from
+%% the journal. A new checkpoint and an empty journal are written back to
+%% the storage directories before the NameNode starts serving clients.
+クライアント主導で始まったトランザクションはジャーナルに記録され、
+ジャーナルファイルのフラッシュと同期が済んでからクライアントへの通知を送信する。
+チェックポイントファイルは、決してNameNodeから書き換えられることはない。
+新しいファイルが書かれるのは、
+再起動中にチェックポイントが作られたり管理者から要求があったり、
+あるいは次のセクションで紹介するCheckpointNodeからの要求があったりしたときだ。
+スタートアップ時に、NameNodeはチェックポイントから名前空間イメージを立ち上げる。
+そしてジャーナルの変更を再生していく。新たなチェックポイントと空のジャーナルを
+ストレージのディレクトリに書き出したら、NameNodeはクライアントに対応できるようになる。
+
+%% For improved durability, redundant copies of the checkpoint and
+%% journal are typically stored on multiple independent local volumes and
+%% at remote NFS servers. The first choice prevents loss from a single
+%% volume failure, and the second choice protects against failure of the
+%% entire node. If the NameNode encounters an error writing the journal
+%% to one of the storage directories it automatically excludes that
+%% directory from the list of storage directories. The NameNode
+%% automatically shuts itself down if no storage directory is available.
+永続性を向上させるため、チェックポイントやジャーナルの冗長なコピーをとっておくことが一般的だ。
+複数の独立したローカルボリュームやリモートのNFSサーバーなどにコピーを格納する。
+複数のローカルボリュームに置いておけばどれかひとつのボリュームに障害が発生してもデータを失わずに済むし、
+リモートのNFSサーバーに置いておけばノード全体の障害からもデータを守れる。
+NameNodeがジャーナルをストレージに書き込む際にエラーが発生すると、
+自動的にそのストレージをストレージディレクトリのリストから除外するようになる。
+また、使えるストレージディレクトリがひとつもなくなった時点で
+NameNodeは自動的に自分自身をシャットダウンさせる。
+
+%% The NameNode is a multithreaded system and processes requests
+%% simultaneously from multiple clients. Saving a transaction to disk
+%% becomes a bottleneck since all other threads need to wait until the
+%% synchronous flush-and-sync procedure initiated by one of them is
+%% complete.  In order to optimize this process, the NameNode batches
+%% multiple transactions. When one of the NameNode's threads initiates a
+%% flush-and-sync operation, all the transactions batched at that time
+%% are committed together. Remaining threads only need to check that
+%% their transactions have been saved and do not need to initiate a
+%% flush-and-sync operation.
+NameNodeはマルチスレッドに対応しており、複数のクライアントからのリクエストを同時に処理する。
+そのため、トランザクションのディスクへの保存がボトルネックとなる。
+どれかひとつのスレッドがフラッシュからシンクにいたる手続きを開始すると、
+それが完了するまで他のスレッドが待つ必要があるからである。
+この流れを最適化するため、NameNodeは複数のトランザクションを一括で処理する。
+どれかひとつのNameNodeのスレッドがフラッシュとシンクの操作を始めると、
+その時点でコミット済みのすべてのトランザクションをひとまとめにして処理する。
+残りのスレッドは、自分のトランザクションが保存されたかどうかだけを確認すればよいのであって、
+個別にフラッシュとシンクをする必要はない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{DataNodes}
+\begin{aosasect2}{DataNodes}
+
+%% Each block replica on a DataNode is represented by two files in the
+%% local native filesystem. The first file contains the data itself and
+%% the second file records the block's metadata including checksums for
+%% the data and the generation stamp. The size of the data file equals
+%% the actual length of the block and does not require extra space to
+%% round it up to the nominal block size as in traditional
+%% filesystems. Thus, if a block is half full it needs only half of the
+%% space of the full block on the local drive.
+DataNode上の各ブロックのレプリカは、ネイティブファイルシステム上では二つのファイルで表される。
+ひとつはデータそのものを含むファイルで、もうひとつはブロックのメタデータを含むファイルだ。
+メタデータの中には、データのチェックサムやタイムスタンプが格納されている。
+データファイルのサイズは実際のブロックの長さと等しくなる。
+昔ながらのファイルシステムみたいに、
+規定のブロックサイズにそろえるために余分なスペースが必要などということはない。
+したがって、ブロックの中身が半分空っぽだった場合は、
+ローカルドライブ上で必要となる容量も半分で済む。
+
+%% During startup each DataNode connects to the NameNode and performs a
+%% handshake. The purpose of the handshake is to verify the namespace ID
+%% and the software version of the DataNode. If either does not match
+%% that of the NameNode, the DataNode automatically shuts down.
+各DataNodeは、開始時にNameNodeに接続してハンドシェイクを行う。
+ハンドシェイクの目的は、名前空間IDやDataNodeのソフトウェアのバージョンを検証することだ。
+そのいずれかがNameNodeのものと一致しない場合、DataNodeは自動的に終了する。
+
+%% The namespace ID is assigned to the filesystem instance when it is
+%% formatted. The namespace ID is persistently stored on all nodes of the
+%% cluster. Nodes with a different namespace ID will not be able to join
+%% the cluster, thus protecting the integrity of the filesystem. A
+%% DataNode that is newly initialized and without any namespace ID is
+%% permitted to join the cluster and receive the cluster's namespace ID.
+名前空間IDは、ファイルシステムのインスタンスに割り当てられる。
+また、名前空間IDはクラスタの全ノードに永続的に格納される。
+異なる名前空間IDのノードを同じクラスタにまとめることはできないようにして、
+ファイルシステムの整合性を守っている。新しく作った
+DataNodeでまだ名前空間IDがないものはクラスタに組み込むことができ、
+組み込んだクラスタの名前空間IDを受け取る。
+
+%% After the handshake the DataNode registers with the
+%% NameNode. DataNodes persistently store their unique storage IDs. The
+%% storage ID is an internal identifier of the DataNode, which makes it
+%% recognizable even if it is restarted with a different IP address or
+%% port. The storage ID is assigned to the DataNode when it registers
+%% with the NameNode for the first time and never changes after that.
+ハンドシェイクを終えると、DataNodeをNameNodeに登録する。
+DataNodesは、自身の一意なストレージIDを永続的に保存する。
+ストレージIDはDataNodeの内部IDで、
+別のIPアドレスやポートで立ち上げなおしたときにも認識できる。
+ストレージIDがDataNodeに割り振られるのは最初に
+NameNodeに登録したときであり、それ以降は決して変わらない。
+
+%% A DataNode identifies block replicas in its possession to the NameNode
+%% by sending a block report. A block report contains the block ID, the
+%% generation stamp and the length for each block replica the server
+%% hosts. The first block report is sent immediately after the DataNode
+%% registration. Subsequent block reports are sent every hour and provide
+%% the NameNode with an up-to-date view of where block replicas are
+%% located on the cluster.
+DataNodeは、NameNodeの持つブロックレプリカを識別するために、ブロックレポートを送信する。
+ブロックレポートの内容は、ブロックIDやタイムスタンプと、サーバーが保持する各ブロックレプリカの長さである。
+最初のブロックレポートは、DataNodeを登録した直後に送信される。
+それ以降のブロックレポートは一時間ごとに送信され、
+NameNodeの情報と、ブロックレプリカがクラスタ上のどこにあるのかの最新情報を提供する。
+
+%% During normal operation DataNodes send heartbeats to the NameNode to
+%% confirm that the DataNode is operating and the block replicas it hosts
+%% are available. The default heartbeat interval is three seconds. If the
+%% NameNode does not receive a heartbeat from a DataNode in ten minutes
+%% the NameNode considers the DataNode to be out of service and the block
+%% replicas hosted by that DataNode to be unavailable. The NameNode then
+%% schedules creation of new replicas of those blocks on other DataNodes.
+通常の操作中は、DataNodesからNameNodeにハートビートを送信する。
+これによって、DataNodeが動作中であることや
+そこで保持するブロックレプリカが利用可能であることを確認する。
+デフォルトのハートビート間隔は3秒である。
+NameNodeがDataNodeからのハートビートを10分以上受信できなかった場合、
+NameNodeはそのDataNodeがダウンしていると判断する。
+そして、そのDataNodeが管理するブロックレプリカにはアクセスできないようにする。
+その後、そのブロックを他のDataNode上で扱うための新たなレプリカの作成スケジュールを入れる。
+
+%% Heartbeats from a DataNode also carry information about total storage
+%% capacity, fraction of storage in use, and the number of data transfers
+%% currently in progress. These statistics are used for the NameNode's
+%% block allocation and load balancing decisions.
+DataNodeからのハートビートでは、それ以外にもさまざまな情報を運ぶ。
+ストレージの総容量や実際に使っているストレージの割合、
+そして現在進行中のデータ転送の数などである。
+これらの統計情報をもとに、NameNodeのブロック配置やロードバランシングに関する決定を下す。
+
+%% The NameNode does not directly send requests to DataNodes. It uses
+%% replies to heartbeats to send instructions to the DataNodes.  The
+%% instructions include commands to replicate blocks to other nodes,
+%% remove local block replicas, re-register and send an immediate block
+%% report, and shut down the node.
+NameNodeからDataNodeに直接リクエストを送ることはない。
+ハートビートへの応答で、DataNodeへの指示を送信する。
+この指示に含まれるのは、他のノードへのブロックの複製や
+ローカルブロックレプリカの削除、ブロックの再登録と最新状態の報告、
+ノードのシャットダウンといったコマンドである。
+
+%% These commands are important for maintaining the overall system
+%% integrity and therefore it is critical to keep heartbeats frequent
+%% even on big clusters. The NameNode can process thousands of heartbeats
+%% per second without affecting other NameNode operations.
+これらのコマンドは、システム全体の整合性を保つために重要となる。
+従って、大規模なクラスタであってもハートビートは頻繁に送る必要がある。
+NameNodeは、秒間数千回ものハートビートを処理しても
+その他の操作に影響を及ぼさないようになっている。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{HDFS Client}
+\begin{aosasect2}{HDFSクライアント}
+
+%% User applications access the filesystem using the HDFS client, a
+%% library that exports the HDFS filesystem interface.
+ユーザーアプリケーションからファイルシステムにアクセスするときに使うのが
+HDFSクライアントである。これは、HDFSのファイルシステムのインターフェイスを公開したライブラリだ。
+
+%% Like most conventional filesystems, HDFS supports operations to read,
+%% write and delete files, and operations to create and delete
+%% directories. The user references files and directories by paths in the
+%% namespace. The user application does not need to know that filesystem
+%% metadata and storage are on different servers, or that blocks have
+%% multiple replicas.
+既存の大半のファイルシステムと同様、
+HDFSでもファイルの読み書きや削除をサポートしている。
+また、ディレクトリを作ったり削除したりすることもできる。
+利用者がファイルやディレクトリを指すときには、名前空間内でのパスを使う。
+アプリケーション側では、ファイルシステムのメタデータやストレージが
+どのサーバーにあるかは知らなくてもよいし、
+そのブロックが複数のレプリカを持っているかどうかなども知る必要はない。
+
+%% When an application reads a file, the HDFS client first asks the
+%% NameNode for the list of DataNodes that host replicas of the blocks of
+%% the file. The list is sorted by the network topology distance from the client. The client
+%% contacts a DataNode directly and requests the
+%% transfer of the desired block. When a client writes, it first asks the
+%% NameNode to choose DataNodes to host replicas of the first block of
+%% the file. The client organizes a pipeline from node-to-node and sends
+%% the data. When the first block is filled, the client requests new
+%% DataNodes to be chosen to host replicas of the next block. A new
+%% pipeline is organized, and the client sends the further bytes of the
+%% file. Choice of DataNodes for each block is likely to be
+%% different. The interactions among the client, the NameNode and the
+%% DataNodes are illustrated in \aosafigref{fig.hdfs.file}.
+アプリケーションからファイルを読み込むときに、
+HDFSクライアントはまず最初にNameNodeに問い合わせる。
+そのファイルのブロックのレプリカを持つDataNodesのリストを得るためである。
+このリストは、クライアント側から見たネットワークトポロジー上の距離の順に並べ替えられる。
+クライアントはDataNodeに直接接触し、
+必要なブロックの転送をリクエストする。
+クライアントがファイルを書き込むときは、
+まずNameNodeに問い合わせて、そのファイルの最初のブロックのレプリカを持つ
+DataNodeを調べる。
+次にクライアントがノード間のパイプラインを構成し、データを送信する。
+最初のブロックがいっぱいになれば、
+次のブロックのレプリカを管理する新しいDataNodeをクライアントがリクエストする。
+新たなパイプラインが作られ、そしてクライアントがファイルの続きのデータを送信する。
+各ブロックで選択するDataNodeはさまざまになる。クライアントと
+NameNodeそしてDataNodesの間のやりとりを\aosafigref{fig.hdfs.file}に示す。
+
+%% \aosafigure[275pt]{../images/hdfs/CreateFile.eps}{HDFS Client Creates a New File}{fig.hdfs.file}
+\aosafigure[275pt]{../images/hdfs/CreateFile.eps}{HDFSクライアントによる新たなファイルの作成}{fig.hdfs.file}
+
+%% Unlike conventional filesystems, HDFS provides an API that exposes
+%% the locations of a file blocks.  This allows applications like the
+%% MapReduce framework to schedule a task to where the data are located,
+%% thus improving the read performance. It also allows an application to
+%% set the replication factor of a file. By default a file's replication
+%% factor is three. For critical files or files which are accessed very
+%% often, having a higher replication factor improves tolerance against
+%% faults and increases read bandwidth.
+既存のファイルシステムとは異なる点として、
+HDFSにはファイルブロックの場所を公開するAPIが用意されている。
+これを使えば、MapReduceフレームワークなどのアプリケーションが
+データをどこに配置するかをスケジュールできるようになり、
+結果として読み込みのパフォーマンスを向上させることができる。
+また、アプリケーション側でファイルのレプリケーション係数を決めることもできる。
+デフォルトでは、ひとつのファイルのレプリケーション係数は3である。
+クリティカルなファイルや頻繁にアクセスされるファイルの場合は、
+レプリケーション係数を大きめにしておけば耐障害性が高まるし
+読み込みの帯域も大きくできる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{CheckpointNode}
+\begin{aosasect2}{CheckpointNode}
+
+%% The NameNode in HDFS, in addition to its primary role serving client
+%% requests, can alternatively execute either of two other roles, either
+%% a CheckpointNode or a BackupNode. The role is specified at the node
+%% startup.
+HDFSにおけるNameNodeの主要な役割は
+クライアントからのリクエストに対応することだ。
+それ以外にも、他の役割であるCheckpointNodeあるいはBackupNode
+を演じることもできる。どんな役割を担当するかは、ノードの開始時に指定する。
+
+%% The CheckpointNode periodically combines the existing checkpoint and
+%% journal to create a new checkpoint and an empty journal. The
+%% CheckpointNode usually runs on a different host from the NameNode
+%% since it has the same memory requirements as the NameNode. It
+%% downloads the current checkpoint and journal files from the NameNode,
+%% merges them locally, and returns the new checkpoint back to the
+%% NameNode.
+CheckpointNodeは、既存のチェックポイントとジャーナルを定期的に結合し、
+新しいチェックポイントと空のジャーナルを作る。
+CheckpointNodeは、通常はNameNodeとは別のノードで稼働する。
+というのも、NameNodeと同程度のメモリを必要とするからである。
+CheckpointNodeは現時点のチェックポイントとジャーナルファイルを
+NameNodeからダウンロードし、ローカルでそれをマージして、
+新たなチェックポイントをNameNodeに返す。
+
+%% Creating periodic checkpoints is one way to protect the filesystem
+%% metadata. The system can start from the most recent checkpoint if all
+%% other persistent copies of the namespace image or journal are
+%% unavailable. Creating a checkpoint also lets the NameNode truncate the
+%% journal when the new checkpoint is uploaded to the NameNode.  HDFS
+%% clusters run for prolonged periods of time without restarts during
+%% which the journal constantly grows. If the journal grows very large,
+%% the probability of loss or corruption of the journal file
+%% increases. Also, a very large journal extends the time required to
+%% restart the NameNode. For a large cluster, it takes an hour to process
+%% a week-long journal. Good practice is to create a daily checkpoint.
+定期的なチェックポイントの作成は、ファイルシステムのメタデータを守るひとつの方法でもある。
+仮に名前空間イメージやジャーナルの永続コピーがすべて使えなくなったとしても、
+直近のチェックポイントからシステムを再開させることができる。
+チェックポイントを作れば、新たなチェックポイントをNameNodeに
+アップロードした時点でジャーナルを切り詰めさせることもできる。
+HDFSクラスタを再起動なしで長期間稼働させると、
+ジャーナルがどんどん大きくなっていく。サイズが巨大になると、
+ジャーナルファイルを失ったり壊してしまったりする可能性も増える。
+また、ジャーナルが巨大になるとNameNodeの再起動にも時間がかかるようになる。
+大規模なクラスタでは、一週間のジャーナルを処理するのに一時間ほどかかる。
+おすすめは、毎日チェックポイントを作っておくことだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{BackupNode}
+\begin{aosasect2}{BackupNode}
+
+%% A recently introduced feature of HDFS is the BackupNode. Like a
+%% CheckpointNode, the BackupNode is capable of creating periodic
+%% checkpoints, but in addition it maintains an in-memory, up-to-date
+%% image of the filesystem namespace that is always synchronized with
+%% the state of the NameNode.
+HDFSに最近導入された機能がBackupNodeだ。
+CheckpointNodeと同様に、BackupNodeにも定期的なチェックポイント作成機能がある。
+しかしそれだけでなく、インメモリで最新のファイルシステム名前空間のイメージを保持できる。
+これは、NameNodeの現状と常に同期したものとなる。
+
+%% The BackupNode accepts the journal stream of namespace transactions
+%% from the active NameNode, saves them in journal on its own storage
+%% directories, and applies these transactions to its own namespace image
+%% in memory. The NameNode treats the BackupNode as a journal store the
+%% same way as it treats journal files in its storage directories. If the
+%% NameNode fails, the BackupNode's image in memory and the checkpoint on
+%% disk is a record of the latest namespace state.
+BackupNodeは、名前空間のトランザクションのジャーナルストリームを
+アクティブなNameNodeから受け取り、それを自前のストレージディレクトリ上の
+ジャーナルに保存する。そして、そのトランザクションを、
+自身が持つインメモリの名前空間イメージに適用する。
+NameNodeはBackupNodeをジャーナルの保存場所とみなし、
+自分のストレージディレクトリにあるジャーナルファイルと同様に扱う。
+NameNodeがダウンしたときは、BackupNodeがインメモリに持つイメージと
+ディスク上のチェックポイントが最新状態の記録となる。
+
+%% The BackupNode can create a checkpoint without downloading checkpoint
+%% and journal files from the active NameNode, since it already has an
+%% up-to-date namespace image in its memory. This makes the checkpoint
+%% process on the BackupNode more efficient as it only needs to save the
+%% namespace into its local storage directories.
+BackupNodeは、アクティブなNameNodeからチェックポイントやジャーナルファイルを
+ダウンロードしなくてもチェックポイントを作ることができる。
+というのも、既に最新の名前空間イメージをメモリ上に保持しているからである。
+そのおかげでBackupNodeでのチェックポイント処理がより効率的に行える。
+名前空間の内容をローカルストレージディレクトリに保存するだけで済むからである。
+
+%% The BackupNode can be viewed as a read-only NameNode. It contains all
+%% filesystem metadata information except for block locations. It can
+%% perform all operations of the regular NameNode that do not involve
+%% modification of the namespace or knowledge of block locations. Use of
+%% a BackupNode provides the option of running the NameNode without
+%% persistent storage, delegating responsibility of persisting the
+%% namespace state to the BackupNode.
+BackupNodeは、読み込み専用のNameNodeとして見ることもできる。
+ブロックの場所を除いたすべてのファイルシステムメタデータの情報を持っているのだ。
+名前空間の変更をする操作やブロックの場所がわからないとできない操作を除いて、
+通常のNameNodeでできる操作なら何でも実行できる。
+BackupNodeを使えば、永続ストレージなしでNameNodeを動かすという選択肢も可能となる。
+名前空間の状態を永続化させる役割をBackupNodeに委譲するというわけだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Upgrades and Filesystem Snapshots}
+\begin{aosasect2}{アップグレードおよびファイルシステムスナップショット}
+
+%% During software upgrades the possibility of corrupting the filesystem
+%% due to software bugs or human mistakes increases. The purpose of
+%% creating snapshots in HDFS is to minimize potential damage to the data
+%% stored in the system during upgrades.
+ソフトウェアのアップグレードのときには、バグや操作ミスなどで
+ファイルシステムが壊れてしまう可能性が高まる。
+HDFSでスナップショットをつくる目的は、アップグレードの際に
+システムに格納されたデータに与えるダメージを最小限に抑えることだ。
+
+%% The snapshot mechanism lets administrators persistently save the
+%% current state of the filesystem, so that if the upgrade results in
+%% data loss or corruption it is possible to rollback the upgrade and
+%% return HDFS to the namespace and storage state as they were at the
+%% time of the snapshot.
+スナップショットを使えば、管理者はファイルシステムの現状を永続的に保存できる。
+もしアップグレードしたせいでデータが消えてしまったり壊れてしまったりしても、
+アップグレードを取り消して名前空間とストレージをスナップショット作成時の状態に戻すことができる。
+
+%% The snapshot (only one can exist) is created at the cluster
+%% administrator's option whenever the system is started. If a snapshot
+%% is requested, the NameNode first reads the checkpoint and journal
+%% files and merges them in memory. Then it writes the new checkpoint and
+%% the empty journal to a new location, so that the old checkpoint and
+%% journal remain unchanged.
+スナップショットはただ一つだけ保持することができるもので、
+システムが立ち上がるときにクラスタ管理者のオプションで作られる。
+スナップショットを作るようリクエストを受けると、
+NameNodeはまずチェックポイントとジャーナルファイルを読み込んで、
+メモリ内でそれをマージする。それから、
+新たなチェックポイントと空のジャーナルを新しい場所に書き込む。
+古いチェックポイントとジャーナルを変更せずに済ませるためだ。
+
+%% During handshake the NameNode instructs DataNodes whether to create a
+%% local snapshot. The local snapshot on the DataNode cannot be created
+%% by replicating the directories containing the data files as this would require
+%% doubling the storage capacity of every DataNode on the
+%% cluster. Instead each DataNode creates a copy of the storage directory
+%% and hard links existing block files into it. When the DataNode removes
+%% a block it removes only the hard link, and block modifications during
+%% appends use the copy-on-write technique.  Thus old block replicas
+%% remain untouched in their old directories.
+ハンドシェイクの際に、ローカルスナップショットを作るかどうかの指示をNameNodeからDataNodesに出す。
+DataNode上のローカルスナップショットは、データファイルを含むディレクトリを複製して作るわけにはいかない。
+そんなことをすると、クラスタ上のすべてのDataNodeに通常の倍のストレージ容量が必要となってしまうからだ。
+そのかわりに、各DataNodeはストレージディレクトリだけをコピーして、
+既存のブロックファイルのハードリンクをそこに作成する。
+DataNodeがブロックを削除するときにはハードリンクだけを削除し、
+追記などでブロックを変更するときにはコピー・オン・ライト方式を使う。
+これで、古いブロックのレプリカはそのまま旧ディレクトリに残ることになる。
+
+%% The cluster administrator can choose to roll back HDFS to the snapshot
+%% state when restarting the system. The NameNode recovers the checkpoint
+%% saved when the snapshot was created. DataNodes restore the previously
+%% renamed directories and initiate a background process to delete block
+%% replicas created after the snapshot was made. Having chosen to roll
+%% back, there is no provision to roll forward. The cluster administrator
+%% can recover the storage occupied by the snapshot by commanding the
+%% system to abandon the snapshot; for snapshots created during upgrade,
+%% this finalizes the software upgrade.
+クラスタ管理者は、システムを再起動するときにHDFSをスナップショットの状態に戻すことができる。
+このとき、NameNodeはスナップショット作成時に保存したチェックポイントを復元する。
+DataNodeは以前にリネームしたディレクトリを復元し、
+バックグラウンドプロセスを立ち上げて、
+スナップショットを作成した後にできたブロックレプリカを削除する。
+ロールバックを選択すると、ロールフォワードはできなくなる。
+クラスタ管理者は、スナップショットが占有していたストレージを解放させるために
+スナップショットの破棄を指示できる。アップグレードの際に作ったスナップショットについては、
+ここまですればアップグレード完了となる。
+
+%% System evolution may lead to a change in the format of the NameNode's
+%% checkpoint and journal files, or in the data representation of block
+%% replica files on DataNodes. The layout version identifies the data
+%% representation formats, and is persistently stored in the NameNode's
+%% and the DataNodes' storage directories. During startup each node
+%% compares the layout version of the current software with the version
+%% stored in its storage directories and automatically converts data from
+%% older formats to the newer ones. The conversion requires the mandatory
+%% creation of a snapshot when the system restarts with the new software
+%% layout version.
+システムが進化するにつれて、NameNodeのチェックポイントや
+ジャーナルファイルのフォーマットが変わる可能性がある。
+あるいは、DataNodeにおけるブロックレプリカファイルでの
+データの表現方法も変わるかもしれない。
+データの表現フォーマットを示すのがレイアウトバージョンで、
+これはNameNodeやDataNodeのストレージディレクトリに格納されている。
+各ノードは起動時に、現在のソフトウェアのレイアウトバージョンと
+自分のストレージディレクトリのレイアウトバージョンを比較する。
+そして、旧バージョンのフォーマットは自動的に新バージョンに変換する。
+この自動変換をするには、
+新しいレイアウトバージョンのソフトウェアにアップグレードして
+システムを立ち上げなおすときにスナップショットを作ることが必須となる。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{File I/O Operations and Replica Management}
+\begin{aosasect1}{ファイルI/O操作およびレプリカの管理}
+
+%% Of course, the whole point of a filesystem is to store data in
+%% files.  To understand how HDFS does this, we must look at how reading
+%% and writing works, and how blocks are managed.
+当然ながら、ファイルシステムはファイルのデータを格納できてナンボのものだ。
+それをHDFSでどう実現しているのかを理解するには、
+読み書きをどのように行っているのか、そしてブロックをどのように管理しているのかを知る必要がある。
+
+%% \begin{aosasect2}{File Read and Write}
+\begin{aosasect2}{ファイルの読み書き}
+
+%% An application adds data to HDFS by creating a new file and writing
+%% the data to it. After the file is closed, the bytes written cannot be
+%% altered or removed except that new data can be added to the file by
+%% reopening the file for append. HDFS implements a single-writer,
+%% multiple-reader model.
+アプリケーションからHDFSにデータを追加するときには、
+新しいファイルを作ってデータをそこに書き込む。
+いったんファイルをクローズしたら、書き込んだデータを変更したり
+削除したりすることはできない。ただし、新たなデータを追加することはできる。
+この場合は、ファイルを追記モードで再オープンする。
+HDFSで実装しているのは、シングルライター・マルチリーダーモデルである。
+
+%% The HDFS client that opens a file for writing is granted a lease for
+%% the file; no other client can write to the file.  The writing client
+%% periodically renews the lease by sending a heartbeat to the
+%% NameNode. When the file is closed, the lease is revoked. The lease
+%% duration is bound by a soft limit and a hard limit. Until the soft
+%% limit expires, the writer is certain of exclusive access to the
+%% file. If the soft limit expires and the client fails to close the file
+%% or renew the lease, another client can preempt the lease. If after the
+%% hard limit expires (one hour) and the client has failed to renew the
+%% lease, HDFS assumes that the client has quit and will automatically
+%% close the file on behalf of the writer, and recover the lease. The
+%% writer's lease does not prevent other clients from reading the file; a
+%% file may have many concurrent readers.
+HDFSクライアントがファイルを書き込み用にオープンすると、
+そのファイルへの書き込み権限がリースされる。
+その間、他のクライアントは同じファイルに書き込めない。
+書き込み側のクライアントは、ハートビートをNameNode
+に送信することによって定期的にリースを更新する。
+ファイルをクローズするときに、リースが破棄される。
+リース期間は、ソフトリミットとハードリミットによる制約を受ける。
+ソフトリミットに達するまでは、ライターはそのファイルへの排他アクセス権があるものと確信している。
+ソフトリミットを超えてからクライアントがファイルのクローズやリースの更新に失敗すると、
+別のクライアントがそのリースを横取りできるようになる。
+ハードリミット(1時間)を超えてからクライアントがファイルのクローズやリースの更新に失敗すると、
+HDFSはそのクライアントが終了したものとみなす。
+そのときはライターがファイルを自動的にクローズし、リースを解放する。
+ライターがリースを確保している間も、他のクライアントからのファイルの読み込みは可能である。
+そのため、ひとつのファイルを同時に複数のリーダーが読むこともあり得る。
+
+%% An HDFS file consists of blocks. When there is a need for a new block,
+%% the NameNode allocates a block with a unique block ID and determines a
+%% list of DataNodes to host replicas of the block.  The DataNodes form a
+%% pipeline, the order of which minimizes the total network distance from
+%% the client to the last DataNode. Bytes are pushed to the pipeline as a
+%% sequence of packets. The bytes that an application writes first buffer
+%% at the client side. After a packet buffer is filled (typically 64 KB),
+%% the data are pushed to the pipeline. The next packet can be pushed to
+%% the pipeline before receiving the acknowledgment for the previous
+%% packets.  The number of outstanding packets is limited by the
+%% outstanding packets window size of the client.
+HDFSのファイルは複数のブロックで構成されている。
+新しいブロックが必要になると、NameNodeは新しいブロックを確保して
+一意なブロックIDを割り当て、そのブロックのレプリカを持つDataNode
+のリストを決める。DataNodeはパイプラインを形成しており、
+その並び順は、クライアントから最後のDataNodeまでの
+ネットワーク上の距離が最短になるようにする。
+バイトデータをパイプラインに流すときには、一連のパケット群として流す。
+アプリケーションから書き込むバイトデータは、まずクライアント側でバッファリングする。
+パケットバッファ(通常は64KB)がいっぱいになると、
+データをパイプラインに送り出す。
+その次のパケットをパイプラインに送り出すのは、
+前のパケットの受領通知を受け取った後になる。
+未処理のパケットの最大数は、
+クライアントの未処理パケットウィンドウのサイズまでに制限される。
+
+%% After data are written to an HDFS file, HDFS does not provide any
+%% guarantee that data are visible to a new reader until the file is
+%% closed. If a user application needs the visibility guarantee, it can
+%% explicitly call the hflush operation. Then the current packet is
+%% immediately pushed to the pipeline, and the hflush operation will wait
+%% until all DataNodes in the pipeline acknowledge the successful
+%% transmission of the packet. All data written before the hflush
+%% operation are then certain to be visible to readers.
+データがHDFSのファイルに書き込まれても、
+そのファイルをクローズするまではリーダーから見えることが保証されない。
+アプリケーション側で見えるようになることを保証したければ、
+hflushを明示的に呼べばよい。そうすれば、
+現在のパケットが即時にパイプラインに送られる。
+そして、パイプライン内のすべてのDataNodeがパケットの送信に成功
+したことを確認するまで待ち続ける。
+これで、hflushより前に書き込まれたすべてのデータは
+確実にリーダーから見えるようになる。
+
+%% \aosafigureTop[300pt]{../images/hdfs/Pipeline.pdf}{Data Pipeline While Writing a Block}{fig.hdfs.pipe}
+\aosafigureTop[300pt]{../images/hdfs/Pipeline.eps}{ブロックを書き込むときのデータパイプライン}{fig.hdfs.pipe}
+
+%% If no error occurs, block construction goes through three stages as
+%% shown in \aosafigref{fig.hdfs.pipe} illustrating a pipeline of three
+%% DataNodes (DN) and a block of five packets.  In the picture, bold
+%% lines represent data packets, dashed lines represent acknowledgment
+%% messages, and thin lines represent control messages to setup and close
+%% the pipeline. Vertical lines represent activity at the client and the
+%% three DataNodes where time proceeds from top to bottom.  From
+%% \code{t0} to \code{t1} is the pipeline setup stage. The interval
+%% \code{t1} to \code{t2} is the data streaming stage, where \code{t1} is
+%% the time when the first data packet gets sent and \code{t2} is the
+%% time that the acknowledgment to the last packet gets received. Here an
+%% hflush operation transmits \code{packet 2}.  The hflush indication
+%% travels with the packet data and is not a separate operation. The
+%% final interval \code{t2} to \code{t3} is the pipeline close stage for
+%% this block.
+何もエラーが発生しなければ、ブロックの作成は3つのステージを経て行われる。
+\aosafigref{fig.hdfs.pipe}にその様子を示した。
+3つのDataNode(DN)と5つのパケットからなるブロックのパイプラインである。
+図中の太線で示されているのがデータパケット、破線は確認メッセージ、
+そして細線はパイプラインの準備や終了用の制御メッセージとなる。
+縦線がクライアントと各DataNodeで発生するアクティビティを表し、
+時間の経過とともに上から下へと流れていく。
+\code{t0}から\code{t1}までが、パイプラインの準備ステージだ。
+\code{t1}から\code{t2}までがデータストリーミングステージで、
+\code{t1}が最初のデータパケットの送信時刻、
+そして\code{t2}が最終パケットの受信確認時刻となる。
+またこのとき、hflush命令を\code{packet 2}で送っている。
+hflushの指示はパケットデータとともに流れ、個別の命令とはならない。
+最後の\code{t2}から\code{t3}までが、このブロックのパイプライン終了ステージである。
+
+%% In a cluster of thousands of nodes, failures of a node (most commonly
+%% storage faults) are daily occurrences. A replica stored on a DataNode
+%% may become corrupted because of faults in memory, disk, or network.
+%% HDFS generates and stores checksums for each data block of an HDFS
+%% file. Checksums are verified by the HDFS client while reading to help
+%% detect any corruption caused either by client, DataNodes, or
+%% network. When a client creates an HDFS file, it computes the checksum
+%% sequence for each block and sends it to a DataNode along with the
+%% data. A DataNode stores checksums in a metadata file separate from the
+%% block's data file. When HDFS reads a file, each block's data and
+%% checksums are shipped to the client. The client computes the checksum
+%% for the received data and verifies that the newly computed checksums
+%% matches the checksums it received. If not, the client notifies the
+%% NameNode of the corrupt replica and then fetches a different replica
+%% of the block from another DataNode.
+何千ものノードからなるクラスタでは、どれかひとつのノードに障害が発生する
+(たいていはストレージ障害)なんてことは日常茶飯事だ。
+DataNodeに格納されているレプリカは、メモリやディスクあるいはネットワークの障害
+などのせいで壊れる可能性がある。
+HDFSでは、HDFSファイルの各データブロックのチェックサムを計算して保存する。
+HDFSクライアントがチェックサムを検証し、クライアントやDataNodeあるいはネットワークの障害
+によるデータの破壊を発見しやすくする。
+クライアントがHDFSファイルを作るときには、各ブロックのチェックサムを計算して、
+それをデータとともにDataNodeに送信する。
+DataNodeではチェックサムをメタデータファイルに保存して、ブロックのデータファイルとは別にする。
+HDFSがファイルを読み込むときには、各ブロックのデータとチェックサムをクライアントに送る。
+クライアントは受け取ったデータのチェックサムを計算し、
+その結果が実際に受け取ったチェックサムと一致することを確かめる。
+もし一致しなければ、そのレプリカのNameNodeを通知する。
+そして、同じブロックの別のレプリカを別のDataNodeから取得する。
+
+%% When a client opens a file to read, it fetches the list of blocks and
+%% the locations of each block replica from the NameNode. The locations
+%% of each block are ordered by their distance from the reader. When
+%% reading the content of a block, the client tries the closest replica
+%% first. If the read attempt fails, the client tries the next replica in
+%% sequence. A read may fail if the target DataNode is unavailable, the
+%% node no longer hosts a replica of the block, or the replica is found
+%% to be corrupt when checksums are tested.
+読み込みたいファイルをクライアントがオープンするときには、
+ブロックのリストを取得して、各ブロックのレプリカの場所をNameNodeから取得する。
+各ブロックの場所は、リーダーからの距離の順になっている。
+ブロックの内容を読むときには、一番近いレプリカから順に読もうと試みる。
+読み込めなければ、リスト上でその次にあるレプリカからの読み込みを試みる。
+読み込みが失敗するのは、DataNodeに到達できなかったり
+そのノードが対象ブロックのレプリカを持っていなかったり
+見つかったレプリカがチェックサムの検証に失敗したりといった場合だ。
+
+%% HDFS permits a client to read a file that is open for writing. When
+%% reading a file open for writing, the length of the last block still
+%% being written is unknown to the NameNode. In this case, the client
+%% asks one of the replicas for the latest length before starting to read
+%% its content.
+HDFSでは、書き込み用にオープンされているファイルでも別のクライアントから読み込める。
+書き込み用にオープンされているファイルを読み込みときは、
+現在書き込み中の最後のブロックの長さはNameNodeからはわからない。
+そんな場合は、クライアントがいずれかのレプリカに最新の長さを問い合わせてから
+その内容を読み始める。
+
+%% The design of HDFS I/O is particularly optimized for batch processing
+%% systems, like MapReduce, which require high throughput for sequential
+%% reads and writes. Ongoing efforts will improve read/write response
+%% time for applications that require real-time data streaming or random
+%% access.
+HDFSのI/Oの設計はMapReduceのようなバッチ処理システムに最適化されており、
+シーケンシャルリード/ライトについては高いスループットを要求される。
+リアルタイムのデータストリーミングやランダムアクセスを必要とするアプリケーション向けに、
+読み書きのレスポンスタイムを改善するための作業は今でも続いている。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Block Placement}
+\begin{aosasect2}{ブロックの配置}
+
+%% For a large cluster, it may not be practical to connect all nodes in a
+%% flat topology. A common practice is to spread the nodes across
+%% multiple racks. Nodes of a rack share a switch, and rack switches are
+%% connected by one or more core switches. Communication between two
+%% nodes in different racks has to go through multiple switches. In most
+%% cases, network bandwidth between nodes in the same rack is greater
+%% than network bandwidth between nodes in different racks.
+%% \aosafigref{fig.hdfs.clus} describes a cluster with two racks, each of
+%% which contains three nodes.
+大規模なクラスタでは、すべてのノードをフラットなトポロジーでつなげるのは非現実的だ。
+よくある方法は、複数のラックにまたがってノードを展開する方法である。
+ひとつのラック上のノード群はスイッチを共有し、ラックのスイッチがひとつあるいは複数の
+コアスイッチと接続される。異なるラック上にあるふたつのノード間の通信は、
+複数のスイッチを経由する必要がある。
+多くの場合、同一ラック内のノード間のほうが異なるラックの場合よりもネットワーク帯域が広い。
+\aosafigref{fig.hdfs.clus}はふたつのラックからなるクラスタの例で、
+それぞれのラックに3ノードずつ含まれている。
+
+%% \aosafigure[300pt]{../images/hdfs/Cluster.eps}{Cluster Topology}{fig.hdfs.clus}
+\aosafigure[300pt]{../images/hdfs/Cluster.eps}{クラスタのトポロジー}{fig.hdfs.clus}
+
+%% HDFS estimates the network bandwidth between two nodes by their
+%% distance. The distance from a node to its parent node is assumed to be
+%% one. A distance between two nodes can be calculated by summing the
+%% distances to their closest common ancestor.  A shorter distance
+%% between two nodes means greater bandwidth they can use to transfer
+%% data.
+HDFSは、ふたつのノード間のネットワーク帯域の見積もりを、
+両者の距離に基づいて行う。あるノードからその親ノードへまでの距離を1として、
+ふたつのノードの距離は一番近い共通の祖先からの距離の合計で求める。
+ノード間の距離が短いほど、データの転送により多くの帯域を使えることを意味する。
+
+%% HDFS allows an administrator to configure a script that returns a
+%% node's rack identification given a node's address. The NameNode is the
+%% central place that resolves the rack location of each DataNode. When a
+%% DataNode registers with the NameNode, the NameNode runs the configured
+%% script to decide which rack the node belongs to. If no such a script
+%% is configured, the NameNode assumes that all the nodes belong to a
+%% default single rack.
+HDFSの管理者は、ノードのアドレスを指定すればそのノードのラック情報を返すような
+スクリプトを用意できる。NameNodeが中心となって、各DataNodeのラックの場所を解決する。
+DataNodeをNameNodeに登録するときに、NameNodeがそのスクリプトを実行し、
+ノードが所属するラックを決める。スクリプトを準備していない場合は、
+NameNodeはすべてのノードがデフォルトの単一ラックに属しているものとみなす。
+
+%% The placement of replicas is critical to HDFS data reliability and
+%% read/write performance. A good replica placement policy should improve
+%% data reliability, availability, and network bandwidth
+%% utilization. Currently HDFS provides a configurable block placement
+%% policy interface so that the users and researchers can experiment and
+%% test alternate policies that are optimal for their applications.
+レプリカをどこに配置するかは、HDFSのデータの信頼性や
+読み書きのパフォーマンスを考えると重要である。
+配置ポリシーをうまく指定できればデータの信頼性や可用性があがるし、
+ネットワーク帯域もうまく活用できる。
+現在HDFSは、ブロック配置ポリシー設定用のインターフェイスを提供している。
+これを使えば、ユーザーや研究者がいろいろなポリシーを試して
+自分たちのアプリケーションに最適なポリシーを設定できるようになる。
+
+%% The default HDFS block placement policy provides a tradeoff between
+%% minimizing the write cost, and maximizing data reliability,
+%% availability and aggregate read bandwidth. When a new block is
+%% created, HDFS places the first replica on the node where the writer is
+%% located. The second and the third replicas are placed on two different
+%% nodes in a different rack. The rest are placed on random nodes with
+%% restrictions that no more than one replica is placed at any one node
+%% and no more than two replicas are placed in the same rack, if
+%% possible. The choice to place the second and third replicas on a
+%% different rack better distributes the block replicas for a single file
+%% across the cluster. If the first two replicas were placed on the same
+%% rack, for any file, two-thirds of its block replicas would be on the
+%% same rack.
+デフォルトのHDFSブロック配置ポリシーは、
+書き込みのコストを最小化することと
+データの信頼性や可用性の最大化や読み込み帯域の集約とのトレードオフとなる。
+新しいブロックを作成する場合、HDFSはノードの最初のレプリカをライターのある場所に配置する。
+第二、第三のレプリカは、別のラックにあるそれぞれ別のノードに配置する。
+残りのレプリカはランダムなノードに配置する。ただし、
+同一ノード上に複数のレプリカは配置しないし、
+同一ラック上にも最大で二つまでのレプリカしか配置しないようにする。
+第二、第三のレプリカを別のラックに配置することで、あるひとつのファイルの
+レプリカがクラスタをまたがってうまく分散させられるようになる。
+もし最初の二つのレプリカが同じラックに入ってしまうと、
+どのファイルに対してもブロックレプリカの2/3が同じラックにあることになってしまう。
+
+%% After all target nodes are selected, nodes are organized as a pipeline
+%% in the order of their proximity to the first replica. Data are pushed
+%% to nodes in this order. For reading, the NameNode first checks if the
+%% client's host is located in the cluster. If yes, block locations are
+%% returned to the client in the order of its closeness to the
+%% reader. The block is read from DataNodes in this preference order.
+すべてのターゲットノードが選べたら、ノード群をパイプライン化する。
+その順番は、最初のレプリカに近い順となる。
+データはこの順でノードに送られていく。
+読み込みの場合、NameNodeはまずクライアントのホストがそのクラスタ内にあるかどうかを調べる。
+ある場合は、ブロックの場所をクライアントに返す。その順番は、リーダーに近い順となる。
+この順に従って、ブロックをDataNodeから読み込む。
+
+%% This policy reduces the inter-rack and inter-node write traffic and
+%% generally improves write performance. Because the chance of a rack
+%% failure is far less than that of a node failure, this policy does not
+%% impact data reliability and availability guarantees. In the usual case
+%% of three replicas, it can reduce the aggregate network bandwidth used
+%% when reading data since a block is placed in only two unique racks
+%% rather than three.
+このポリシーに従えば、ラック間やノード間の書き込みトラフィックを軽減でき、
+一般に書き込みのパフォーマンスが向上する。
+ラックに障害が発生する可能性はノードの障害よりもはるかに低いので、
+このポリシーはデータの信頼性や可用性にはあまり影響を及ぼさない。
+三つのレプリカを持つ通常の場合、このポリシーを使えばデータ読み込み時の
+ネットワーク帯域を集約できる。というのも、あるブロックのある場所が
+どこか二つのラックに絞れるからである。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Replication Management}
+\begin{aosasect2}{レプリケーションの管理}
+
+%% The NameNode endeavors to ensure that each block always has the
+%% intended number of replicas. The NameNode detects that a block has
+%% become under- or over-replicated when a block report from a DataNode
+%% arrives. When a block becomes over replicated, the NameNode chooses a
+%% replica to remove. The NameNode will prefer not to reduce the number
+%% of racks that host replicas, and secondly prefer to remove a replica
+%% from the DataNode with the least amount of available disk space. The
+%% goal is to balance storage utilization across DataNodes without
+%% reducing the block's availability.
+NameNodeは、各ブロックが常に十分な数のレプリカを確保できているように努める。
+あるブロックのレプリカが少なすぎたり多すぎたりしないかどうかを、
+NameNodeはDataNodeからのブロックレポートで判断する。
+あるブロックのレプリカが多すぎる場合、NameNodeはどのレプリカを削除するかを選択する。
+レプリカをホストしているラックの数をできるだけ減らさないことを第一の前提とし、
+そのうえでディスクの残容量がいちばん少ないDataNodeのレプリカから削除していく。
+目標は、DataNode間でのストレージ使用料のバランスをとりつつ
+ブロックの可用性を落とさないようにすることだ。
+
+%% When a block becomes under-replicated, it is put in the replication
+%% priority queue. A block with only one replica has the highest
+%% priority, while a block with a number of replicas that is greater than
+%% two thirds of its replication factor has the lowest priority. A
+%% background thread periodically scans the head of the replication queue
+%% to decide where to place new replicas. Block replication follows a
+%% similar policy as that of new block placement. If the number of
+%% existing replicas is one, HDFS places the next replica on a different
+%% rack.  In case that the block has two existing replicas, if the two
+%% existing replicas are on the same rack, the third replica is placed on
+%% a different rack; otherwise, the third replica is placed on a
+%% different node in the same rack as an existing replica. Here the goal
+%% is to reduce the cost of creating new replicas.
+ブロックが少なくなりすぎると、レプリケーションの優先キューに投入される。
+レプリカがひとつしかないブロックが最優先であり、
+レプリケーション係数の2/3より多いレプリカがあるブロックは最も優先度が低くなる。
+バックグラウンドスレッドが定期的にレプリケーションキューの先頭をスキャンし、
+新たなレプリカを作るかどうかを決める。
+ブロックのレプリカを作るときには、新たなブロックを配置するときと同様のポリシーに従う。
+もし既存のレプリカの数がひとつだけなら、HDFSは次のレプリカを別のラック上に作る。
+既存のレプリカがふたつある場合は、もしそれらが同じラック上にあれば
+三番目のレプリカを別のラック上に配置する。そうでない場合は、
+三番目のレプリカを既存のレプリカと同一ラック上の別のノードに配置する。
+ここでの目標は、新たなレプリカの作成コストを削減することだ。
+
+%% The NameNode also makes sure that not all replicas of a block are
+%% located on one rack. If the NameNode detects that a block's replicas
+%% end up at one rack, the NameNode treats the block as mis-replicated
+%% and replicates the block to a different rack using the same block
+%% placement policy described above. After the NameNode receives the
+%% notification that the replica is created, the block becomes
+%% over-replicated. The NameNode then will decides to remove an old
+%% replica because the over-replication policy prefers not to reduce the
+%% number of racks.
+また、NameNodeは、全レプリカが同一ラック上に配置されることがないようにもする。
+あるブロックのレプリカがすべて同じラック上にあることを検出すると、
+NameNodeはそのブロックを「レプリケーションできていない」とみなし、
+先ほどと同様のポリシーに基づいて別のラック上にレプリカを作成する。
+レプリカができたという通知をNameNodeが受け取ったら、
+そのブロックはレプリカが多すぎる状態になる。
+そこで、NameNodeは古いレプリカのひとつを削除する。
+多すぎるレプリカへの対応ポリシーに基づいて、ラック数が減らないようにするためである。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Balancer}
+\begin{aosasect2}{バランサー}
+
+%% HDFS block placement strategy does not take into account DataNode disk
+%% space utilization. This is to avoid placing new---more likely to be
+%% referenced---data at a small subset of the DataNodes with a lot of
+%% free storage. Therefore data might not always be placed uniformly
+%% across DataNodes. Imbalance also occurs when new nodes are added to
+%% the cluster.
+HDFSのブロック配置戦略では、DataNodeのディスク利用状況は考慮しない。
+これは、新しいデータ---つまり、より参照されやすいデータ---を
+大量の空き領域があるDataNodeのごく一部に配置されてしまわないようにするためだ。
+そのため、データが各DataNodeにまんべんなく配置されるとは限らない。
+また、新たなノードがクラスタに追加されたときにも不均衡が生じる。
+
+%% The balancer is a tool that balances disk space usage on an HDFS
+%% cluster. It takes a threshold value as an input parameter, which is a
+%% fraction between 0 and 1. A cluster is balanced if, for each DataNode,
+%% the utilization of the node\footnote{Defined as the ratio of used
+%% space at the node to total capacity of the node.} differs from the
+%% utilization of the whole cluster\footnote{Defined as the ratio of used
+%% space in the cluster to total capacity of the cluster.} by no more
+%% than the threshold value.
+バランサーは、HDFSクラスタ上のディスク使用量のバランスをとるためのツールである。
+0から1までの間の小数で表した閾値を、入力として受け取る。
+クラスタのバランスが取れているとみなすのは、クラスタ内の各DataNodeについて、
+そのノードでの利用率\footnote{ノードの全容量に対する利用中の容量の比率。}
+とクラスタ全体での利用率\footnote{クラスタの総容量に対する利用中の容量の比率。}
+との差が閾値を超えないときである。
+
+%% The tool is deployed as an application program that can be run by the
+%% cluster administrator. It iteratively moves replicas from DataNodes
+%% with higher utilization to DataNodes with lower utilization. One key
+%% requirement for the balancer is to maintain data availability. When
+%% choosing a replica to move and deciding its destination, the balancer
+%% guarantees that the decision does not reduce either the number of
+%% replicas or the number of racks.
+このツールはアプリケーションプログラムとして配布されており、
+クラスタの管理者が実行することができる。
+実行すると、使用率の高いDataNodeから使用率の低いDataNode
+へとレプリカを移動させる。バランサーでポイントとなる要件のひとつは、
+データの可用性を保つことである。移動させたいレプリカを選んで
+その移動先を見つけるときにも、それによってレプリカ数や
+ラック数が減らないことを保証する。
+
+%% The balancer optimizes the balancing process by minimizing the
+%% inter-rack data copying. If the balancer decides that a replica A
+%% needs to be moved to a different rack and the destination rack happens
+%% to have a replica B of the same block, the data will be copied from
+%% replica B instead of replica A.
+バランサーは、その処理を最適化するために、
+ラックをまたがるデータコピーを最小限に抑える。
+レプリカAを別のラックに移動させる必要があると判断したときに、
+移動先のラックにもし同じブロックのレプリカBが存在すれば、
+レプリカAではなくレプリカBからデータをコピーする。
+
+%% A configuration parameter limits the bandwidth consumed by rebalancing
+%% operations. The higher the allowed bandwidth, the faster a cluster can
+%% reach the balanced state, but with greater competition with
+%% application processes.
+設定パラメータで、バランシング操作で使う帯域を制限できる。
+利用できる帯域を高めに設定すると、バランスのとれた状態に素早く持ち込める。
+しかしそのぶん、アプリケーションの処理に影響が及んでしまう。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Block Scanner}
+\begin{aosasect2}{ブロックスキャナー}
+
+%% Each DataNode runs a block scanner that periodically scans its block
+%% replicas and verifies that stored checksums match the block data. In
+%% each scan period, the block scanner adjusts the read bandwidth in
+%% order to complete the verification in a configurable period. If a
+%% client reads a complete block and checksum verification succeeds, it
+%% informs the DataNode. The DataNode treats it as a verification of the
+%% replica.
+各DataNodeではブロックスキャナーが動作している。
+これは、定期的にブロックのレプリカをスキャンし、
+保存されているチェックサムがブロックのデータと一致するかを調べる。
+スキャン時には読み込みの帯域を調節し、
+設定した期間で検証を終えられるようにする。
+あるクライアントがどれかのブロック全体を読み込んでチェックサムの検証に成功すると、
+それがDataNodeに伝えられる。
+そしてDataNodeでは、そのレプリカが検証されたものとみなす。
+
+%% The verification time of each block is stored in a human-readable log
+%% file. At any time there are up to two files in the top-level DataNode
+%% directory, the current and previous logs. New verification times are
+%% appended to the current file. Correspondingly, each DataNode has an
+%% in-memory scanning list ordered by the replica's verification time.
+各ブロックをいつ検証したのかという情報は、可読形式でログファイルに記録される。
+DataNodeのトップレベルディレクトリに、現在のログと前回のログの
+ふたつのファイルが存在する。新たに検証をすると、その時刻が現在のログファイルに追記される。
+それに対応して、各DataNodeにはインメモリのスキャンリストがあり、
+これはレプリカの検証時刻順で並んでいる。
+
+%% Whenever a read client or a block scanner detects a corrupt block, it
+%% notifies the NameNode. The NameNode marks the replica as corrupt, but
+%% does not schedule deletion of the replica immediately. Instead, it
+%% starts to replicate a good copy of the block. Only when the good
+%% replica count reaches the replication factor of the block the corrupt
+%% replica is scheduled to be removed. This policy aims to preserve data
+%% as long as possible. So even if all replicas of a block are corrupt,
+%% the policy allows the user to retrieve its data from the corrupt
+%% replicas.
+クライアントからの読み込みやブロックスキャナーのスキャンでブロックの破損が見つかると、
+それがNameNodeに通知される。NameNodeはそのレプリカが壊れているとマークするが、
+すぐにはそのレプリカを削除しない。その代わりに、まずそのブロックの壊れていないコピーを複製する。
+正常なレプリカの数がブロックのレプリケーション係数に達してから、
+壊れたレプリカの削除をする。このポリシーは、データをできるだけ長く永続させることを狙ったものである。
+仮にすべてのレプリカが壊れていたとしても、
+このポリシーにしておけば、
+壊れたレプリカからユーザーがデータを取得できるようになる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Decommissioning}
+\begin{aosasect2}{廃止措置}
+
+%% The cluster administrator specifies list of nodes to be
+%% decommissioned.  Once a DataNode is marked for decommissioning, it
+%% will not be selected as the target of replica placement, but it will
+%% continue to serve read requests. The NameNode starts to schedule
+%% replication of its blocks to other DataNodes. Once the NameNode
+%% detects that all blocks on the decommissioning DataNode are
+%% replicated, the node enters the decommissioned state. Then it can be
+%% safely removed from the cluster without jeopardizing any data
+%% availability.
+クラスタ管理者が、廃止予定のノードのリストを指定する。
+あるDataNodeが廃止予定とマークされると、
+もうそのノードはレプリカの配置先として選ばれなくなる。
+しかし、読み込みリクエストへの対応は続行する。
+そしてNameNodeは、廃止予定のノードにあるブロックのレプリカを
+他のDataNodeに移し始める。
+すべてのブロックが他のDataNodeにレプリケートできたことを確認した時点で、
+そのノードは廃止状態となる。
+廃止状態のノードは、データの可用性に一切影響を及ぼさず安全に削除できる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Inter-Cluster Data Copy}
+\begin{aosasect2}{クラスタ間データコピー}
+
+%% When working with large datasets, copying data into and out of a HDFS
+%% cluster is daunting.  HDFS provides a tool called DistCp for large
+%% inter/intra-cluster parallel copying. It is a MapReduce job; each of
+%% the map tasks copies a portion of the source data into the destination
+%% filesystem. The MapReduce framework automatically handles parallel
+%% task scheduling, error detection and recovery.
+大規模なデータセットでは、HDFSクラスタへのデータのコピー
+（あるいはHDFSクラスタからのデータのコピー）は手強い作業である。
+HDFSにはDistCpというツールが用意されており、クラスタ内/クラスタ間での
+大規模な並列コピーに使える。
+これはMapReduceジョブである。
+個々のマップタスクが、ソースデータの一部をコピー先のファイルシステムにコピーする。
+MapReduceフレームワークが、並列タスクスケジューリングやエラーの検出そしてリカバリーを自動的に処理する。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Practice at Yahoo!}
+\begin{aosasect1}{Yahoo!における実例}
+
+%% Large HDFS clusters at Yahoo!\ include about 4000 nodes. A typical
+%% cluster node has two quad core Xeon processors running at 2.5~GHz,
+%% 4--12 directly attached SATA drives (holding two terabytes each), 24~Gbyte of
+%% RAM, and a 1-gigabit Ethernet connection.  Seventy percent of the disk
+%% space is allocated to HDFS\@. The remainder is reserved for the
+%% operating system (Red Hat Linux), logs, and space to spill the output
+%% of map tasks (MapReduce intermediate data are not stored in HDFS).
+Yahoo!の大規模HDFSクラスタは、約4000ノードで構成されている。
+標準的なクラスタノードのハードウェアは、2.5~GHzのクアッドコアXeonプロセッサを2台搭載し、
+4--12本のSATAドライブを直結(各2TB)、RAMは24GB、そして1ギガビットのEthernet接続がある。
+ディスク領域の7割がHDFS用に割り当てられており、
+残りの領域は、OS(Red Hat Linux)やログ、そしてMapタスクでの出力用の領域である
+(MapReduceの中間データは、HDFSに格納しない)。
+
+%% Forty nodes in a single rack share an IP switch. The rack switches are
+%% connected to each of eight core switches. The core switches provide
+%% connectivity between racks and to out-of-cluster resources. For each
+%% cluster, the NameNode and the BackupNode hosts are specially
+%% provisioned with up to 64 GB RAM; application tasks are never assigned
+%% to those hosts. In total, a cluster of 4000 nodes has 11 PB
+%% (petabytes; 1000 terabytes) of storage available as blocks that are
+%% replicated three times yielding a net 3.7 PB of storage for user
+%% applications. Over the years that HDFS has been in use, the hosts
+%% selected as cluster nodes have benefited from improved
+%% technologies. New cluster nodes always have faster processors, bigger
+%% disks and larger RAM\@. Slower, smaller nodes are retired or relegated
+%% to clusters reserved for development and testing of Hadoop.
+ひとつのラックに40ノードが格納されており、これらがひとつのIPスイッチを共有する。
+ラックのスイッチは、8台あるコアスイッチのいずれかと接続される。
+コアスイッチは、ラック群をクラスタ外のリソースと接続できるようにするものである。
+それぞれのクラスタで、NameNodeとBackupNodeのホストは特別な設定になっており、
+最大で64GBのRAMを積んでいる。アプリケーションのタスクが
+これらのホストに割り振られることは決してない。全体的に見ると、
+4000ノードのクラスタでブロックとして使えるストレージは11PB(ペタバイト; 1000TB)である。
+三重にレプリケートされているので、アプリケーションから使えるストレージは3.7PBということになる。
+長年HDFSを使ってきて、クラスタノード用に選択するホストも
+技術の進歩の恩恵を受けている。新しいクラスタノードは
+いつもこれまでよりも高速なプロセッサを搭載しているし、
+ディスクも大きければRAMも多い。
+昔からある低速で少容量のノードは引退させることもあるし、
+Hadoopの開発やテスト用のクラスタに転用することもある。
+
+%% On an example large cluster (4000 nodes), there are about 65 million
+%% files and 80 million blocks. As each block typically is replicated
+%% three times, every data node hosts 60 000 block replicas. Each day,
+%% user applications will create two million new files on the
+%% cluster. The 40 000 nodes in Hadoop clusters at Yahoo!\ provide 40 PB
+%% of on-line data storage.
+例として取り上げた大規模クラスタ(4000ノード)で扱っているのは、
+約6500万のファイルと8000万のブロックである。
+各ブロックは一般に三度レプリケートされるので、すべてのデータノードが
+約60,000ブロックのレプリカを保持することになる。
+ユーザーアプリケーションは、毎日約200万のファイルを
+クラスタ上に新しく作る。Yahoo!のHadoopクラスタにある
+40,000ノードが、オンラインデータストレージとして40PBを提供する。
+
+%% Becoming a key component of Yahoo!'s technology suite meant tackling
+%% technical problems that are the difference between being a research
+%% project and being the custodian of many petabytes of corporate data.
+%% Foremost are issues of robustness and durability of data. But also
+%% important are economical performance, provisions for resource sharing
+%% among members of the user community, and ease of administration by the
+%% system operators.
+Yahoo!のテクノロジー群の中で重要な位置を占めるようになるということは、
+さまざまな技術的問題に取り組むことを意味する。
+研究プロジェクトのひとつであることとペタバイト級の業務データを管理することには違いがあるのだ。
+真っ先に課題となるのが、データの安定性と永続性である。
+しかしそれ以外にも重要なことがある。
+コストパフォーマンス、ユーザーコミュニティのメンバー間での
+リソース共有の仕組み、そしてシステムの運用担当者による管理のしやすさなどである。
+
+%% \begin{aosasect2}{Durability of Data}
+\begin{aosasect2}{データの永続性}
+
+%% Replication of data three times is a robust guard against loss of data
+%% due to uncorrelated node failures. It is unlikely Yahoo!\ has ever lost
+%% a block in this way; for a large cluster, the probability of losing a
+%% block during one year is less than 0.005. The key understanding is
+%% that about 0.8 percent of nodes fail each month. (Even if the node is
+%% eventually recovered, no effort is taken to recover data it may have
+%% hosted.) So for the sample large cluster as described above, a node or
+%% two is lost each day. That same cluster will re-create the 60 000
+%% block replicas hosted on a failed node in about two
+%% minutes: re-replication is fast because it is a parallel problem that
+%% scales with the size of the cluster. The probability of several nodes
+%% failing within two minutes such that all replicas of some block are
+%% lost is indeed small.
+データを三重にレプリケーションすることで、
+相関性のないノード障害によるデータのロストに対する強力な守りとなる。
+Yahoo!では、今までこのパターンでデータを失ったことはない。
+大規模なクラスタで、1年の間にひとつのブロックを失う確率は
+0.005未満だ。
+知っておくべきなのは、毎月約0.8パーセントのノードに障害が発生するということだ
+(そのノードを最終的にリカバーすることになっても、そこで管理していたデータの復旧に手間をかけることはない)。
+つまり、先ほど例に出した大規模クラスタだと、
+毎日ひとつかふたつのノードを失うことになる。
+このクラスタでは、障害が発生したノード上にあった60,000ブロックレプリカの再作成を
+約2分で行う。再レプリケーションが高速に行えるのは、それがクラスタのサイズに対応する問題だからである。
+2分の間に複数のノードで同時に障害が発生し、どれかひとつのブロックの全レプリカが失われる
+という確率はごく小さい。
+
+%% Correlated failure of nodes is a different threat. The most commonly
+%% observed fault in this regard is the failure of a rack or core switch.
+%% HDFS can tolerate losing a rack switch (each block has a replica on
+%% some other rack). Some failures of a core switch can effectively
+%% disconnect a slice of the cluster from multiple racks, in which case
+%% it is probable that some blocks will become unavailable. In either
+%% case, repairing the switch restores unavailable replicas to the
+%% cluster. Another kind of correlated failure is the accidental or
+%% deliberate loss of electrical power to the cluster. If the loss of
+%% power spans racks, it is likely that some blocks will become
+%% unavailable. But restoring power may not be a remedy because one-half
+%% to one percent of the nodes will not survive a full power-on restart.
+%% Statistically, and in practice, a large cluster will lose a handful of
+%% blocks during a power-on restart.
+相関性のあるノードの障害は、また別の脅威となる。
+この種の障害で最もよくあるのが、ラックあるいはコアスイッチの障害である。
+HDFSはラックスイッチを失っても耐えられるようになっている
+(各ブロックのレプリカを、どこか別のラック上に保持している)。
+コアスイッチの障害は、複数のラックにまたがるクラスタの一部を
+事実上切り離してしまうことになる。そんな場合は
+いくつかのブロックが利用できなくなる可能性がある。
+いずれにせよ、スイッチを復旧させれば
+利用できなかったレプリカをクラスタに復元できる。
+それ以外に関連のある障害としては、
+クラスタへの電源の停電(アクシデントによるものも計画的なものも含む)がある。
+複数のラックが停電すると、おそらくいくつかのブロックは使えなくなるだろう。
+しかし、電源が復旧したからといってそれで元通りになるとは限らない。
+0.5パーセントから1パーセントのノードは、電源オンからの起動でうまく立ち上がらない。
+統計的でも、実際の経験上でも、大規模なクラスタで電源オンからやり直したときには
+ごく少数のブロックを失ってしまうことが知られている。
+
+%% In addition to total failures of nodes, stored data can be corrupted
+%% or lost. The block scanner scans all blocks in a large cluster each
+%% fortnight and finds about 20 bad replicas in the process. Bad replicas
+%% are replaced as they are discovered.
+ノード自体の障害に加えて、ノードに格納されているデータも破壊されたり失ったりすることがある。
+ブロックスキャナーが大規模クラスタの全ブロックを二週間おきにスキャンし、
+毎回20前後の不良レプリカを見つけている。不良レプリカは、
+検出された時点でリプレイスされる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Features for Sharing HDFS}
+\begin{aosasect2}{HDFSの共有機能}
+
+%% As the use of HDFS has grown, the filesystem itself has had to
+%% introduce means to share the resource among a large number of diverse users. 
+%% The first such feature was a permissions framework closely
+%% modeled on the Unix permissions scheme for file and directories. In
+%% this framework, files and directories have separate access permissions
+%% for the owner, for other members of the user group associated with the
+%% file or directory, and for all other users. The principle differences
+%% between Unix (POSIX) and HDFS are that ordinary files in HDFS have
+%% neither execute permissions nor sticky bits.
+HDFSの利用が増えるにつれて、ファイルシステム自体にもリソースの共有手段を
+導入する必要が出てきた。さまざまな数多くのユーザー間での共有だ。
+最初に用意された機能はパーミッションフレームワークで、
+これはUnixのファイルやディレクトリのパーミッションと似た仕組みだった。
+このフレームワークでは、ファイルやディレクトリにそれぞれ個別のアクセス権を設定する。
+所有者用のアクセス権、ファイルやディレクトリに関連付けられたユーザーグループ用のアクセス権、
+そして他のすべてのユーザー用のアクセス権である。
+Unix (POSIX)のパーミッションとHDFSのパーミッションの違いは、
+HDFSにおける通常のファイルには実行権限やスティッキービットが存在しないという点だ。
+
+%% In the earlier version of HDFS, user identity was weak: you were who
+%% your host said you are. When accessing HDFS, the application client
+%% simply queries the local operating system for user identity and group
+%% membership. In the new framework, the application client must present
+%% to the name system credentials obtained from a trusted
+%% source. Different credential administrations are possible; the initial
+%% implementation uses Kerberos.  The user application can use the same
+%% framework to confirm that the name system also has a trustworthy
+%% identity. And the name system also can demand credentials from each of
+%% the data nodes participating in the cluster.
+初期のバージョンのHDFSでは、ユーザーの身元確認が弱点だった。
+アクセス元のホストが主張する身元情報をそのまま受け入れるしかできなかったのだ。
+HDFSにアクセスするときに、クライアントアプリケーションが
+ローカルのOSに対してユーザーやグループの情報を問い合わせていた。
+新しいフレームワークの場合、
+クライアントアプリケーションは信頼できるソースから取得した認証情報を使う必要がある。
+認証管理にはさまざまな方式を利用でき、初期状態の実装ではKerberosを使っている。
+ユーザーアプリケーションは、同じフレームワークを使えば、
+信頼できる認証情報を持っているかどうかを確認できる。
+また、クラスタに参加する各データノードへの認証を要求することもできる。
+
+%% The total space available for data storage is set by the number of
+%% data nodes and the storage provisioned for each node. Early experience
+%% with HDFS demonstrated a need for some means to enforce the resource
+%% allocation policy across user communities. Not only must fairness of
+%% sharing be enforced, but when a user application might involve
+%% thousands of hosts writing data, protection against applications
+%% inadvertently exhausting resources is also important. For HDFS,
+%% because the system metadata are always in RAM, the size of the
+%% namespace (number of files and directories) is also a finite
+%% resource. To manage storage and namespace resources, each directory
+%% may be assigned a quota for the total space occupied by files in the
+%% sub-tree of the namespace beginning at that directory. A separate
+%% quota may also be set for the total number of files and directories in
+%% the sub-tree.
+データストレージとして使える容量の総計は、
+データノードの数と各ノードに用意されたストレージで決まる。
+HDFSを使い始めたころの経験からわかったのが、
+ユーザーコミュニティをまたがるリソース配置ポリシーを
+何らかの手段で設定できるようにする必要性だった。
+公平に共有させることも大切だが、それだけではない。
+ユーザーのアプリケーションが何千ものホストにデータを書き込む場合、
+そのアプリケーションがリソースを食いつぶしてしまわないようにすることも重要だ。
+HDFSの場合、システムのメタデータが常にRAM上に存在するので、名前空間のサイズ
+(ファイルやディレクトリの数)もまた有限なリソースとなる。
+ストレージや名前空間のリソースを管理するために、
+各ディレクトリに容量制限を課すこともできる。
+そのディレクトリ配下の名前空間のサブツリーで
+ファイルを保存するための総容量で制限する。
+それ以外にも、
+サブツリー内に格納できるファイルやディレクトリの総数を制限することもできる。
+
+%% While the architecture of HDFS presumes most applications will stream
+%% large data sets as input, the MapReduce programming framework can have
+%% a tendency to generate many small output files (one from each reduce
+%% task) further stressing the namespace resource. As a convenience, a
+%% directory sub-tree can be collapsed into a single Hadoop Archive
+%% file. A HAR file is similar to a familiar tar, JAR, or Zip file, but
+%% filesystem operations can address the individual files within the
+%% archive, and a HAR file can be used transparently as the input to a
+%% MapReduce job.
+HDFSのアーキテクチャは、大半のアプリケーションが入力として
+大規模なデータセットを流し込むということを前提としている。
+一方、MapReduceプログラミングフレームワークには、
+小さめのファイルを大量に(Reduceタスクの数と同じだけ)
+生成するという傾向がある。
+これは、名前空間のリソースにとってはさらなるストレスとなる。
+利便性を考慮して、ディレクトリのサブツリーを
+単一のHadoop Archive(HAR)ファイルにまとめることもできる。
+HARファイルは、おなじみのtarやJARあるいはZipファイルと似たようなものだが、
+ファイルシステム上の操作でアーカイブ内の個別のファイルを扱える。
+また、HARファイルをMapReduceジョブへの入力として透過的に使うこともできる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Scaling and HDFS Federation}
+\begin{aosasect2}{スケーリングおよびHDFS Federation}
+
+%% Scalability of the NameNode has been a key struggle
+%% \cite{bib:shvachko:hdfs}.  Because the NameNode keeps all the
+%% namespace and block locations in memory, the size of the NameNode heap
+%% limits the number of files and also the number of blocks
+%% addressable. This also limits the total cluster storage that can be
+%% supported by the NameNode. Users are encouraged to create larger
+%% files, but this has not happened since it would require changes in
+%% application behavior. Furthermore, we are seeing new classes of
+%% applications for HDFS that need to store a large number of small
+%% files. Quotas were added to manage the usage, and an archive tool has
+%% been provided, but these do not fundamentally address the
+%% scalability problem.
+NameNodeのスケーラビリティは、これまでずっと課題であった\cite{bib:shvachko:hdfs}。
+NameNodeはすべての名前空間やブロックの場所をメモリに保持するので、
+NameNodeのヒープサイズのせいで扱えるファイル数に制約が出てしまい、
+アドレス可能なブロック数にも制約が出てしまう。
+同じ理由で、NameNodeがサポートできるクラスタストレージの総容量も限られる。
+ユーザーは、より大きなファイルを作るよう求められる。しかし、
+そのためにはアプリケーションの振る舞いを変更しないといけないので、
+なかなかそうはならない。
+さらに、最近のHDFS用アプリケーションの中には、
+小さいファイルを大量に格納しないといけないものも出てきている。
+使用量を管理するために制限機能が追加されたし、アーカイブツールも用意した。
+しかしこれらを使っても、スケーラビリティの問題への本質的な対策にはならない。
+
+%% A new feature allows multiple independent namespaces (and NameNodes)
+%% to share the physical storage within a cluster. Namespaces use blocks
+%% grouped under a Block Pool. Block pools are analogous to logical units (LUNs) in a SAN
+%% storage system and a namespace with its pool of blocks is analogous to
+%% a filesystem volume.
+新機能として、複数の独立した名前空間(およびNameNodes)でクラスタ内の物理ストレージを共有できるようにした。
+名前空間が、ブロックプールの配下にまとめられたブロックを使うようにするものだ。
+ブロックプールとはSANストレージシステムにおける論理ユニット(LUN)みたいなもので、
+名前空間でブロックプールを使うのはファイルシステムボリュームのようなものだ。
+
+%% This approach offers a number of advantages besides scalability: it
+%% can isolate namespaces of different applications improving the overall
+%% availability of the cluster. Block pool abstraction allows other
+%% services to use the block storage with perhaps a different namespace
+%% structure. We plan to explore other approaches to scaling such as
+%% storing only partial namespace in memory, and truly distributed
+%% implementation of the NameNode.
+この手法には、スケーラビリティを確保する上で数々の利点がある。
+異なるアプリケーションで使う名前空間を分離でき、クラスタの全体的な可用性を向上できるのだ。
+ブロックプールによる抽象化のおかげで、ブロックストレージを使う他のサービスでは
+別の名前空間構造を使えるようになる。
+スケーリングのために他の手法も模索しており、
+たとえばメモリ内に保持するのを名前空間の一部だけにしたり
+NameNodeを真に分散型の実装にしたりといった計画もある。
+
+%% Applications prefer to continue using a single namespace. Namespaces
+%% can be mounted to create such a unified view. A client-side mount
+%% table provide an efficient way to do that, compared to a server-side
+%% mount table: it avoids an RPC to the central mount table and is also
+%% tolerant of its failure. The simplest approach is to have shared
+%% cluster-wide namespace; this can be achieved by giving the same
+%% client-side mount table to each client of the cluster. Client-side
+%% mount tables also allow applications to create a private namespace
+%% view. This is analogous to the per-process namespaces that are used to
+%% deal with remote execution in distributed systems
+%% \cite{bib:pike:names,bib:radia:naming,bib:radia:naming2}.
+アプリケーションは、単一の名前空間を使いたがるので、
+名前空間をマウントして統一したビューを作ることもできる。
+それを効率的に行うには、クライアント側のマウントテーブルのほうが
+サーバー側のマウントテーブルより向いている。
+サーバー側に中央マウントテーブルを置く場合に比べてリモートプロシージャ呼び出しを回避できるし、
+耐障害性も高い。一番シンプルな手法は、クラスタ全体で名前空間を共有することだ。
+これを実現するには、クラスタ内の各クライアントに共通のクライアント側マウントテーブルを配布する。
+このマウントテーブルでは、各アプリケーションがプライベートな名前空間ビューを作れるようにもなっている。
+これは、分散システム内でのリモート実行をするためのプロセス単位の名前空間のようなものだ
+\cite{bib:pike:names,bib:radia:naming,bib:radia:naming2}。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Lessons Learned}
+\begin{aosasect1}{教訓}
+
+%% A very small team was able to build the Hadoop filesystem and make it
+%% stable and robust enough to use it in production.  A large part of the
+%% success was due to the very simple architecture: replicated blocks,
+%% periodic block reports and central metadata server. Avoiding the full
+%% POSIX semantics also helped. Although keeping the entire metadata in
+%% memory limited the scalability of the namespace, it made the NameNode
+%% very simple: it avoids the complex locking of typical filesystems. The
+%% other reason for Hadoop's success was to quickly use the system for
+%% production at Yahoo!, as it was rapidly and incrementally
+%% improved. The filesystem is very robust and the NameNode rarely fails;
+%% indeed most of the down time is due to software upgrades. Only
+%% recently have failover solutions (albeit manual) emerged
+Hadoopファイルシステムを開発したのはとても小さなチームで、
+彼らがシステムを安定させ、実運用に耐える頑健性を実現した。
+その成功の大半は、非常にシンプルなアーキテクチャに起因する。
+ブロックのレプリケート、定期的なブロックレポート、
+そして中央管理型のメタデータサーバーなどといったものだ。
+POSIXの仕様を完全に実現しようとはしなかったことも助けとなった。
+メタデータ全体をメモリ内に保持するために名前空間のスケーラビリティに制約が生じるが、
+そのおかげでNameNodeがとてもシンプルになった。
+ふつうのファイルシステムにありがちな、複雑なロックの問題を回避できたのだ。
+Hadoopの成功にはそれ以外にも理由がある。
+早いうちからYahoo!の本番環境に投入されたこともそのひとつで、
+素早くインクリメンタルな改良に貢献した。
+このファイルシステムは非常に頑健で、NameNodeの障害はめったに発生しない。
+実際、ダウンタイムの大半はソフトウェアのアップグレードによるものである。
+フェイルオーバーのソリューション(手動だけどね)が登場したのも、つい最近のことだった。
+
+%% Many have been surprised by the choice of Java in building a scalable
+%% filesystem. While Java posed challenges for scaling the NameNode due
+%% to its object memory overhead and garbage collection, Java has been
+%% responsible to the robustness of the system; it has avoided
+%% corruption due to pointer or memory management bugs.
+スケーラブルなファイルシステムをJavaで作るという選択に驚いた人も多かっただろう。
+確かにJavaでNameNodeをスケールさせるのは難しかった。オブジェクトメモリのオーバーヘッドや
+ガベージコレクションがその原因だ。しかし、Javaを選んだおかげで
+頑健性を確保できた。ポインタやメモリ管理のバグに悩まされることがなくなったのだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Acknowledgment}
+\begin{aosasect1}{謝辞}
+
+%% We thank Yahoo!\ for investing in Hadoop and continuing to
+%% make it available as open source; 80\% of the HDFS and MapReduce code
+%% was developed at Yahoo! We thank all Hadoop committers and
+%% collaborators for their valuable contributions.
+Yahoo!によるHadoopへの投資に感謝する。
+また、Hadoopをオープンソースで公開し続けてくれていることにも感謝する。
+HDFSやMapReduceのコードの80\%はYahoo!が開発したものだ。
+すべてのHadoopコミッターやその他の協力者からの貢献にも感謝する。
+
+\end{aosasect1}
+
+\end{aosachaptertoc}

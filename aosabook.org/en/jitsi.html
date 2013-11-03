@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: jitsi.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Jitsi</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Jitsi</h1>
+        <p><a href="intro1.html#ivov-emil">Emil Ivov</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Jitsi is an application that allows people to make video and voice
+calls, share their desktops, and exchange files and messages. More
+importantly it allows people to do this over a number of different
+protocols, ranging from the standardized XMPP (Extensible Messaging
+and Presence Protocol) and SIP (Session Initiation Protocol) to
+proprietary ones like Yahoo! and Windows Live Messenger (MSN).  It
+runs on Microsoft Windows, Apple Mac OS X, Linux, and FreeBSD. It is
+written mostly in Java but it also contains parts written in native
+code.  In this chapter, we'll look at Jitsi's OSGi-based architecture,
+see how it implements and manages protocols, and look back on what
+we've learned from building it.<sup class="footnote"><a href="#footnote-1">1</a></sup></p>
+
+<div class="sect">
+<h2>10.1. Designing Jitsi</h2>
+
+<p>The three most important constraints that we had to keep in mind when
+designing Jitsi (at the time called SIP Communicator) were
+multi-protocol support, cross-platform operation, and
+developer-friendliness.</p>
+
+<p>From a developer's perspective, being multi-protocol comes down to
+having a common interface for all protocols. In other words, when a
+user sends a message, our graphical user interface needs to always
+call the same <code>sendMessage</code> method regardless of whether the
+currently selected protocol actually uses a method called
+<code>sendXmppMessage</code> or <code>sendSipMsg</code>.</p>
+
+<p>The fact that most of our code is written in Java satisfies, to a
+large degree, our second constraint: cross-platform operation. Still,
+there are things that the Java Runtime Environment (JRE) does not
+support or does not do the way we'd like it to, such as capturing
+video from your webcam. Therefore, we need to use DirectShow on
+Windows, QTKit on Mac OS X, and Video for Linux 2 on Linux. Just as
+with protocols, the parts of the code that control video calls cannot
+be bothered with these details (they are complicated enough as it is).</p>
+
+<p>Finally, being developer-friendly means that it should be easy for
+people to add new features. There are millions of people using VoIP
+today in thousands of different ways; various service providers and
+server vendors come up with different use cases and ideas about new
+features. We have to make sure that it is easy for them to use Jitsi
+the way they want.  Someone who needs to add something new should have
+to read and understand only those parts of the project they are
+modifying or extending.  Similarly, one person's changes should have
+as little impact as possible on everyone else's work.</p>
+
+<p>To sum up, we needed an environment where different parts of the code
+are relatively independent from each other. It had to be possible to
+easily replace some parts depending on the operating system; have
+others, like protocols, run in parallel and yet act the same; and it
+had to be possible to completely rewrite any one of those parts and
+have the rest of the code work without any changes.  Finally, we
+wanted the ability to easily switch parts on and off, as well as the
+ability to download plugins over the Internet to our list.</p>
+
+<p>We briefly considered writing our own framework, but soon dropped the
+idea. We were itching to start writing VoIP and IM code as soon as
+possible, and spending a couple of months on a plugin framework
+didn't seem that exciting. Someone suggested OSGi, and it seemed to be
+the perfect fit.</p>
+
+</div>
+
+<div class="sect">
+<h2>10.2. Jitsi and the OSGi Framework</h2>
+
+<p>People have written entire books about OSGi, so we're not going to go
+over everything the framework stands for. Instead we will only explain
+what it gives us and the way we use it in Jitsi.</p>
+
+<p>Above everything else, OSGi is about modules.  Features in OSGi
+applications are separated into bundles. An OSGi bundle is little more
+than a regular JAR file like the ones used to distribute Java
+libraries and applications. Jitsi is a collection of such
+bundles. There is one responsible for connecting to Windows Live
+Messenger, another one that does XMPP, yet another one that handles
+the GUI, and so on.  All these bundles run together in an environment
+provided, in our case, by Apache Felix, an open source OSGi
+implementation.</p>
+
+<p>All these modules need to work together. The GUI bundle needs to send
+messages via the protocol bundles, which in turn need to store them
+via the bundles handling message history. This is what OSGi services
+are for: they represent the part of a bundle that is visible to
+everyone else. An OSGi service is most often a group of Java
+interfaces that allow use of a specific functionality like logging,
+sending messages over the network, or retrieving the list of recent
+calls. The classes that actually implement the functionality are known
+as a service implementation. Most of them carry the name of the
+service interface they implement, with an "Impl" suffix at the end
+(e.g., <code>ConfigurationServiceImpl</code>). The OSGi framework allows
+developers to hide service implementations and make sure that they are
+never visible outside the bundle they are in. This way, other bundles
+can only use them through the service interfaces.</p>
+
+<p>Most bundles also have activators. Activators are simple interfaces
+that define a <code>start</code> and a <code>stop</code> method. Every time Felix
+loads or removes a bundle in Jitsi, it calls these methods so that the
+bundle can prepare to run or shut down. When calling these methods
+Felix passes them a parameter called BundleContext. The BundleContext
+gives bundles a way to connect to the OSGi environment. This way they
+can discover whatever OSGi service they need to use, or register one
+themselves (<a href="#fig.jit.osgi">Figure&nbsp;10.1</a>).</p>
+
+<div class="figure" id="fig.jit.osgi">
+  <img src="../images/jitsi/OSGI.png" alt="[OSGi Bundle Activation]" />
+  <p>Figure&nbsp;10.1: OSGi Bundle Activation</p>
+</div>
+
+<p>So let's see how this actually works.  Imagine a service that
+persistently stores and retrieves properties. In Jitsi this is what we
+call the ConfigurationService and it looks like this:</p>
+
+<pre>
+package net.java.sip.communicator.service.configuration;
+
+public interface ConfigurationService
+{
+  public void setProperty(String propertyName, Object property);
+  public Object getProperty(String propertyName);
+}
+</pre>
+
+<p>A very simple implementation of the ConfigurationService looks like
+this:</p>
+
+<pre>
+package net.java.sip.communicator.impl.configuration;
+
+import java.util.*;
+import net.java.sip.communicator.service.configuration.*;
+
+public class ConfigurationServiceImpl implements ConfigurationService
+{
+  private final Properties properties = new Properties();
+
+  public Object getProperty(String name)
+  {
+    return properties.get(name);
+  }
+
+  public void setProperty(String name, Object value)
+  {
+    properties.setProperty(name, value.toString());
+  }
+}
+</pre>
+
+<p class="continue">Notice how the service is defined in the
+<code>net.java.sip.communicator.<em>service</em></code> package, while the
+implementation is in <code>net.java.sip.communicator.<em>impl</em></code>. All
+services and implementations in Jitsi are separated under these two
+packages. OSGi allows bundles to only make some packages visible
+outside their own JAR, so the separation makes it easier for bundles
+to only <em>export</em> their service packages and keep their
+implementations hidden.</p>
+
+<p>The last thing we need to do so that people can start using our
+implementation is to register it in the <code>BundleContext</code> and
+indicate that it provides an implementation of the
+<code>ConfigurationService</code>. Here's how this happens:</p>
+
+<pre>
+package net.java.sip.communicator.impl.configuration;
+
+import org.osgi.framework.*;
+import net.java.sip.communicator.service.configuration;
+
+public class ConfigActivator implements BundleActivator
+{
+  public void start(BundleContext bc) throws Exception
+  {
+    bc.registerService(ConfigurationService.class.getName(), // service name
+         new ConfigurationServiceImpl(), // service implementation
+         null);
+  }
+}
+</pre>
+
+<p class="continue">Once the <code>ConfigurationServiceImpl</code> class is registered in the
+<code>BundleContext</code>, other bundles can start using it. Here's an
+example showing how some random bundle can use our configuration
+service:</p>
+
+<pre>
+package net.java.sip.communicator.plugin.randombundle;
+
+import org.osgi.framework.*;
+import net.java.sip.communicator.service.configuration.*;
+
+public class RandomBundleActivator implements BundleActivator
+{
+  public void start(BundleContext bc) throws Exception
+  {
+    ServiceReference cRef = bc.getServiceReference(
+                              ConfigurationService.class.getName());
+    configService = (ConfigurationService) bc.getService(cRef);
+
+    // And that's all! We have a reference to the service implementation
+    // and we are ready to start saving properties:
+    configService.setProperty("propertyName", "propertyValue");
+  }
+}
+</pre>
+
+<p class="continue">Once again, notice the package. In
+<code>net.java.sip.communicator.plugin</code> we keep bundles that use
+services defined by others but that neither export nor implement any
+themselves. Configuration forms are a good example of such plugins:
+They are additions to the Jitsi user interface that allow users to
+configure certain aspects of the application. When users change
+preferences, configuration forms interact with the
+<code>ConfigurationService</code> or directly with the bundles responsible
+for a feature. However, none of the other bundles ever need to
+interact with them in any way (<a href="#fig.jit.pkgs">Figure&nbsp;10.2</a>).</p>
+
+<div class="figure" id="fig.jit.pkgs">
+  <img src="../images/jitsi/PKGs.png" alt="[Service Structure]" />
+  <p>Figure&nbsp;10.2: Service Structure</p>
+</div>
+
+</div>
+
+<div class="sect">
+<h2>10.3. Building and Running a Bundle</h2>
+
+<p>Now that we've seen how to write the code in a bundle, it's time to
+talk about packaging. When running, all bundles need to indicate three
+different things to the OSGi environment: the Java packages they make
+available to others (i.e. exported packages), the ones that they would
+like to use from others (i.e. imported packages), and the name of
+their BundleActivator class. Bundles do this through the manifest of
+the JAR file that they will be deployed in.</p>
+
+<p>For the <code>ConfigurationService</code> that we defined above, the
+manifest file could look like this:</p>
+
+<pre>
+Bundle-Activator: net.java.sip.communicator.impl.configuration.ConfigActivator
+Bundle-Name: Configuration Service Implementation
+Bundle-Description: A bundle that offers configuration utilities
+Bundle-Vendor: jitsi.org
+Bundle-Version: 0.0.1
+System-Bundle: yes
+Import-Package: org.osgi.framework,
+Export-Package: net.java.sip.communicator.service.configuration
+</pre>
+
+<p>After creating the JAR manifest, we are ready to create the bundle
+itself. In Jitsi we use Apache Ant to handle all build-related
+tasks. In order to add a bundle to the Jitsi build process, you need
+to edit the <code>build.xml</code> file in the root directory of the
+project.  Bundle JARs are created at the bottom of the
+<code>build.xml</code> file, with <code>bundle-xxx</code> targets. In order to
+build our configuration service we need the following:</p>
+
+<pre>
+&lt;target name="bundle-configuration"&gt;
+  &lt;jar destfile="${bundles.dest}/configuration.jar" manifest=
+    "${src}/net/java/sip/communicator/impl/configuration/conf.manifest.mf" &gt;
+
+    &lt;zipfileset dir="${dest}/net/java/sip/communicator/service/configuration"
+        prefix="net/java/sip/communicator/service/configuration"/&gt;
+    &lt;zipfileset dir="${dest}/net/java/sip/communicator/impl/configuration"
+        prefix="net/java/sip/communicator/impl/configuration" /&gt;
+  &lt;/jar&gt;
+&lt;/target&gt;
+</pre>
+
+<p>As you can see, the Ant target simply creates a JAR file using our
+configuration manifest, and adds to it the configuration packages from
+the <code>service</code> and <code>impl</code> hierarchies. Now the only thing
+that we need to do is to make Felix load it.</p>
+
+<p>We already mentioned that Jitsi is merely a collection of OSGi
+bundles. When a user executes the application, they actually start
+Felix with a list of bundles that it needs to load.  You can find that
+list in our <code>lib</code> directory, inside a file called
+<code>felix.client.run.properties</code>. Felix starts bundles in the order
+defined by start levels: All those within a particular level are
+guaranteed to complete before bundles in subsequent levels start
+loading. Although you can't see this in the example code above, our
+configuration service stores properties in files so it needs to use
+our <em>FileAccessService</em>, shipped within the <code>fileaccess.jar</code>
+file. We'll therefore make sure that the ConfigurationService starts
+after the FileAccessService:</p>
+
+<pre>
+&#8942;    &#8942;    &#8942;
+felix.auto.start.30= \
+  reference:file:sc-bundles/fileaccess.jar
+
+felix.auto.start.40= \
+  reference:file:sc-bundles/configuration.jar \
+  reference:file:sc-bundles/jmdnslib.jar \
+  reference:file:sc-bundles/provdisc.jar \
+&#8942;    &#8942;    &#8942;
+</pre>
+
+<p>If you look at the <code>felix.client.run.properties</code> file, you'll see
+a list of packages at the beginning:</p>
+
+<pre>
+org.osgi.framework.system.packages.extra= \
+  apple.awt; \
+  com.apple.cocoa.application; \
+  com.apple.cocoa.foundation; \
+  com.apple.eawt; \
+&#8942;    &#8942;    &#8942;
+</pre>
+
+<p class="continue">The list tells Felix what packages it needs to make available to
+bundles from the system classpath. This means that packages that are
+on this list can be imported by bundles (i.e. added to their
+<em>Import-Package</em> manifest header) without any being exported by
+any other bundle. The list mostly contains packages that come from
+OS-specific JRE parts, and Jitsi developers rarely need to add new
+ones to it; in most cases packages are made available by bundles.</p>
+
+</div>
+
+<div class="sect">
+<h2>10.4. Protocol Provider Service</h2>
+
+<p>The <code>ProtocolProviderService</code> in Jitsi defines the way all
+protocol implementations behave. It is the interface that other
+bundles (like the user interface) use when they need to send and
+receive messages, make calls, and share files through the networks
+that Jitsi connects to.</p>
+
+<p>The protocol service interfaces can all be found under the
+<code>net.java.sip.communicator.service.protocol</code> package.  There are
+multiple implementations of the service, one per supported protocol,
+and all are stored in
+<code>net.java.sip.communicator.impl.protocol.protocol_name</code>.</p>
+
+<p>Let's start with the <code>service.protocol</code> directory. The most
+prominent piece is the <em>ProtocolProviderService</em> interface.
+Whenever someone needs to perform a protocol-related task, they have
+to look up an implementation of that service in the
+<code>BundleContext</code>. The service and its implementations allow Jitsi
+to connect to any of the supported networks, to retrieve the connection
+status and details, and most importantly to obtain references to the
+classes that implement the actual communications tasks like chatting
+and making calls.</p>
+
+<div class="subsect">
+<h3>10.4.1. Operation Sets</h3>
+
+<p>As we mentioned earlier, the <code>ProtocolProviderService</code> needs to
+leverage the various communication protocols and their
+differences. While this is particularly simple for features that all
+protocols share, like sending a message, things get trickier for tasks
+that only some protocols support. Sometimes these differences come
+from the service itself: For example, most of the SIP services out
+there do not support server-stored contact lists, while this is a
+relatively well-supported feature with all other protocols. MSN and
+AIM are another good example: at one time neither of them offered the
+ability to send messages to offline users, while everyone else
+did. (This has since changed.)</p>
+
+<p>The bottom line is our <code>ProtocolProviderService</code> needs to have a
+way of handling these differences so that other bundles, like the GUI,
+act accordingly; there's no point in adding a call button to an AIM
+contact if there's no way to actually make a call.</p>
+
+<p>OperationSets to the rescue
+(<a href="#fig.jit.ops">Figure&nbsp;10.3</a>). Unsurprisingly, they are sets of
+operations, and provide the interface that Jitsi bundles use to
+control the protocol implementations. The methods that you find in an
+operation set interface are all related to a particular feature.
+<em>OperationSetBasicInstantMessaging</em>, for instance, contains
+methods for creating and sending instant messages, and registering
+listeners that allow Jitsi to retrieve messages it receives. Another
+example, <em>OperationSetPresence</em>, has methods for querying the
+status of the contacts on your list and setting a status for
+yourself. So when the GUI updates the status it shows for a contact,
+or sends a message to a contact, it is first able to ask the
+corresponding provider whether they support presence and
+messaging. The methods that <code>ProtocolProviderService</code> defines for
+that purpose are:</p>
+
+<pre>
+public Map&lt;String, OperationSet&gt; getSupportedOperationSets();
+public &lt;T extends OperationSet&gt; T getOperationSet(Class&lt;T&gt; opsetClass);
+</pre>
+
+<p>OperationSets have to be designed so that it is unlikely that a new
+protocol we add has support for only some of the operations defined in
+an OperationSet. For example, some protocols do not support server-stored
+contact lists even though they allow users to query each other's status.
+Therefore, rather than combining the presence management and buddy list
+retrieval features in <code>OperationSetPresence</code>, we also defined an
+<code>OperationSetPersistentPresence</code> which is only used with protocols
+that can store contacts online. On the other hand, we have yet to come
+across a protocol that only allows sending messages without receiving
+any, which is why things like sending and receiving messages can be
+safely combined.</p>
+
+<div class="figure" id="fig.jit.ops">
+  <img src="../images/jitsi/OperationSets.png" alt="[Operation Sets]" />
+  <p>Figure&nbsp;10.3: Operation Sets</p>
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>10.4.2. Accounts, Factories and Provider Instances</h3>
+
+<p>An important characteristic of the <code>ProtocolProviderService</code> is
+that one instance corresponds to one protocol account. Therefore, at
+any given time you have as many service implementations in the
+<code>BundleContext</code> as you have accounts registered by the user.</p>
+
+<p>At this point you may be wondering who creates and registers the
+protocol providers.  There are two different entities involved. First,
+there is <code>ProtocolProviderFactory</code>. This is the service that
+allows other bundles to instantiate providers and then registers them
+as services. There is one factory per protocol and every factory is
+responsible for creating providers for that particular
+protocol. Factory implementations are stored with the rest of the
+protocol internals. For SIP, for example we have
+<code>net.java.sip.communicator.impl.protocol.sip.ProtocolProviderFactorySipImpl</code>.</p>
+
+<p>The second entity involved in account creation is the protocol wizard.
+Unlike factories, wizards are separated from the rest of the protocol
+implementation because they involve the graphical user interface. The
+wizard that allows users to create SIP accounts, for example, can be
+found in <code>net.java.sip.communicator.plugin.sipaccregwizz</code>.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>10.5. Media Service</h2>
+
+<p>When working with real-time communication over IP, there is one
+important thing to understand: protocols like SIP and XMPP, while
+recognized by many as the most common VoIP protocols, are not the ones
+that actually move voice and video over the Internet. This task is
+handled by the Real-time Transport Protocol (RTP).  SIP and XMPP are
+only responsible for preparing everything that RTP needs, like
+determining the address where RTP packets need to be sent and
+negotiating the format that audio and video need to be encoded in
+(i.e. codec), etc. They also take care of things like locating users,
+maintaining their presence, making the phones ring, and many
+others. This is why protocols like SIP and XMPP are often referred to
+as signalling protocols.</p>
+
+<p>What does this mean in the context of Jitsi? Well, first of all it
+means that you are not going to find any code manipulating audio or
+video flows in either the <em>sip</em> or <em>jabber</em> jitsi packages.
+This kind of code lives in our MediaService. The MediaService and its
+implementation are located in
+<code>net.java.sip.communicator.service.neomedia</code> and
+<code>net.java.sip.communicator.impl.neomedia</code>.</p>
+
+<div class="box">
+  <p class="boxtitle">Why "neomedia"?</p>
+
+<p>The "neo" in the neomedia package name indicates that it replaces a
+similar package that we used originally and that we then had to
+completely rewrite. This is actually how we came up with one of our
+rules of thumb: It is hardly ever worth it to spend a lot of time
+designing an application to be 100% future-proof. There is simply no
+way of taking everything into account, so you are bound to have to
+make changes later anyway. Besides, it is quite likely that a
+painstaking design phase will introduce complexities that you will
+never need because the scenarios you prepared for never happen.</p>
+
+</div>
+
+<p>In addition to the MediaService itself, there are two other interfaces
+that are particularly important: MediaDevice and MediaStream.</p>
+
+<div class="subsect">
+<h3>10.5.1. Capture, Streaming, and Playback</h3>
+
+<p>MediaDevices represent the capture and playback devices that we use
+during a call (<a href="#fig.jit.media">Figure&nbsp;10.4</a>). Your microphone and
+speakers, your headset and your webcam are all examples of such
+MediaDevices, but they are not the only ones.  Desktop streaming and
+sharing calls in Jitsi capture video from your desktop, while a
+conference call uses an AudioMixer device in order to mix the audio we
+receive from the active participants. In all cases, MediaDevices
+represent only a single MediaType. That is, they can only be either
+audio or video but never both. This means that if, for example, you
+have a webcam with an integrated microphone, Jitsi sees it as two
+devices: one that can only capture video, and another one that can
+only capture sound.</p>
+
+<p>Devices alone, however, are not enough to make a phone or a video
+call.  In addition to playing and capturing media, one has to also be
+able to send it over the network. This is where MediaStreams come
+in. A MediaStream interface is what connects a MediaDevice to your
+interlocutor. It represents incoming and outgoing packets that you
+exchange with them within a call.</p>
+
+<p>Just as with devices, one stream can be responsible for only one
+MediaType. This means that in the case of an audio/video call Jitsi
+has to create two separate media streams and then connect each to the
+corresponding audio or video MediaDevice.</p>
+
+<div class="figure" id="fig.jit.media">
+  <img src="../images/jitsi/Media.png" alt="[Media Streams For Different Devices]" />
+  <p>Figure&nbsp;10.4: Media Streams For Different Devices</p>
+</div>
+
+</div>
+
+<div class="subsect">
+<h3>10.5.2. Codecs</h3>
+
+<p>Another important concept in media streaming is that of MediaFormats,
+also known as codecs. By default most operating systems let you
+capture audio in 48KHz PCM or something similar.  This is what we
+often refer to as "raw audio" and it's the kind of audio you get in
+WAV files: great quality and enormous size. It is quite impractical to
+try and transport audio over the Internet in the PCM format.</p>
+
+<p>This is what codecs are for: they let you present and transport audio
+or video in a variety of different ways.  Some audio codecs like iLBC,
+8KHz Speex, or G.729, have low bandwidth requirements but sound
+somewhat muffled.  Others like wideband Speex and G.722 give you great
+audio quality but also require more bandwidth. There are codecs that
+try to deliver good quality while keeping bandwidth requirements at a
+reasonable level.  H.264, the popular video codec, is a good example
+of that. The trade-off here is the amount of calculation required
+during conversion. If you use Jitsi for an H.264 video call you see a
+good quality image and your bandwidth requirements are quite
+reasonable, but your CPU runs at maximum.</p>
+
+<p>All this is an oversimplification, but the idea is that codec choice
+is all about compromises. You either sacrifice bandwidth, quality, CPU
+intensity, or some combination of those. People working with VoIP
+rarely need to know more about codecs.</p>
+
+</div>
+
+<div class="subsect">
+<h3>10.5.3. Connecting with the Protocol Providers</h3>
+
+<p>Protocols in Jitsi that currently have audio/video support all use our
+MediaServices exactly the same way. First they ask the MediaService
+about the devices that are available on the system:</p>
+
+<pre>
+public List&lt;MediaDevice&gt; getDevices(MediaType mediaType, MediaUseCase useCase);
+</pre>
+
+<p class="continue">The MediaType indicates whether we are interested in audio or video
+devices. The MediaUseCase parameter is currently only considered in
+the case of video devices. It tells the media service whether we'd
+like to get devices that could be used in a regular call
+(MediaUseCase.CALL), in which case it returns a list of available
+webcams, or a desktop sharing session (MediaUseCase.DESKTOP), in which
+case it returns references to the user desktops.</p>
+
+<p>The next step is to obtain the list of formats that are available for
+a specific device. We do this through the
+<code>MediaDevice.getSupportedFormats</code> method:</p>
+
+<pre>
+public List&lt;MediaFormat&gt; getSupportedFormats();
+</pre>
+
+<p class="continue">Once it has this list, the protocol implementation sends it to the
+remote party, which responds with a subset of them to indicate which
+ones it supports. This exchange is also known as the Offer/Answer
+Model and it often uses the Session Description Protocol or some form
+of it.</p>
+
+<p>After exchanging formats and some port numbers and IP addresses, VoIP
+protocols create, configure and start the MediaStreams. Roughly
+speaking, this initialization is along the following lines:</p>
+
+<pre>
+// first create a stream connector telling the media service what sockets
+// to use when transport media with RTP and flow control and statistics
+// messages with RTCP
+StreamConnector connector =  new DefaultStreamConnector(rtpSocket, rtcpSocket);
+MediaStream stream = mediaService.createMediaStream(connector, device, control);
+
+// A MediaStreamTarget indicates the address and ports where our
+// interlocutor is expecting media. Different VoIP protocols have their
+// own ways of exchanging this information
+stream.setTarget(target);
+
+// The MediaDirection parameter tells the stream whether it is going to be
+// incoming, outgoing or both
+stream.setDirection(direction);
+
+// Then we set the stream format. We use the one that came
+// first in the list returned in the session negotiation answer.
+stream.setFormat(format);
+
+// Finally, we are ready to actually start grabbing media from our
+// media device and streaming it over the Internet
+stream.start();
+</pre>
+
+<p>Now you can wave at your webcam, grab the mic and say, "Hello
+world!"</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>10.6. UI Service</h2>
+
+<p>So far we have covered parts of Jitsi that deal with protocols,
+sending and receiving messages and making calls. Above all, however,
+Jitsi is an application used by actual people and as such, one of its
+most important aspects is its user interface. Most of the time the
+user interface uses the services that all the other bundles in Jitsi
+expose. There are some cases, however, where things happen the other
+way around.</p>
+
+<p>Plugins are the first example that comes to mind. Plugins in Jitsi
+often need to be able to interact with the user. This means they have
+to open, close, move or add components to existing windows and panels
+in the user interface. This is where our UIService comes into play. It
+allows for basic control over the main window in Jitsi and this is how
+our icons in the Mac OS X dock and the Windows notification area let
+users control the application.</p>
+
+<p>In addition to simply playing with the contact list, plugins can also
+extend it. The plugin that implements support for chat encryption
+(OTR) in Jitsi is a good example for this. Our OTR bundle needs to
+register several GUI components in various parts of the user
+interface. It adds a padlock button in the chat window and a
+sub-section in the right-click menu of all contacts.</p>
+
+<p>The good news is that it can do all this with just a few method calls.
+The OSGi activator for the OTR bundle, OtrActivator, contains the
+following lines:</p>
+
+<pre>
+Hashtable&lt;String, String&gt; filter = new Hashtable&lt;String, String&gt;();
+
+// Register the right-click menu item.
+filter(Container.CONTAINER_ID,
+    Container.CONTAINER_CONTACT_RIGHT_BUTTON_MENU.getID());
+
+bundleContext.registerService(PluginComponent.class.getName(),
+    new OtrMetaContactMenu(Container.CONTAINER_CONTACT_RIGHT_BUTTON_MENU),
+    filter);
+
+// Register the chat window menu bar item.
+filter.put(Container.CONTAINER_ID,
+           Container.CONTAINER_CHAT_MENU_BAR.getID());
+
+bundleContext.registerService(PluginComponent.class.getName(),
+           new OtrMetaContactMenu(Container.CONTAINER_CHAT_MENU_BAR),
+           filter);
+</pre>
+
+<p>As you can see, adding components to our graphical user interface
+simply comes down to registering OSGi services. On the other side of
+the fence, our UIService implementation is looking for implementations
+of its PluginComponent interface. Whenever it detects that a new
+implementation has been registered, it obtains a reference to it and
+adds it to the container indicated in the OSGi service filter.</p>
+
+<p>Here's how this happens in the case of the right-click menu
+item. Within the UI bundle, the class that represents the right click
+menu, MetaContactRightButtonMenu, contains the following lines:</p>
+
+<pre>
+// Search for plugin components registered through the OSGI bundle context.
+ServiceReference[] serRefs = null;
+
+String osgiFilter = "("
+    + Container.CONTAINER_ID
+    + "="+Container.CONTAINER_CONTACT_RIGHT_BUTTON_MENU.getID()+")";
+
+serRefs = GuiActivator.bundleContext.getServiceReferences(
+        PluginComponent.class.getName(),
+        osgiFilter);
+// Go through all the plugins we found and add them to the menu.
+for (int i = 0; i &lt; serRefs.length; i ++)
+{
+    PluginComponent component = (PluginComponent) GuiActivator
+        .bundleContext.getService(serRefs[i]);
+
+    component.setCurrentContact(metaContact);
+
+    if (component.getComponent() == null)
+        continue;
+
+    this.add((Component)component.getComponent());
+}
+</pre>
+
+<p class="continue">And that's all there is to it. Most of the windows that you see within
+Jitsi do exactly the same thing: They look through the bundle context
+for services implementing the PluginComponent interface that have a
+filter indicating that they want to be added to the corresponding
+container.  Plugins are like hitch-hikers holding up signs with the
+names of their destinations, making Jitsi windows the drivers who pick
+them up.</p>
+
+</div>
+
+<div class="sect">
+<h2>10.7. Lessons Learned</h2>
+
+<p>When we started work on SIP Communicator, one of the most common
+criticisms or questions we heard was: "Why are you using Java? Don't
+you know it's slow? You'd never be able to get decent quality for
+audio/video calls!" The "Java is slow" myth has even been repeated
+by potential users as a reason they stick with Skype instead of trying
+Jitsi. But the first lesson we've learned from our work on the project
+is that efficiency is no more of a concern with Java than it would
+have been with C++ or other native alternatives.</p>
+
+<p>We won't pretend that the decision to choose Java was the result of
+rigorous analysis of all possible options. We simply wanted an easy
+way to build something that ran on Windows and Linux, and Java and the
+Java Media Framework seemed to offer one relatively easy way of doing
+so.</p>
+
+<p>Throughout the years we haven't had many reasons to regret this
+decision.  Quite the contrary: even though it doesn't make it
+completely transparent, Java does help portability and 90% of the code
+in SIP Communicator doesn't change from one OS to the next. This
+includes all the protocol stack implementations (e.g.,  SIP, XMPP, RTP,
+etc.) that are complex enough as they are. Not having to worry about
+OS specifics in such parts of the code has proven immensely useful.</p>
+
+<p>Furthermore, Java's popularity has turned out to be very important
+when building our community. Contributors are a scarce resource as it
+is.  People need to like the nature of the application, they need to
+find time and motivation&mdash;all of this is hard to muster. Not
+requiring them to learn a new language is, therefore, an advantage.</p>
+
+<p>Contrary to most expectations, Java's presumed lack of speed has
+rarely been a reason to go native. Most of the time decisions to use
+native languages were driven by OS integration and how much access
+Java was giving us to OS-specific utilities.  Below we discuss
+the three most important areas where Java fell short.</p>
+
+<div class="subsect">
+<h3>10.7.1. Java Sound vs. PortAudio</h3>
+
+<p>Java Sound is Java's default API for capturing and playing audio. It
+is part of the runtime environment and therefore runs on all the
+platforms the Java Virtual Machine comes for. During its first years
+as SIP Communicator, Jitsi used JavaSound exclusively and this
+presented us with quite a few inconveniences.</p>
+
+<p>First of all, the API did not give us the option of choosing which
+audio device to use. This is a big problem. When using their computer
+for audio and video calls, users often use advanced USB headsets or
+other audio devices to get the best possible quality. When multiple
+devices are present on a computer, JavaSound routes all audio through
+whichever device the OS considers default, and this is not good enough
+in many cases. Many users like to keep all other applications running
+on their default sound card so that, for example, they could keep
+hearing music through their speakers. What's even more important is
+that in many cases it is best for SIP Communicator to send audio
+notifications to one device and the actual call audio to another,
+allowing a user to hear an incoming call alert on their speakers even
+if they are not in front of the computer and then, after picking up
+the call, to start using a headset.</p>
+
+<p>None of this is possible with Java Sound. What's more, the Linux
+implementation uses OSS which is deprecated on most of today's Linux
+distributions.</p>
+
+<p>We decided to use an alternative audio system. We didn't want to
+compromise our multi-platform nature and, if possible, we wanted to
+avoid having to handle it all by ourselves. This is where
+PortAudio<sup class="footnote"><a href="#footnote-2">2</a></sup> came in extremely handy.</p>
+
+<p>When Java doesn't let you do something itself, cross-platform open
+source projects are the next best thing. Switching to PortAudio has
+allowed us to implement support for fine-grained configurable audio
+rendering and capture just as we described it above. It also runs on
+Windows, Linux, Mac OS X, FreeBSD and others that we haven't had the
+time to provide packages for.</p>
+
+</div>
+
+<div class="subsect">
+<h3>10.7.2. Video Capture and Rendering</h3>
+
+<p>Video is just as important to us as audio. However, this didn't seem
+to be the case for the creators of Java, because there is no default
+API in the JRE that allows capturing or rendering video. For a while
+the Java Media Framework seemed to be destined to become such an API
+until Sun stopped maintaining it.</p>
+
+<p>Naturally we started looking for a PortAudio-style video alternative,
+but this time we weren't so lucky. At first we decided to go with the
+LTI-CIVIL framework from Ken
+Larson<sup class="footnote"><a href="#footnote-3">3</a></sup>. This is a wonderful
+project and we used it for quite a while<sup class="footnote"><a href="#footnote-4">4</a></sup>. However it turned out to be suboptimal
+when used in a real-time communications context.</p>
+
+<p>So we came to the conclusion that the only way to provide impeccable
+video communication for Jitsi would be for us to implement native
+grabbers and renderers all by ourselves. This was not an easy decision
+since it implied adding a lot of complexity and a substantial
+maintenance load to the project but we simply had no choice: we really
+wanted to have quality video calls. And now we do!</p>
+
+<p>Our native grabbers and renderers directly use Video4Linux 2, QTKit
+and DirectShow/Direct3D on Linux, Mac OS X, and Windows respectively.</p>
+
+</div>
+
+<div class="subsect">
+<h3>10.7.3. Video Encoding and Decoding</h3>
+
+<p>SIP Communicator, and hence Jitsi, supported video calls from its
+first days. That's because the Java Media Framework allowed encoding
+video using the H.263 codec and a 176x144 (CIF) format.  Those of you
+who know what H.263 CIF looks like are probably smiling right now; few
+of us would use a video chat application today if that's all it had to
+offer.</p>
+
+<p>In order to offer decent quality we've had to use other libraries like
+FFmpeg. Video encoding is actually one of the few places where Java
+shows its limits performance-wise. So do other languages, as evidenced
+by the fact that FFmpeg developers actually use Assembler in a number
+of places in order to handle video in the most efficient way possible.</p>
+
+</div>
+
+<div class="subsect">
+<h3>10.7.4. Others</h3>
+
+<p>There are a number of other places where we've decided that we needed
+to go native for better results. Systray notifications with Growl on
+Mac OS X and libnotify on Linux are one such example. Others include
+querying contact databases from Microsoft Outlook and Apple Address
+Book, determining source IP address depending on a destination, using
+existing codec implementations for Speex and G.722, capturing desktop
+screenshots, and translating chars into key codes.</p>
+
+</div>
+
+<p>The important thing is that whenever we needed to choose a native
+solution, we could, and we did. This brings us to our point: Ever
+since we've started Jitsi we've fixed, added, or even entirely
+rewritten various parts of it because we wanted them to look, feel or
+perform better.  However, we've never ever regretted any of the things
+we didn't get right the first time. When in doubt, we simply picked
+one of the available options and went with it. We could have waited
+until we knew better what we were doing, but if we had, there
+would be no Jitsi today.</p>
+
+</div>
+
+<div class="sect">
+<h2>10.8. Acknowledgments</h2>
+
+<p>Many thanks to Yana Stamcheva for creating all the diagrams in this
+chapter.</p>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1">To refer directly to the
+source as you read, download it from
+<code class="url">http://jitsi.org/source</code>.  If you are using Eclipse or NetBeans,
+you can go to <code class="url">http://jitsi.org/eclipse</code> or
+<code class="url">http://jitsi.org/netbeans</code> for instructions on how configure
+them.</li>
+<li id="footnote-2"><code class="url">http://portaudio.com/</code></li>
+<li id="footnote-3"><code class="url">http://lti-civil.org/</code></li>
+<li id="footnote-4">Actually we still have it as
+a non-default option.</li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created by diasvg.py -->
+<svg width="48.220cm" height="13.200cm" viewBox="1.180 13.450 49.400 26.650"
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="10.521" y="22.500" width="10.107" height="4.100" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="10.521" y="22.500" width="10.107" height="4.100" fill="none" stroke="#FFFFFF" stroke-width="0.001" />
+<rect x="10.521" y="22.500" width="10.107" height="4.100" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="15.575" y="24.745"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Data on registers and stack</text>
+<rect x="11.350" y="18.300" width="7.750" height="3.400" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="11.350" y="18.300" width="7.750" height="3.400" fill="none" stroke="#FFFFFF" stroke-width="0.001" />
+<rect x="11.350" y="18.300" width="7.750" height="3.400" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="15.225" y="20.195"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Resume data</text>
+<rect x="20.400" y="13.700" width="9.800" height="3.400" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="20.400" y="13.700" width="9.800" height="3.400" fill="none" stroke="#FFFFFF" stroke-width="0.100" />
+<rect x="20.400" y="13.700" width="9.800" height="3.400" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="25.300" y="15.595"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Interpreter state rebuilt</text>
+<path stroke="#000000" fill="none" stroke-width="0.100"  d="M 20.629,24.550 C 23.073,23.006 24.743,20.495 25.223,17.644 "/>
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="25.486,17.675 25.294,17.150 24.990,17.618 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="25.486,17.675 25.294,17.150 24.990,17.618 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="25.486,17.675 25.294,17.150 24.990,17.618 "/>
+<path stroke="#000000" fill="none" stroke-width="0.100"  d="M 19.150,19.573 C 20.399,19.139 21.535,18.431 22.473,17.499 "/>
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="22.672,17.677 22.817,17.137 22.298,17.345 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="22.672,17.677 22.817,17.137 22.298,17.345 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="22.672,17.677 22.817,17.137 22.298,17.345 "/>
+<rect x="12.450" y="13.600" width="6.400" height="3.800" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="12.450" y="13.600" width="6.400" height="3.800" fill="none" stroke="#FFFFFF" stroke-width="0.001" />
+<rect x="12.450" y="13.600" width="6.400" height="3.800" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="15.650" y="15.695"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Guard fails</text>
+<line x1="18.900" y1="15.432" x2="19.850" y2="15.412" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="19.855,15.662 20.350,15.401 19.845,15.162 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="19.855,15.662 20.350,15.401 19.845,15.162 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="19.855,15.662 20.350,15.401 19.845,15.162 "/>
+<rect x="1.230" y="13.500" width="10.040" height="3.850" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="1.230" y="13.500" width="10.040" height="3.850" fill="none" stroke="#FFFFFF" stroke-width="0.001" />
+<rect x="1.230" y="13.500" width="10.040" height="3.850" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="6.250" y="15.620"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Compiled assembly running</text>
+<line x1="11.270" y1="15.425" x2="11.901" y2="15.465" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="11.885,15.715 12.400,15.497 11.917,15.216 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="11.885,15.715 12.400,15.497 11.917,15.216 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="11.885,15.715 12.400,15.497 11.917,15.216 "/>
+<rect x="31.824" y="13.950" width="7.853" height="3.000" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="31.824" y="13.950" width="7.853" height="3.000" fill="none" stroke="#FFFFFF" stroke-width="0.001" />
+<rect x="31.824" y="13.950" width="7.853" height="3.000" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="35.750" y="15.645"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Blackhole interpreter</text>
+<rect x="41.400" y="14.100" width="7.950" height="2.750" fill="#FFFFFF" stroke="none" stroke-width="0"/>
+<rect x="41.400" y="14.100" width="7.950" height="2.750" fill="none" stroke="#FFFFFF" stroke-width="0.001" />
+<rect x="41.400" y="14.100" width="7.950" height="2.750" fill="none" stroke="#000000" stroke-width="0.100" />
+<text x="45.375" y="15.670"  fill="#000000" text-anchor="middle" font-size="0.88" font-family="sans" font-style="normal" font-weight="400">
+Bytecode interpreter</text>
+<line x1="30.200" y1="15.400" x2="31.274" y2="15.433" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="31.266,15.683 31.774,15.448 31.282,15.183 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="31.266,15.683 31.774,15.448 31.282,15.183 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="31.266,15.683 31.774,15.448 31.282,15.183 "/>
+<line x1="39.726" y1="15.468" x2="40.850" y2="15.473" stroke="#000000" stroke-width="0.100" />
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="40.849,15.723 41.350,15.475 40.851,15.223 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="40.849,15.723 41.350,15.475 40.851,15.223 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="40.849,15.723 41.350,15.475 40.851,15.223 "/>
+<path stroke="#000000" fill="none" stroke-width="0.100"  d="M 6.452,17.398 C 6.914,19.983 8.136,22.373 9.960,24.263 "/>
+<polygon fill="#000000" stroke="none" stroke-width="0.001" points="9.779,24.451 10.314,24.616 10.124,24.090 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.001"  points="9.779,24.451 10.314,24.616 10.124,24.090 "/>
+<polygon fill="none" stroke="#000000" stroke-width="0.100"  points="9.779,24.451 10.314,24.616 10.124,24.090 "/>
+</svg>

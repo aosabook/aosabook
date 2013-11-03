@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="/en/posa.css" type="text/css" />
+    <title>The Performance of Open Source Software | Ninja</title>
+
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+              <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'><img src="/images/posa-titlebar.png" /></a>
+          <h1>Ninja</h1>
+          <h2 class="author">Evan Martin</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+                        <div class="row">
+        <div class='span10 offset1' id='content'>
+          <!-- American Spelling -->
+
+<p>Ninja is a build system similar to Make. As input you describe the commands necessary to process source files into <em>target</em> files. Ninja uses these commands to bring targets up to date. Unlike many other build systems, Ninja&#8217;s main design goal was&nbsp;speed.</p>
+
+<p>I wrote Ninja while working on Google Chrome. I started Ninja as an experiment to find out if Chrome&#8217;s build could be made faster. To successfully build Chrome, Ninja&#8217;s other main design goal followed: Ninja needed to be easily embedded within a larger build&nbsp;system.</p>
+
+<p>Ninja has been quietly successful, gradually replacing the other build systems used by Chrome. After Ninja was made public others contributed code to make the popular CMake build system generate Ninja files&#8211;now Ninja is also used to develop CMake-based projects like <span class="caps">LLVM</span> and ReactOS. Other projects, like TextMate, target Ninja directly from their custom&nbsp;build.</p>
+
+<p>I worked on Chrome from 2007 to 2012, and started Ninja in 2010. There are many factors contributing to the build performance of a project as large as Chrome (today around 40,000 files of C++ code generating an output binary around 90 <span class="caps">MB</span> in size). During my time I touched many of them, from distributing compilation across multiple machines to tricks in linking. Ninja primarily targets only one piece&#8211;the <em>front</em> of a build. This is the wait between starting the build and the time the first compile starts to run. To understand why that is important it is necessary to understand how we thought about performance in Chrome&nbsp;itself.</p>
+
+<h2 id="a-small-history-of-chrome">A Small History of&nbsp;Chrome</h2>
+
+<p>Discussion of all of Chrome&#8217;s goals is out of scope here, but one of the defining goals of the project was speed. Performance is a broad goal that spans all of computer science, and Chrome uses nearly every trick available, from caching to parallelization to just-in-time compilation. Then there was startup speed&#8211;how long it the program took to show up on the screen after clicking the icon&#8211;which seems a bit frivolous in&nbsp;comparison.</p>
+
+<p>Why care about startup speed? For a browser, a quick startup conveys a feeling of lightness, that doing something on the web is as trival an action as opening a text file. Further, the impact of latency on your happiness and on losing your train of thought is well-studied in human-computer interaction. Latency is especially a focus of web companies like Google or Amazon, who are in a good position to measure and experiment on the effect of latency&#8211;and who have done experiments that show that delays of even milliseconds have measurable effects on how frequently people use the site or make purchases. It&#8217;s a small frustration that adds up&nbsp;subconsciously.</p>
+
+<p>Chrome&#8217;s approach to starting quickly was a clever trick by one of the first engineers on Chrome. As soon as they got their skeleton application to the point where it showed a window on the screen, they created a benchmark measuring that speed along with a continuous build that tracked it. Then, in Brett Wilson&#8217;s words, &#8220;a very simple rule: this test can never get any slower.&#8221;<sup><a href="#fn1" class="footnoteRef" id="fnref1">1</a></sup> As code was added to Chrome, maintenance of this benchmark demanded extra engineering effort<sup><a href="#fn2" class="footnoteRef" id="fnref2">2</a></sup>&#8211;in some cases work was delayed until it was truly needed, or data used during startup was precomputed&#8211;but the primary &#8220;trick&#8221; to performance, and the one that made the greatest impression on me, was simply to <em>do less work</em>.</p>
+
+<p>I joined the Chrome team without any intention of working on build tools. My background and platform of choice was Linux, and I wanted to be the Linux guy. To limit scope the project was initially Windows-only; I took it as my role to help finish the Windows implementation so that I could then make it run on&nbsp;Linux.</p>
+
+<p>When starting work on other platforms, the first hurdle was sorting out the build system. By that point Chrome was already large (complete, in fact&#8211;Chrome for Windows was released in 2008 before any ports had started), so efforts to switch even the Visual Studio-based Windows build to a different build system wholesale were conflicting with ongoing development. It felt like replacing the foundation of a building while it was in&nbsp;use.</p>
+
+<p>Members of the Chrome team came up with an incremental solution called <em><span class="caps">GYP</span></em><sup><a href="#fn3" class="footnoteRef" id="fnref3">3</a></sup> which could be used to generate, one subcomponent at a time, the Visual Studio build files already used by Chrome in addition to the build files that would be used on other&nbsp;platforms.</p>
+
+<p>The input to <span class="caps">GYP</span> is simple: the desired name of the output accompanied by plain text lists of source files, the occasional custom rule like &#8220;process each <span class="caps">IDL</span> file to generate an additional source file&#8221;, and some conditional behaviors (e.g., only use certain files on certain platforms). <span class="caps">GYP</span> then takes this high-level description and generates platform-native build files.<sup><a href="#fn4" class="footnoteRef" id="fnref4">4</a></sup></p>
+
+<p>On the Mac &#8220;native build files&#8221; meant Xcode project files. On Linux, however, there was no obvious single choice. The initial attempt used the Scons build system, but I was dismayed to discover that a <span class="caps">GYP</span>-generated Scons build could take 30 seconds to start while Scons computed which files had changed. I figured that Chrome was roughly the size of the Linux kernel so the approach taken there ought to work. I rolled up my sleeves and wrote the code to make <span class="caps">GYP</span> generate plain Makefiles using tricks from the kernel&#8217;s&nbsp;Makefiles.</p>
+
+<p>Thus I unintentionally began my descent into build system madness. There are many factors that make building software take time, from slow linkers to poor parallelization, and I dug into all of them. The Makefile approach was initially quite fast but as we ported more of Chrome to Linux, increasing the number of files used in the build, it grew slower.<sup><a href="#fn5" class="footnoteRef" id="fnref5">5</a></sup></p>
+
+<p>As I worked on the port I found one part of the build process especially frustrating: I would make a change to a single file, run <code>make</code>, realize I&#8217;d left out a semicolon, run <code>make</code> again, and each time the wait would be long enough that I would forget what I was working on. I thought back to how hard we fought against latency for end users. &#8220;How can this be taking so long,&#8221; I&#8217;d wonder, &#8220;there can&#8217;t be that much work to do.&#8221; As an experiment I started Ninja, to see how simple I could make&nbsp;it.</p>
+
+<h2 id="the-design-of-ninja">The Design of&nbsp;Ninja</h2>
+
+<!-- TODO: this should be an enumeration -->
+
+<p>At a high level any build system performs three main tasks. It will (1) load and analyze build goals, (2) figure out which steps need to run in order to achieve those goals, and (3) execute those&nbsp;steps.</p>
+
+<p>To make startup in step (1) fast, Ninja needed to do a minimal amount of work while loading the build files. Build systems are typically used by humans, which means they provide a convenient, high-level syntax for expressing build goals. It also means that when it comes time to actually build the project the build system must process the instructions further: for example, at some point Visual Studio must concretely decide based on the build configuration where the output files must go, or which files must be compiled with a C++ or C&nbsp;compiler.</p>
+
+<p>Because of this, <span class="caps">GYP</span>&#8217;s work in generating Visual Studio files was effectively limited to translating lists of source files into the Visual Studio syntax and leaving Visual Studio to do the bulk of the work. With Ninja I saw the opportunity to do as much work as possible in <span class="caps">GYP</span>. In a sense, when <span class="caps">GYP</span> generates Ninja build files, it does all of the above computation once. <span class="caps">GYP</span> then saves a snapshot of that intermediate state into a format that Ninja can quickly load for each subsequent&nbsp;build.</p>
+
+<p>Ninja&#8217;s build file language is therefore simple to the point of being inconvenient for humans to write. There are no conditionals or rules based on file extensions. Instead, the format is just a list of which exact paths produce which exact outputs. These files can be loaded quickly, requiring almost no&nbsp;interpretation.</p>
+
+<p>This minimalist design counterintuitively leads to greater flexibility. Because Ninja lacks higher-level knowledge of common build concepts like an output directory or current configuration, Ninja is simple to plug into larger systems (e.g., CMake, as we later found) that have different opinions about how builds should be organized. For example, Ninja is agnostic as to whether build outputs (e.g., object files) are placed alongside the source files (considered poor hygiene by some) or in a separate build output directory (considered hard to understand by others). Long after releasing Ninja I finally thought of the right metaphor: whereas other build systems are compilers, Ninja is an&nbsp;assembler.</p>
+
+<h2 id="what-ninja-does">What Ninja&nbsp;Does</h2>
+
+<p>If Ninja pushes most of the work to the build file generator, what is there left to do? The above ideology is nice in principle but real world needs are always more complicated. Ninja grew (and lost) features over the course of its development. At every point, the important question was always &#8220;can we do less?&#8221; Here is a brief overview of how it&nbsp;works.</p>
+
+<p>A human needs to debug the files when the build rules are wrong, so <code>.ninja</code> build files are plain text, similar to Makefiles, and they support a few abstractions to make them more&nbsp;readable.</p>
+
+<p>The first abstraction is the &#8220;rule&#8221;, which represents a single tool&#8217;s command-line invocation. A rule is then shared between different build steps. Here is an example of the Ninja syntax for declaring a rule named &#8220;compile&#8221; that runs the gcc compiler along with two <code>build</code> statements that make use of it for specific&nbsp;files.</p>
+
+<pre><code>rule compile
+  command = gcc -Wall -c $in -o $out
+build out/foo.o: compile src/foo.c
+build out/bar.o: compile src/bar.c</code></pre>
+
+<p>The second abstraction is the variable. In the example above, these are the dollar-sign-prefixed identifiers (<code>$in</code> and <code>$out</code>). Variables can represent both the inputs and outputs of a command and can be used to make short names for long strings. Here is an extended compile definition that makes use of a variable for compiler&nbsp;flags:</p>
+
+<pre><code>cflags = -Wall
+rule compile
+  command = gcc $cflags -c $in -o $out</code></pre>
+
+<p>Variable values used in a rule can be shadowed in the scope of a single <code>build</code> block by indenting their new definition. Continuing the above example, the value of <code>cflags</code> can be adjusted for a single&nbsp;file:</p>
+
+<pre><code>build out/file_with_extra_flags.o: compile src/baz.c
+  cflags = -Wall -Wextra</code></pre>
+
+<p>Rules behave almost like functions and variables behave like arguments. These two simple features are dangerously close to a programming language&#8211;the opposite of the &#8220;do no work&#8221; goal. But they have the important benefit of reducing repeated strings which is not only useful for humans but also for computers, reducing the quantity of text to be&nbsp;parsed.</p>
+
+<p>The build file, once parsed, describes a graph of dependencies: the final output binary depends on linking a number of objects, each of which is the result of compiling sources. Specifically it is a bipartite graph, where &#8220;nodes&#8221; (input files) point to &#8220;edges&#8221; (build commands) which point to nodes (output files)<sup><a href="#fn6" class="footnoteRef" id="fnref6">6</a></sup>. The build process then traverses this&nbsp;graph.</p>
+
+<p>Given a target output to build, Ninja first walks up the graph to identify the state of each edge&#8217;s input files: that is, whether or not the input files exist and what their modification times are. Ninja then computes a <em>plan</em>. The plan is the set of edges that need to be executed in order to bring the final target up to date, according to the modification times of the intermediate files. Finally, the plan is executed, walking down the graph and checking off edges as they are executed and successfully&nbsp;completed.</p>
+
+<p>Once these pieces were in place I could establish a baseline benchmark for Chrome: the time to run Ninja again after successfully completing a build. That is the time to load the build files, examine the built state, and determine there was no work to do. The time it took for this benchmark to run was just under a second. This was my new startup benchmark metric. However, as Chrome grew, Ninja had to keep getting faster to keep that metric from&nbsp;regressing.</p>
+
+<h2 id="optimizing-ninja">Optimizing&nbsp;Ninja</h2>
+
+<p>The initial implementation of Ninja was careful to arrange the data structures in order to allow a fast build, but wasn&#8217;t particularly clever in terms of optimizations. Once the program worked, I reasoned, a profiler could reveal which pieces mattered.<sup><a href="#fn7" class="footnoteRef" id="fnref7">7</a></sup></p>
+
+<p>Over the years, profiling pointed at different pieces of the program. Sometimes the worst offender was a single hot function that could be micro-optimized. At other times, it suggested something more broad like being careful not to allocate or copy memory except when necessary. There were also cases where a better representation or data structure had the most impact. What follows is a walk through the Ninja implementation and some of the more interesting stories about its&nbsp;performance.</p>
+
+<h3 id="parsing">Parsing</h3>
+
+<p>Initially Ninja used a hand-written lexer and a recursive descent parser. The syntax was simple enough, I thought. It turns out that for a large enough project like Chrome<sup><a href="#fn8" class="footnoteRef" id="fnref8">8</a></sup>, simply parsing the build files (named with the extension <code>.ninja</code>) can take a surprising amount of&nbsp;time.</p>
+
+<p>The original function to analyze a single character soon appeared in&nbsp;profiles:</p>
+
+<pre><code>static bool IsIdentifierCharacter(char c) {
+  return
+    (&#39;a&#39; &lt;= c &amp;&amp; c &lt;= &#39;z&#39;) ||
+    (&#39;A&#39; &lt;= c &amp;&amp; c &lt;= &#39;Z&#39;) ||
+    // and so on...
+}</code></pre>
+
+<p>A simple fix&#8211;at the time saving 200 ms&#8211;was to replace the function with a 256-entry lookup table that could be indexed by the input character. Such a thing is trivial to generate using Python code&nbsp;like:</p>
+
+<pre><code>cs = set()
+for c in string.ascii_letters + string.digits + r&#39;+,-./\_$&#39;:
+    cs.add(ord(c))
+for i in range(256):
+    print &#39;%d,&#39; % (i in cs),</code></pre>
+
+<p>This trick kept Ninja fast for quite a while. Eventually we moved to something more principled: <code>re2c</code>, the lexer generator used by <span class="caps">PHP</span>. It can generate more complex lookup tables and trees of unintelligible code. For&nbsp;example:</p>
+
+<pre><code>if (yych &lt;= &#39;b&#39;) {
+    if (yych == &#39;`&#39;) goto yy24;
+    if (yych &lt;= &#39;a&#39;) goto yy21;
+    // and so on...</code></pre>
+
+<p>It remains an open question as to whether treating the input as text in the first place is a good idea. Perhaps we will eventually require Ninja&#8217;s input to be generated in some machine-friendly format that would let us avoid parsing for the most&nbsp;part.</p>
+
+<h3 id="canonicalization">Canonicalization</h3>
+
+<p>Ninja avoids using strings to identify paths. Instead, Ninja maps each path it encounters to a unique <code>Node</code> object and the <code>Node</code> object is used in the rest of the code. Reusing this object ensures that a given path is only ever checked on disk once, and the result of that check (i.e., the modification time) can be reused in other&nbsp;code.</p>
+
+<p>The pointer to the <code>Node</code> object serves as a unique identity for that path. To test whether two <code>Node</code>s refer to the same path it is sufficient to compare pointers rather than perform a more costly string comparison. For example, as Ninja walks up the graph of inputs to a build, it keeps a stack of dependendent <code>Node</code>s to check for dependency loops: if A depends on B depends on C depends on A, the build can&#8217;t proceed. This stack, representing files, can be implemented as a simple array of pointers, and pointer equality can be used to check for&nbsp;duplicates.</p>
+
+<p>To always use the same <code>Node</code> for a single file, Ninja must reliably map every possible name for a file into the same Node object. This requires a <em>canonicalization</em> pass on all paths mentioned in input files, which transforms a path like <code>foo/../bar.h</code> into just <code>bar.h</code>. Initially Ninja simply required all paths to be provided in canonical form but that ends up not working for a few reasons. One is that user-specified paths (e.g., the command-line <code>ninja ./bar.h</code>) are reasonably expected to work correctly. Another is that variables may combine to make non-canonical paths. Finally, the dependency information emitted by gcc may be&nbsp;non-canonical.</p>
+
+<p>Thus most of what Ninja ends up doing is path processing, so canonicalizing paths is another hot point in profiles. The original implementation was written for clarity, not performance, so standard optimization techniques&#8211;like removing a double loop or avoiding memory allocation&#8211;helped&nbsp;considerably.</p>
+
+<h3 id="the-build-log">The Build&nbsp;Log</h3>
+
+<p>Often micro-optimizations like the above are less impactful than structural optimizations where you change the algorithm or approach. This was the case with Ninja&#8217;s <em>build log</em>.</p>
+
+<p>One part of the Linux kernel build system tracks the commands used to generate outputs. Consider a motivating example: you compile an input <code>foo.c</code> into an output <code>foo.o</code>, and then change the build file such that it should be rebuilt with different compilation flags. For the build system to know that it needs to rebuild the output, it must either note that <code>foo.o</code> depends on the build files themselves (which, depending on the organization of the project, might mean that a change to the build files would cause the entire project to rebuild), or record the commands used to generate each output and compare them for each&nbsp;build.</p>
+
+<p>The kernel (and consequently the Chrome Makefiles and Ninja) takes the latter approach. While building, Ninja writes out a build log that records the full commands used to generate each output.<sup><a href="#fn9" class="footnoteRef" id="fnref9">9</a></sup> Then for each subsequent build, Ninja loads the previous build log and compares the new build&#8217;s commands to the build log&#8217;s commands to detect changes. This, like loading build files or path canonicalization, was another hot point in&nbsp;profiles.</p>
+
+<p>After making a few smaller optimizations Nico Weber, a prolific contributor to Ninja, implemented a new format for the build log. Rather than recording commands, which are frequently very long and take a lot of time to parse, Ninja instead records a hash of the command. In subsequent builds, Ninja compares the hash of the command that is about to be run to the logged hash. If the two hashes differ, the output is out of date. This approach was very successful. Using hashes reduced the size of the build log dramatically&#8211;from 200 <span class="caps">MB</span> to less than 2 <span class="caps">MB</span> on Mac <span class="caps">OS</span> X&#8211;and made it over 20 times faster to&nbsp;load.</p>
+
+<h3 id="dependency-files">Dependency&nbsp;Files</h3>
+
+<p>There is an additional store of metadata that must be recorded and used across builds. To correctly build C/C++ code a build system must accomodate dependencies between header files. Suppose <code>foo.c</code> contains the line <code>#include &quot;bar.h&quot;</code> and <code>bar.h</code> itself includes the line <code>#include &quot;baz.h&quot;</code>. All three of those files (<code>foo.c</code>, <code>bar.h</code>, <code>baz.h</code>) then affect the result of compilation. For example, changes to <code>baz.h</code> should still trigger a rebuild of <code>foo.o</code>.</p>
+
+<p>Some build systems use a &#8220;header scanner&#8221; to extract these dependencies at build time, but this approach can be slow and is difficult to make exactly correct in the presence of <code>#ifdef</code> directives. Another alternative is to require the build files to correctly report all dependencies, including headers, but this is cumbersome for developers: every time you add or remove an <code>#include</code> statement you need to modify or regenerate the&nbsp;build.</p>
+
+<p>A better approach relies on the fact that at compile time gcc (and Microsoft&#8217;s Visual Studio) can output which headers were used to build the output. This information, much like the command used to generate an output, can be recorded and reloaded by the build system so that the dependencies can be tracked exactly. For a first-time build, before there is any output, all files will be compiled so no header dependency is necessary. After the first compilation, modifications to any files used by an output (including modifications that add or remove additional dependencies) will cause a rebuild, keeping the dependency information&nbsp;up-to-date.</p>
+
+<p>When compiling, gcc writes header dependencies in the format of a Makefile. Ninja then includes a parser for the (simplified subset) Makefile syntax and loads all of this dependency information at the next build. Loading this data is a major bottleneck. On a recent Chrome build, the dependency information produced by gcc sums to 90 <span class="caps">MB</span> of Makefiles, all of which reference paths which must be canonicalized before&nbsp;use.</p>
+
+<p>Much like with the other parsing work, using <code>re2c</code> and avoiding copies where possible helped with performance. However, much like how work was shifted to <span class="caps">GYP</span>, this parsing work can be pushed to a time other than the critical path of startup. Our most recent work on Ninja (at the time of this writing, the feature is complete but not yet released) has been to make this processing happen eagerly during the&nbsp;build.</p>
+
+<p>Once Ninja has started executing build commands, all of the performance-critical work has been completed and Ninja is mostly idle as it waits for the commands it executes to complete. In this new approach for header dependencies, Ninja uses this time to process the Makefiles emitted by gcc as they are written, canonicalizing paths and processing the dependencies into a quickly deserializable binary format. On the next build Ninja only needs to load this file. The impact is dramatic, particularly on Windows. (This is discussed further later in this&nbsp;chapter.)</p>
+
+<p>The &#8220;dependency log&#8221; needs to store thousands of paths and dependencies between those paths. Loading this log and adding to it needs to be fast. Appending to this log should be safe, even in the event of an interruption such as a cancelled&nbsp;build.</p>
+
+<p>After considering many database-like approaches I finally came up with a trivial implementation: the file is a sequence of records and each record is either a path or a list of dependencies. Each path written to the file is assigned a sequential integer identifier. Dependencies are then lists of integers. To add dependencies to the file, Ninja first writes new records for each path that doesn&#8217;t yet have an identifier and then writes the dependency record using those identifiers. When loading the file on a subsequent run Ninja can then use a simple array to map identifiers to their Node&nbsp;pointers.</p>
+
+<h3 id="executing-a-build">Executing a&nbsp;Build</h3>
+
+<p>Performance-wise the process of executing the commands judged necessary according to the dependencies discussed above is relatively uninteresting because the bulk of the work that needs to be done is performed in those commands (i.e., in the compilers, linkers, etc.), not in Ninja itself<sup><a href="#fn10" class="footnoteRef" id="fnref10">10</a></sup>.</p>
+
+<p>Ninja runs build commands in parallel by default, based on the number of available CPUs on the system. Since commands running simultaneously could have their outputs interleave, Ninja buffers all output from a command until that command completes before printing its output. The resulting output appears as if the commands were run serially.<sup><a href="#fn11" class="footnoteRef" id="fnref11">11</a></sup></p>
+
+<p>This control over command output allows Ninja to carefully control its total output. During the build Ninja displays a single line of status while running; if the build completes successfully the total printed output of Ninja is a single line.<sup><a href="#fn12" class="footnoteRef" id="fnref12">12</a></sup> This doesn&#8217;t make Ninja run any quicker but it makes Ninja <em>feel</em> fast, which is almost as important to the original goal as real speed&nbsp;is.</p>
+
+<h3 id="supporting-windows">Supporting&nbsp;Windows</h3>
+
+<p>I wrote Ninja for Linux. Nico (mentioned previously) did the work to make it function on Mac <span class="caps">OS</span> X. As Ninja became more widely used people started asking about Windows&nbsp;support.</p>
+
+<p>At a superficial level supporting Windows wasn&#8217;t too hard. There were some straightforward changes like making the path separator a backslash or changing the Ninja syntax to allow colons in a path (like <code>c:\foo.txt</code>). Once those changes were in place the larger problems surfaced. Ninja was designed with behavioral assumptions from Linux; Windows is different in small but important&nbsp;ways.</p>
+
+<p>For example, Windows has a relatively low limit on the length of a command, an issue that comes up when constructing the command passed to a final link step that may mention most files in the project. The Windows solution for this is &#8220;response&#8221; files, and only Ninja (not the generator program in front of Ninja) is equipped to manage&nbsp;these.</p>
+
+<p>A more important performance problem is that file operations on Windows are slow and Ninja works with a lot of files. Visual Studio&#8217;s compiler emits header dependencies by simply printing them while compiling, so Ninja on Windows currently includes a tool that wraps the compiler to make it produce the gcc-style Makefile dependency list required by Ninja. This large number of files, already a bottleneck on Linux, is much worse on Windows where opening a file is much more costly. The aforementioned new approach to parsing dependencies at build time fits perfectly on Windows, allowing us to drop the intermediate tool entirely: Ninja is already buffering the command&#8217;s output, so it can parse the dependencies directly from that buffer, sidestepping the intermediate on-disk Makefile used with&nbsp;gcc.</p>
+
+<p>Getting the modification time of a file&#8211;<code>GetFileAttributesEx()</code> on Windows<sup><a href="#fn13" class="footnoteRef" id="fnref13">13</a></sup> and <code>stat()</code> on non-Windows platforms&#8211;seems to be about 100 times slower on Windows than it is on Linux.<sup><a href="#fn14" class="footnoteRef" id="fnref14">14</a></sup><br />It is possible this is due to &#8220;unfair&#8221; factors like antivirus software but in practice those factors exist on end-user systems so Ninja performance suffers. The Git version control system, which similarly needs to get the state of many files, can use multiple threads on Windows to execute file checks in parallel. Ninja ought to adopt this&nbsp;feature.</p>
+
+<h2 id="conclusions-and-alternative-designs">Conclusions and Alternative&nbsp;Designs</h2>
+
+<p>Occasionally on the mailing list someone will suggest that Ninja ought to work instead as a memory-resident daemon or server, especially one coupled with file modification monitors (e.g., <code>inotify</code> on Linux). All these concerns about the time taken to load data and the time to write it back out would not be an issue if Ninja just stayed around between&nbsp;builds.</p>
+
+<p>In fact, that design was my original plan for Ninja. It was only after I saw the first build worked quickly that I realized it might be possible to make Ninja work without needing a server component. It may yet be necessary as Chrome continues to grow, but the simpler approach, where we gain speed by doing less work rather than more complex machinery, will always be the most appealing to me. It is my hope some other restructurings (like the changes we made to use a lexer generator or the new dependency format on Windows) will be&nbsp;enough.</p>
+
+<p>Simplicity is a virtue in software; the question is always how far it can go. Ninja managed to cut much of the complexity from a build system by delegating certain expensive tasks to other tools (<span class="caps">GYP</span> or CMake), and because of this it is useful in projects other than the one it was made for. Ninja&#8217;s simple code hopefully encouraged contributions&#8211; the majority of work for supporting <span class="caps">OS</span> X, Windows, CMake, and other features was done by contributors. Ninja&#8217;s simple semantics have led to experiments by others to reimplement it in other languages (Scheme and Go, to my&nbsp;knowledge).</p>
+
+<p>Do milliseconds really matter? Among the greater concerns of software it might be silly to worry about. However, having worked on projects with slower builds, I find more than productivity is gained; a quick turnaround gives a project a feeling of lightness that makes me happy to play with it. And code that is fun to hack on is the reason I write software in the first place. In that sense speed is of primary&nbsp;importance.</p>
+
+<h2 id="acknowledgements">Acknowledgements</h2>
+
+<p>Special thanks are due to the many contributors to Ninja, some of whom you can find listed on Ninja&#8217;s <a href="https://github.com/martine/ninja/contributors">GitHub project page</a>.</p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Http://blog.chromium.org/2008/10/io-in-google-chrome.html.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>Http://neugierig.org/software/chromium/notes/2009/01/startup.html.<a href="#fnref2">↩</a></p></li>
+<li id="fn3"><p><span class="caps">GYP</span> stands for Generate Your Projects.<a href="#fnref3">↩</a></p></li>
+<li id="fn4"><p>This is the same pattern used by the Autotools: <code>Makefile.am</code> is a list of source files, which is then processed by the <code>configure</code> script to generate more concrete build instructions.<a href="#fnref4">↩</a></p></li>
+<li id="fn5"><p>Chrome itself also has grown rapidly. It currently grows at a rate of around 1000 commits a week, most of which are code additions.<a href="#fnref5">↩</a></p></li>
+<li id="fn6"><p>This extra indirection allows builds to correctly model commands that have multiple outputs.<a href="#fnref6">↩</a></p></li>
+<li id="fn7"><p>Ninja has a large test suite of 164 test cases which itself runs in under a second, which means developers can have confidence that performance changes don&#8217;t affect the correctness of the program.<a href="#fnref7">↩</a></p></li>
+<li id="fn8"><p>Today&#8217;s Chrome build generates over 10 <span class="caps">MB</span> of <code>.ninja</code> files.<a href="#fnref8">↩</a></p></li>
+<li id="fn9"><p>It also stores when each command started and finished, which is useful for profiling builds of many files.<a href="#fnref9">↩</a></p></li>
+<li id="fn10"><p>One minor benefit of this is that users on systems with few <span class="caps">CPU</span> cores have noticed their end-to-end builds are faster due to Ninja consuming relatively little processing power while driving the build, which frees up a core for use by build commands.<a href="#fnref10">↩</a></p></li>
+<li id="fn11"><p>Most successful build commands don&#8217;t have any output, so this only comes up when multiple commands fail in parallel: their error messages appear serially.<a href="#fnref11">↩</a></p></li>
+<li id="fn12"><p>This is the origin of the name &#8220;Ninja&#8221;: quiet and strikes quickly.<a href="#fnref12">↩</a></p></li>
+<li id="fn13"><p><code>stat()</code> on Windows is even slower than <code>GetFileAttributesEx()</code>.<a href="#fnref13">↩</a></p></li>
+<li id="fn14"><p>This is when the disk cache is warm, so disk performance shouldn&#8217;t be a factor.<a href="#fnref14">↩</a></p></li>
+</ol>
+</div>
+        </div>
+      </div>
+          </div>
+  </body>
+</html>

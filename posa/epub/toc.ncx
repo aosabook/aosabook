@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ncx version="2005-1" xmlns="http://www.daisy.org/z3986/2005/ncx/">
+  <head>
+    <meta name="dtb:uid" content="urn:uuid:8090d795-a424-4e7a-808a-21c23aa03e1e" />
+    <meta name="dtb:depth" content="1" />
+    <meta name="dtb:totalPageCount" content="0" />
+    <meta name="dtb:maxPageNumber" content="0" />
+  </head>
+  <docTitle>
+    <text>The Performance of Open Source Applications</text>
+  </docTitle>
+  <docAuthor>
+    <text>Tavish Armstrong</text>
+  </docAuthor>
+  <navMap>
+    <navPoint id="navPointbro-0" playOrder="-1">
+      <navLabel>
+        <text>The Performance of Open Source Applications</text>
+      </navLabel>
+      <content src="title_page.xhtml" />
+
+
+    <navPoint id="navPoint-0" playOrder="0">
+    <navLabel>
+    <text>Introduction</text>
+    </navLabel>
+    <content src="introduction.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-1" playOrder="1">
+    <navLabel>
+    <text>High Performance Networking in Chrome</text>
+    </navLabel>
+    <content src="ch001.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-2" playOrder="2">
+    <navLabel>
+    <text>From SocialCalc to EtherCalc</text>
+    </navLabel>
+    <content src="ch002.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-3" playOrder="3">
+    <navLabel>
+    <text>Ninja</text>
+    </navLabel>
+    <content src="ch003.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-4" playOrder="4">
+    <navLabel>
+    <text>Parsing XML at the Speed of Light</text>
+    </navLabel>
+    <content src="ch004.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-5" playOrder="5">
+    <navLabel>
+    <text>MemShrink</text>
+    </navLabel>
+    <content src="ch005.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-6" playOrder="6">
+    <navLabel>
+    <text>Applying Optimization Principle Patterns to Component Deployment and Configuration Tools</text>
+    </navLabel>
+    <content src="ch006.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-7" playOrder="7">
+    <navLabel>
+    <text>Infinispan</text>
+    </navLabel>
+    <content src="ch007.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-8" playOrder="8">
+    <navLabel>
+    <text>Talos</text>
+    </navLabel>
+    <content src="ch008.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-9" playOrder="9">
+    <navLabel>
+    <text>Zotonic</text>
+    </navLabel>
+    <content src="ch009.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-10" playOrder="10">
+    <navLabel>
+    <text>Secrets of Mobile Network Performance</text>
+    </navLabel>
+    <content src="ch010.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-11" playOrder="11">
+    <navLabel>
+    <text>Warp</text>
+    </navLabel>
+    <content src="ch011.xhtml" />
+    </navPoint>
+    
+
+    <navPoint id="navPoint-12" playOrder="12">
+    <navLabel>
+    <text>Working with Big Data in Bioinformatics</text>
+    </navLabel>
+    <content src="ch012.xhtml" />
+    </navPoint>
+    
+    </navPoint>
+  </navMap>
+</ncx>

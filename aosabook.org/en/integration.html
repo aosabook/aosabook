@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: integration.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: Continuous Integration</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>Continuous Integration</h1>
+        <p><a href="intro1.html#brown-titus">C. Titus Brown</a> and <a href="intro1.html#canino-koning-rosangela">Rosangela Canino-Koning</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>Continuous Integration (CI) systems are systems that build and test
+software automatically and regularly.  Though their primary benefit
+lies in avoiding long periods between build and test runs, CI systems
+can also simplify and automate the execution of many otherwise tedious
+tasks. These include cross-platform testing, the regular running of slow,
+data-intensive, or difficult-to-configure tests, verification of
+proper performance on legacy platforms, detection of infrequently
+failing tests, and the regular production of up-to-date release
+products. And, because build and test automation is necessary for
+implementing continuous integration, CI is often a first step towards
+a <em>continuous deployment</em> framework wherein software updates can be
+deployed quickly to live systems after testing.</p>
+
+<p>Continuous integration is a timely subject, not least because of its
+prominence in the Agile software methodology.  There has been an
+explosion of open source CI tools in recent years, in and for a
+variety of languages, implementing a huge range of features in the
+context of a diverse set of architectural models.  The purpose of this
+chapter is to describe common sets of features implemented in
+continuous integration systems, discuss the architectural options
+available, and examine which features may or may not be easy to
+implement given the choice of architecture.</p>
+
+<p>Below, we will briefly describe a set of systems that exemplify the
+extremes of architectural choices available when designing a CI
+system. The first, Buildbot, is a master/slave system; the second,
+CDash is a reporting server model; the third Jenkins, uses a hybrid model; and the fourth, Pony-Build,
+is a Python-based decentralized reporting server that we will use
+as a foil for further discussion.</p>
+
+<div class="sect">
+<h2>9.1. The Landscape</h2>
+
+<p>The space of architectures for continuous integration systems seems to
+be dominated by two extremes: master/slave architectures, in which a
+central server directs and controls remote builds; and reporting
+architectures, in which a central server aggregates build reports
+contributed by clients. All of the continuous integration systems of
+which we are aware have chosen some combination of features from these
+two architectures.</p>
+
+<p>Our example of a centralized architecture, Buildbot, is composed of
+two parts: the central server, or <em>buildmaster</em>, which schedules and
+coordinates builds between one or more connected clients; and the
+clients, or <em>buildslaves</em>, which execute builds. The buildmaster
+provides a central location to which to connect, along with
+configuration information about which clients should execute which
+commands in what order. Buildslaves connect to the buildmaster and
+receive detailed instructions. Buildslave configuration consists of
+installing the software, identifying the master server, and providing
+connection credentials for the client to connect to the master. Builds
+are scheduled by the buildmaster, and output is streamed from the
+buildslaves to the buildmaster and kept on the master server for
+presentation via the Web and other reporting and notification systems.</p>
+
+<p>On the opposite side of the architecture spectrum lies CDash, which is
+used for the Visualization Toolkit (VTK)/Insight Toolkit (ITK)
+projects by Kitware, Inc. CDash is essentially a reporting server,
+designed to store and present information received from client
+computers running CMake and CTest. With CDash, the clients initiate
+the build and test suite, record build and test results, and then
+connect to the CDash server to deposit the information for central
+reporting.</p>
+
+<p>Finally, a third system, Jenkins (known as Hudson before a name
+change in 2011), provides both modes of operation. With Jenkins,
+builds can either be executed independently with the results sent to
+the master server; or nodes can be slaved to the Jenkins master
+server, which then schedules and directs the execution of builds.</p>
+
+<p>Both the centralized and decentralized models have some features in
+common, and, as Jenkins shows, both models can co-exist in a single
+implementation. However, Buildbot and CDash exist in stark contrast to
+each other: apart from the commonalities of building software and
+reporting on the builds, essentially every other aspect of the
+architecture is different. Why?</p>
+
+<p>Further, to what extent does the choice of architecture seem to make
+certain features easier or harder to implement? Do some features
+emerge naturally from a centralized model? And how extensible are the
+existing implementations&mdash;can they easily be modified to provide new
+reporting mechanisms, or scale to many packages, or execute builds and
+tests in a cloud environment?</p>
+
+<div class="subsect">
+<h3>9.1.1. What Does Continuous Integration Software Do?</h3>
+
+<p>The core functionality of a continuous integration system is simple:
+build software, run tests, and report the results. The build, test,
+and reporting can be performed by a script running from a scheduled
+task or cron job: such a script would just check out a new copy of the
+source code from the VCS, do a build, and then run the tests. Output
+would be logged to a file, and either stored in a canonical location
+or sent out via e-mail in case of a build failure. This is simple to
+implement: in UNIX, for example, this entire process can be
+implemented for most Python packages in a seven line script:</p>
+
+<pre>
+cd /tmp &amp;&amp; \
+svn checkout http://some.project.url &amp;&amp; \
+cd project_directory &amp;&amp; \
+python setup.py build &amp;&amp; \
+python setup.py test || \
+echo build failed | sendmail notification@project.domain
+cd /tmp &amp;&amp; rm -fr project_directory
+</pre>
+
+<p>In <a href="#fig.integration.internal">Figure&nbsp;9.1</a>, the unshaded rectangles
+represent discrete subsystems and functionality within the system.
+Arrows show information flow between the various components.  The
+cloud represents potential remote execution of build processes.  The
+shaded rectangles represent potential coupling between the subsystems;
+for example, build monitoring may include monitoring of the build
+process itself and aspects of system health (CPU load, I/O load,
+memory usage, etc.)</p>
+
+<div class="figure" id="fig.integration.internal">
+  <img src="../images/integration/ci-internal.png" alt="[Internals of a Continuous Integration System]" />
+  <p>Figure&nbsp;9.1: Internals of a Continuous Integration System</p>
+</div>
+
+<p>But this simplicity is deceptive. Real-world CI systems usually
+do much more. In addition to initiating or receiving the results of
+remote build processes, continuous integration software may support
+any of the following additional features:</p>
+
+<ul>
+
+  <li><em>Checkout and update:</em> For large projects, checking out a
+  new copy of the source code can be costly in terms of bandwidth
+  and time. Usually, CI systems update an existing working copy in
+  place, which communicates only the differences from the previous
+  update. In exchange for this savings, the system must keep track
+  of the working copy and know how to update it, which usually means
+  at least minimal integration with a VCS.</li>
+
+  <li><em>Abstract build recipes:</em> A configure/build/test recipe
+  must be written for the software in question. The underlying
+  commands will often be different for different operating systems,
+  e.g. Mac OS X vs. Windows vs. UNIX, which means either specialized
+  recipes need to be written (introducing potential bugs or
+  disconnection from the actual build environment) or some suitable
+  level of abstraction for recipes must be provided by the CI
+  configuration system.</li>
+
+  <li><em>Storing checkout/build/test status:</em> It may be desirable
+  for details of the checkout (files updated, code version), build
+  (warnings or errors) and test (code coverage, performance, memory
+  usage) to be stored and used for later analysis. These results can
+  be used to answer questions across the build architectures (did
+  the latest check-in significantly affect performance on any
+  particular architecture?) or over history (has code coverage
+  changed dramatically in the last month?) As with the build recipe,
+  the mechanisms and data types for this kind of introspection are
+  usually specific to the platform or build system.</li>
+
+  <li><em>Release packages:</em> Builds may produce binary packages or
+  other products that need to be made externally available. For
+  example, developers who don't have direct access to the build
+  machine may want to test the latest build in a specific
+  architecture; to support this, the CI system needs to be able to
+  transfer build products to a central repository.</li>
+
+  <li><em>Multiple architecture builds:</em> Since one goal
+  of continuous integration is to build on multiple architectures to
+  test cross-platform functionality, the CI software may need to
+  track the architecture for each build machine and link
+  builds and build outcomes to each client.</li>
+
+  <li><em>Resource management:</em> If a build step is resource
+  intensive on a single machine, the CI system may want to run
+  conditionally. For example, builds may wait for the absence of
+  other builds or users, or delay until a particular CPU or memory
+  load is reached.</li>
+
+  <li><em>External resource coordination:</em> Integration tests may
+  depend on non-local resources such as a staging database or a
+  remote web service. The CI system may therefore need to coordinate
+  builds between multiple machines to organize access to these
+  resources.</li>
+
+  <li><em>Progress reports:</em> For long build processes, regular
+  reporting from the build may also be important. If a user is
+  primarily interested in the results of the first 30 minutes of a 5
+  hour build and test, then it would be a waste of time to make them
+  wait until the end of a run to see any results.</li>
+
+</ul>
+
+<p>A high-level view of all of these potential components of a CI system
+is shown in <a href="#fig.integration.internal">Figure&nbsp;9.1</a>. CI software usually
+implements some subset of these components.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.1.2. External Interactions</h3>
+
+<p>Continuous integration systems also need to interact with other
+systems. There are several types of potential interactions:</p>
+
+<ul>
+
+  <li><em>Build notification</em>: The outcomes of builds generally
+  need to be communicated to interested clients, either via pull
+  (Web, RSS, RPC, etc.) or push notification (e-mail, Twitter,
+  PubSubHubbub, etc.) This can include notification of all builds,
+  or only failed builds, or builds that haven't been executed within
+  a certain period.</li>
+
+  <li><em>Build information</em>: Build details and products may need
+  to be retrieved, usually via RPC or a bulk download system. For
+  example, it may be desirable to have an external analysis system
+  do an in-depth or more targeted analysis, or report on code
+  coverage or performance results. In addition, an external test
+  result repository may be employed to keep track of failing and
+  successful tests separately from the CI system.</li>
+
+  <li><em>Build requests</em>: External build requests from users or a
+  code repository may need to be handled. Most VCSs have post-commit
+  hooks that can execute an RPC call to initiate a build, for
+  example. Or, users may request builds manually through a Web
+  interface or other user-initiated RPC.</li>
+
+  <li><em>Remote control of the CI system</em>: More generally, the
+  entire runtime may be modifiable through a more-or-less
+  well-defined RPC interface. Either ad hoc extensions or a
+  more formally specified interface may need to be able to drive
+  builds on specific platforms, specify alternate source branches in order to
+  build with various patches, and execute additional builds
+  conditionally. This is useful in support of more general workflow
+  systems, e.g. to permit commits only after they have passed the
+  full set of CI tests, or to test patches across a wide variety of
+  systems before final integration. Because of the variety of bug
+  tracker, patch systems, and other external systems in use, it may
+  not make sense to include this logic within the CI system itself.</li>
+
+</ul>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>9.2. Architectures</h2>
+
+<p>Buildbot and CDash have chosen opposite architectures, and implement
+overlapping but distinct sets of features. Below we examine these
+feature sets and discuss how features are easier or harder to
+implement given the choice of architecture.</p>
+
+<div class="subsect">
+<h3>9.2.1. Implementation Model: Buildbot</h3>
+
+<div class="figure" id="fig.integration.buildbot">
+  <img src="../images/integration/buildbot.png" alt="[Buildbot Architecture]" />
+  <p>Figure&nbsp;9.2: Buildbot Architecture</p>
+</div>
+
+<p>Buildbot uses a master/slave architecture, with a single central
+server and multiple build slaves. Remote execution is entirely
+scripted by the master server in real time: the master configuration
+specifies the command to be executed on each remote system, and runs
+them when each previous command is finished. Scheduling and build
+requests are not only coordinated through the master but directed
+entirely <em>by</em> the master. No built-in recipe abstraction exists,
+except for basic version control system integration ("our code is in
+this repository") and a distinction between commands that operate on
+the build directory vs. within the build directory. OS-specific
+commands are typically specified directly in the configuration.</p>
+
+<p>Buildbot maintains a constant connection with each buildslave, and
+manages and coordinates job execution between them.  Managing remote
+machines through a persistent connection adds significant practical
+complexity to the implementation, and has been a long-standing source
+of bugs.  Keeping robust long-term network connections running is not
+simple, and testing applications which interact with the local GUI is
+challenging through a network connection. OS alert windows are
+particularly difficult to deal with.  However, this constant
+connection makes resource coordination and scheduling straightforward,
+because slaves are entirely at the disposal of the master for
+execution of jobs.</p>
+
+<p>The kind of tight control designed into the Buildbot model makes
+centralized build coordination between resources very easy. Buildbot
+implements both master and slave locks on the buildmaster, so that
+builds can coordinate system-global and machine-local resources. This
+makes Buildbot particularly suitable for large installations that run
+system integration tests, e.g. tests that interact with databases or
+other expensive resources.</p>
+
+<p>The centralized configuration causes problems for a distributed use
+model, however. Each new buildslave must be explicitly allowed for in
+the master configuration, which makes it impossible for new
+buildslaves to dynamically attach to the central server and offer
+build services or build results. Moreover, because each build slave is
+entirely driven by the build master, build clients are vulnerable to
+malicious or accidental misconfigurations: the master literally
+controls the client entirely, within the client OS security
+restrictions.</p>
+
+<p>One limiting feature of Buildbot is that there is no simple way to
+return build products to the central server. For example, code
+coverage statistics and binary builds are kept on the remote
+buildslave, and there is no API to transmit them to the central
+buildmaster for aggregation and distribution. It is not clear why this
+feature is absent. It may be a consequence of the limited set of
+command abstractions distributed with Buildbot, which are focused on
+executing remote commands on the build slaves. Or, it may be due to
+the decision to use the connection between the buildmaster and
+buildslave as a control system, rather than as an RPC mechanism.</p>
+
+<p>Another consequence of the master/slave model and this limited
+communications channel is that buildslaves do not report system
+utilization and the master cannot be configured to be aware of high
+slave load.</p>
+
+<p>External CPU notification of build results is handled entirely by the
+buildmaster, and new notification services need to be implemented
+within the buildmaster itself. Likewise, new build requests must be
+communicated directly to the buildmaster.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.2.2. Implementation Model: CDash</h3>
+
+<div class="figure" id="fig.integration.cdash">
+  <img src="../images/integration/cdash.png" alt="[CDash Architecture]" />
+  <p>Figure&nbsp;9.3: CDash Architecture</p>
+</div>
+
+<p>In contrast to Buildbot, CDash implements a reporting server model. In
+this model, the CDash server acts as a central repository for
+information on remotely executed builds, with associated reporting on
+build and test failures, code coverage analysis, and memory
+usage. Builds run on remote clients on their own schedule, and submit
+build reports in an XML format. Builds can be submitted both by
+"official" build clients and by non-core developers or users running
+the published build process on their own machines.</p>
+
+<p>This simple model is made possible because of the tight conceptual
+integration between CDash and other elements of the Kitware build
+infrastructure: CMake, a build configuration system, CTest, a test
+runner, and CPack, a packaging system. This software provides a
+mechanism by which build, test, and packaging recipes can be
+implemented at a fairly high level of abstraction in an OS-agnostic
+manner.</p>
+
+<p>CDash's client-driven process simplifies many aspects of the
+client-side CI process. The decision to run a build is made by build
+clients, so client-side conditions (time of day, high load, etc.) can
+be taken into account by the client before starting a build. Clients
+can appear and disappear as they wish, easily enabling volunteer
+builds and builds "in the cloud". Build products can be sent to the
+central server via a straightforward upload mechanism.</p>
+
+<p>However, in exchange for this reporting model, CDash lacks many
+convenient features of Buildbot. There is no centralized coordination
+of resources, nor can this be implemented simply in a distributed
+environment with untrusted or unreliable clients. Progress reports are
+also not implemented: to do so, the server would have to allow
+incremental updating of build status. And, of course, there is no way
+to both globally request a build, and guarantee that anonymous clients
+<em>perform</em> the build in response to a check-in&mdash;clients must be
+considered unreliable.</p>
+
+<p>Recently, CDash added functionality to enable an "@Home" cloud build
+system, in which clients offer build services to a CDash server.
+Clients poll the server for build requests, execute them upon request,
+and return the results to the server.  In the current implementation
+(October 2010), builds must be manually requested on the server side,
+and clients must be connected for the server to offer their services.
+However, it is straightforward to extend this to a more generic
+scheduled-build model in which builds are requested automatically by
+the server whenever a relevant client is available.  The "@Home"
+system is very similar in concept to the Pony-Build system described
+later.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.2.3. Implementation Model: Jenkins</h3>
+
+<p>Jenkins is a widely used continuous integration system implemented in
+Java; until early 2011, it was known as Hudson. It is capable of
+acting either as a standalone CI system with execution on a local
+system, or as a coordinator of remote builds, or even as a passive
+receiver of remote build information. It takes advantage of the JUnit
+XML standard for unit test and code coverage reporting to integrate
+reports from a variety of test tools. Jenkins originated with Sun, but
+is very widely used and has a robust open-source community associated
+with it.</p>
+
+<p>Jenkins operates in a hybrid mode, defaulting to master-server build
+execution but allowing a variety of methods for executing remote
+builds, including both server- and client-initiated builds. Like
+Buildbot, however, it is primarily designed for central server
+control, but has been adapted to support a wide variety of distributed
+job initiation mechanisms, including virtual machine management.</p>
+
+<p>Jenkins can manage multiple remote machines through a connection
+initiated by the master via an SSH connection, or from the client via
+JNLP (Java Web Start). This connection is two-way, and supports the
+communication of objects and data via serial transport.</p>
+
+<p>Jenkins has a robust plugin architecture that abstracts the details of
+this connection, which has allowed the development of many third-party
+plugins to support the return of binary builds and more significant
+result data.</p>
+
+<p>For jobs that are controlled by a central server, Jenkins has a
+"locks" plugin to discourage jobs from running in parallel, although
+as of January 2011 it is not yet fully developed.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.2.4. Implementation Model: Pony-Build</h3>
+
+<div class="figure" id="fig.integration.pb">
+  <img src="../images/integration/webhooks.png" alt="[Pony-Build Architecture]" />
+  <p>Figure&nbsp;9.4: Pony-Build Architecture</p>
+</div>
+
+<p>Pony-Build is a proof-of-concept decentralized CI system written in
+Python. It is composed of three core components, which are illustrated
+in <a href="#fig.integration.pb">Figure&nbsp;9.4</a>. The results server acts as a
+centralized database containing build results received from individual
+clients. The clients independently contain all configuration
+information and build context, coupled with a lightweight client-side
+library to help with VCS repository access, build process management,
+and the communication of results to the server. The reporting server
+is optional, and contains a simple Web interface, both for reporting
+on the results of builds and potentially for requesting new builds. In
+our implementation, the reporting server and results server run in a
+single multithreaded process but are loosely coupled at the API level
+and could easily be altered to run independently.</p>
+
+<p>This basic model is decorated with a variety of webhooks and RPC
+mechanisms to facilitate build and change notification and build
+introspection. For example, rather than tying VCS change notification
+from the code repository directly into the build system, remote build
+requests are directed to the reporting system, which communicates them
+to the results server. Likewise, rather than building push
+notification of new builds out to e-mail, instant messaging, and other
+services directly into the reporting server, notification is
+controlled using the PubSubHubbub (PuSH) active notification
+protocol. This allows a wide variety of consuming applications to
+receive notification of "interesting" events (currently limited to
+new builds and failed builds) via a PuSH webhook.</p>
+
+<p>The advantages of this very decoupled model are substantial:</p>
+
+<ul>
+
+  <li><em>Ease of communication:</em> The basic architectural
+  components and webhook protocols are extremely easy to implement,
+  requiring only a basic knowledge of Web programming.</li>
+
+  <li><em>Easy modification:</em> The implementation of new
+  notification methods, or a new reporting server interface, is
+  extremely simple.</li>
+
+  <li><em>Multiple language support:</em> Since the various components
+  call each other via webhooks, which are supported by most
+  programming languages, different components can be implemented in
+  different languages.</li>
+
+  <li><em>Testability:</em> Each component can be completely isolated
+  and mocked, so the system is very testable.</li>
+
+  <li><em>Ease of configuration:</em> The client-side requirements are
+  minimal, with only a single library file required beyond Python
+  itself.</li>
+
+  <li><em>Minimal server load:</em> Since the central server has
+  virtually no control responsibilities over the clients, isolated
+  clients can run in parallel without contacting the server and
+  placing any corresponding load it, other than at reporting time.</li>
+
+  <li><em>VCS integration:</em> Build configuration is entirely client
+  side, allowing it to be included within the VCS.</li>
+
+  <li><em>Ease of results access:</em> Applications that wish to
+  consume build results can be written in any language capable of an
+  XML-RPC request. Users of the build system can be granted access
+  to the results and reporting servers at the network level, or via
+  a customized interface at the reporting server. The build clients
+  only need access to post results to the results server.</li>
+
+</ul>
+
+<p>Unfortunately, there are also many serious <em>disadvantages</em>, as
+with the CDash model:</p>
+
+<ul>
+
+  <li><em>Difficulty requesting builds:</em> This difficulty is
+  introduced by having the build clients be entirely independent of
+  the results server. Clients may poll the results server, to see if
+  a build request is operative, but this introduces high load and
+  significant latency. Alternatively, command and control
+  connections need to be established to allow the server to notify
+  clients of build requests directly. This introduces more
+  complexity into the system and eliminates the advantages of
+  decoupled build clients.</li>
+
+  <li><em>Poor support for resource locking:</em> It is easy to
+  provide an RPC mechanism for holding and releasing resource locks,
+  but much more difficult to enforce client policies. While CI
+  systems like CDash assume good faith on the client side, clients
+  may fail unintentionally and badly, e.g. without releasing
+  locks. Implementing a robust distributed locking system is hard
+  and adds significant undesired complexity. For example, in order
+  to provide master resource locks with unreliable clients, the
+  master lock controller must have a policy in place for clients
+  that take a lock and never release it, either because they crash
+  or because of a deadlock situation.</li>
+
+  <li><em>Poor support for real-time monitoring:</em> Real-time
+  monitoring of the build, and control of the build process
+  itself, is challenging to implement in a system without a constant
+  connection. One significant advantage of Buildbot over the
+  client-driven model is that intermediate inspection of long builds
+  is easy, because the results of the build are communicated to the
+  master interface incrementally. Moreover, because Buildbot retains
+  a control connection, if a long build goes bad in the middle
+  due to misconfiguration or a bad check-in, it can be interrupted
+  and aborted. Adding such a feature into Pony-Build, in which the
+  results server has no guaranteed ability to contact the clients,
+  would require either constant polling by the clients, or the
+  addition of a standing connection to the clients.</li>
+
+</ul>
+
+<p>Two other aspects of CIs that were raised by Pony-Build were how best
+to implement <em>recipes</em>, and how to manage <em>trust</em>. These are
+intertwined issues, because recipes execute arbitrary code on build
+clients.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.2.5. Build Recipes</h3>
+
+<p>Build recipes add a useful level of abstraction, especially for
+software built in a cross-platform language or using a multi-platform
+build system. For example, CDash relies on a strict kind of
+recipe; most, or perhaps all, software that uses CDash is built
+with CMake, CTest, and CPack, and these tools are built to handle
+multi-platform issues. This is the ideal situation from the viewpoint
+of a continuous integration system, because the CI system can simply
+delegate all issues to the build tool chain.</p>
+
+<p>However, this is not true for all languages and build environments. In
+the Python ecosystem, there has been increasing standardization around
+distutils and distutils2 for building and packaging software, but as
+yet no standard has emerged for discovering and running tests, and
+collating the results. Moreover, many of the more complex Python
+packages add specialized build logic into their system, through a
+distutils extension mechanism that allows the execution of arbitrary
+code. This is typical of most build tool chains: while there may be a
+fairly standard set of commands to be run, there are always exceptions
+and extensions.</p>
+
+<p>Recipes for building, testing, and packaging are therefore
+problematic, because they must solve two problems: first, they should
+be specified in a platform independent way, so that a single recipe
+can be used to build software on multiple systems; and second, they
+must be customizable to the software being built.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.2.6. Trust</h3>
+
+<p>This raises a third problem.  Widespread use of recipes by a CI system
+introduces a second party that must be trusted by the system: not only
+must the software itself be trustworthy (because the CI clients are
+executing arbitrary code), but the recipes must also be trustworthy
+(because they, too, must be able to execute arbitrary code).</p>
+
+<p>These trust issues are easy to handle in a tightly controlled
+environment, e.g. a company where the build clients and CI system are
+part of an internal process. In other development environments,
+however, interested third parties may want to offer build services,
+for example to open source projects. The ideal solution would be to
+support the inclusion of standard build recipes in software on a
+community level, a direction that the Python community is taking with
+distutils2. An alternative solution would be to allow for the use of
+digitally signed recipes, so that trusted individuals could write and
+distribute signed recipes, and CI clients could check to see if they
+should trust the recipes.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.2.7. Choosing a Model</h3>
+
+<p>In our experience, a loosely coupled RPC or webhook callback-based
+model for continuous integration is extremely easy to implement, as
+long as one ignores any requirements for tight coordination that would
+involve complex coupling. Basic execution of remote checkouts and
+builds has similar design constraints whether the build is being
+driven locally or remotely; collection of information about the build
+(success/failure, etc.) is primarily driven by client-side
+requirements; and tracking information by architecture and result
+involves the same basic requirements.  Thus a basic CI system can be
+implemented quite easily using the reporting model.</p>
+
+<p>We found the loosely coupled model to be very flexible and expandable,
+as well. Adding new results reporting, notification mechanisms, and
+build recipes is easy because the components are clearly separated and
+quite independent. Separated components have clearly delegated tasks
+to perform, and are also easy to test and easy to modify.</p>
+
+<p>The only challenging aspect of remote builds in a CDash-like
+loosely-coupled model is build coordination: starting and stopping
+builds, reporting on ongoing builds, and coordinating resource locks
+between different clients is technically demanding compared to the
+rest of the implementation.</p>
+
+<p>It is easy to reach the conclusion that the loosely coupled model is
+"better" all around, but obviously this is only true if build
+coordination is not needed.  This decision should be made based on the
+needs of projects using the CI system.</p>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>9.3. The Future</h2>
+
+<p>While thinking about Pony-Build, we came up with a few features that
+we would like to see in future continuous integration systems.</p>
+
+<ul>
+
+  <li><em>A language-agnostic set of build recipes:</em> Currently,
+  each continuous integration system reinvents the wheel by
+  providing its own build configuration language, which is
+  manifestly ridiculous; there are fewer than a dozen commonly used
+  build systems, and probably only a few dozen test
+  runners. Nonetheless, each CI system has a new and different way
+  of specifying the build and test commands to be run. In fact, this
+  seems to be one of the reasons why so many basically identical CI
+  systems exist: each language and community implements their own
+  configuration system, tailored to their own build and test
+  systems, and then layers on the same set of features above that
+  system. Therefore, building a domain-specific language (DSL)
+  capable of representing the options used by the few dozen commonly
+  used build and test tool chains would go a long way toward
+  simplifying the CI landscape.</li>
+
+  <li><em>Common formats for build and test reporting:</em> There is
+  little agreement on exactly what information, in what format, a
+  build and test system needs to provide. If a common format or
+  standard could be developed it would make it much easier for
+  continuous integration systems to offer both detailed and summary
+  views across builds. The Test Anywhere Protocol, TAP (from the
+  Perl community) and the JUnit XML test output format (from the
+  Java community) are two interesting options that are capable of
+  encoding information about number of tests run, successes and
+  failures, and per-file code coverage details.</li>
+
+  <li><em>Increased granularity and introspection in reporting:</em>
+  Alternatively, it would be convenient if different build platforms
+  provided a well-documented set of hooks into their configuration,
+  compilation, and test systems. This would provide an API (rather
+  than a common format) that CI systems could use to extract more
+  detailed information about builds.</li>
+
+</ul>
+
+<div class="subsect">
+<h3>9.3.1. Concluding Thoughts</h3>
+
+<p>The continuous integration systems described above implemented
+features that fit their architecture, while the hybrid Jenkins system
+started with a master/slave model but added features from the more
+loosely coupled reporting architecture.</p>
+
+<p>It is tempting to conclude that architecture dictates function. This
+is nonsense, of course. Rather, the choice of architecture seems to
+canalize or direct development towards a particular set of
+features. For Pony-Build, we were surprised at the extent to which our
+initial choice of a CDash-style reporting architecture drove later
+design and implementation decisions. Some implementation choices, such
+as the avoidance of a centralized configuration and scheduling system
+in Pony-Build were driven by our use cases: we needed to allow dynamic
+attachment of remote build clients, which is difficult to support with
+Buildbot. Other features we didn't implement, such as progress reports
+and centralized resource locking in Pony-Build, were desirable but
+simply too complicated to add without a compelling requirement.</p>
+
+<p>Similar logic may apply to Buildbot, CDash, and Jenkins. In each case
+there are useful features that are absent, perhaps due to
+architectural incompatibility. However, from discussions with members
+of the Buildbot and CDash communities, and from reading the Jenkins
+website, it seems likely that the desired features were chosen first,
+and the system was then developed using an architecture that permitted
+those features to be easily implemented. For example, CDash serves a
+community with a relatively small set of core developers, who develop
+software using a centralized model. Their primary consideration is to
+keep the software working on a core set of machines, and secondarily
+to receive bug reports from tech-savvy users. Meanwhile, Buildbot is
+increasingly used in complex build environments with many clients that
+require coordination to access shared resources. Buildbot's more
+flexible configuration file format with its many options for
+scheduling, change notification, and resource locks fits that need
+better than the other options. Finally, Jenkins seems aimed at ease of
+use and simple continuous integration, with a full GUI for configuring
+it and configuration options for running on the local server.</p>
+
+<p>The sociology of open source development is another confounding factor
+in correlating architecture with features: suppose developers choose
+open source projects based on how well the project architecture and
+features fit their use case?  If so, then their contributions will
+generally reflect an extension of a use case that already fits the
+project well. Thus projects may get locked into a certain feature set,
+since contributors are self-selected and may avoid projects with
+architectures that don't fit their own desired features. This was
+certainly true for us in choosing to implement a new system,
+Pony-Build, rather than contributing to Buildbot: the Buildbot
+architecture was simply not appropriate for building hundreds or
+thousands of packages.</p>
+
+<p>Existing continuous integration systems are generally built around one
+of two disparate architectures, and generally implement only a subset
+of desirable features.  As CI systems mature and their user
+populations grow, we would expect them to grow additional features;
+however, implementation of these features may be constrained by the
+base choice of architecture.  It will be interesting to see how the
+field evolves.</p>
+
+</div>
+
+<div class="subsect">
+<h3>9.3.2. Acknowledgments</h3>
+
+<p>We thank Greg Wilson, Brett Cannon, Eric Holscher, Jesse Noller, and
+Victoria Laidler for interesting discussions on CI systems in general,
+and Pony-Build in particular.  Several students contributed to
+Pony-Build development, including Jack Carlson, Fatima Cherkaoui, Max
+Laite, and Khushboo Shakya.</p>
+
+</div>
+
+</div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

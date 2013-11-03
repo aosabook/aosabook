@@ -1,0 +1,199 @@
+<html>
+  <head>
+    <meta name="provenance" content="$Id: svnHelp.html 357 2011-06-16 14:06:53Z amy $" />
+    <link rel="stylesheet" href="aosa.css" type="text/css" />
+    <title>The Architecture of Open Source Applications: Subversion 
+       Repository How-To</title>
+  </head>
+  <body class="help">
+
+  <div class="header" align="center">
+      <img src="../images/titlebar.jpg" alt="Architecture of Open Source
+        Applications cover"/>
+      <h1>Subversion Repository How-To</h1>
+      <p>
+        by <a href="mailto:amyrhoda@gmail.com">Amy Brown</a>
+      </p>
+  </div>
+
+   <p>
+     This page provides a brief guide to accessing and using the
+     Subversion repository where the files for <em>The Architecture
+     of Open Source Applications</em> are stored. 
+   </p>
+   <p>
+     The instructions on
+     this page are for accessing Subversion through the command line. There
+     are also GUI clients for Subversion, but I haven't tried any of them.
+     Apparently <a href="http://rapidsvn.tigris.org/">RapidSVN</a> is a
+     popular choice.
+   </p>
+   <p>
+     Please <a href="mailto:amyrhoda@gmail.com">let me know</a>
+     if any of this doesn't work, doesn't make sense, or if there is something
+     missing.
+   </p>
+   <h3>Getting your own copy of the repository</h3>
+   <p>
+     Run the following command to get your own copy of the repository. If
+     it's the first time you've accessed the repo, you will be prompted
+     for your userid and password:
+   </p>
+   <p>
+     <pre>    $ svn checkout http://www.aosabook.org/svn foo</pre>
+   </p>
+   <p>
+     where <code>foo</code> is the name you want to give the repository's
+     root directory on your machine.
+   </p>
+   <p>
+     The repo is pretty big so if you only want to download files for Volume 1
+     (if you're translating) or Volume 2 (if you're writing a new chapter) you 
+     can do:
+   </p>
+   <p>
+     <pre>    $ svn checkout http://www.aosabook.org/svn/volume1 foo</pre>
+   </p>
+   <p>
+     or
+   </p>
+   <p>
+     <pre>    $ svn checkout http://www.aosabook.org/svn/volume2 foo</pre>
+   </p>
+
+   <h3>Staying Up-To-Date</h3>
+
+   <p>
+     <pre>    $ svn update</pre>
+   </p>
+   <p>
+     will get the latest version of files in the current working directory
+     and all directories below, but not the directories above.
+     Protip: run this from the root directory before you start working 
+     so you don't run into conflicts later!
+    </p>
+    <p>
+      <pre>    $ svn commit</pre>
+    </p>
+    <p>
+      will send all your changes (again, in the current working directory
+      and below only) to the repository. If you only want to commit a specific
+      file or list of files, you can name them at the command line:
+    </p>
+    <p>
+      <pre>    $ svn commit file.html file2.html</pre>
+    </p>
+    <p>
+      After you run <code>commit</code> your favourite editor will open and you can enter
+      your commit message. If you prefer, you can run:
+    <p>
+      <pre>    $ svn commit -m "Message goes here" file.html file2.html</pre>
+    </p>
+    <p>
+
+    <p>
+      If someone else has made changes to the same file, but they don't
+      conflict with yours, Subversion will magically put all the changes together into
+      one seamless whole. If the changes do conflict, you'll get an error
+      message.  This guy's <a
+      href="http://ariejan.net/2007/07/04/how-to-resolve-subversion-conflicts/">
+      explanation of how to proceed</a> is clear and helpful.
+    </p>
+    <p>
+      If you've completely messed something up and you want to go back to the
+      version that's in the repository, you can do
+    </p>
+    <p>
+      <pre>    $ svn revert foo</pre>
+    </p>
+
+   <h3>Adding Things, Taking Things Away</h3>
+    <p>
+      If you have created a file or directory and want to tell Subversion that
+      it exists, do:
+    </p>
+    <p>
+      <pre>    $ svn add foo</pre>
+    </p>
+    <p>
+      If you want to remove a file you can do:
+    </p>
+    <p>
+      <pre>    $ svn rm foo</pre>
+    </p>
+    <p>
+      Note this also deletes the file from your local filesystem, not just from
+      the repo.
+    </p>
+    <p>
+      If you remove a file with the <code>rm</code> command (no
+      <code>svn</code>) you can tell Subversion that it's gone by running
+      <code>svn rm foo</code> even though the file isn't there any more.
+    </p>
+    <p>
+      You can also do:
+    </p>
+    <p>
+      <pre>    $ svn cp foo bar
+    $ svn mv foo bar
+    $ svn mkdir foo</pre>
+    </p>
+    <p>
+      to do all the usual things those commands do, but tell Subversion about
+      them at the same time.
+    </p>
+
+   <h3>Finding Out Where You Stand</h3>
+    <p>
+      <pre>    $ svn status</pre>
+    </p>
+    <p>
+      tells you the status of local files &mdash; whether you've changed
+      anything, added new files, etc. If you've committed all your changes it
+      will return nothing.
+    </p>
+    <p>
+      <pre>    $ svn info foo</pre>
+    </p>
+    <p>
+      gives you some useful information about the file <code>foo</code>, such
+      as when it was last edited, and by whom.
+    </p>
+    <p>
+      <pre>    $ svn blame foo</pre>
+    </p>
+    <p>
+      outputs the entire file <code>foo</code>, with each line preceded by the
+      revision number it was last changed at, and the userid of the person who 
+      changed it.
+    </p>
+    <p>
+      <pre>    $ svn log foo</pre>
+    </p>
+    <p>
+      outputs the commit log for the file <code>foo</code>. I use
+    </p>
+    <p>
+      <pre>    $ svn log foo --verbose --username amy</pre>
+    </p>
+    <p>
+      to figure out when I made a particular change.
+   </p>
+
+   <h3>Where Else To Turn</h3>
+   <p>
+      <a href="http://svnbook.red-bean.com/en/1.0/ch09.html">Chapter 9:
+      Subversion Complete Reference</a> from the <a
+      href="http://svnbook.red-bean.com/en/1.0/index.html">Subversion
+      Manual</a> is my favourite reference.
+   </p>
+   <p>
+      And of course you can always ask me or Greg or the Editors' mailing
+      list.
+   </p>
+    
+    <div class="footer">
+    </div>
+
+  </body>
+</html>

@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: socialcalc.html 1422 2012-07-07 20:13:55Z gvwilson $">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../bootstrap/css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="aosa.css" type="text/css">
+    <title>The Architecture of Open Source Applications: SocialCalc</title>
+  </head>
+  <body>
+
+  <div class="container">
+    <div class="row-fluid">
+      <div class="hero-unit">
+        <a class="pull-right" href="index.html"><img src="../images/titlebar1.jpg"
+           alt="The Architecture of Open Source Applications"</img></a>
+        <h1>SocialCalc</h1>
+        <p><a href="intro1.html#tang-audrey">Audrey Tang</a></p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span12">
+        
+<p>The history of spreadsheets spans more than 30 years.  The first
+spreadsheet program, VisiCalc, was conceived by Dan Bricklin in 1978
+and shipped in 1979.  The original concept was quite straightforward:
+a table that spans infinitely in two dimensions, its cells populated
+with text, numbers, and formulas.  Formulas are composed of normal
+arithmetic operators and various built-in functions, and each formula
+can use the current contents of other cells as values.</p>
+
+<p>Although the metaphor was simple, it had many applications:
+accounting, inventory, and list management
+are just a few.  The possibilities were practically limitless.  All
+these uses made VisiCalc into the first "killer app" of the
+personal computer era.</p>
+
+<p>In the decades that followed successors like Lotus 1-2-3 and Excel
+made incremental improvements, but the core metaphor stayed the same.
+Most spreadsheets were stored as on-disk files, and loaded into memory
+when opened for editing.  Collaboration was particularly hard under
+the file-based model:</p>
+
+<ul>
+
+  <li>Each user needed to install a version of the spreadsheet editor.</li>
+
+  <li>E-mail ping-pong, shared folders, or setting up a dedicated
+  version-control system all added bookkeeping overhead.</li>
+
+  <li>Change tracking was limited; for example, Excel does not preserve
+  history for formatting changes and cell comments.</li>
+
+  <li>Updating formatting or formulas in templates required
+  painstaking changes to existing spreadsheet files that used that
+  template.</li>
+
+</ul>
+
+<p>Fortunately, a new collaboration model emerged to address these issues
+with elegant simplicity.  It is the wiki model, invented by Ward
+Cunningham in 1994, and popularized by Wikipedia in the early 2000s.</p>
+
+<p>Instead of files, the wiki model features server-hosted pages,
+editable in the browser without requiring special software.  Those
+hypertext pages can easily link to each other, and even include
+portions of other pages to form a larger page.  All participants view
+and edit the latest version by default, with revision history
+automatically managed by the server.</p>
+
+<p>Inspired by the wiki model, Dan Bricklin started working on WikiCalc
+in 2005.  It aims to combine the authoring ease and multi-person
+editing of wikis with the familiar visual formatting and calculating
+metaphor of spreadsheets.</p>
+
+<div class="sect">
+<h2>19.1. WikiCalc</h2>
+
+<p>The first version of WikiCalc (<a href="#fig.soc.screenshot">Figure&nbsp;19.1</a>) had
+several features that set it apart from other spreadsheets at the
+time:</p>
+
+<ul>
+
+  <li>Plain text, HTML, and wiki-style markup rendering for text data.</li>
+
+  <li>Wiki-style text that includes commands to insert links, images,
+  and values from cell references.</li>
+
+  <li>Formula cells may reference values of other WikiCalc pages
+  hosted on other websites.</li>
+
+  <li>Ability to create output to be embedded in other web pages, both
+  static and live data.</li>
+
+  <li>Cell formatting with access to CSS style attributes and CSS
+  classes.</li>
+
+  <li>Logging of all edit operations as an audit trail.</li>
+
+  <li>Wiki-like retention of each new version of a page with roll-back
+  capability.</li>
+
+</ul>
+
+<div class="figure" id="fig.soc.screenshot">
+  <img src="../images/socialcalc/wikicalc-screenshot.png" alt="[WikiCalc 1.0 Interface]" />
+  <p>Figure&nbsp;19.1: WikiCalc 1.0 Interface</p>
+</div>
+
+<div class="figure" id="fig.soc.comp">
+  <img src="../images/socialcalc/wikicalc-components.png" alt="[WikiCalc Components]" />
+  <p>Figure&nbsp;19.2: WikiCalc Components</p>
+</div>
+
+<div class="figure" id="fig.soc.flow">
+  <img src="../images/socialcalc/wikicalc-flow.png" alt="[WikiCalc Flow]" />
+  <p>Figure&nbsp;19.3: WikiCalc Flow</p>
+</div>
+
+<p>WikiCalc 1.0's internal architecture (<a href="#fig.soc.comp">Figure&nbsp;19.2</a>) and
+information flow (<a href="#fig.soc.flow">Figure&nbsp;19.3</a>) were deliberately simple,
+but nevertheless powerful.  The ability to compose a master
+spreadsheet from several smaller spreadsheets proved particularly
+handy.  For example, imagine a scenario where each salesperson keeps
+numbers in a spreadsheet page.  Each sales manager then rolls up their
+reps' numbers into a regional spreadsheet, and the VP of sales then
+rolls up the regional numbers into a top-level spreadsheet.</p>
+
+<p>Each time one of the individual spreadsheets is updated, all the
+roll-up spreadsheets can reflect the update.  If someone wants further
+detail, they simply click through to view the spreadsheet behind the
+spreadsheet.  This roll-up capability eliminates the redundant and
+error-prone effort of updating numbers in multiple places, and ensures
+all views of the information stay fresh.</p>
+
+<p>To ensure the recalculations are up-to-date, WikiCalc adopted a
+thin-client design, keeping all the state information on the server
+side.  Each spreadsheet is represented on the browser as a
+<code>&lt;table&gt;</code> element; editing a cell will
+send an <code>ajaxsetcell</code> call to the server, and the server then
+tells the browser which cells need updating.</p>
+
+<p>Unsurprisingly, this design depends on a fast connection between the
+browser and the server.  When the latency is high, users will start to
+notice the frequent appearance of "Loading&hellip;" messages between
+updating a cell and seeing its new contents as shown in
+<a href="#fig.soc.load">Figure&nbsp;19.4</a>. This is especially a problem for users
+interactively editing formulas by tweaking the input and expecting to
+see results in real time.</p>
+
+<div class="figure" id="fig.soc.load">
+  <img src="../images/socialcalc/wikicalc-loading.png" alt="[Loading Message]" />
+  <p>Figure&nbsp;19.4: Loading Message</p>
+</div>
+
+<p>Moreover, because the <code>&lt;table&gt;</code> element
+had the same dimensions as the spreadsheet, a 100&times;100 grid
+would create 10,000 <code>&lt;td&gt;</code> DOM objects,
+which strains the memory resource of browsers, further limiting the
+size of pages.</p>
+
+<p>Due to these shortcomings, while WikiCalc was useful as a stand-alone
+server running on localhost, it was not very practical to embed as part
+of web-based content management systems.</p>
+
+<p>In 2006, Dan Bricklin teamed up with Socialtext to start developing
+SocialCalc, a ground-up rewrite of WikiCalc in Javascript based on
+some of the original Perl code.</p>
+
+<p>This rewrite was aimed at large, distributed collaborations, and sought
+to deliver a look and feel more like that of a desktop app.  Other design
+goals included:</p>
+
+<ul>
+
+  <li>Capable of handling hundreds of thousands of cells.</li>
+
+  <li>Fast turnaround time for edit operations.</li>
+
+  <li>Client-side audit trail and undo/redo stack.</li>
+
+  <li>Better use of Javascript and CSS to provide full-fledged layout
+  functionality.</li>
+
+  <li>Cross-browser support, despite the more extensive use of
+  responsive Javascript.</li>
+
+</ul>
+
+<p>After three years of development and various beta releases, Socialtext
+released SocialCalc 1.0 in 2009, successfully meeting the design
+goals.  Let's now take a look at the architecture of the SocialCalc
+system.</p>
+
+</div>
+
+<div class="sect">
+<h2>19.2. SocialCalc</h2>
+
+<div class="figure" id="fig.soc.action">
+  <img src="../images/socialcalc/socialcalc-screenshot.png" alt="[SocialCalc Interface]" />
+  <p>Figure&nbsp;19.5: SocialCalc Interface</p>
+</div>
+
+<p><a href="#fig.soc.action">Figure&nbsp;19.5</a> and <a href="#fig.soc.class">Figure&nbsp;19.6</a> show
+SocialCalc's interface and classes respectively.  Compared to
+WikiCalc, the server's role has been greatly reduced.  Its only
+responsibility is responding to HTTP GETs by serving entire
+spreadsheets serialized in the save format; once the browser receives
+the data, all calculations, change tracking and user interaction are
+now implemented in Javascript.</p>
+
+<div class="figure" id="fig.soc.class">
+  <img src="../images/socialcalc/socialcalc-class-diagram.png" alt="[SocialCalc Class Diagram]" />
+  <p>Figure&nbsp;19.6: SocialCalc Class Diagram</p>
+</div>
+
+<p>The Javascript components were designed with a layered MVC
+(Model/View/Controller) style, with each class focusing on a single
+aspect:</p>
+
+<ul>
+
+  <li><em>Sheet</em> is the data model, representing an in-memory
+  structure of a spreadsheet.
+  It contains a dictionary from
+  coordinates to <em>Cell</em> objects, each representing a single cell.
+  Empty cells need no entries, and hence consume no memory at all.</li>
+
+  <li><em>Cell</em> represents a cell's content and formats.  Some
+  common properties are shown in <a href="#tbl.soc.cellcontents">Table&nbsp;19.1</a>.</li>
+
+  <li><em>RenderContext</em> implements the view; it is responsible
+  for rendering a sheet into DOM objects.</li>
+
+  <li><em>TableControl</em> is the main controller, accepting mouse
+  and keyboard events.
+  As it receives view events such as scrolling
+  and resizing, it updates its associated <em>RenderContext</em>
+  object.  As it receives update events that affects the sheet's
+  content, it schedules new commands to the sheet's command queue.</li>
+
+  <li><em>SpreadSheetControl</em> is the top-level UI with
+  toolbars, status bars, dialog boxes and color pickers.</li>
+
+  <li><em>SpreadSheetViewer</em> is an alternate top-level UI that
+  provides a read-only interactive view.</li>
+
+</ul>
+
+<div class="table" id="tbl.soc.cellcontents">
+  <table>
+    <tr>
+      <td><code>datatype</code></td>
+      <td><code>t</code></td>
+    </tr>
+    <tr>
+      <td><code>datavalue</code></td>
+      <td><code>1Q84</code></td>
+    </tr>
+    <tr>
+      <td><code>color</code></td>
+      <td><code>black</code></td>
+    </tr>
+    <tr>
+      <td><code>bgcolor</code></td>
+      <td><code>white</code></td>
+    </tr>
+    <tr>
+      <td><code>font</code></td>
+      <td><code>italic bold 12pt Ubuntu</code></td>
+    </tr>
+    <tr>
+      <td><code>comment</code></td>
+      <td><code>Ichi-Kyu-Hachi-Yon</code></td>
+    </tr>
+  </table>
+  <p>Table 19.1: Cell Contents and Formats</p>
+</div>
+
+<p>We adopted a minimal class-based object system with simple
+composition/delegation, and make no use of inheritance or object
+prototypes.  All symbols are placed under the <code>SocialCalc.*</code>
+namespace to avoid naming conflicts.</p>
+
+<p>Each update on the sheet goes through the <code>ScheduleSheetCommands</code>
+method, which takes a command string representing the edit. (Some
+common commands are show in <a href="#tbl.soc.commands">Table&nbsp;19.2</a>.)
+The application embedding SocialCalc may define extra commands on their
+own, by adding named callbacks into the
+<code>SocialCalc.SheetCommandInfo.CmdExtensionCallbacks</code> object, and
+use the <code>startcmdextension</code> command to invoke them.</p>
+
+<div class="table" id="tbl.soc.commands">
+  <table>
+    <tr>
+      <td>
+<pre>
+    set     sheet defaultcolor blue
+    set     A width 100
+    set     A1 value n 42
+    set     A2 text t Hello
+    set     A3 formula A1*2
+    set     A4 empty
+    set     A5 bgcolor green
+    merge   A1:B2
+    unmerge A1
+</pre>
+      </td>
+      <td>
+<pre>
+    erase   A2
+    cut     A3
+    paste   A4
+    copy    A5
+    sort    A1:B9 A up B down
+    name    define Foo A1:A5
+    name    desc   Foo Used in formulas like SUM(Foo)
+    name    delete Foo
+    startcmdextension UserDefined args
+</pre>
+      </td>
+    </tr>
+  </table>
+  <p>Table 19.2: SocialCalc Commands</p>
+</div>
+
+</div>
+
+<div class="sect">
+<h2>19.3. Command Run-loop</h2>
+
+<p>To improve responsiveness, SocialCalc performs all recalculation and
+DOM updates in the background, so the user can keep making changes to
+several cells while the engine catches up on earlier changes in the
+command queue.</p>
+
+<div class="figure" id="fig.soc.loop">
+  <img src="../images/socialcalc/socialcalc-command-runloop.png" alt="[SocialCalc Command Run-loop]" />
+  <p>Figure&nbsp;19.7: SocialCalc Command Run-loop</p>
+</div>
+
+<p>When a command is running, the <code>TableEditor</code> object sets its
+<code>busy</code> flag to true; subsequent commands are then pushed into the
+<code>deferredCommands</code> queue, ensuring a sequential order of
+execution.  As the event loop diagram in <a href="#fig.soc.loop">Figure&nbsp;19.7</a>
+shows, the Sheet object keeps sending <code>StatusCallback</code> events to
+notify the user of the current state of command execution, through
+each of the four steps:</p>
+
+<ul>
+
+  <li><em>ExecuteCommand</em>: Sends <code>cmdstart</code> upon start, and
+  <code>cmdend</code> when the command finishes execution.  If the command
+  changed a cell's value indirectly, enter the <em>Recalc</em> step.
+  Otherwise, if the command changed the visual appearance of one or
+  more on-screen cells, enter the <em>Render</em> step.  If neither of
+  the above applies (for example with the <code>copy</code> command), skip
+  to the <em>PositionCalculations</em> step.</li>
+
+  <li><em>Recalc</em> <em>(asneeded)</em>: Sends <code>calcstart</code> upon start,
+  <code>calcorder</code> every 100ms when checking the dependency chain of
+  cells, <code>calccheckdone</code> when the check finishes, and
+  <code>calcfinished</code> when all affected cells received their
+  re-calculated values.  This step is always followed by the <em>Render</em>
+  step.</li>
+
+  <li><em>Render</em> <em>(as needed)</em>: Sends <code>schedrender</code> upon
+  start, and <code>renderdone</code> when the
+  <code>&lt;table&gt;</code> element is updated with
+  formatted cells. This step is always followed by <em>PositionCalculations</em>.</li>
+
+  <li><em>PositionCalculations</em>: Sends <code>schedposcalc</code> upon
+  start, and <code>doneposcalc</code> after updating the scrollbars, the
+  current editable cell cursor, and other visual components of the
+  <code>TableEditor</code>.</li>
+
+</ul>
+
+<p>Because all commands are saved as they are executed, we naturally get
+an audit log of all operations.  The <code>Sheet.CreateAuditString</code>
+method provides a newline-delimited string as the audit trail, with
+each command in a single line.</p>
+
+<p><code>ExecuteSheetCommand</code> also creates an undo command for each
+command it executes.  For example, if the cell A1 contains "Foo"
+and the user executes <code>set A1 text Bar</code>, then an undo-command
+<code>set A1 text Foo</code> is pushed to the undo stack.  If the user
+clicks Undo, then the undo-command is executed to restore A1 to its
+original value.</p>
+
+</div>
+
+<div class="sect">
+<h2>19.4. Table Editor</h2>
+
+<p>Now let's look at the TableEditor layer.  It calculates the on-screen
+coordinates of its <code>RenderContext</code>, and manages
+horizontal/vertical scroll bars through two <code>TableControl</code>
+instances.</p>
+
+<div class="figure" id="fig.soc.parts">
+  <img src="../images/socialcalc/socialcalc-parts.png" alt="[TableControl Instances Manage Scroll Bars]" />
+  <p>Figure&nbsp;19.8: TableControl Instances Manage Scroll Bars</p>
+</div>
+
+<p>The view layer, handled by the <code>RenderContext</code> class, also
+differs from WikiCalc's design.  Instead of mapping each cell to a
+<code>&lt;td&gt;</code> element, we now simply create a
+fixed-size <code>&lt;table&gt;</code> that fits the
+browser's visible area, and pre-populate it with
+<code>&lt;td&gt;</code> elements.</p>
+
+<p>As the user scrolls the spreadsheet through our custom-drawn scroll
+bars, we dynamically update the <code>innerHTML</code> of the pre-drawn
+<code>&lt;td&gt;</code> elements.  This means we don't need to
+create or destroy any <code>&lt;tr&gt;</code> or
+<code>&lt;td&gt;</code> elements in many common cases,
+which greatly speeds up response time.</p>
+
+<p>Because <code>RenderContext</code> only renders the visible region, the size
+of Sheet object can be arbitrarily large without affecting its
+performance.</p>
+
+<p><code>TableEditor</code> also contains a <code>CellHandles</code> object, which
+implements the radial fill/move/slide menu attached to the
+bottom-right corner to the current editable cell, known as the ECell,
+shown in <a href="#fig.soc.ecell">Figure&nbsp;19.9</a>.</p>
+
+<div class="figure" id="fig.soc.ecell">
+  <img src="../images/socialcalc/socialcalc-cell-handles.png" alt="[Current Editable Cell, Known as the ECell]" />
+  <p>Figure&nbsp;19.9: Current Editable Cell, Known as the ECell</p>
+</div>
+
+<p>The input box is managed by two classes: <code>InputBox</code> and
+<code>InputEcho</code>.  The former manages the above-the-grid edit row,
+while the latter shows an updated-as-you-type preview layer,
+overlaying the ECell's content (<a href="#fig.soc.input">Figure&nbsp;19.10</a>).</p>
+
+<div class="figure" id="fig.soc.input">
+  <img src="../images/socialcalc/socialcalc-input.png" alt="[The Input Box is Managed by Two Classes]" />
+  <p>Figure&nbsp;19.10: The Input Box is Managed by Two Classes</p>
+</div>
+
+<p>Usually, the SocialCalc engine only needs to communicate to the server
+when opening a spreadsheet for edit, and when saving it back to
+server.  For this purpose, the <code>Sheet.ParseSheetSave</code> method
+parses a save format string into a <code>Sheet</code> object, and the
+<code>Sheet.CreateSheetSave</code> method serializes a <code>Sheet</code> object
+back into the save format.</p>
+
+<p>Formulas may refer to values from any remote spreadsheet with a URL.
+The <code>recalc</code> command re-fetches the externally referenced
+spreadsheets, parses them again with <code>Sheet.ParseSheetSave</code>, and
+stores them in a cache so the user can refer to other cells in the
+same remote spreadsheets without re-fetching its content.</p>
+
+</div>
+
+<div class="sect">
+<h2>19.5. Save Format</h2>
+
+<p>The save format is in standard MIME <code>multipart/mixed</code> format,
+consisting of four <code>text/plain; charset=UTF-8</code> parts, each part
+containing newline-delimited text with colon-delimited data fields.
+The parts are:</p>
+
+<ul>
+
+  <li>The <code>meta</code> part lists the types of the other parts.</li>
+
+  <li>The <code>sheet</code> part lists each cell's format and content, each
+  column's width (if not default), the sheet's default format, followed
+  by a list of fonts, colors and borders used in the sheet.</li>
+
+  <li>The optional <code>edit</code> part saves the <code>TableEditor</code>'s
+  edit state, including ECell's last position, as well as the fixed sizes of
+  row/column panes.</li>
+
+  <li>The optional <code>audit</code> part contains the history of
+ commands executed in the previous editing session.</li>
+
+</ul>
+
+<p>For example, <a href="#fig.soc.save">Figure&nbsp;19.11</a> shows a spreadsheet with three
+cells, with <code>1874</code> in A1 as the ECell, the formula <code>2^2*43</code>
+in A2, and the formula <code>SUM(Foo)</code> in A3 rendered in bold,
+referring to the named range <code>Foo</code> over <code>A1:A2</code>.</p>
+
+<div class="figure" id="fig.soc.save">
+  <img src="../images/socialcalc/socialcalc-2046.png" alt="[A Spreadsheet with Three Cells]" />
+  <p>Figure&nbsp;19.11: A Spreadsheet with Three Cells</p>
+</div>
+
+<p>The serialized save format for the spreadsheet looks like this:</p>
+
+<pre>
+    socialcalc:version:1.0
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary=SocialCalcSpreadsheetControlSave
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    # SocialCalc Spreadsheet Control Save
+    version:1.0
+    part:sheet
+    part:edit
+    part:audit
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    version:1.5
+    cell:A1:v:1874
+    cell:A2:vtf:n:172:2^2*43
+    cell:A3:vtf:n:2046:SUM(Foo):f:1
+    sheet:c:1:r:3
+    font:1:normal bold * *
+    name:FOO::A1\cA2
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    version:1.0
+    rowpane:0:1:14
+    colpane:0:1:16
+    ecell:A1
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    set A1 value n 1874
+    set A2 formula 2^2*43
+    name define Foo A1:A2
+    set A3 formula SUM(Foo)
+    --SocialCalcSpreadsheetControlSave--
+</pre>
+
+<p class="continue">This format is designed to be human-readable, as well as being
+relatively easy to generate programmatically.  This makes it possible
+for Drupal's Sheetnode plugin to use PHP to convert
+between this format and other popular spreadsheet formats, such as
+Excel (<code>.xls</code>) and OpenDocument (<code>.ods</code>).</p>
+
+<p>Now that we have a good idea about how the pieces in SocialCalc fit
+together, let's look at two real-world examples of extending
+SocialCalc.</p>
+
+</div>
+
+<div class="sect">
+<h2>19.6. Rich-text Editing</h2>
+
+<p>The first example we'll look at is enhancing SocialCalc's text cells
+with wiki markup to display its rich-text rendering right in the
+table editor (<a href="#fig.soc.rt">Figure&nbsp;19.12</a>).</p>
+
+<div class="figure" id="fig.soc.rt">
+  <img src="../images/socialcalc/richtext-screenshot.png" alt="[Rich Text Rendering in the Table Editor]" />
+  <p>Figure&nbsp;19.12: Rich Text Rendering in the Table Editor</p>
+</div>
+
+<p>We added this feature to SocialCalc right after its 1.0 release, to
+address the popular request of inserting images, links and text
+markups using a unified syntax.  Since Socialtext already has an
+open-source wiki platform, it was natural to re-use the syntax for
+SocialCalc as well.</p>
+
+<p>To implement this, we need a custom renderer for the
+<code>textvalueformat</code> of <code>text-wiki</code>, and to change the default
+format for text cells to use it.</p>
+
+<p>What is this <code>textvalueformat</code>, you ask?  Read on.</p>
+
+<div class="subsect">
+<h3>19.6.1. Types and Formats</h3>
+
+<p>In SocialCalc, each cell has a <code>datatype</code> and a <code>valuetype</code>.
+Data cells with text or numbers correspond to text/numeric value
+types, and formula cells with <code>datatype="f"</code> may generate either
+numeric or text values.</p>
+
+<p>Recall that on the Render step, the <code>Sheet</code> object generates HTML
+from each of its cells.  It does so by inspecting each cell's
+<code>valuetype</code>: If it begins with t, then the cell's
+<code>textvalueformat</code> attribute determines how generation is done.
+If it begins with <code>n</code>, then the <code>nontextvalueformat</code> attribute is
+used instead.</p>
+
+<p>However, if the cell's <code>textvalueformat</code> or
+<code>nontextvalueformat</code> attribute is not defined explicitly, then a
+default format is looked up from its <code>valuetype</code>, as shown in
+<a href="#fig.soc.vformat">Figure&nbsp;19.13</a>.</p>
+
+<div class="figure" id="fig.soc.vformat">
+  <img src="../images/socialcalc/richtext-formats.png" alt="[Value Types]" />
+  <p>Figure&nbsp;19.13: Value Types</p>
+</div>
+
+<p class="continue">Support for the <code>text-wiki</code> value format is coded in
+<code>SocialCalc.format_text_for_display</code>:</p>
+
+<pre>
+if (SocialCalc.Callbacks.expand_wiki &amp;&amp; /^text-wiki/.test(valueformat)) {
+    // do general wiki markup
+    displayvalue = SocialCalc.Callbacks.expand_wiki(
+        displayvalue, sheetobj, linkstyle, valueformat
+    );
+}
+</pre>
+
+<p>Instead of inlining the wiki-to-HTML expander in
+<code>format_text_for_display</code>, we will define a new hook in
+<code>SocialCalc.Callbacks</code>.  This is the recommended style
+throughout the SocialCalc codebase; it improves modularity by making
+it possible to plug in different ways of expanding wikitext, as well
+as keeping compatibility with embedders that do not desire this
+feature.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.6.2. Rendering Wikitext</h3>
+
+<p>Next, we'll make use of
+Wikiwyg<sup class="footnote"><a href="#footnote-1">1</a></sup>, a
+Javascript library offering two-way conversions between wikitext and
+HTML.</p>
+
+<p>We define the <code>expand_wiki</code> function by taking the cell's text,
+running it through Wikiwyg's wikitext parser and its HTML emitter:</p>
+
+<pre>
+var parser = new Document.Parser.Wikitext();
+var emitter = new Document.Emitter.HTML();
+SocialCalc.Callbacks.expand_wiki = function(val) {
+    // Convert val from Wikitext to HTML
+    return parser.parse(val, emitter);
+}
+</pre>
+
+<p class="continue">The final step involves scheduling the <code>set sheet
+defaulttextvalueformat text-wiki</code> command right after the
+spreadsheet initializes:</p>
+
+<pre>
+// We assume there's a &lt;div id="tableeditor"/&gt; in the DOM already
+var spreadsheet = new SocialCalc.SpreadsheetControl();
+spreadsheet.InitializeSpreadsheetControl("tableeditor", 0, 0, 0);
+spreadsheet.ExecuteCommand('set sheet defaulttextvalueformat text-wiki');
+</pre>
+
+<p class="continue">Taken together, the Render step now works as shown in
+<a href="#fig.soc.render">Figure&nbsp;19.14</a>.</p>
+
+<div class="figure" id="fig.soc.render">
+  <img src="../images/socialcalc/richtext-flow.png" alt="[Render Step]" />
+  <p>Figure&nbsp;19.14: Render Step</p>
+</div>
+
+<p>That's all!  The enhanced SocialCalc now supports a rich set of wiki
+markup syntax:</p>
+
+<pre>
+*bold* _italic_ `monospace` {{unformatted}}
+&gt; indented text
+* unordered list
+# ordered list
+"Hyperlink with label"&lt;http://softwaregarden.com/&gt;
+{image: http://www.socialtext.com/images/logo.png}
+</pre>
+
+<p class="continue">Try entering <code>*bold* _italic_ `monospace`</code> in A1, and you'll
+see it rendered as rich text (<a href="#fig.soc.rtext">Figure&nbsp;19.15</a>).</p>
+
+<div class="figure" id="fig.soc.rtext">
+  <img src="../images/socialcalc/richtext-example.png" alt="[Wikywyg Example]" />
+  <p>Figure&nbsp;19.15: Wikywyg Example</p>
+</div>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>19.7. Real-time Collaboration</h2>
+
+<p>The next example we'll explore is multi-user, real-time editing on a
+shared spreadsheet.  This may seem complicated at first, but thanks to
+SocialCalc's modular design all it takes is for each on-line user to
+broadcast their commands to other participants.</p>
+
+<p>To distinguish between locally-issued commands and remote commands, we
+add an <code>isRemote</code> parameter to the <code>ScheduleSheetCommands</code>
+method:</p>
+
+<pre>
+SocialCalc.ScheduleSheetCommands = function(sheet, cmdstr, saveundo, isRemote) {
+   if (SocialCalc.Callbacks.broadcast &amp;&amp; !isRemote) {
+       SocialCalc.Callbacks.broadcast('execute', {
+           cmdstr: cmdstr, saveundo: saveundo
+       });
+   }
+   // &hellip;original ScheduleSheetCommands code here&hellip;
+}
+</pre>
+
+<p class="continue">Now all we need to do is to define a suitable
+<code>SocialCalc.Callbacks.broadcast</code> callback function.  Once it's
+in place, the same commands will be executed on all users connected
+to the same spreadsheet.</p>
+
+<p>When this feature was first implemented for OLPC (One Laptop Per
+Child<sup class="footnote"><a href="#footnote-2">2</a></sup>) by SEETA's Sugar
+Labs<sup class="footnote"><a href="#footnote-3">3</a></sup>
+in 2009, the <code>broadcast</code> function was built with XPCOM calls into
+D-Bus/Telepathy, the standard transport for OLPC/Sugar networks (see
+<a href="#fig.soc.olpc">Figure&nbsp;19.16</a>).</p>
+
+<div class="figure" id="fig.soc.olpc">
+  <img src="../images/socialcalc/collab-olpc.png" alt="[OLPC Implementation]" />
+  <p>Figure&nbsp;19.16: OLPC Implementation</p>
+</div>
+
+<p>That worked reasonably well, enabling XO instances in the same Sugar
+network to collaborate on a common SocialCalc spreadsheet.  However,
+it is both specific to the Mozilla/XPCOM browser platform, as well as
+to the D-Bus/Telepathy messaging platform.</p>
+
+<div class="subsect">
+<h3>19.7.1. Cross-browser Transport</h3>
+
+<p>To make this work across browsers and operating systems, we use the
+<code>Web::Hippie</code><sup class="footnote"><a href="#footnote-4">4</a></sup>
+framework, a high-level abstraction of JSON-over-WebSocket with
+convenient jQuery bindings, with MXHR (Multipart XML HTTP
+Request<sup class="footnote"><a href="#footnote-5">5</a></sup>)
+as the fallback transport mechanism if WebSocket is not available.</p>
+
+<p>For browsers with Adobe Flash plugin installed but without native
+WebSocket support, we use the
+<code>web_socket.js</code><sup class="footnote"><a href="#footnote-6">6</a></sup>
+project's Flash emulation of WebSocket, which is often faster and more reliable
+than MXHR.  The operation flow is shown in <a href="#fig.soc.collab">Figure&nbsp;19.17</a>.</p>
+
+<div class="figure" id="fig.soc.collab">
+  <img src="../images/socialcalc/collab-flow.png" alt="[Cross-Browser Flow]" />
+  <p>Figure&nbsp;19.17: Cross-Browser Flow</p>
+</div>
+
+<p>The client-side <code>SocialCalc.Callbacks.broadcast</code> function is
+defined as:</p>
+
+<pre>
+var hpipe = new Hippie.Pipe();
+
+SocialCalc.Callbacks.broadcast = function(type, data) {
+    hpipe.send({ type: type, data: data });
+};
+
+$(hpipe).bind("message.execute", function (e, d) {
+    var sheet = SocialCalc.CurrentSpreadsheetControlObject.context.sheetobj;
+    sheet.ScheduleSheetCommands(
+        d.data.cmdstr, d.data.saveundo, true // isRemote = true
+    );
+    break;
+});
+</pre>
+
+<p class="continue">Although this works quite well, there are still two remaining issues
+to resolve.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.7.2. Conflict Resolution</h3>
+
+<p>The first one is a race-condition in the order of commands executed:
+If users A and B simultaneously perform an operation affecting the
+same cells, then receive and execute commands broadcast from the other
+user, they will end up in different states, as shown in
+<a href="#fig.soc.conflict">Figure&nbsp;19.18</a>.</p>
+
+<div class="figure" id="fig.soc.conflict">
+  <img src="../images/socialcalc/collab-conflict.png" alt="[Race Condition Conflict]" />
+  <p>Figure&nbsp;19.18: Race Condition Conflict</p>
+</div>
+
+<p>We can resolve this with SocialCalc's built-in undo/redo mechanism, as
+shown in <a href="#fig.soc.resolve">Figure&nbsp;19.19</a>.</p>
+
+<div class="figure" id="fig.soc.resolve">
+  <img src="../images/socialcalc/collab-resolution.png" alt="[Race Condition Conflict Resolution]" />
+  <p>Figure&nbsp;19.19: Race Condition Conflict Resolution</p>
+</div>
+
+<p>The process used to resolve the conflict is as follows.  When a client
+broadcasts a command, it adds the command to a Pending queue.  When a client
+receives a command, it checks the remote command against the Pending queue.</p>
+
+<p>If the Pending queue is empty, then the command is simply executed as a remote
+action. If the remote command matches a command in the Pending queue, then the
+local command is removed from the queue.</p>
+
+<p>Otherwise, the client checks if there are any queued commands that conflict
+with the received command.  If there are conflicting commands, the client first
+<code>Undo</code>es those commands and marks them for later <code>Redo</code>.  After
+undoing the conflicting commands (if any), the remote command is executed as
+usual.</p>
+
+<p>When a marked-for-redo command is received from the server, the client will
+execute it again, then remove it from the queue.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.7.3. Remote Cursors</h3>
+
+<p>Even with race conditions resolved, it is still suboptimal to
+accidentally overwrite the cell another user is currently editing.  A
+simple improvement is for each client to broadcast its cursor position
+to other users, so everyone can see which cells are being worked on.</p>
+
+<p>To implement this idea, we add another <code>broadcast</code> handler to the
+<code>MoveECellCallback</code> event:</p>
+
+<pre>
+editor.MoveECellCallback.broadcast = function(e) {
+    hpipe.send({
+        type: 'ecell',
+        data: e.ecell.coord
+    });
+};
+
+$(hpipe).bind("message.ecell", function (e, d) {
+    var cr = SocialCalc.coordToCr(d.data);
+    var cell = SocialCalc.GetEditorCellElement(editor, cr.row, cr.col);
+    // &hellip;decorate cell with styles specific to the remote user(s) on it&hellip;
+});
+</pre>
+
+<p>To mark cell focus in spreadsheets, it's common to use colored
+borders.  However, a cell may already define its own <code>border</code>
+property, and since <code>border</code> is mono-colored, it can only
+represent one cursor on the same cell.</p>
+
+<p>Therefore, on browsers with support for CSS3, we use the <code>box-shadow</code>
+property to represent multiple peer cursors in the same cell:</p>
+
+<pre>
+/* Two cursors on the same cell */
+box-shadow: inset 0 0 0 4px red, inset 0 0 0 2px green;
+</pre>
+
+<a href="#fig.soc.borders">Figure&nbsp;19.20</a> shows how the screen would look with four
+people editing on the same spreadsheet.
+
+<div class="figure" id="fig.soc.borders">
+  <img src="../images/socialcalc/collab-borders.png" alt="[Four Users Editing One Spreadsheet]" />
+  <p>Figure&nbsp;19.20: Four Users Editing One Spreadsheet</p>
+</div>
+
+</div>
+
+</div>
+
+<div class="sect">
+<h2>19.8. Lessons Learned</h2>
+
+<p>We delivered SocialCalc 1.0 on October 19th, 2009, the 30th
+anniversary of the initial release of VisiCalc.  The experience of
+collaborating with my colleagues at Socialtext under Dan Bricklin's
+guidance was very valuable to me, and I'd like to share some lessons
+I learned during that time.</p>
+
+<div class="subsect">
+<h3>19.8.1. Chief Designer with a Clear Vision</h3>
+
+<p>In [<a href="bib1.html#bib:brooks:design">Bro10</a>],
+Fred Brooks argues that when building
+complex systems, the conversation is much more direct if we focus on a
+coherent <em>design concept</em>, rather than derivative
+representations. According to Brooks, the formulation of such a
+coherent design concept is best kept in a single person's mind:</p>
+
+<blockquote>
+
+  <p>Since conceptual integrity is the most important attribute of a
+  great design, and since that comes from one or a few minds working
+  <em>uno animo</em>, the wise manager boldly entrusts each design task to a
+  gifted chief designer.</p>
+
+</blockquote>
+
+<p>In the case of SocialCalc, having Tracy Ruggles as our chief
+user-experience designer was the key for the project to converge
+toward a shared vision.  Since the underlying SocialCalc engine was
+so malleable, the temptation of feature creep was very real. Tracy's
+ability to communicate using design sketches really helped us
+present features in a way that feels intuitive to users.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.8.2. Wikis for Project Continuity</h3>
+
+<p>Before I joined the SocialCalc project, there was already over two
+years' worth of ongoing design and development, but I was able to
+catch up and start contributing in less than a week, simply due to
+the fact that <em>everything is in the wiki</em>. From the earliest
+design notes to the most up-to-date browser support matrix, the
+entire process was chronicled in wiki pages and SocialCalc
+spreadsheets.</p>
+
+<p>Reading through the project's workspace brought me quickly to the same
+page as others, without the usual hand-holding overhead
+typically associated with orienting a new team member.</p>
+
+<p>This would not be possible in traditional open source projects, where
+most conversation takes place on IRC and mailing lists and the wiki
+(if present) is only used for documentations and links to development
+resources.  For a newcomer, it's much more difficult to reconstruct
+context from unstructured IRC logs and mail archives.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.8.3. Embrace Time Zone Differences</h3>
+
+<p>David Heinemeier Hansson, creator of Ruby on Rails, once remarked on
+the benefit of distributed teams when he first joined 37signals. "The
+seven time zones between Copenhagen and Chicago actually meant that
+we got a lot done with few interruptions." With nine time zones
+between Taipei and Palo Alto, that was true for us during
+SocialCalc's development as well.</p>
+
+<p>We often completed an entire Design-Development-QA feedback cycle
+within a 24-hour day, with each aspect taking one person's 8-hour
+work day in their local daytime.  This asynchronous style of
+collaboration compelled us to produce self-descriptive artifacts
+(design sketch, code and tests), which in turn greatly improved our
+trust in each other.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.8.4. Optimize for Fun</h3>
+
+<p>In my 2006 keynote for the CONISLI conference
+[<a href="bib1.html#bib:tang:fun">Tan06</a>],
+I summarized my experience leading a distributed team implementing the
+Perl 6 language into a few observations.  Among them, <em>Always
+ have a Roadmap</em>, <em>Forgiveness &gt; Permission</em>,
+<em>Remove deadlocks</em>, <em>Seek ideas, not consensus</em>, and
+<em>Sketch ideas with code</em> are particularly relevant for small
+distributed teams.</p>
+
+<p>When developing SocialCalc, we took great care in distributing
+knowledge among team members with collaborative code ownership, so
+nobody would become a critical bottleneck.</p>
+
+<p>Furthermore, we pre-emptively resolved disputes by actually coding up
+alternatives to explore the design space, and were not afraid of
+replacing fully-working prototypes when a better design arrived.</p>
+
+<p>These cultural traits helped us foster a sense of anticipation and
+camaraderie despite the absence of face-to-face interaction, kept
+politics to a minimum, and made working on SocialCalc a lot of fun.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.8.5. Drive Development with Story Tests</h3>
+
+<p>Prior to joining Socialtext, I've advocated the "interleave tests
+with the specification" approach, as can be seen in the Perl 6
+specification<sup class="footnote"><a href="#footnote-7">7</a></sup>, where
+we annotate the language specification with the official test suite.
+However, it was Ken Pier and Matt Heusser, the QA team for SocialCalc,
+who really opened my eyes to how this can be taken to the next level,
+bringing tests to the place of <em>executable specification</em>.</p>
+
+<p>In Chapter 16 of [<a href="bib1.html#bib:goucher:test">GR09</a>],
+Matt explained our story-test driven development process as follows:</p>
+
+<blockquote>
+
+  <p>The basic unit of work is a "story," which is an extremely
+  lightweight requirements document. A story contains a brief
+  description of a feature along with examples of what needs to happen
+  to consider the story completed; we call these examples "acceptance
+  tests" and describe them in plain English.</p>
+
+  <p>During the initial cut of the story, the product owner makes a
+  good-faith first attempt to create acceptance tests, which are
+  augmented by developers and testers before any developer writes
+  a line of code.</p>
+
+</blockquote>
+
+<p>These story tests are then translated into wikitests, a table-based
+specification language inspired by Ward Cunningham's FIT
+framework<sup class="footnote"><a href="#footnote-8">8</a></sup>, which drives automated
+testing frameworks such as
+<code>Test::WWW::Mechanize</code><sup class="footnote"><a href="#footnote-9">9</a></sup>
+and
+<code>Test::WWW::Selenium</code><sup class="footnote"><a href="#footnote-10">10</a></sup>.</p>
+
+<p>It's hard to overstate the benefit of having story tests as a common
+language to express and validate requirements. It was instrumental in
+reducing misunderstanding, and has all but eliminated regressions from
+our monthly releases.</p>
+
+</div>
+
+<div class="subsect">
+<h3>19.8.6. Open Source With CPAL</h3>
+
+<p>Last but not least, the open source model we chose for SocialCalc
+makes an interesting lesson in itself.</p>
+
+<p>Socialtext created the Common Public Attribution
+License<sup class="footnote"><a href="#footnote-11">11</a></sup> for
+SocialCalc.  Based on the Mozilla Public License, CPAL is designed to
+allow the original author to require an attribution to be displayed
+on the software's user interface, and has a network-use clause that
+triggers share-alike provisions when derived work is hosted by a
+service over the network.</p>
+
+<p>After its approval by both the Open Source
+Initiative<sup class="footnote"><a href="#footnote-12">12</a></sup> and the Free
+Software Foundation<sup class="footnote"><a href="#footnote-13">13</a></sup>, we've seen prominent
+sites such as Facebook<sup class="footnote"><a href="#footnote-14">14</a></sup>
+and Reddit<sup class="footnote"><a href="#footnote-15">15</a></sup> opting to release
+their platform's source code under the CPAL, which is very
+encouraging.</p>
+
+<p>Because CPAL is a "weak copyleft" license, developers can freely
+combine it with either free or proprietary software, and only need to
+release modifications to SocialCalc itself.  This enabled various
+communities to adopt SocialCalc and made it more awesome.</p>
+
+<p>There are many interesting possibilities with this open-source
+spreadsheet engine, and if you can find a way to embed SocialCalc
+into your favorite project, we'd definitely love to hear about it.</p>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="footnotes">
+<h2>Footnotes</h2>
+<ol>
+<li id="footnote-1"><code class="url">https://github.com/audreyt/wikiwyg-js</code></li>
+<li id="footnote-2"><code class="url">http://one.laptop.org/</code></li>
+<li id="footnote-3"><code class="url">http://seeta.in/wiki/index.php?title=Collaboration_in_SocialCalc</code></li>
+<li id="footnote-4"><code class="url">http://search.cpan.org/dist/Web-Hippie/</code></li>
+<li id="footnote-5"><code class="url">http://about.digg.com/blog/duistream-and-mxhr</code></li>
+<li id="footnote-6"><code class="url">https://github.com/gimite/web-socket-js</code></li>
+<li id="footnote-7"><code class="url">http://perlcabal.org/syn/S02.html</code></li>
+<li id="footnote-8"><code class="url">http://fit.c2.com/</code></li>
+<li id="footnote-9"><code class="url">http://search.cpan.org/dist/Test-WWW-Mechanize/</code></li>
+<li id="footnote-10"><code class="url">http://search.cpan.org/dist/Test-WWW-Selenium/</code></li>
+<li id="footnote-11"><code class="url">https://www.socialtext.net/open/?cpal</code></li>
+<li id="footnote-12"><code class="url">http://opensource.org/</code></li>
+<li id="footnote-13"><code class="url">http://www.fsf.org</code></li>
+<li id="footnote-14"><code class="url">https://github.com/facebook/platform</code></li>
+<li id="footnote-15"><code class="url">https://github.com/reddit/reddit</code></li>
+</ol>
+</div>
+
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

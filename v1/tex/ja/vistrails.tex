@@ -1,0 +1,1866 @@
+\begin{aosachaptertoc}{VisTrails}{s:vistrails}{Juliana Freire, David Koop, Emanuele Santos, \\ Carlos Scheidegger, Claudio Silva, and Huy T.\ Vo}{Juliana Freire, David Koop, Emanuele Santos, \\ \hspace*{0.9cm} Carlos Scheidegger, Claudio Silva, and Huy T.\ Vo}
+%% Based on EN-Revision r272
+
+%% VisTrails\footnote{\url{http://www.vistrails.org}} is an open-source
+%% system that supports data exploration and visualization.  It includes
+%% and substantially extends useful features of scientific workflow and
+%% visualization systems.  Like scientific workflow systems such as
+%% Kepler and Taverna, VisTrails allows the specification of
+%% computational processes which integrate existing applications,
+%% loosely-coupled resources, and libraries according to a set of
+%% rules. Like visualization systems such as AVS and ParaView, VisTrails makes
+%% advanced scientific and information visualization techniques available
+%% to users, allowing them to explore and compare different visual
+%% representations of their data.  As a result, users can create complex
+%% workflows that encompass important steps of scientific discovery, from
+%% data gathering and manipulation to complex analyses and
+%% visualizations, all integrated in one system.
+VisTrails\footnote{\url{http://www.vistrails.org}}は、データの調査や可視化をサポートする
+オープンソースのシステムである。科学ワークフローシステムやビジュアライゼーションシステムの便利な機能を
+含んでおり、今も成長を続けている。KeplerやTavernaといった科学ワークフローシステムと同様、
+VisTrailsでも計算プロセスの指定ができ、既存のアプリケーションや
+疎結合のリソースそしてライブラリなどをルールに沿って統合できる。
+AVSやParaViewなどのビジュアライゼーションシステムのように、
+VisTrailsでも科学的な情報の可視化ができるようになっている。
+それを使ってデータを調べたり、さまざまな可視化表現でデータを比較したりできる。
+結果としてユーザーは複雑なワークフローを作れるようになる。これは科学的な発見のための重要なステップだ。
+データの収集から複雑な解析や可視化まで、すべてが一つのシステムに統合されているのだ。
+
+%% A distinguishing feature of VisTrails is its provenance
+%% infrastructure~\cite{bib:freire:vistrails}.  VisTrails captures and maintains a detailed history 
+%% of the steps followed and data derived in the course of an exploratory
+%% task.  Workflows have traditionally been used to automate repetitive
+%% tasks, but in applications that are exploratory in nature, such as
+%% data analysis and visualization, very little is repeated---change is
+%% the norm. As a user generates and evaluates hypotheses about their
+%% data, a series of different, but related, workflows are created as
+%% they are adjusted iteratively.
+VisTrailsの特徴は、その履歴管理基盤だ~\cite{bib:freire:vistrails}。
+VisTrailsは、調査作業中に発生したデータや作業手順を記録して
+その履歴を管理する。繰り返すタスクを自動化するときに従来使われてきたのは
+ワークフローだが、自然界の調査用のアプリケーション（データ解析や可視化など）
+では繰り返しはほとんど発生しない。変化するのが普通だ。
+ユーザーは、データに基づいた仮設をたててそれを検証する。
+それぞれ異なるけれども関連している一連のワークフローを作り、
+繰り返しながら調整していく。
+
+%% VisTrails was designed to manage these rapidly-evolving workflows: it
+%% maintains provenance of data products (e.g., visualizations, plots),
+%% of the workflows that derive these products, and their executions.
+%% The system also provides annotation capabilities so users can enrich
+%% the automatically-captured provenance.
+VisTrailsは、こういった常に成長し続けるワークフローを管理するために作られた。
+生成したデータ（可視化やプロットなど）、そこから派生するワークフロー、
+そしてその実行などの履歴を管理する。
+またアノテーション機能も提供しており、自動的にキャプチャした履歴を飾ることもできる。
+
+%% Besides enabling reproducible results, VisTrails leverages provenance
+%% information through a series of operations and intuitive user
+%% interfaces that help users to collaboratively analyze data.  Notably,
+%% the system supports reflective reasoning by storing temporary results,
+%% allowing users to examine the actions that led to a result and to
+%% follow chains of reasoning backward and forward.  Users can navigate
+%% workflow versions in an intuitive way, undo changes without losing
+%% results, visually compare multiple workflows and show their results
+%% side-by-side in a visualization spreadsheet.
+結果を再生できるようにするだけでなく、
+VisTrailsはその履歴情報を一連の操作として活用する。
+直感的なユーザーインターフェイスを使って、共同でデータを解析できるのだ。
+特筆すべきなのは、このシステムでは一時的な結果を保存しており、
+それを反映した推論にも対応しているという点だ。
+これを利用すると、何かの結果に至った操作を吟味して前の推論や次の推論につなげられる。
+ユーザーはワークフローの各バージョンを直感的に移動でき、変更を取り消しても一切結果を失わずに済む。
+また、複数のワークフローをビジュアルに比較して、その結果をビジュアライゼーションスプレッドシートに並べて表示できる。
+
+%% VisTrails addresses important usability issues that have hampered a
+%% wider adoption of workflow and visualization systems.  To cater to a
+%% broader set of users, including many who do not have programming
+%% expertise, it provides a series of operations and user interfaces that
+%% simplify workflow design and use~\cite{bib:freire:vistrails}, including the ability to create and
+%% refine workflows by analogy, to query workflows by example, and to
+%% suggest workflow completions as users interactively construct their
+%% workflows using a recommendation
+%% system~\cite{bib:scheidegger:analogy}. We have also developed a new
+%% framework that allows the creation of custom applications that can be
+%% more easily deployed to (non-expert) end users.
+VisTrailsは、ワークフローシステムやビジュアライゼーションシステムを広く取り入れるときの障害になる
+重大な使い勝手問題にも対応している。プログラミングの専門知識がない人も含めた幅広いユーザー層に対応するため、
+ワークフローの設計や利用を簡単にする一連の操作やユーザーインターフェイスを用意したのだ\cite{bib:freire:vistrails}。
+ワークフローの作成や修正にアナロジーを使えるようにしたり、実例でワークフローを問い合わせられるようにしたり、
+リコメンデーションシステムで対話的にワークフローを作っていけるようにしたりといったものだ\cite{bib:scheidegger:analogy}。
+また、新たなフレームワークも作った。これを使えば、プログラミングに詳しくないエンドユーザーでも
+カスタムアプリケーションを作って配布できるようになる。
+
+%% The extensibility of VisTrails comes from an infrastructure that makes
+%% it simple for users to integrate tools and libraries, as well as to
+%% quickly prototype new functions. This has been instrumental in
+%% enabling the use of the system in a wide range of application areas,
+%% including environmental sciences, psychiatry, astronomy, cosmology,
+%% high-energy physics, quantum physics, and molecular modeling.
+VisTrailsの拡張性の元になっているのはその基盤で、ユーザーにとってシンプルになるように作られている。
+ツールやライブラリを組み込んだり、お手軽に新機能のプロトタイプを作ったりできるようになっている。
+これは、このシステムをさまざまな分野に適用するのに役立っており、
+環境科学や精神医学、天文学、宇宙論、高エネルギー物理学、量子物理学、分子モデリングなどで使われ散る。
+
+%% To keep the system open-source and free for all, we have built
+%% VisTrails using only free, open-source packages. VisTrails is written
+%% in Python and uses Qt as its GUI toolkit (through PyQt Python
+%% bindings).  Because of the broad range of users and applications, we
+%% have designed the system from the ground up with portability in
+%% mind. VisTrails runs on Windows, Mac and Linux.
+システムをオープンソースで自由に使えるようにするため、私たちはVisTrails
+を作るときに、自由なオープンソースのパッケージだけを使うようにした。
+VisTrailsはPythonで書かれており、GUIツールキットにはQtを(そのPythonバインディングであるPyQtと通して)使っている。
+さまざまなユーザーがいるしさまざまなアプリケーションがあるので、
+システムを設計するときにはポータビリティを重視した。
+VisTrailsはWindowsでもMacでもLinuxでも動く。
+
+%% \aosafigure{../images/vistrails/overview.eps}{Components of the VisTrails User Interface}{fig.vistrails.overview}
+\aosafigure{../images/vistrails/overview.eps}{VisTrailsのユーザーインターフェイスのコンポーネント}{fig.vistrails.overview}
+
+%% \begin{aosasect1}{System Overview}
+\begin{aosasect1}{システムの概要}
+
+%% Data exploration is an inherently creative process that requires users
+%% to locate relevant data, to integrate and visualize this data, to
+%% collaborate with peers while exploring different solutions, and to
+%% disseminate results.  Given the size of data and complexity of
+%% analyses that are common in scientific exploration, tools are needed
+%% that better support creativity.
+データの調査は本質的にクリエイティブな作業であり、いろんなことをしなければならない。
+関連するデータを特定したり、そのデータを組み合わせて可視化したり、
+別の解法を追求する仲間と共同作業をしたり、自分の成果を広めたりといったことだ。
+科学調査の世界での一般的なデータ量や分析の複雑性を考慮すると、
+そのクリエイティビティをサポートするためには何らかのツールが必要となる。
+
+%% There are two basic requirements for these tools that go hand in
+%% hand. First, it is important to be able to specify the exploration
+%% processes using formal descriptions, which ideally, are
+%% executable. Second, to reproduce the results of these
+%% processes as well as reason about the different steps followed to
+%% solve a problem, these tools must have the ability to systematically
+%% capture provenance. VisTrails was designed with these requirements in
+%% mind.
+こういったツールがうまく協調できるようにするためには次の二つの基本要件を満たさないといけない。
+まず、調査の手順をフォーマルな形式で指定できること。それが実行可能ならさらに望ましい。
+次に、その調査手順をそのまま再生したり、すこし変更して実行したりできること。
+作業の履歴を体系的に記録するための仕組みが必要だ。
+VisTrailsは、こういった要件を念頭に置いて作られた。
+
+%% \begin{aosasect2}{Workflows and Workflow-Based Systems}
+\begin{aosasect2}{ワークフローおよびワークフローベースのシステム}
+
+%% Workflow systems support the creation of pipelines (workflows) that
+%% combine multiple tools. As such, they enable the automation of
+%% repetitive tasks and result reproducibility. Workflows are rapidly
+%% replacing primitive shell scripts in a wide range of tasks, as
+%% evidenced by a number of workflow-based applications, both commercial
+%% (e.g., Apple's Mac OS X Automator and Yahoo!  Pipes) and academic
+%% (e.g., NiPype, Kepler, and Taverna).
+ワークフローシステムがサポートするのは、複数のツールを組み合わせたパイプライン(ワークフロー)づくりだ。
+繰り返し作業を自動化したり、作業を再生できるようにしたりする。
+さまざまなタスクに関するワークフローはすぐにプリミティブなシェルスクリプトに置き換えることができ、
+さまざまなワークフローベースのアプリケーションで確かめることができる。
+商用ツール(AppleのMac OS X AutomatorやYahoo! Pipesなど)でも学術ツール(NiPypeやKeplerそしてTavernaなど)
+でもかまわない。
+
+%% Workflows have a number of advantages compared to scripts and programs
+%% written in high-level languages. They provide a simple programming
+%% model whereby a sequence of tasks is composed by connecting the
+%% outputs of one task to the inputs of another.
+%% \aosafigref{fig.vistrails.overview} shows a workflow which reads a CSV
+%% file that contains weather observations and creates a scatter plot of
+%% the values.
+ワークフローにはさまざまな利点があり、スクリプトや高級言語でのプログラムよりも優れている。
+シンプルなプログラミングモデルが用意されており、一連のタスクを作るのは
+単にあるタスクの出力と別のタスクの入力をつなぐだけのことだ。
+\aosafigref{fig.vistrails.overview}は、気象情報を含むCSVファイルを読み込んで
+散布図を作るワークフローの例だ。
+
+%% This simpler programming model allows workflow systems to provide
+%% intuitive visual programming interfaces, which make them more
+%% \emph{suitable for users who do not have substantial programming
+%%   expertise}.  Workflows also have an \emph{explicit structure}: they
+%% can be viewed as graphs, where nodes represent processes (or modules)
+%% along with their parameters and edges capture the flow of data between
+%% the processes. In the example of \aosafigref{fig.vistrails.overview},
+%% the module \code{CSVReader} takes as a parameter a filename
+%% (\code{/weather/temp\_precip.dat}), reads the file, and feeds its
+%% contents into the modules \code{GetTemperature} and
+%% \code{GetPrecipitation}, which in turn send the temperature and
+%% precipitation values to a matplotlib function that generates a scatter
+%% plot.
+このシンプルなプログラミングモデルのおかげで直感的なビジュアルプログラミングインターフェイスを提供でき、
+\emph{プログラミングの経験が浅いユーザーにもより使いやすい}ものとなった。
+また、ワークフローは\emph{明確な構造}を持っている。
+グラフとして表すことができ、このとき各ノードはプロセス(あるいはモジュール)とそのパラメータを表す。
+またエッジはプロセス間のデータの流れを捕らえたものとなる。
+\aosafigref{fig.vistrails.overview}の例で考えると、\code{CSVReader}モジュールが
+ファイル名(\code{/weather/temp\_precip.dat})をパラメータとして受け取ってそのファイルを読み、
+ファイルの中身を\code{GetTemperature}モジュールと\code{GetPrecipitation}
+モジュールに渡すことになる。これらがそれぞれ気温と降水量の値をmatplotlibの関数に送って、
+散布図を生成する。
+
+%% Most workflow systems are designed for a specific application
+%% area. For example, Taverna targets bioinformatics workflows, and
+%% NiPype allows the creation of neuroimaging workflows.  While VisTrails
+%% supports much of the functionality provided by other workflow systems,
+%% it was designed to support general exploratory tasks in a broad range
+%% of areas, integrating multiple tools, libraries, and services.
+ほとんどのワークフローシステムは、特定の領域に特化した作りになっている。
+たとえばTavernaのターゲットはバイオインフォマティクスのワークフローだし、
+NiPypeは神経画像のワークフローを作れるようになっている。
+VisTrailsは他のワークフローシステムが持つ機能の多くに対応しているが、
+より幅広い分野の汎用的な調査タスクに対応するよう作られている。
+複数のツールやライブラリ、サービスの統合にも対応している。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Data and Workflow Provenance}
+\begin{aosasect2}{データおよびワークフローの履歴}
+
+%% The importance of keeping provenance information for results (and data
+%% products) is well recognized in the scientific community.  The
+%% provenance (also referred to as the audit trail, lineage, and
+%% pedigree) of a data product contains information about the process and
+%% data used to derive the data product. Provenance provides important
+%% documentation that is key to preserving the data, to determining the
+%% data's quality and authorship, and to reproducing as well as
+%% validating the results~\cite{bib:freire:provenance}.
+結果(や生成データ)の履歴情報を保持しておくことの重要性は、自然科学の世界ではよく知られている。
+生成データの履歴(あるいは監査証跡や系統、血統などとも呼ばれる)には、
+プロセスに関する情報やデータを生成するために利用したデータなどの情報が含まれる。
+履歴に含まれる情報は、データを永続化させたりその品質や所有者を調べたり、
+結果を再現して検証したりするための重要な鍵となる\cite{bib:freire:provenance}。
+
+%% An important component of provenance is information about
+%% \emph{causality}, i.e., a description of a process (sequence of steps)
+%% which, together with input data and parameters, caused the creation of
+%% a data product. Thus, the structure of provenance mirrors the
+%% structure of the workflow (or set of workflows) used to derive a given
+%% result set.
+履歴の中で重要となる情報の一つが、\emph{因果関係}だ。
+これは、プロセス(一連の手順)に関する説明と入力データおよびパラメータをまとめたものであり、
+生成データを作るもとになったものだ。
+従って、履歴の構造は、指定した結果セットを作るもとになったワークフロー(あるいはワークフロー群)の構造を反映したものとなる。
+
+%% In fact, a catalyst for the widespread use of workflow systems in
+%% science has been that they can be easily used to automatically capture
+%% provenance.  While early workflow systems have been \emph{extended} to
+%% capture provenance, VisTrails was \emph{designed} to support
+%% provenance.
+実際、自然科学の分野でワークフローシステムが幅広く使われるようになったきっかけは、
+履歴情報の取得を簡単に自動化できることだった。初期のワークフローシステムは、
+履歴情報を取り込むように\emph{拡張して}使っていた。
+一方VisTrailsは、\emph{はじめから}履歴の取得に対応するように作られている。
+
+%% \aosafigure{../images/vistrails/overview-tree.eps}{Provenance of Exploration Enhanced by Annotations}{fig.vistrails.tree}
+\aosafigure{../images/vistrails/overview-tree.eps}{探索の履歴のアノテーションによる拡張}{fig.vistrails.tree}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{User Interface and Basic Functionality}
+\begin{aosasect2}{ユーザーインターフェイスおよび基本機能}
+
+%% The different user interface components of the system are illustrated
+%% in \aosafigref{fig.vistrails.overview} and
+%% \aosafigref{fig.vistrails.tree}. Users create and edit workflows using
+%% the Workflow Editor.
+%% %
+%% To build the workflow graphs, users can drag modules from the Module
+%% Registry and drop them into the Workflow Editor canvas. VisTrails
+%% provides a series of built-in modules, and users can also add their
+%% own (see \aosasecref{sec.vistrails.packages} for details). When a
+%% module is selected, VisTrails displays its parameters (in the
+%% Parameter Edits area) where the user can set and modify their values.
+システムで使われているさまざまなユーザーインターフェイスコンポーネントを
+\aosafigref{fig.vistrails.overview}と\aosafigref{fig.vistrails.tree}にまとめた。
+ユーザーは、ワークフローを作ったり編集したりするときにワークフローエディタを使う。
+ワークフローグラフを作るには、モジュールレジストリからモジュールをドラッグして、
+それをワークフローエディタのキャンバスにドロップする。
+VisTrailsには組み込みのモジュールが用意されており、
+それ以外にユーザーが自分でモジュールを追加することもできる
+(詳細は\aosasecref{sec.vistrails.packages}を参照)。
+モジュールを選ぶと、VisTrailsはそのパラメータをパラメータ編集領域に表示する。
+ユーザーは、その値を設定したり変更したりできる。
+
+%% As a workflow specification is refined, the system captures the
+%% changes and presents them to the user in the Version Tree View
+%% described below.  Users may interact with the workflows and their
+%% results in the VisTrails Spreadsheet.  Each cell in the spreadsheet
+%% represents a view that corresponds to a workflow instance.  In
+%% \aosafigref{fig.vistrails.overview}, the results of the workflow shown
+%% in the Workflow Editor are displayed on the top-left cell of the
+%% spreadsheet.  Users can directly modify the parameters of a workflow
+%% as well as synchronize parameters across different cells in the
+%% spreadsheet.
+ワークフローを修正すると、システムがその変更を捕捉して、後述するバージョンツリービューで確認できるようになる。
+また、Vistrails Spreadsheetを使えば、ワークフローやその結果を対話的に操作することもできる。
+スプレッドシートの各セルが、ワークフローのインスタンスを表す。
+\aosafigref{fig.vistrails.overview}では、ワークフローエディタの例で示したワークフローが
+スプレッドシートの左上のセルに表示されている。ワークフローのパラメータを直接変更することもできるし、
+そのパラメータをスプレッドシート内の別のセルと同期させることもできる。
+
+%% The Version Tree View helps users to navigate through the different
+%% workflow versions. As shown in \aosafigref{fig.vistrails.tree}, by
+%% clicking on a node in the version tree, users can view a workflow, its
+%% associated result (Visualization Preview), and metadata. Some of the
+%% metadata is automatically captured, e.g., the id of the user who
+%% created a particular workflow and the creation date, but users may
+%% also provide additional metadata, including a tag to identify the
+%% workflow and a written description.
+バージョンツリービューを使えば、一つのワークフローのさまざまなバージョンを渡り歩ける。
+\aosafigref{fig.vistrails.tree}に示すように、バージョンツリーのノードをクリックすれば、
+ワークフローやそれに関連する結果(ビジュアライゼーションプレビュー)およびメタデータを確認できる。
+メタデータの中には自動的に記録されるものもある(ワークフローを作ったユーザーのidや作成日など)が、
+自分でメタデータを追加することもできる。たとえば、ワークフローを識別するためのタグやワークフローについての説明などを追加できる。
+
+%% \aosafigureTop[400pt]{../images/vistrails/system-interaction.eps}{VisTrails Architecture}{fig.vistrails.arch}
+\aosafigureTop[400pt]{../images/vistrails/system-interaction.eps}{VisTrailsのアーキテクチャ}{fig.vistrails.arch}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Project History}
+\begin{aosasect1}{プロジェクトの歴史}
+
+%% Initial versions of versions of VisTrails were written in Java and
+%% C++~\cite{bib:bavoil:vistrails}.  The C++ version was distributed to a few early adopters, whose 
+%% feedback was instrumental in shaping our requirements for the system.
+VisTrailsの最初のバージョンは、JavaとC++で書かれていた\cite{bib:bavoil:vistrails}。
+C++版はごく一部のアーリーアダプターに向けて公開したのだが、
+システムの要件を固めるうえで、そのフィードバックはとても有用だった。
+
+%% Having observed a trend in the increase of the number of Python-based
+%% libraries and tools in multiple scientific communities, we opted to
+%% use Python as the basis for VisTrails. Python is quickly becoming a
+%% universal modern glue language for scientific software. Many libraries
+%% written in different languages such as Fortran, C, and C++ use Python
+%% bindings as a way to provide scripting capabilities. Since VisTrails
+%% aims to facilitate the orchestration of many different software
+%% libraries in workflows, a pure Python implementation makes this much
+%% easier. In particular, Python has dynamic code loading features
+%% similar to the ones seen in LISP environments, while having a much
+%% bigger developer community, and an extremely rich standard
+%% library. Late in 2005, we started the development of the current
+%% system using Python/PyQt/Qt. This choice has greatly simplified
+%% extensions to the system, in particular, the addition of new modules
+%% and packages.
+Pythonベースのライブラリやツールがさまざまな科学技術コミュニティで使われるようになってきたので、
+VisTraisの基盤もその後Pythonに移行することにした。Pythonは、科学技術ソフトウェアでの
+モダンなグルー言語としての地位を急速に固めていった。
+FortranやC、C++などで書かれたさまざまなライブラリが、Pythonバインディングを使って
+スクリプト機能を提供するようになったのだ。VisTrailsの狙いは
+ワークフローで使うさまざまなソフトウェアライブラリの協調を促進することだったので、
+Pythonで実装してしまったほうが作業がずっと楽になった。
+特に役立ったのが、Pythonの動的コードローディング機能だ。これはかつてLISP環境にあったのと同じものだが、
+Pythonの開発者コミュニティのほうがずっと規模が大きいし、Pythonは標準ライブラリが非常に充実している。
+2005年後半に、Python/PyQt/Qtを使った現在の版の開発が始まった。
+この選択のおかげで、システムの拡張がとてもシンプルにできるようになった。
+特に、新たなモジュールやパッケージを追加するのがシンプルになった。
+
+%% A beta version of the VisTrails system was first released in January
+%% 2007. Since then, the system has been downloaded over twenty-five
+%% thousand times.
+VisTrailsシステムのベータ版が最初に公開されたのは2007年1月だ。
+その後、かれこれ25,000回以上はダウンロードされている。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Inside VisTrails}
+\begin{aosasect1}{インサイドVisTrails}
+
+%% The internal components that support the user-interface functionality
+%% described above are depicted in the high-level architecture of
+%% VisTrails, shown in \aosafigref{fig.vistrails.arch}.  Workflow
+%% execution is controlled by the Execution Engine, which keeps track of
+%% invoked operations and their respective parameters and captures the
+%% provenance of workflow execution (Execution Provenance). As part of
+%% the execution, VisTrails also allows the caching of intermediate
+%% results both in memory and on disk. As we discuss in
+%% \aosasecref{sec.vistrails.exec-cache}, only new combinations of
+%% modules and parameters are re-run, and these are executed by invoking
+%% the appropriate functions from the underlying libraries (e.g.,
+%% matplotlib).  Workflow results, connected to their provenance, can
+%% then be included in electronic documents
+%% (\aosasecref{sec.vistrails.publish}).
+ここまでで取り上げてユーザーインターフェイスの機能をサポートする内部コンポーネントは、
+VisTrailsの上位アーキテクチャ内で\aosafigref{fig.vistrails.arch}のような構成になっている。
+Workflowの実行を制御するのが実行エンジンで、実行された操作やそのパラメータを追跡したり
+ワークフローの実行履歴を記録したりする。実行中に、VisTrailsでは
+中間結果をメモリやディスクにキャッシュすることもできる。
+\aosasecref{sec.vistrails.exec-cache}で説明するように、
+モジュールとパラメータの組み合わせがこれまでとは異なる場合にだけ再実行をする。
+このときの実行は、ベースになるライブラリ(matplotlibなど)の適切な関数を起動する。
+ワークフローの結果、およびそれに関連づけられた履歴は、電子文書にもできる(\aosasecref{sec.vistrails.publish})。
+
+%% Information about changes to workflows is captured in a Version Tree,
+%% which can be persisted using different storage back ends, including an
+%% XML file store in a local directory and a relational database.
+%% VisTrails also provides a query engine that allows users to explore
+%% the provenance information.
+ワークフローへの変更に関する情報を捕捉するのはバージョンツリーで、
+これはさまざまなストレージバックエンドを使って永続化できる。
+ローカルディレクトリのXMLファイルに保存してもかまわないし、
+リレーショナルデータベースを使ってもかまわない。
+VisTrailsにはクエリエンジンも搭載されており、
+ユーザーが履歴情報を問い合わせることもできる。
+
+%% We note that, although VisTrails was designed as an interactive tool,
+%% it can also be used in server mode.  Once workflows are created, they
+%% can be executed by a VisTrails server. This feature is useful in a
+%% number of scenarios, including the creation of Web-based interfaces
+%% that allows users to interact with workflows and the ability to run
+%% workflows in high-performance computing environments.
+特筆すべきことがある。
+VisTrailsはもともと対話的に操作するツールとして作られたものだが、サーバーモードでも使えるということだ。
+ワークフローをいったん作ったら、それをVisTrailsサーバーで実行できる。
+この機能は、さまざまな場面で便利に使える。たとえばWebベースのインターフェイスを作って
+ユーザーにワークフローを操作させることもできるし、
+ワークフローをハイパフォーマンスコンピューティング環境で実行することもできる。
+
+%% \begin{aosasect2}{The Version Tree: Change-Based Provenance}
+\begin{aosasect2}{バージョンツリー: 変更ベースの履歴}
+
+%% \aosafigure{../images/vistrails/change-based-prov.eps}{Change-Based Provenance Model}{fig.vistrails.changeprov}
+\aosafigure{../images/vistrails/change-based-prov.eps}{変更ベースの履歴モデル}{fig.vistrails.changeprov}
+
+%% A new concept we introduced with VisTrails is the notion of provenance
+%% of workflow evolution~\cite{bib:freire:vistrails}. In contrast to previous workflow and 
+%% workflow-based visualization systems, which maintain provenance only
+%% for derived data products, VisTrails treats the workflows as
+%% first-class data items and also captures their provenance. The
+%% availability of workflow-evolution provenance supports reflective
+%% reasoning. Users can explore multiple chains of reasoning without
+%% losing any results, and because the system stores intermediate
+%% results, users can reason about and make inferences from this
+%% information.  It also enables a series of operations which simplify
+%% exploratory processes. For example, users can easily navigate through
+%% the space of workflows created for a given task, visually compare the
+%% workflows and their results (see
+%% \aosafigref{fig.vistrails.changeprov}), and explore (large) parameter
+%% spaces. In addition, users can query the provenance information and
+%% learn by example.
+VisTrailsで導入した新たな概念の一つが、ワークフローの変化の履歴だ\cite{bib:freire:vistrails}。
+これまでのワークフローシステムやワークフローベースの可視化システムはどれも、
+生成されたデータの履歴しか管理できなかった。
+VisTrailsはワークフローをファーストクラスのデータ項目として扱い、その履歴を保持する。
+ワークフローの変化の履歴を管理できるようになったことで、内省的な推論をしやすくなった。
+ユーザーは複数の推論を同時に進めることができ、その際に一切結果を失うこともない。
+また、中間の結果もシステムが保持しているので、その情報を使った推定もできる。
+一連の操作をまとめられるようにもなっており、調査プロセスを単純化できる。
+たとえば、何かのタスク用に作られたワークフローの中をあちこち移動しながら
+ワークフローやその結果をビジュアルに比較したり(\aosafigref{fig.vistrails.changeprov}を参照)、
+大規模なパラメータ空間を調べたりといったことが簡単にできるようになる。
+さらに、履歴情報を問い合わせてその結果から学ぶこともできる。
+
+%% The workflow evolution is captured using the change-based provenance
+%% model.  As illustrated in \aosafigref{fig.vistrails.changeprov},
+%% VisTrails stores the operations or changes that are applied to
+%% workflows (e.g., the addition of a module, the modification of a
+%% parameter, etc.), akin to a database transaction log.  This
+%% information is modeled as a tree, where each node corresponds to a
+%% workflow version, and an edge between a parent and a child node
+%% represents the change applied to the parent to obtain the child. We
+%% use the terms version tree and vistrail (short for \emph{visual
+%% trail}) interchangeably to refer to this tree.  Note that the
+%% change-based model uniformly captures both changes to parameter values
+%% and to workflow definitions. This sequence of changes is sufficient to
+%% determine the provenance of data products and it also captures
+%% information about how a workflow evolves over time.  The model is both
+%% simple and compact---it uses substantially less space than the
+%% alternative of storing multiple \emph{versions} of a workflow.
+ワークフローの変化を記録するために使うのが、変更ベースの履歴モデルだ。
+\aosafigref{fig.vistrails.changeprov}に示すとおり、VisTrailsはワークフローへの操作や変更
+(モジュールの追加やパラメータの変更など)をデータベースのトランザクションログと同様に扱う。
+この情報は木構造で表され、各ノードがワークフローのバージョンに対応する。
+そして、親ノードと子ノードの間のエッジが、親のワークフローから子のワークフローを得るために適用した変更を表す。
+私たちは、この木構造を表す用語としてバージョンツリーとvistrail(\emph{visual trail}を短縮したもの)
+を同じ意味で使っている。変更ベースのモデルは、パラメータの値への変更とワークフロー定義への変更を同じ形式で扱うことに注意しよう。
+この一連の変更の情報があれば、生成データの履歴を得るのに十分だし、
+ワークフローがどのように変化してきたかの情報も記録できる。
+このモデルはシンプルかつコンパクトにできている。
+ワークフローの複数の\emph{バージョン}を保持するシステムは他にもあるが、
+それらに比べて必要な容量は大幅に少なくなった。
+
+%% There are a number of benefits that come from the use of this model.
+%% \aosafigref{fig.vistrails.changeprov} shows the visual difference
+%% functionality that VisTrails provides for comparing two
+%% workflows. Although the workflows are represented as graphs, using the
+%% change-based model, comparing two workflows becomes very simple: it
+%% suffices to navigate the version tree and identify the series of
+%% actions required to transform one workflow into the other.
+この方式を採用したことによる利点は数多い。
+\aosafigref{fig.vistrails.changeprov}は、VisTrailsで二つのワークフローを比較するときの
+ビジュアル差分機能を示したものだ。ワークフローそのものがグラフで表されていたとしても、
+変更ベースのモデルを使えば二つのワークフローは極めて単純に比較できる。
+バージョンツリーをたどって、あるワークフローから別のワークフローへの変換に要する操作群を特定すれば、
+それで十分だ。
+
+%% Another important benefit of the change-based provenance model is that
+%% the underlying version tree can serve as a mechanism to support
+%% collaboration. Because designing workflows is a notoriously difficult
+%% task, it often requires multiple users to collaborate.  Not only does
+%% the version tree provide an intuitive way to visualize the
+%% contribution of different users (e.g., by coloring nodes according to
+%% the user who created the corresponding workflow), but the monotonicity
+%% of the model allows for simple algorithms for synchronizing changes
+%% performed by multiple users.
+さらにもう一つ、重要な利点がある。
+ベースとなるバージョンツリーを使って、複数での共同作業ができるという点だ。
+ワークフローの設計はとても難しい作業だと言われており、
+複数名での共同作業が必要になることが多い。
+バージョンツリーのおかげで、別のユーザーの作業内容を直感的に可視化できる
+(対応するワークフローを作ったユーザーのノードだけに色を付けるなど)
+だけでなく、モデルの単調性のおかげで、複数のユーザーの変更を同期させるアルゴリズムも単純にできる。
+
+%% Provenance information can be easily captured while a workflow
+%% is being executed. Once the execution completes, it is also important
+%% to maintain \emph{strong} links between a data product and its
+%% provenance, i.e., the workflow, parameters and input files used to
+%% derive the data product. When data files or provenance are moved or
+%% modified, it can be difficult to find the data associated with the
+%% provenance or to find the provenance associated with the data.
+%% VisTrails provides a persistent storage mechanism that manages input,
+%% intermediate, and output data files, strengthening the links between
+%% provenance and data.  This mechanism provides better support for
+%% reproducibility because it ensures the data referenced in provenance
+%% information can be readily (and correctly) located.  Another important
+%% benefit of such management is that it allows caching of intermediate
+%% data which can then be shared with other users.
+ワークフローを実行したら、履歴の情報は簡単に記録できる。
+いったん実行が完了したら、生成データとその履歴との\emph{強い}つながりを維持することも大切になる。
+つまり、そのデータを生成するために使ったワークフローとパラメータそして入力ファイルの情報だ。
+データファイルや履歴情報を移動したり変更したりしたら、
+その履歴に関連するデータを探したり、データに関連する履歴を探したりするのが難しくなることもある。
+VisTrailsでは永続ストレージの仕組みを提供しており、
+入力データや中間データそして出力データのファイルを管理できる。
+これで、履歴とデータの関連を強化しているのだ。
+この仕組みのおかげで、データの再生可能性がより高まった。
+履歴情報が参照するデータをすぐに(そして正確に)特定できることが保証されるからだ。
+この方式で管理する大きな利点はもう一つある。中間データをキャッシュして他のユーザーと共有できることだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Workflow Execution and Caching}
+\begin{aosasect2}{ワークフローの実行とキャッシュ}
+\label{sec.vistrails.exec-cache}
+
+%% The execution engine in VisTrails was designed to allow the
+%% integration of new and existing tools and libraries.  We tried to
+%% accommodate different styles commonly used for wrapping third-party
+%% scientific visualization and computation software. In particular,
+%% VisTrails can be integrated with application libraries that exist
+%% either as pre-compiled binaries that are executed on a shell and use
+%% files as input/outputs, or as C++/Java/Python class libraries that
+%% pass internal objects as input/output.
+VisTrailsの実行エンジンは、新しいツールやライブラリを既存のものと統合できるように作られた。
+サードパーティの視覚化ソフトや科学計算ソフトをラップするさまざまな手法に対応するよう試みた。
+特に、VisTrailsはコンパイル済みのバイナリ
+(シェル上で実行したり入出力ファイルとして使うもの)
+とC++/Java/Pythonのクラスライブラリ
+(入出力の内部オブジェクトとして使うもの)
+の両方を統合できるようになっている。
+
+%% VisTrails adopts a dataflow execution model, where each module
+%% performs a computation and the data produced by a module flows through
+%% the connections that exist between modules. Modules are executed in a
+%% bottom-up fashion; each input is generated on-demand by recursively
+%% executing upstream modules (we say module A is \emph{upstream} of B
+%% when there is a sequence of connections that goes from A to B).  The
+%% intermediate data is temporarily stored either in memory (as a Python
+%% object) or on disk (wrapped by a Python object that contains
+%% information on accessing the data).
+VisTrailsが採用しているデータフロー実行モデルでは、
+各モジュールが計算を行って、その結果生成されるデータがモジュール間の接続を通じて流れる。
+モジュールの実行はボトムアップ形式になり、各入力は、その場で上位モジュールを再帰的に実行して得る
+(モジュールAがモジュールBの\emph{上位モジュール}であるとは、AからBへとつながる接続の流れがあることを意味する)。
+中間データは一時的に、(Pythonオブジェクトとして)メモリに格納されるか、
+あるいは(データにアクセスするための情報を含むPythonオブジェクトでラップして)ディスクに格納される。
+
+%% To allow users to add their own functionality to VisTrails, we built
+%% an extensible package system (see
+%% \aosasecref{sec.vistrails.packages}).  Packages allow users to include
+%% their own or third-party modules in VisTrails workflows.  A package
+%% developer must identify a set of computational modules and for each,
+%% identify the input and output ports as well as define the computation.
+%% For existing libraries, a compute method needs to specify the
+%% translation from input ports to parameters for the existing function
+%% and the mapping from result values to output ports.
+ユーザーが自分でVisTrailsに機能を追加できるように、
+拡張可能なパッケージシステムも作った(\aosasecref{sec.vistrails.packages}を参照)。
+パッケージを使えば、自作のモジュールやサードパーティのモジュールをVisTrailsのワークフローに組み込める。
+パッケージの開発者は、計算用のモジュール群を特定しないといけない。
+そして、個々のモジュールについて、入出力のポートと計算の定義を示す。
+既存のライブラリの場合は、入力ポートからの入力を既存の関数へのパラメータに変換したり、
+結果の値を出力ポート用にマップしたりする計算メソッドが必要になる。
+
+%% In exploratory tasks, similar workflows, which share common
+%% sub-structures, are often executed in close succession. To improve the
+%% efficiency of workflow execution, VisTrails caches intermediate
+%% results to minimize recomputation.  Because we reuse previous
+%% execution results, we implicitly assume that cacheable modules are
+%% functional: given the same inputs, modules will produce the same
+%% outputs. This requirement imposes definite behavior restrictions on
+%% classes, but we believe they are reasonable. 
+調査作業では、同じ構造を共有するよく似たワークフローを続けて実行することがよくある。
+ワークフローの実行効率を上げるために、VisTrailsは中間結果をキャッシュして再計算の量を最小限に抑える。
+前の実行結果を再利用するので、キャッシュできるモジュールが機能することが前提となる。
+つまり、同じ入力を与えたときには同じ出力を生成するようになっているということだ。
+この要件のせいで、クラスの振る舞いには大きな制約が課されることになる。
+しかし私たちは、その制約は妥当なものであると考えている。
+
+%% There are, however, obvious situations where this behavior
+%% is unattainable.  For example, a module that uploads a file to a
+%% remote server or saves a file to disk has a significant side effect
+%% while its output is relatively unimportant.  Other modules might use
+%% randomization, and their non-determinism might be desirable; such
+%% modules can be flagged as non-cacheable. However, some modules that
+%% are not naturally functional can be converted; a function that writes
+%% data to two files might be wrapped to output the contents of the
+%% files.
+しかし、どうがんばってもこの挙動を実現できない場面もある。
+たとえば、リモートサーバーにファイルをアップロードするモジュールや
+ファイルをディスクに保存するモジュールは、
+大きな副作用を持つモジュールである割にはその出力はあまり重要ではない。
+あるいは、乱数を使うモジュールがあって、結果が予測できないことが要件にあったとしよう。
+そんなモジュールについては、キャッシュ不能だというフラグを立てることができる。
+しかし、自然に機能させることができないものでもキャッシュできるよう変換することもできる。
+たとえば、データを二つのファイルに書き出す関数をラップして、
+ファイルの内容を出力するように変換するといったものだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Data Serialization and Storage}
+\begin{aosasect2}{データのシリアライズと格納}
+
+%% One of the key components of any system supporting provenance is the
+%% serialization and storage of data.  VisTrails originally stored data
+%% in XML via simple \code{fromXML} and \code{toXML} methods embedded in
+%% its internal objects (e.g., the version tree, each module).  To
+%% support the evolution of the schema of these objects, these functions
+%% encoded any translation between schema versions as well.  As the
+%% project progressed, our user base grew, and we decided to support
+%% different serializations, including relational stores.  In
+%% addition, as schema objects evolved, we needed to maintain better
+%% infrastructure for common data management concerns like versioning
+%% schemas, translating between versions, and supporting entity
+%% relationships.  To do so, we added a new database (db) layer.
+履歴をサポートするあらゆるシステムでポイントとなるのが、データのシリアライズと格納だ。
+VisTrailsはもともと、データをXML形式で格納していた。
+シンプルに、\code{fromXML}メソッドと\code{toXML}メソッドを内部オブジェクト
+(バージョンツリーや各モジュールなど)に組み込んでいたのだ。
+これらのオブジェクトのスキーマ変更に対応するために、各メソッドは
+スキーマのバージョン間での変換もコード化していた。
+プロジェクトが成長してユーザー数が増えたのに伴い、
+それ以外のシリアライズ方式にも対応することを決めた。リレーショナルデータベースなどにも対応しようとしたのだ。
+さらに、スキーマオブジェクトが成長するにつれて、共通のデータ管理基盤をよりよいものにする必要に迫られた。
+スキーマのバージョン管理やバージョン間での変換、そしてエンティティのリレーションシップのサポートなどだ。
+そのため、私たちは新たにデータベース(DB)レイヤーを追加した。
+
+%% The db layer is composed of three core components: the domain objects,
+%% the service logic, and the persistence methods.  The domain and
+%% persistence components are versioned so that each schema version has
+%% its own set of classes.  This way, we maintain code to read each
+%% version of the schema.  There are also classes that define
+%% translations for objects from one schema version to those of another.
+%% The service classes provide methods to interface with data and deal
+%% with detection and translation of schema versions.
+DBレイヤーは三つのコアコンポーネントで構成されている。
+ドメインオブジェクトとサービスロジック、そして永続化メソッドだ。
+ドメインと永続化のコンポーネントはバージョン管理されており、
+スキーマのバージョンごとに、どのバージョンのクラス群を使うかが決まる。
+このようにして、各バージョンのスキーマがどのコードを読むのかを管理している。
+また、あるバージョンのスキーマから別のバージョンのスキーマに変換するためのクラスも定義している。
+サービスクラスが提供するメソッドは、データとの間のインターフェイスとなるものであったり
+スキーマのバージョンの検出や変換を行うものであったりする。
+
+%% Because writing much of this code is tedious and repetitive, we use
+%% templates and a meta-schema to define both the object layout (and any
+%% in-memory indices) and the serialization code.  The meta-schema is
+%% written in XML, and is extensible in that serializations other than
+%% the default XML and relational mappings VisTrails defines can be
+%% added.  This is similar to object-relational mappings and frameworks
+%% like Hibernate\footnote{\url{http://www.hibernate.org}} and
+%% SQLObject\footnote{\url{http://www.sqlobject.org}}, but adds some
+%% special routines to automate tasks like re-mapping identifiers and
+%% translating objects from one schema version to the next.  In addition,
+%% we can also use the same meta-schema to generate serialization code
+%% for many languages.  After originally writing meta-Python, where the
+%% domain and persistence code was generated by running Python code with
+%% variables obtained from the meta-schema, we have recently migrated to
+%% Mako templates\footnote{\url{http://www.makotemplates.org}}.
+このコードの大半は、つまらないコードの繰り返しになる。
+そこで、テンプレートとメタスキーマを用いて、オブジェクトの配置(およびメモリ内でのインデックス)
+とシリアライズのコードを定義することにした。メタスキーマはXMLで書かれており、
+デフォルトのXML変更してシリアライズを拡張したり、VisTrailsが定義するリレーショナルマッピングを追加したりできる。
+これはHibernate\footnote{\url{http://www.hibernate.org}}やSQLObject\footnote{\url{http://www.sqlobject.org}}
+といったオブジェクトリレーショナルマッピングフレームワークと似ている。
+しかし、そこにさらに特別なルーチンを追加して、
+識別子の再マッピングやスキーマのバージョン間でのオブジェクトの変換などのタスクを自動化した。
+さらに、同じメタスキーマからいろんな言語用のシリアライズコードを生成できるようにした。
+もともとのコードはメタPythonで書かれていた。つまり、ドメインと永続化のコードを生成するときには、
+Pythonのコードとメタスキーマの変数を使っていた。
+しかし、今ではMakoテンプレート\footnote{\url{http://www.makotemplates.org}}に移行している。
+
+%% Automatic translation is key for users that need to migrate their data
+%% to newer versions of the system.  Our design adds hooks to make this
+%% translation slightly less painful for developers.  Because we maintain
+%% a copy of code for each version, the translation code just needs to
+%% map one version to another.  At the root level, we define a map to
+%% identify how any version can be transformed to any other.  For distant
+%% versions, this usually involves a chain through multiple intermediate
+%% versions.  Initially, this was a forward-only map, meaning new
+%% versions could not be translated to old versions, but reverse mappings
+%% have been added for more-recent schema mappings.
+自動変換は、新しいバージョンのシステム用へのデータ移行が必要なユーザーにとって大切な機能だ。
+そこで、変換用のフックを用意して、開発者の苦労を減らすように設計した。
+各バージョン用のコードのコピーを管理しているので、変換用のコードは単に、
+あるバージョンと別のバージョンをマップするだけのことになる。
+ルートレベルでは、マップを定義してどのバージョンからどのバージョンに変換できるのかを設定する。
+各バージョンから見ればこれは、複数の中間バージョンのチェーンになるのが一般的だ。
+当初持っていたマップは正方向のものだけだった。つまり、新しいバージョンから古いバージョンへの変換は
+できなかったということだ。しかし最近の版では、逆方向へのマッピングも追加された。
+
+%% Each object has an \code{update\_version} method that takes a different
+%% version of an object and returns the current version.  By default, it
+%% does a recursive translation where each object is upgraded by mapping
+%% fields of the old object to those in a new version.  This mapping
+%% defaults to copying each field to one with the same name, but it is
+%% possible to define a method to "override" the default behavior for any
+%% field.  An override is a method that takes the old object and returns
+%% a new version.  Because most changes to the schema only affect a small
+%% number of fields, the default mappings cover most cases, but the
+%% overrides provide a flexible means for defining local changes.
+各オブジェクトには\code{update\_version}メソッドがあり、
+これは、さまざまなバージョンのオブジェクトを受け取って現在のバージョンのオブジェクトを返す。
+デフォルトでは再帰的な変換を行い、古いオブジェクトの各フィールドを新しいバージョンのものにマップする。
+このマッピングのデフォルトは、同じ名前のフィールドにコピーするというものだ。
+しかし、フィールドごとに、このデフォルトの挙動を「オーバーライド」できる。
+オーバーライドとは、古いオブジェクトを受け取って新しいバージョンを返すメソッドのことだ。
+スキーマの変更の大半はごく一部のフィールドにしか影響しないので、
+デフォルトのマッピングでたいていの場合は対応できる。
+しかし、このオーバーライド機能のおかげで、ローカルの変更を柔軟に定義できるようになった。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Extensibility Through Packages and Python}
+\begin{aosasect2}{パッケージやPythonによる拡張性}
+\label{sec.vistrails.packages}
+
+%% The first prototype of VisTrails had a fixed set of modules. It was an
+%% ideal environment to develop basic ideas about the VisTrails version
+%% tree and the caching of multiple execution runs, but it severely
+%% limited long-term utility.
+VisTrailsの最初のプロトタイプは、あらかじめ用意したモジュール群だけが付属していた。
+VisTrailsのバージョンツリーや複数の実行結果のキャッシュなどのアイデアを試すにはよい環境だったが、
+長期的な視点での実用性には大きな制約があった。
+
+%% We see VisTrails as infrastructure for computational science, and that
+%% means, literally, that the system should provide scaffolding for other
+%% tools and processes to be developed. An essential requirement of this
+%% scenario is extensibility.  A typical way to achieve this involves
+%% defining a target language and writing an appropriate
+%% interpreter. This is appealing because of the intimate control it
+%% offers over execution. This appeal is amplified in light of our
+%% caching requirements.  However, implementing a full-fledged
+%% programming language is a large endeavor that has never been our
+%% primary goal. More importantly, forcing users who are just trying to
+%% use VisTrails to learn an entirely new language was out of the
+%% question.
+私たちはVisTrailsを、計算科学用の基盤だととらえている。
+つまり、文字通り、他のシステムやプロセスを使っていく上での足場となる機能を用意すべきだということだ。
+そう考えたときに本質的に必要になるのが、システムの拡張性である。
+拡張性を持たせるための一般的な方法は、何らかの言語を用意して適切なインタプリタを書くことだ。
+実行時にきめ細やかな制御ができるので、この方法は魅力的だ。
+キャッシュに関する要件を考えると、この魅力はさらに増す。
+しかし、本格的なプログラミング言語を実装するというのは多大な努力を要する作業だし、
+そもそもの目標はそんなことではなかった。
+さらに重要なのは、ちょっとVisTrailsを試してみたいという人が
+まったく新しい言語の学習を強いられるというのは問題外だということだ。
+
+%% We wanted a system which made it easy for a user to add custom
+%% functionality. At the same time, we needed the system to be powerful
+%% enough to express fairly complicated pieces of software. As an
+%% example, VisTrails supports the VTK visualization library\footnote{\url{http://www.vtk.org}}. VTK
+%% contains about 1000 classes, which change depending on compilation,
+%% configuration, and operating system. Since it seems counterproductive
+%% and ultimately hopeless to write different code paths for all these
+%% cases, we decided it was necessary to dynamically determine the set of
+%% VisTrails modules provided by any given package, and VTK naturally
+%% became our model target for a complex package.
+私たちが欲しかったシステムは、ユーザーが独自の機能を簡単に追加できるようなものだった。
+また、ソフトウェアの複雑なパーツもうまく表現できるような強力な機能も必要だった。
+一例として、VisTrailsではVTKビジュアライゼーションライブラリ\footnote{\url{http://www.vtk.org}}に対応している。
+VTKは約1000個のクラス群から構成されており、コンパイル時の設定やOSによってその数は変わる。
+それぞれの場合について個別にコードを書くというのは生産的が悪いし、まったくもって非現実的だった。
+必要なのは、何らかのパッケージが提供するVisTrailsモジュール群を動的に定義できる機能だった。
+自然な流れで、VTKを複雑なパッケージのモデルとして考えるようになった。
+
+%% Computational science was one of the areas we originally targeted, and
+%% at the time we designed the system, Python was becoming popular as
+%% "glue code" among these scientists. By specifying the behavior of
+%% user-defined VisTrails modules using Python itself, we would all but
+%% eliminate a large barrier for adoption.  As it turns out, Python
+%% offers a nice infrastructure for dynamically-defined classes and
+%% reflection. Almost every definition in Python has an equivalent form
+%% as a first-class expression. The two important reflection features of
+%% Python for our package system are:
+私たちが最初にターゲットとしていた分野の一つが計算科学で、
+システムを設計した当時はPythonが「グルーコード」としての地位を確立しつつあるころだった。
+ユーザー定義のVisTrailsモジュールの挙動をPythonで指定できるようにすれば、
+利用するためのハードルを下げられるだろう。
+実際やってみると、Pythonは動的定義クラス群やリフレクション用のすばらしい基盤になってくれた。
+Pythonのほぼすべての定義は、ファーストクラスの式として同じように扱える。
+Pythonのリフレクションにあるこの二つの機能が、パッケージシステムで重要な役割を果たしている。
+
+\begin{aosaitemize}
+
+  %% \item Python classes can be defined dynamically via function calls to
+  %% the \code{type} callable. The return value is a representation of a
+  %% class that can be used in exactly the same way that a
+  %% typically-defined Python class can.
+  \item Pythonのクラスは\code{type} callableを呼んで動的に定義できる。
+  その戻り値がクラスを表すものとなり、一般的な方法で定義したPythonのクラスとまったく同じように使える。
+
+  %% \item Python modules can be imported via function calls to
+  %% \code{\_\_import\_\_}, and the resulting value behaves in the same
+  %% way as the identifier in a standard \code{import} statement. The
+  %% path from which these modules come from can also be specified at runtime.
+  \item Pythonのモジュールは\code{\_\_import\_\_}関数を呼んで簡単にインポートでき、
+  その戻り値は、標準の\code{import}文で指定したものとまったく同じように振る舞う。
+  モジュールのあるパスも、実行時に定義できる。
+
+\end{aosaitemize}
+
+%% Using Python as our target has a few disadvantages, of course. First
+%% of all, this dynamic nature of Python means that while we would like
+%% to ensure some things like type safety of VisTrails packages, this is
+%% in general not possible.  More importantly, some of the requirements
+%% for VisTrails modules, notably the ones regarding referential
+%% transparency (more on that later) cannot be enforced in Python. Still,
+%% we believe that it is worthwhile to restrict the allowed constructs in
+%% Python via cultural mechanisms, and with this caveat, Python is an
+%% extremely attractive language for software extensibility.
+もちろん、Pythonを使えばいいことずくめというわけではない。
+まず、Pythonが持つ動的な性質のせいで、
+たとえばVisTrailsのパッケージの型安全性を保証したくても、それは一般的に無理な話になる。
+さらに重要なのが、VisTrailsモジュールの要件の中にはPythonでは実現できないものがあるということだ。
+後述する参照透過性に関する要件などがそれにあたる。
+それでも、Pythonの文化的にそういった制約が課されるのは仕方がないと考える。
+そんな問題はあるが、Pythonはソフトウェアの拡張性を実現する上でとても魅力的な言語だ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{VisTrails Packages and Bundles}
+\begin{aosasect2}{VisTrailsのパッケージおよびバンドル}
+
+%% A VisTrails package encapsulates a set of modules. Its most
+%% common representation in disk is the same representation as a Python
+%% package (in a possibly unfortunate naming clash). A Python package
+%% consists of a set of Python files which define Python values such as
+%% functions and classes. A VisTrails package is a Python package that
+%% respects a particular interface. It has files that define specific
+%% functions and variables. In its simplest form, a VisTrails package
+%% should be a directory containing two files: \code{\_\_init\_\_.py} and
+%% \code{init.py}.
+VisTrailsパッケージは、モジュール群にカプセル化されている。
+ディスク上では、Pythonパッケージと同じような状態だ(しかしこれ、まぎらわしい名前だな…)。
+PythonパッケージはPythonファイル群で構成されており、そのファイルの中でPythonの関数やクラスなどが定義されている。
+VisTrailsパッケージは、特定のインターフェイスを備えたPythonパッケージとなる。
+つまり、特定の関数や変数を定義したファイルを含んでいる。
+最も単純な状態のVisTrailsパッケージは、一つのディレクトリ内に二つのファイル\code{\_\_init\_\_.py}と\code{init.py}を含むものだ。
+
+%% The first file \code{\_\_init\_\_.py} is a requirement of Python
+%% packages, and should only contain a few definitions which should be
+%% constant. Although there is no way to guarantee that this is the case,
+%% VisTrails packages failing to obey this are considered buggy. The
+%% values defined in the file include a globally unique identifier for
+%% the package which is used to distinguish modules when workflows are
+%% serialized, and package versions (package versions become important
+%% when handling workflow and package upgrades, see
+%% \aosasecref{sec.vistrails.upgrades}). This file can also include
+%% functions called \code{package\_dependencies} and
+%% \code{package\_requirements}. Since we allow VisTrails modules to
+%% subclass from other VisTrails modules beside the root \code{Module}
+%% class, it is conceivable for one VisTrails package to extend the
+%% behavior of another, and so one package needs to be initialized before
+%% another. These inter-package dependencies are specified by
+%% \code{package\_dependencies}. The \code{package\_requirements}
+%% function, on the other hand, specifies system-level library
+%% requirements which VisTrails, in some cases, can try to automatically
+%% satisfy, through its bundle abstraction.
+最初のファイル\code{\_\_init\_\_.py}はPythonパッケージに必須のファイルで、
+いくつかの定義を書かないといけない。内容は固定だ。
+検出する手立てはないものの、これに従わないVisTrailsパッケージがあるとすればそれはバグだろう。
+このファイルで定義する値は、そのパッケージに関するグローバルに一意な識別子
+(ワークフローをシリアライズするときにモジュールを区別するために使うもの)
+とパッケージのバージョンだ
+(パッケージのバージョンは、ワークフローやパッケージをアップグレードするときに重要となる。
+\aosasecref{sec.vistrails.upgrades}を参照)。
+このファイルには、関数\code{package\_dependencies}と\code{package\_requirements}
+を含めることもできる。
+VisTrailsモジュールは、ルートクラスである\code{Module}
+以外の別のVisTrailsモジュールのサブクラスとしても作れるようにしている。
+そのため、あるVisTrailsパッケージが別のパッケージの振る舞いを継承していることもあり、
+あるパッケージの初期化をしてから別のパッケージを初期化しないといけないなどということも考えられる。
+こういった、パッケージ間の依存関係を指定するのが\code{package\_dependencies}だ。
+一方\code{package\_requirements}関数は、システムレベルでのライブラリの要件を指定する。
+これがあれば、Vistrailsはバンドルを使って自動的に要件を満たすようにできる。
+
+%% A bundle is a system-level package that VisTrails manages via
+%% system-specific tools such as RedHat's RPM or Ubuntu's APT\@.  When
+%% these properties are satisfied, VisTrails can determine the package
+%% properties by directly importing the Python module and accessing the
+%% appropriate variables.
+バンドルとはシステムレベルのパッケージで、
+VisTrailsがシステム固有のツールを管理するためのものである。
+RedHatのRPMやUbuntuのAPTのようなものだ。
+これらのプロパティがあれば、VisTrailsが
+Pythonモジュールを直接インポートして適切な変数にアクセスするだけで
+パッケージのプロパティを定義できる。
+
+%% The second file, \code{init.py}, contains the entry points for all the
+%% actual VisTrails module definitions. The most important feature of
+%% this file is the definition of two functions, \code{initialize} and
+%% \code{finalize}. The \code{initialize} function is called when a
+%% package is enabled, after all the dependent packages have themselves
+%% been enabled. It performs setup tasks for all of the modules in a
+%% package. The \code{finalize} function, on the other hand, is usually
+%% used to release runtime resources (for example, temporary files
+%% created by the package can be cleaned up).
+もう一つのファイルである\code{init.py}には、実際のVistrailsモジュール定義のエントリポイントが含まれる。
+このファイルの最も重要な機能は、二つの関数\code{initialize}と\code{finalize}の定義だ。
+\code{initialize}関数は、すべての依存パッケージを有効にした後で
+そのパッケージ自身を有効にするときに呼ばれる。パッケージ内のすべてのモジュールの準備を、この関数で行う。
+もう一方の\code{finalize}関数は、通常はランタイムリソースの解放に使う
+(たとえば、そのパッケージが作った一時ファイルの削除などができる)。
+
+%% Each VisTrails module is represented in a package by one Python
+%% class. To register this class in VisTrails, a package developer calls
+%% the \code{add\_module} function once for each VisTrails module.  These
+%% VisTrails modules can be arbitrary Python classes, but they must
+%% respect a few requirements. The first of these is that each must be a
+%% subclass of a basic Python class defined by VisTrails called, perhaps
+%% boringly, \code{Module}.  VisTrails modules can use multiple
+%% inheritance, but only one of the classes should be a VisTrails
+%% module---no diamond hierarchies in the VisTrails module tree are
+%% allowed. Multiple inheritance becomes useful in particular to define
+%% class mix-ins: simple behaviors encoded by parent classes which can be
+%% composed together to create more complicated behaviors.
+各VisTrailsモジュールは、パッケージ内で一つのPythonクラスとして表される。
+このクラスをVisTrailsに登録するには、パッケージ開発者が\code{add\_module}
+関数をモジュールごとに呼ぶことになる。VisTrailsモジュールはPythonクラスであればどんなものでもかまわないが、
+いくつかの要件を満たさないといけない。
+その一つは、VisTrailsが定義する基本Pythonクラスのサブクラスでないといけないということである。
+基本クラスの名前は、何のひねりもない\code{Module}だ。
+VisTrailsモジュールでは多重継承も使える。しかし、
+そのクラスの中の一つだけがVisTrailsモジュールにならないといけない。
+VisTrailsモジュールツリーの中では、菱形継承は使えない。
+多重継承は、クラスのmix-inを定義するときに特に有用だ。
+親クラスで定義されたシンプルな振る舞いを組み合わせて、より込み入った振る舞いを作ることができる。
+
+%% The set of available ports determine the interface of a VisTrails
+%% module, and so impact not only the display of these modules but also
+%% their connectivity to other modules. These ports, then, must be
+%% explicitly described to the VisTrails infrastructure. This can be done
+%% either by making appropriate calls to \code{add\_input\_port} and
+%% \code{add\_output\_port} during the call to \code{initialize}, or by
+%% specifying the per-class lists \code{\_input\_ports} and
+%% \code{\_output\_ports} for each VisTrails module.
+利用できるポートがVisTrailsモジュールのインターフェイスを決める。
+そしてそれは、モジュールの見た目だけでなく他のモジュールとの接続性にも影響する。
+そのため、どのポートを使うのかは明示的にVisTrails基盤に示さないといけない。
+その方法は、\code{initialize}のときに\code{add\_input\_port}と
+\code{add\_output\_port}を適切に呼び出すか、あるいは
+クラスごとのリスト\code{\_input\_ports}と\code{\_output\_ports}
+をVisTrailsごとに指定する。
+
+%% Each module specifies the computation to be performed by overriding
+%% the \code{compute} method. Data is passed between modules through
+%% ports, and accessed through the \code{get\_input\_from\_port} and
+%% \code{set\_result} methods.  In traditional dataflow environments,
+%% execution order is specified on-demand by the data requests. In our
+%% case, the execution order is specified by the topological sorting of the workflow
+%% modules. Since the caching algorithm requires an acyclic graph, we
+%% schedule the execution in reverse topological sorted order, so the
+%% calls to these functions do not trigger executions of upstream
+%% modules. We made this decision deliberately: it makes it simpler to
+%% consider the behavior of each module separately from all the others,
+%% which makes our caching strategy simpler and more robust.
+各モジュールで行う計算は、\code{compute}メソッドをオーバーライドして指定する。
+モジュール間でのデータの受け渡しにはポート経由で行い、
+\code{get\_input\_from\_port}メソッドと\code{set\_result}メソッドを利用する。
+昔ながらのデータフロー環境の場合、実行順はリクエストがやってきた順で決まっていた。
+私たちの場合は、実行順を決めるのにワークフローモジュールをトポロジカル整列した。
+キャッシングアルゴリズムを機能させるためには非巡回グラフが必要なので、
+実行スケジュールはトポロジカル整列の逆順にした。
+これで、関数を呼ぶときに上位モジュールを実行してしまうことがなくなる。
+あえてこの方法を選んだ。これによって、各モジュールの振る舞いを他とは切り離して考えやすくなり、
+キャッシュ戦略もよりシンプルかつ堅牢にできた。
+
+%% As a general guideline, VisTrails modules should refrain from using
+%% functions with side-effects during the evaluation of the
+%% \code{compute} method. As discussed in
+%% \aosasecref{sec.vistrails.exec-cache}, this requirement makes caching
+%% of partial workflow runs possible: if a module respects this property,
+%% then its behavior is a function of the outputs of upstream
+%% modules. Every acyclic subgraph then only needs to be computed once,
+%% and the results can be reused.
+全体的な指針として、VisTrailsモジュールでは、
+\code{compute}メソッドの評価中に副作用のある関数を使わないようにしている。
+\aosasecref{sec.vistrails.exec-cache}で説明したとおり、
+この要件のおかげでワークフローの一部だけをキャッシュできるようになった。
+各モジュールがこの性質を尊重すれば、その振る舞いは上位モジュールの出力となる。
+下位にあるすべての非巡回グラフは単に一度ずつ計算するだけでよく、その結果は再利用できる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Passing Data as Modules}
+\begin{aosasect2}{データをモジュールとして渡す}
+
+%% One peculiar feature of VisTrails modules and their communication is
+%% that the data that is passed between VisTrails modules are themselves
+%% VisTrails modules. In VisTrails, there is a single hierarchy for
+%% module and data classes. For example, a module can provide
+%% \emph{itself} as an output of a computation (and, in fact, every
+%% module provides a default "self" output port). The main disadvantage
+%% is the loss of conceptual separation between computation and data that
+%% is sometimes seen in dataflow-based architectures. There are, however,
+%% two big advantages.  The first is that this closely mimics the object
+%% type systems of Java and C++, and the choice was not accidental: it
+%% was very important for us to support automatic wrapping of large class
+%% libraries such as VTK.  These libraries allow objects to produce
+%% other objects as computational results, making a wrapping that
+%% distinguishes between computation and data more complicated.
+VisTrailsモジュールとその通信に独特な特徴の一つが、
+モジュール間で受け渡しされるデータ自体もまたVisTrailsモジュールだという点だ。
+VisTrailsでは、モジュールクラスとデータクラスが一つの階層にまとまっている。
+たとえば、モジュールは、\emph{自分自身}を計算結果として出力できる
+(そして実際のところ、すべてのモジュールはデフォルトで、出力ポート"self"を提供している)。
+この方式の主なデメリットは計算とデータを概念的に切り離せなくなることだ
+(データフローベースのアーキテクチャなら、これらはきちんと分離できる)。
+しかし、二つの大きなメリットがある。
+まず、このようにすると、JavaやC++のオブジェクトの型システムに限りなく近づけることができる。
+これは決して偶然の産物ではなく、狙った結果だ。
+VTKのような巨大なクラスライブラリを自動でラップするためには、この機能が非常に重要だったのだ。
+これらのライブラリでは、オブジェクトの計算結果として別のオブジェクトを作れるようになっており、
+計算とデータを分離する方式でこれをラップしようとすると、とても複雑になってしまう。
+
+%% The second advantage this decision brings is that defining constant
+%% values and user-settable parameters in workflows becomes easier and
+%% more uniformly integrated with the rest of the system. Consider, for
+%% example, a workflow that loads a file from a location on the Web
+%% specified by a constant. This is currently specified by a GUI in which
+%% the URL can be specified as a parameter (see the Parameter Edits area
+%% in \aosafigref{fig.vistrails.overview}). A natural modification of
+%% this workflow is to use it to fetch a URL that is \emph{computed}
+%% somewhere upstream. We would like the rest of the workflow to change
+%% as little as possible. By assuming modules can output themselves, we
+%% can simply connect a string with the right value to the port
+%% corresponding to the parameter. Since the output of a constant
+%% evaluates to itself, the behavior is exactly the same as if the value
+%% had actually been specified as a constant.
+もう一つのメリットは、ワークフローの中で
+定数を設定したりユーザーが変更できるパラメータを設定したりするのが簡単になるということだ。
+システムの他の部分に、違和感なく組み込めるようになる。
+こんな例を考えてみよう。あるワークフローで、定数で指定したWeb上の場所からファイルを読み込むとする。
+今はこの定数をGUIで指定している。URLはパラメータとして指定できる
+(\aosafigref{fig.vistrails.overview}のパラメータ編集領域を参照)。
+このワークフローを変更する自然な方法は、この仕組みを使って、
+どこか別の上位モジュールで\emph{計算した}URLを取得するようにすることだ。
+ワークフローのその他の部分への変更は、可能な限り抑えたい。
+モジュールが自分自身を出力できるという前提なら、
+単に適切な値の文字列をパラメータに対応するポートにつなぐだけでよくなる。
+定数を出力した結果を自分自身で評価するので、
+その振る舞いは値を定数として渡された場合とまったく同じになる。
+
+%% \aosafigure{../images/vistrails/python-source.eps}{Prototyping New Functionality with the \code{PythonSource} Module}{fig.vistrails.pysource}
+\aosafigure{../images/vistrails/python-source.eps}{新機能のプロトタイピングを\code{PythonSource}モジュールで行う}{fig.vistrails.pysource}
+
+%% There are other considerations involved in designing constants. 
+%% Each constant type has a different ideal GUI interface for
+%% specifying values. For example, in VisTrails, a file constant module
+%% provides a file chooser dialog; a Boolean value is specified by a
+%% checkbox; a color value has a color picker native to each operating
+%% system.  To achieve this generality, a developer must subclass a
+%% custom constant from the \code{Constant} base class and provide
+%% overrides which define an appropriate GUI widget and a string
+%% representation (so that arbitrary constants can be serialized to
+%% disk).
+定数の設計に関しては、他にも考慮すべきことがある。
+定数の型によって、値を設定するために最適なGUIインターフェイスは異なる。
+たとえば、VisTrailsの場合は、ファイル定数モジュールではファイル選択ダイアログを使う。
+Boolean値はチェックボックスで指定するし、色の値はOSネイティブの色選択ダイアログを使う。
+これを実現するには、開発者が\code{Constant}を継承したカスタム定数を作って、
+適切なGUIウィジェットの定義と定数の文字列表現
+(定数をディスクにシリアライズするときに使うもの)
+をオーバーライドしないといけない。
+
+%% We note that, for simple prototyping tasks, VisTrails provides a
+%% built-in \code{PythonSource} module.  A PythonSource module can be
+%% used to directly insert scripts into a workflow. The configuration
+%% window for PythonSource (see \aosafigref{fig.vistrails.pysource})
+%% allows multiple input and output ports to be specified along with the
+%% Python code that is to be executed.
+あと、シンプルなプロトタイピング用として、VisTrailsでは組み込みの\code{PythonSource}モジュールを提供している。
+このモジュールを使えば、スクリプトを直接ワークフローに流し込める。
+PythonSourceの設定ウィンドウ(\aosafigref{fig.vistrails.pysource}を参照)
+から複数の入出力ポートを指定し、実行したいPythonコードも指定する。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Components and Features}
+\begin{aosasect1}{コンポーネントおよび機能}
+
+%% As discussed above, VisTrails provides a set of functionalities and
+%% user interfaces that simplify the creation and execution of
+%% exploratory computational tasks. Below, we describe some of these. We
+%% also briefly discuss how VisTrails is being used as the basis for an
+%% infrastructure that supports the creation of provenance-rich
+%% publications. For a more comprehensive description of VisTrails and its features,
+%% see VisTrails' online documentation\footnote{\url{http://www.vistrails.org/usersguide}}.
+先述のとおり、VisTrailsの提供する機能やユーザーインターフェイスを使うと、
+調査や計算のタスクを作ったり実行したりする作業を単純化できる。
+そのいくつかについて、ここで説明する。
+また、VisTrailsを基盤として使って、履歴情報を含めて公開する方法についても簡単に説明する。
+VisTrailsやその機能についてのより詳しい説明は、オンラインドキュメントを参照してほしい
+\footnote{\url{http://www.vistrails.org/usersguide}}。
+
+%% \aosafigure{../images/vistrails/spreadsheet.pdf}{The Visual Spreadsheet}{fig.vistrails.spreadsheet}
+\aosafigure{../images/vistrails/spreadsheet.eps}{Visual Spreadsheet}{fig.vistrails.spreadsheet}
+
+%% \begin{aosasect2}{Visual Spreadsheet}
+\begin{aosasect2}{Visual Spreadsheet}
+
+%% VisTrails allows users to explore and compare results from multiple
+%% workflows using the Visual Spreadsheet (see
+%% \aosafigref{fig.vistrails.spreadsheet}). The spreadsheet is a
+%% VisTrails package with its own interface composed of sheets and
+%% cells. Each sheet contains a set of cells and has a customizable
+%% layout.  A cell contains the visual representation of a result
+%% produced by a workflow, and can be customized to display diverse types
+%% of data.
+VisTrailsで複数のワークフローをたどったり結果を比較したりするには、
+Visual Spreadsheetを使う(\aosafigref{fig.vistrails.spreadsheet}を参照)。
+このスプレッドシートはVisTrailsのパッケージで、シートとセルからなる独自のインターフェイスを用意している。
+各シートにはセルのセットが含まれ、そのレイアウトもカスタマイズできる。
+セルの中身はワークフローが生成した結果をビジュアルに表現したもので、
+データの種類によって表示方法をカスタマイズできる。
+
+%% To display a cell on the spreadsheet, a workflow must contain a module
+%% that is derived from the base \code{SpreadsheetCell} module.  Each
+%% \code{SpreadsheetCell} module corresponds to a cell in the
+%% spreadsheet, so one workflow can generate multiple cells.  The
+%% \code{compute} method of the \code{SpreadsheetCell} module handles the
+%% communication between the Execution Engine
+%% (\aosafigref{fig.vistrails.arch}) and the spreadsheet.  During
+%% execution, the spreadsheet creates a cell according to its type
+%% on-demand by taking advantage of Python's dynamic class instantiation.
+%% Thus, custom visual representations can be achieved by creating a
+%% subclass of \code{SpreadsheetCell} and having its \code{compute}
+%% method send a custom cell type to the spreadsheet. For example, the
+%% workflow in \aosafigref{fig.vistrails.overview}, \code{MplFigureCell}
+%% is a \code{SpreadsheetCell} module designed to display images created
+%% by matplotlib.
+スプレッドシート上にセルを表示するには、ワークフローに
+\code{SpreadsheetCell}の派生モジュールを含めないといけない。
+個々の\code{SpreadsheetCell}モジュールがスプレッドシート内の一つのセルに対応するので、
+一つのワークフローが複数のセルを生成することになる。
+\code{SpreadsheetCell}モジュールの\code{compute}メソッドが、
+実行エンジン(\aosafigref{fig.vistrails.arch})とスプレッドシートの間の通信を担当する。
+実行中に、スプレッドシートはその型に合わせたセルをその場で作る。
+このときには、Pythonの動的クラス生成機能を活用する。
+したがって、独自のビジュアル表現を作りたければ、
+\code{SpreadsheetCell}のサブクラスを作って、
+その\code{compute}メソッドでスプレッドシートにカスタムセルタイプを送ればいい。
+たとえば、\aosafigref{fig.vistrails.overview}のワークフローにある
+\code{MplFigureCell}は、matplotlibが作った画像を表示するために用意した\code{SpreadsheetCell}モジュールだ。
+
+%% Since the spreadsheet uses PyQt as its GUI back end, custom cell
+%% widgets must be subclassed from PyQt's \code{QWidget}.  They must also
+%% define the \code{updateContents} method, which is invoked by the
+%% spreadsheet to update the widget when new data arrives. Each cell
+%% widget may optionally define a custom toolbar by implementing the
+%% \code{toolbar} method; it will be displayed in the spreadsheet
+%% toolbar area when the cell is selected.
+スプレッドシートのGUIバックエンドとしてPyQtを使っているので、
+カスタムセルウィジェットはPyQtの\code{QWidget}を継承したクラスにしないといけない。
+また、\code{updateContents}メソッドも定義する必要がある。
+このメソッドはスプレッドシートが実行するもので、
+新しいデータがやってきたときにそのウィジェットを更新する。
+各セルウィジェットでは、オプションでカスタムツールバーを用意することもできる。
+そのときには\code{toolbar}メソッドを実装する。
+このツールバーは、セルが選択されたときにスプレッドシートのツールバー領域に表示される。
+
+%% \aosafigref{fig.vistrails.spreadsheet} shows the spreadsheet when a
+%% VTK cell is selected, in this case, the toolbar provides specific
+%% widgets to export PDF images, save camera positions back to the
+%% workflow, and create animations.  The spreadsheet package defines a
+%% customizable \code{QCellWidget}, which provides common features such
+%% as history replay (animation) and multi-touch events forwarding. This
+%% can be used in place of \code{QWidget} for faster development of new
+%% cell types.
+\aosafigref{fig.vistrails.spreadsheet}は、VTKセルを選択したときのスプレッドシートの様子を示すものだ。
+このときのツールバーには、PDFにエクスポートしたりカメラの位置を保存してワークフローに戻ったりアニメーションを作ったりといった、
+専用のウィジェットが表示される。スプレッドシートパッケージではカスタマイズ可能な\code{QCellWidget}を用意しており、
+履歴の再生(アニメーション)やマルチタッチのイベント転送などの共通機能を提供している。
+これを\code{QWidget}のかわりに使えば、新たなセルタイプを手っ取り早く開発できる。
+
+%% Even though the spreadsheet only accepts PyQt widgets as cell types,
+%% it is possible to integrate widgets written with other GUI toolkits.
+%% To do so, the widget must export its elements to the native platform,
+%% and PyQt can then be used to grab it. We use this approach for the
+%% \code{VTKCell} widget because the actual widget is written in C++. At
+%% run-time, the \code{VTKCell} grabs the window id, a Win32, X11, or
+%% Cocoa/Carbon handle depending on the system, and maps it to the
+%% spreadsheet canvas.
+スプレッドシートで使えるセルタイプはPyQtウィジェットだけではあるが、
+他のGUIツールキットで書かれたウィジェットを組み込むこともできる。
+そのためには、ウィジェットが自分の要素をネイティブプラットフォームに公開しないといけない。
+PyQtはそれを使ってウィジェットを操作する。
+私たちは\code{VTKCell}でこの手法を使った。実際のウィジェットがC++で書かれたものだったからだ。
+実行時に\code{VTKCell}が、ウィンドウIDと(Win32、X11、Cocoa/Carbonなどの)ハンドルを取得する。
+そしてそれをスプレッドシートのキャンバスにマップする。
+
+%% Like cells, sheets may also be customized. By default, each sheet
+%% lives in a tabbed view and has a tabular layout.  However, any sheet
+%% can be undocked from the spreadsheet window, allowing multiple sheets
+%% to be visible at once.  It is also possible to create a different
+%% sheet layout by subclassing the \code{StandardWidgetSheet}, also a
+%% PyQt widget. The \code{StandardWidgetSheet} manages cell layouts as
+%% well as interactions with the spreadsheet in editing mode. In editing
+%% mode, users can manipulate the cell layout and perform advanced
+%% actions on the cells, rather than interacting with cell contents.  Such
+%% actions include applying analogies (see
+%% \aosasecref{sec.vistrails.diff}) and creating new workflow versions
+%% from parameter explorations.
+セルと同様、シートもカスタマイズできる。デフォルトでは、各シートはタブビューの上に
+テーブルレイアウトで配置されている。
+しかし、スプレッドシートウィンドウからシートを切り離すこともでき、
+そうすれば複数のシートを同時に見ることができるようになる。
+また、新たなシートレイアウトを作ることもできる。そのためには
+\code{StandardWidgetSheet}のサブクラスを作ればいい。これもまたPyQtウィジェットだ。
+\code{StandardWidgetSheet}は、セルのレイアウトだけを管理するのではない。
+編集モードでのスプレッドシートとセルのやりとりも管理する。
+編集モードでは、ユーザーがセルのレイアウトを操作して、
+複数のセルに対してより高度な操作を実行できる。単にセルの中身を扱う以上のことができるのだ。
+たとえば、類推を適用したり(\aosasecref{sec.vistrails.diff}を参照)、
+パラメータを変えた新しいバージョンのワークフローを作ったりといった操作ができる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Visual Differences and Analogies}
+\begin{aosasect2}{Visual Differencesおよび類推}
+\label{sec.vistrails.diff}
+
+%% As we designed VisTrails, we wanted to enable the \emph{use} of
+%% provenance information in addition to its capture.  First, we wanted
+%% users to see the exact differences between versions, but we then realized that
+%% a more helpful feature was being able to apply these differences to other
+%% workflows.  Both of these tasks are possible because VisTrails tracks
+%% the evolution of workflows.
+VisTrailsを作るときに私たちが考えたのは、履歴情報をただ取得するだけではなく、
+それを\emph{活用}できるようにすることだった。
+まずは、バージョン間の正確な差分をユーザーが見られるようにしたかった。
+ただ、他のワークフローとの差分に関しては、もっと便利な機能も追加できることがわかってきた。
+これらが可能となったのは、VisTrailsが履歴の変化を追跡していたからだ。
+
+%% Because the version tree captures all of the changes and we can invert
+%% each action, we can find a complete sequence of actions that transform one
+%% version to another.  Note that some changes will cancel each other
+%% out, making it possible to compress this sequence. For example, the
+%% addition of a module that was later deleted need not be examined when
+%% computing the difference.  Finally, we have some heuristics to further
+%% simplify the sequence: when the same module occurs in both workflows
+%% but was added through separate actions, we we cancel the adds and
+%% deletes.
+バージョンツリーがすべての変更を記録していていつでも元に戻せるので、
+あるバージョンから別のバージョンに変換するためのアクション群を探すことができる。
+中には他の変更をキャンセルするような変更もあるので、それを使ってアクション群をコンパクトにまとめることもできる。
+たとえば、あるモジュールを追加したけれども後にそれを削除したという場合は、
+差分を算出するときにそれらの変更を考慮しなくてもかまわない。
+最後に、ちょっとした経験則でアクション群を単純化する。
+両方のモジュールのそれぞれ別のアクションで同じモジュールが追加されている場合は、
+その追加と削除をキャンセルする。
+
+%% From the set of changes, we can create a visual representation
+%% that shows similar and different modules, connections, and parameters.
+%% This is illustrated in 
+%% \aosafigref{fig.vistrails.changeprov}. Modules and connections that
+%% appear in both workflows are colored gray, and those appearing in only
+%% one are colored according to the workflow they appear in.  Matching
+%% modules with different parameters are shaded a lighter gray and a user
+%% can inspect the parameter differences for a specific module in a table
+%% that shows the values in each workflow.
+変更のセットをビジュアルに表せば、モジュールや接続そしてパラメータなどの
+共通点と相違点を示せる。その様子を\aosafigref{fig.vistrails.changeprov}に示す。
+両方のワークフローに登場するモジュールや接続はグレーで表示され、
+どちらか一方にしか登場しないものは、そのワークフローに対応する色で表示される。
+同じモジュールに別のパラメータが渡されている場合は明るめのグレーで表示され、
+そのモジュールのパラメータの違いを表で確認できる。
+この表には、それぞれのワークフローでのパラメータの値が表示される。
+
+%% The analogy operation allows users to take these differences and apply
+%% them to other workflows.  If a user has made a set of changes to an
+%% existing workflow (e.g., changing the resolution and file format of an
+%% output image), he can apply the same changes to other workflows via an
+%% analogy.  To do so, the user selects a source and a target workflow,
+%% which delimits the set of desired changes, as well as the workflow
+%% they wish to apply the analogy to.  VisTrails computes the difference
+%% between the first two workflows as a template, and then determines 
+%% how to remap this difference in order to apply it to the third
+%% workflow.  Because it is possible to apply differences to workflows
+%% that do not exactly match the starting workflow, we need a soft
+%% matching that allows correspondences between similar modules.  With
+%% this matching, we can remap the difference so the sequence of changes
+%% can be applied to the selected
+%% workflow~\cite{bib:scheidegger:analogy}.  The method is not foolproof
+%% and may generate new workflows that are not exactly what was desired.
+%% In such cases, a user may try to fix any introduced mistakes, or go
+%% back to the previous version and apply the changes manually.
+類推操作を使えば、これらの差分を別のワークフローに適用できるようになる。
+既存のワークフローに対する変更群(精度の変更や出力画像のファイルフォーマットの変更など)
+があれば、それを別のワークフローにも適用できるのだ。
+そのためには、まず変換前と変換後のワークフローを選んで変更の範囲を絞り込み、
+さらにその類推を適用先のワークフローも指定する。
+VisTrailsは最初の二つのワークフローの差分を算出してそれをテンプレートとし、
+その差分を三番目のワークフローにどのように適用するかを調べる。
+最初の状態が完全に一致していないワークフローであっても差分は適用できるので、
+ソフトなマッチングを使って同じモジュールの対応を判断できる必要があった。
+このマッチングを使えば差分をマップしなおせるので、選択したワークフローに変更群を適用できる~\cite{bib:scheidegger:analogy}。
+この方法が必ずうまくいくというわけではなく、できあがるワークフローが望みのものとは違ってしまう可能性もある。
+そんな場合は、間違っている部分を修正したり、前のバージョンに戻って変更を手動で適用したりもできる。
+
+%% To compute the soft matching used in analogies, we want to balance
+%% local matches (identical or very similar modules) with the overall
+%% workflow structure.  Note that the computation of even the identical
+%% matching is inefficient due to the hardness of subgraph isomorphism,
+%% so we need to employ a heuristic.  In short, if two somewhat-similar
+%% modules in the two workflows share similar neighbors, we might
+%% conclude that these two modules function similarly and should be
+%% matched as well.  More formally, we construct a product graph where
+%% each node is a possible pairing of modules in the original workflows
+%% and an edge denotes shared connections.  Then, we run steps diffusing
+%% the scores at each node across the edges to neighboring nodes.  This
+%% is a Markov process similar to Google's PageRank, and will eventually
+%% converge leaving a set of scores that now includes some global
+%% information.  From these scores, we can determine the best matching,
+%% using a threshold to leave very dissimilar modules unpaired.
+類推の際にソフトマッチングを算出するには、
+ローカルマッチ(完全に一致するのか、ほぼ同じモジュールなのか)とワークフロー全体の構造とのバランスをとっておきたい。
+完全一致の算出は(部分グラフの写像が難しいから)非効率的なので、
+経験則を使う必要がある。
+簡単に言うと、二つのワークフローでよく似たモジュールが同じ隣接モジュールを共有している場合は、
+その二つのモジュールの機能は同じであると判断し、一致すると見なすということだ。
+もう少し正確に言うと、二つのワークフローの積グラフを作る。
+各ノードは元のワークフロー内で考え得るモジュールのペアを表し、
+エッジは共有している接続を表す。
+そして各ノードからエッジ越しの隣接ノードへスコアを拡散する。
+これはGoogleのPageRankとよく似たマルコフ過程であり、
+最終的に収束したスコア群には何らかのグローバル情報が含まれている。
+このスコアを使って一番よいマッチングを判断し、
+閾値に満たないモジュールのペアを切り離す。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Querying Provenance}
+\begin{aosasect2}{履歴の問い合わせ}
+
+%% The provenance captured by VisTrails includes a set of workflows, each
+%% with its own structure, 
+%% metadata, and execution logs. It is important that users can access
+%% and explore these data.  VisTrails provides both text-based and visual
+%% (WYSIWYG) query interfaces.  For information like tags, annotations,
+%% and dates, a user can use keyword search with optional markup. For
+%% example, look for all workflows with the keyword \code{plot} that were
+%% created by \code{user:{\textasciitilde}dakoop}.  However, queries for specific subgraphs of
+%% a workflow are more easily represented through a visual, query-by-example interface, where users can
+%% either build the query from scratch or copy and modify an existing
+%% piece of a pipeline.
+VisTrailsが記録する履歴に含まれる内容は、ワークフロー群の構造やメタデータそして実行ログだ。
+ユーザーがこれらのデータにアクセスして調べられるようにすることが重要になる。
+VisTrailsは、テキストベースとビジュアル(WYSIWYG)なものとの二種類の問い合わせインターフェイスを用意している。
+タグやアノテーションそして日付といった情報について、オプションのマークアップでキーワード検索ができる。
+たとえば、キーワード\code{plot}を含むすべてのワークフローの中で\code{user:{\textasciitilde}dakoop}
+が作ったものを探すといった検索だ。
+しかし、あるワークフローの中の特定の部分グラフへの問い合わせについては、
+もっと簡単に表現できる。ビジュアルな、例示による問い合わせのインターフェイスを使ったもので、
+問い合わせをスクラッチから組み立てたり既存のパイプラインのパーツをコピーして修正したりできる。
+
+%% In designing this query-by-example interface, we kept most of the code
+%% from the existing Workflow Editor, with a few changes to parameter
+%% construction.  For parameters, it is often useful to search for ranges
+%% or keywords rather than exact values.  Thus, we added modifiers to the
+%% parameter value fields; when a user adds or edits a parameter value,
+%% they may choose to select one of these modifiers which default to
+%% exact matches.  In addition to visual query construction, query
+%% results are shown visually.  Matching versions are highlighted in the
+%% version tree, and any selected workflow is displayed with the matching
+%% portion highlighted.  The user can exit query results mode by
+%% initiating another query or clicking a reset button.
+この例示による問い合わせのインターフェイスを作るにあたり、
+大半のコードは既存のワークフローエディタのものを流用した。
+パラメータの構築あたりを多少変更しただけだ。
+パラメータに関しては、実際の値を指定するよりも値の範囲やキーワードで検索できたほうが便利なことが多い。
+そこで、パラメータの値フィールドを修正子を追加した。
+ユーザーがパラメータの値を追加したり変更したりしたときに、
+この修正子を選べるようになっている。デフォルトは、値をそのまま使うというものだ。
+ビジュアルに問い合わせを作るだけでなく、問い合わせの結果もビジュアルに表示される。
+マッチするバージョンがバージョンツリー内で強調表示され、選択したワークフローのなかでマッチする部分も強調される。
+別の問い合わせを開始したりリセットボタンをクリックしたりすると、問い合わせ結果のモードから抜けられる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Persistent Data}
+\begin{aosasect2}{永続データ}
+
+%% VisTrails saves the provenance of how results were derived and the
+%% specification of each step. However, reproducing a workflow run can be
+%% difficult if the data needed by the workflow is no longer available.
+%% In addition, for long-running workflows, it may be useful to store
+%% intermediate data as a persistent cache across sessions in order to
+%% avoid recomputation.
+VisTrailsは、ある結果がどのような経緯で導かれたのかや、各ステップでどのように指定したのかんどといった履歴を保存する。
+しかし、ワークフローの実行の再現は、そのワークフローで使うデータが残っていないと難しい。
+さらに、実行に時間のかかるワークフローの場合は、
+中間データをキャッシュとして保存して複数セッション間で使い回せるようにしておけば、
+再計算の手間を省ける。
+
+%% Many workflow systems store filesystem paths to data as provenance,
+%% but this approach is problematic.  A user might rename a file, move
+%% the workflow to another system without copying the data, or change the
+%% data contents.  In any of these cases, storing the path as provenance
+%% is not sufficient.  Hashing the data and storing
+%% the hash as provenance helps to determine whether the data might have
+%% changed, but does not help one locate the data if it exists.  To solve
+%% this problem, we created the Persistence Package, a VisTrails package
+%% that uses version control infrastructure to store data that can be
+%% referenced from provenance.  Currently we use Git to manage the data,
+%% although other systems could easily be employed.
+多くのワークフローシステムは、ファイルシステムでのデータへのパスを履歴に保存する。しかしこの方式には問題がある。
+ユーザーがファイル名を変更するかもしれないし、ワークフローを別のシステムに移動するときにデータをコピーしないかもしれない。
+あるいはデータの中身を変更してしまうかもしれない。
+いずれの場合にも、パスを履歴に含めていると不都合が起こる。
+データのハッシュを計算してそれを履歴として保存しておけば、データが変更されたかどうかを判断する助けにはなる。
+しかし、そんなデータがあったとして、それを見つける助けにはならない。
+この問題を解決するために、私たちはPersistenceパッケージを作った。
+このVisTrailsパッケージは、バージョン管理システムの基盤を使ってデータを格納し、
+履歴から参照できるようにする。現在はGitを使ってデータを管理しているが、
+他のシステムに対応するのも簡単だ。
+
+%% We use universally unique identifiers (UUIDs) to identify data, and
+%% commit hashes from git to reference versions.  If the data changes
+%% from one execution to another, a new version is checked in to the
+%% repository.  Thus, the \code{(uuid, version)} tuple is a compound identifier
+%% to retrieve the data in any state.  In addition, we store the hash of
+%% the data as well as the signature of the upstream portion of the
+%% workflow that generated it (if it is not an input).  This allows one
+%% to link data that might be identified differently as well as reuse
+%% data when the same computation is run again.
+データの特定にはUUID(Universally Unique Identifier)を使い、
+gitのコミットハッシュで特定のバージョンを参照する。
+あるワークフローの実行と別の実行でデータが変わったときには、
+新しいバージョンをリポジトリにチェックインする。
+つまり、\code{(uuid, version)}のタプルを複合キーとして、
+あらゆる状態のデータを取得できるようになる。
+データのハッシュを格納するだけでなく、さらにそのデータを生成した
+上位のワークフロー(入力ではない場合)のシグネチャも保存する。
+これで、別のデータへリンクできるようになり、同じ計算を再実行するときにもデータを再利用できるようになる。
+
+%% The main concern when designing this package was the way users were
+%% able to select and retrieve their data.  Also, we wished to keep all
+%% data in the same repository, regardless of whether it is used as
+%% input, output, or intermediate data (an output of one workflow might
+%% be used as the input of another).  There are two main modes a user
+%% might employ to identify data: choosing to create a new reference or
+%% using an existing one.  Note that after the first execution, a new
+%% reference will become an existing one as it has been persisted during
+%% execution; a user may later choose to create another reference if
+%% they wish but this is a rare case.  Because a user often wishes to
+%% always use the latest version of data, a reference identified without
+%% a specific version will default to the latest version.
+このパッケージを作るときにまず考えたのは、ユーザーがデータを選んだり取得したりする方法をどうするかということだった。
+また、すべてのデータは同じリポジトリにまとめておきたかった。入力として使うものであろうが出力であろうが
+中間データ(あるワークフローの結果を別のワークフローへの入力として使う場合)であろうが同じにしたかったのだ。
+ユーザーがデータを特定する方法には大きく二つのモードがある。新しい参照を作るか既存の参照を使うかだ。
+最初の実行の後で、新しい参照は既存の参照となる。というのも、実行中に永続化されるからだ。
+ユーザーは、それを使って別の参照を作ることもできる。ただ、あまりそんなことはない。
+ユーザーは最新版のデータを使いたがることが多いので、
+バージョンを指定せずに参照を指したときは最新バージョンを指すことになっている。
+
+%% Recall that before executing a module, we recursively update all of
+%% its inputs.  A persistent data module will not update its inputs if
+%% the upstream computations have already been run.  To determine this,
+%% we check the signature of the upstream subworkflow against the
+%% persistent repository and retrieve the precomputed data if the
+%% signature exists.  In addition, we record the data identifiers and
+%% versions as provenance so that a specific execution can be reproduced.
+モジュールを実行する前に、そのすべての入力を再帰的にアップデートしたことを思いだそう。
+永続データモジュールは、もし上流の計算が既に実行済みの場合は、入力をアップデートしない。
+アップデートするかしないかを判断するために、上流の部分ワークフローのシグネチャを永続リポジトリのものと比較し、
+もしそのシグネチャが存在すれば、計算済みの結果を取得する。
+さらに、データのIDとバージョンを履歴として記録し、その実行を再現できるようにする。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Upgrades}
+\begin{aosasect2}{アップグレード}
+\label{sec.vistrails.upgrades}
+
+%% With provenance at the core of VisTrails, the ability to upgrade old
+%% workflows so they will run with new versions of packages is a key
+%% concern.  Because packages can be created by third-parties, we need
+%% both the infrastructure for upgrading workflows as well as the hooks
+%% for package developers to specify the upgrade paths.  The core action
+%% involved in workflow upgrades is the replacement of one module with a
+%% new version.  Note that this action is complicated because we must
+%% replace all of the connections and parameters from the old module.  In
+%% addition, upgrades may need to reconfigure, reassign, or rename these
+%% parameters or connections for a module, e.g., when the module
+%% interface changes.
+VisTrailsの肝となる履歴機能を使えば、
+古いバージョンのワークフローをアップグレードして
+新しいバージョンのパッケージで動かせるようになる。
+パッケージはサードパーティが作ることもあるので、
+ワークフローをアップグレードするための仕組みだけではなく
+パッケージ開発者がアップグレード方法を指定するためのフックも必要になる。
+ワークフローのアップグレードで中心となる操作は、何かのモジュールを新しいバージョンで置き換えることだ。
+古いモジュールのすべての接続やそのパラメータを置き換えないといけないので、
+この操作は込み入ったものとなる。
+さらに、モジュールのインターフェイスが変わったりしたときには、
+パラメータや接続を再設定したり代入しなおしたり名前を変更したりしないといけなくなるかもしれない。
+
+%% Each package (together with its associated modules) is tagged by a
+%% version, and if that version changes, we assume that the modules in
+%% that package may have changed.  Note that some, or even most, may not
+%% have changed, but without doing our own code analysis, we cannot check
+%% this.  We, however, attempt to automatically upgrade any module
+%% whose interface has not changed.  To do this, we try replacing the
+%% module with the new version and throw an exception if it does not
+%% work.  When developers have changed the interface of a module or
+%% renamed a module, we allow them to specify these changes explicitly.
+%% To make this more manageable, we have created a \code{remap\_module}
+%% method that allows developers to define only the places where the
+%% default upgrade behavior needs to be modified.  For example, a
+%% developer that renamed an input port `file' to `value' can specify
+%% that specific remapping so when the new module is created, any
+%% connections to `file' in the old module will now connect to
+%% `value'. Here is an example of an upgrade path for a built-in
+%% VisTrails module:
+各パッケージ(およびそれに関連するモジュール)はバージョン番号のタグが付いており、
+バージョンが変わるということは、そのパッケージ内のモジュールも変わる可能性がある。
+中には変わらないものだってあるだろうし、場合によっては大半が変わらないままということだってある
+
+でも、それを判断するにはコードを解析しないといけない。
+しかし私たちは、インターフェイスが変わっていないモジュールも自動的にアップグレードする方法にひかれた。
+そのために、まずはモジュールを新しいバージョンに置き換えて、
+うまく動かないときは例外を投げるようにした。
+開発者がモジュールのインターフェイスを変えたり名前を変えたりするときには、
+その変更を明示的に指定できるようにもした。
+これを管理しやすくするために、作ったのが\code{remap\_module}メソッドだ。
+このメソッドを使えば、デフォルトのアップグレードで変更すべき箇所を開発者が定義できる。
+たとえば、入力のポート名を`file'から`value'に変更した場合は、
+その再マッピングを指定することができる。そうしておけば、
+新しいモジュールを作った時にも、古いバージョンの'file'への接続がすべて
+'value'につながるようになる。組み込みのVisTrailsモジュールでのアップグレードパスの例を示す。
+
+% JF: avoid spreading this over 2 pages
+% Commenting minipage out for now because code is now in the middle of a page
+% \begin{minipage}{\textwidth}
+\begin{verbatim}
+def handle_module_upgrade_request(controller, module_id, pipeline):
+   module_remap = {'GetItemsFromDirectory':
+                       [(None, '1.6', 'Directory',
+                         {'dst_port_remap':
+                              {'dir': 'value'},
+                          'src_port_remap':
+                              {'itemlist': 'itemList'},
+                          })],
+                   }
+  return UpgradeWorkflowHandler.remap_module(controller, module_id, pipeline,
+                                             module_remap)
+\end{verbatim}
+% \end{minipage}
+
+%% This piece of code upgrades workflows that use the old
+%% \code{GetItemsFromDirectory} (any version up to 1.6) module to use the
+%% \code{Directory} module instead.  It maps the \code{dir} port from the
+%% old module to \code{value} and the \code{itemlist} port to
+%% \code{itemList}.
+このコード片は、古いバージョンの\code{GetItemsFromDirectory}モジュール(1.6以前のもの)
+を使っているワークフローをアップグレードして、代わりに\code{Directory}モジュールを使わせるようにするものだ。
+旧モジュールの\code{dir}ポートを\code{value}にマップし、\code{itemlist}ポートを\code{itemList}
+にマップする。
+
+%% Any upgrade creates a new version in the version tree so that
+%% executions before and after upgrades can be differentiated and
+%% compared.  It is possible that the upgrades change the execution of
+%% the workflow (e.g., if a bug is fixed by a package developer), and we
+%% need to track this as provenance information.  Note that in older
+%% vistrails, it may be necessary to upgrade every version in the tree.
+%% In order to reduce clutter, we only upgrade versions that a user has
+%% navigated to.  In addition, we provide a preference that allows a user
+%% to delay the persistence of any upgrade until the workflow is modified
+%% or executed; if a user just views that version, there is no need to
+%% persist the upgrade.
+アップグレードのたびに新たなバージョンツリーを作り、
+これでアップグレード前後の実行を区別したり比較したりできるようにする。
+アップグレードによってワークフローの実行結果が変わることもあり
+(パッケージ開発者がバグを修正した場合など)、
+その履歴情報を追いかけられるようにする必要がある。
+古いバージョンのvistrailsでは、ツリー内のすべてのバージョンをアップグレードしないといけないこともあった。
+無駄ながらくたを減らすため、最近はユーザーが選んだものだけをアップグレードするようにした。
+さらに、実際にワークフローを変更したり実行したりするときまでアップグレード結果を保存しないようにするという
+設定も選べるようにした。単に見るだけなら、アップグレードを保存する必要はない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Sharing and Publishing Provenance-Rich Results}
+\begin{aosasect2}{履歴を含めた結果の共有と公開}
+\label{sec.vistrails.publish}
+
+%% While reproducibility is the cornerstone of the scientific method,
+%% current publications that describe computational experiments 
+%% often fail to provide enough information to enable the results
+%% to be repeated or generalized. Recently, there has been a renewed
+%% interest in the publication of reproducible results. A major roadblock
+%% to the more widespread adoption of this practice is the fact that it
+%% is hard to create a bundle that includes all of the components (e.g.,
+%% data, code, parameter settings) needed to reproduce a result as well
+%% as verify that result.
+科学的方法は、再現できることが何よりも重要だ。
+その一方で、コンピュータによる実験結果を公開するときには、
+同じ実験を繰り返したり一般化したりするための十分な情報が提供されてこなかった。
+最近は、再現可能な結果を公開しようという動きが出ている。
+この方針に従おうとしたときの大きな問題は、
+結果を再現したり検証したりするのに必要な全コンポーネント
+(データ、コード、そしてパラメータ設定)
+をひとまとめにするのが難しいという事実だ。
+
+%% By capturing detailed provenance, and through many of the features
+%% described above, VisTrails simplifies this process for computational
+%% experiments that are carried out within the system. However,
+%% mechanisms are needed to both link documents to and share the
+%% provenance information.
+詳細な履歴を記録する機能、そしてこれまでに紹介したさまざまな機能を活用することで、
+VisTrailsはこのプロセスを単純化した。コンピュータによる実験の結果を
+システムの外部に持ち出しやすくしたのだ。
+しかし、ドキュメントをリンクしたり、履歴情報を共有したりするための仕組みが必要になる。
+
+%% We have developed VisTrails packages that enable results present in
+%% papers to be linked to their provenance, like a deep caption. Using
+%% the LaTeX package we developed, users can include figures that link to
+%% VisTrails workflows.  The following LaTeX code will generate a figure
+%% that contains a workflow result:
+そこで、そんなVisTrailsパッケージを作った。
+結果を紙に出力するときに、その履歴情報にリンクできるようにするものだ。
+私たちが作ったLaTeXパッケージを使えば、
+VisTrailsのワークフローにリンクした図を組み込める。
+次のLaTeXコードは、ワークフローの結果を含む図を生成するものだ。
+
+\begin{verbatim}
+\begin{figure}[t]
+\centering{
+\vistrail[wfid=119,buildalways=false]{width=0.9\linewidth}
+}
+\caption{Visualizing a binary star system simulation. This is an image
+  that was generated by embedding a workflow directly in the text.}
+\label{fig:astrophysics}
+\end{figure}
+\end{verbatim}
+
+%% When the document is compiled using pdflatex, the
+%% \code{{\textbackslash}vistrail} command will invoke a Python script
+%% with the parameters received, which sends an XML-RPC message to a
+%% VisTrails server to execute the workflow with \code{id 119}. This same
+%% Python script downloads the results of the workflow from the server
+%% and includes them in the resulting PDF document by generating
+%% hyperlinked LaTeX \code{{\textbackslash}includegraphics} commands
+%% using the specified layout options
+%% (\code{width=0.9{\textbackslash}linewidth}).
+この文書をpdflatexでコンパイルすると、受け取ったパラメータを使って
+\code{{\textbackslash}vistrail}コマンドがPythonスクリプトを実行する。
+このスクリプトがXML-RPCメッセージをVisTrailsサーバーに送って、
+\code{id 119}のワークフローを実行する。
+同じPythonスクリプトがワークフローの結果をサーバーからダウンロードし、
+LaTeXの\code{{\textbackslash}includegraphics}コマンドにレイアウトオプション
+(\code{width=0.9{\textbackslash}linewidth})を指定したものを生成して
+結果をPDF文書に組み込む。
+
+%% It is also possible to include VisTrails results into Web pages,
+%% wikis, Word documents and PowerPoint presentations. The linking
+%% between Microsoft PowerPoint and VisTrails was done through the
+%% Component Object Model (COM) and Object Linking and Embedding (OLE)
+%% interface. In order for an object to interact with PowerPoint, at
+%% least the \code{IOleObject}, \code{IDataObject} and
+%% \code{IPersistStorage} interface of COM must be implemented. As we use
+%% the \code{QAxAggregated} class of Qt, which is an abstraction for
+%% implementing COM interfaces, to build our OLE object, both
+%% \code{IDataObject} and \code{IPersistStorage} are automatically
+%% handled by Qt. Thus, we only need to implement the \code{IOleObject}
+%% interface. The most important call in this interface is
+%% \code{DoVerb}. It lets VisTrails react to certain actions from
+%% PowerPoint, such as object activation. In our implementation, when the
+%% VisTrails object is activated, we load the VisTrails application and
+%% allow users to open, interact with and select a pipeline that they
+%% want to insert. After they close VisTrails, the pipeline result will
+%% be shown in PowerPoint. Pipeline information is also stored with the
+%% OLE object.
+VisTrailsの実行結果はWebページやWikiに組み込むこともできるし、
+Wordの文書やPowerPointのプレゼンテーションにも組み込める。
+Microsoft PowerPointとVisTrailsとのリンクには、COM(Component Object Model)
+やOLE(Object Linking and Embedding)などのインターフェイスを使った。
+PowerPointで使えるオブジェクトにするには、最低限のCOMインターフェイス
+\code{IOleObject}、\code{IDataObject}そして\code{IPersistStorage}を実装しないといけない。
+私たちがOLEオブジェクトを作るために使ったのはQtの\code{QAxAggregated}クラスで、
+これはCOMインターフェイスの実装を抽象化したものなので、
+\code{IDataObject}や\code{IPersistStorage}はQtが自動的に処理してくれる。
+したがって、唯一実装する必要があるのは\code{IOleObject}インターフェイスだけになる。
+このインターフェイスで一番重要な呼び出しが\code{DoVerb}だ。
+これを使って、VisTrailsがPowerPointからのアクション
+(オブジェクトのアクティブ化など)に対応できるようにする。
+VisTrailsオブジェクトをアクティブにすると、
+VisTrailsアプリケーションを読み込んで、
+ワークフローを開いたり操作したり挿入するパイプラインを選んだりできるようになる。
+VisTrailsを閉じると、パイプラインの結果がPowerPointに反映される。
+パイプラインの情報も、OLEオブジェクトとして保存される。
+
+%% To enable users to freely share their results together with the
+%% associated provenance, we have created
+%% crowdLabs.\footnote{\url{http://www.crowdlabs.org}} crowdLabs is a
+%% social Web site that integrates a set of usable tools and a scalable
+%% infrastructure to provide an environment for scientists to
+%% collaboratively analyze and visualize data.  crowdLabs is tightly
+%% integrated with VisTrails. If a user wants to share any results
+%% derived in VisTrails, she can connect to the crowdLabs server directly
+%% from VisTrails to upload the information. Once the information is
+%% uploaded, users can interact with and execute the workflows through a
+%% Web browser---these workflows are executed by a VisTrails server that
+%% powers crowdLabs. For more details on how VisTrails is used to created reproducible publications, see \url{http://www.vistrails.org}.
+実行結果とそれに関連する履歴をユーザーが自由に共有できるようにするために作ったのがcrowdLabsだ。
+\footnote{\url{http://www.crowdlabs.org}}
+crowdLabsはソーシャルなWebサイトで、便利なツールやスケーラブルな基盤からなるものだ。
+科学者たちが共同作業で、データの分析や可視化をできるようにする環境を提供する。
+crowdLabsはVisTrailsと密接に統合されている。
+VisTrailsの実行結果を共有したければ、VisTrailsから直接
+crowdLabsサーバーに接続して情報をアップロードできる。
+情報のアップロードが完了すれば、Webブラウザ上で
+ワークフローを操作したり実行したりできるようになる。
+ワークフローの実行は、crowdLabsを動かしているVisTrailsサーバーが行う。
+VisTrailsを使って再実行可能な形式で公開する方法についての詳細は、
+\url{http://www.vistrails.org}を見てほしい。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Lessons Learned}
+\begin{aosasect1}{教訓}
+
+%% Luckily, back in 2004 when we started thinking about building a data
+%% exploration and visualization system that supported provenance, we
+%% never envisioned how challenging it would be, or how long it would
+%% take to get to the point we are at now. If we had, we probably would
+%% never have started.
+データの調査と可視化ができて、履歴に対応したシステムを作ろうと考えだしたのは2004年だった。
+その当時はそれがいかに大変なことかも知らなかったし、今のような状態まで持ち込むのにどれくらいかかるかも見当がつかなかった。
+これが幸いした。もし当時の私たちがそれを知っていたら、そもそも作り始める気にもならなかっただろう。
+
+%% Early on, one strategy that worked well was quickly prototyping new
+%% features and showing them to a select set of users. The initial
+%% feedback and the encouragement we received from these users was
+%% instrumental in driving the project forward. It would have been
+%% impossible to design VisTrails without user feedback. If there is one
+%% aspect of the project that we would like to highlight is that most
+%% features in the system were designed as direct response to user
+%% feedback. However, it is worthy to note that many times what a user
+%% asks for is not the best solution for his/her need---being responsive
+%% to users does not necessarily mean doing exactly what they ask for.
+%% Time and again, we have had to design and re-design features to make
+%% sure they would be useful and properly integrated in the system.
+最初の頃は、何かうまくいきそうな手が見つかったらすぐに新機能のプロトタイプを作って、
+それをユーザーに使ってもらっていた。ユーザーからのフィードバックや励ましのことばが
+プロジェクトの原動力だった。ユーザーからのフィードバックなしにVisTrailsを作るのは不可能だっただろう。
+このプロジェクトの特徴として特筆すべき点は、
+システムの大半の機能がユーザーからの要望に応じて作られたものであるということだ。
+しかし、ユーザーからの要望の中には、彼ら/彼女らが本当にやりたいこととはずれているものも少なくなかった。
+ユーザーの要望に応えるというのは、単にユーザーの指示通りに作るってことじゃない。
+何度となく機能の設計を繰り返し、ほんとうに便利でうまくシステムに組み込めるようなものにしていった。
+
+%% Given our user-centric approach, one might expect that every feature
+%% we have developed would be heavily used. Unfortunately this has not
+%% been the case.  Sometimes the reason for this is that the feature is
+%% highly "unusual", since it is not found in other tools. For instance,
+%% analogies and even the version tree are not concepts that most users
+%% are familiar with, and it takes a while for them to get comfortable
+%% with them. Another important issue is documentation, or lack
+%% thereof. As with many other open source projects, we have been much
+%% better at developing new features than at documenting the existing
+%% ones. This lag in documentation leads not only to the underutilization
+%% of useful features, but also to many questions on our mailing lists.
+こんな風にユーザー主導の開発を進めているんだから、すべての機能が実際によく使われているのだろうと思うかもしれない。
+しかし残念ながら、そうでもない。
+その理由のひとつは、追加した機能の中にはあまりにも「独特な」機能、
+つまり他のツールにはまず見られないものもあったということだ。
+たとえば、類推機能は大半のユーザーにとってあまりなじみのないものだろうし、
+恐らくバージョンツリーだってそうだ。ユーザーがそういった機能に慣れるのには時間がかかる。
+さらにもうひとつ重要な理由は、ドキュメントが貧弱なことやそもそもドキュメントがないことだ。
+オープンソースのプロジェクトにはよくあることだが、
+新機能を開発しているほうが既存機能のドキュメントを書いているよりもずっと楽しかった。
+ドキュメントに問題があるせいで便利な機能がうまく活用されないこともあったし、
+それだけではなくメーリングリストへの質問も増加した。
+
+%% One of the challenges of using a system like VisTrails is that it is
+%% very general. Despite our best efforts to improve usability, VisTrails
+%% is a complex tool and requires a steep learning curve for some
+%% users. We believe that over time, with improved documentation, further
+%% refinements to the system, and more application- and domain-specific
+%% examples, the adoption bar for any given field will get lower. Also,
+%% as the concept of provenance becomes more widespread, it will be
+%% easier for users to understand the philosophy that we have adopted in
+%% developing VisTrails.
+VisTrailsのようなシステムを使ううえで難しいのが、システムが汎用的なものであるという点だ。
+使い勝手を改良しようと最善の努力をしたところで、
+VisTrailsは複雑なツールなので、使いこなすための学習曲線は急勾配になる。
+ドキュメントやシステムを改良したり、アプリケーションよりのサンプルや
+分野ごとのサンプル用意したりなどして、できるだけ学習の障壁を下げるようにしてきた。
+また、履歴の概念が一般に広まるにつれて、
+VisTrailsの開発思想をユーザーがより理解しやすくなった。
+
+%% \begin{aosasect2}{Acknowledgments}
+\begin{aosasect2}{謝辞}
+
+%% We would like to thank all the talented developers that contributed to
+%% VisTrails: Erik Anderson, Louis Bavoil, Clifton Brooks, Jason
+%% Callahan, Steve Callahan, Lorena Carlo, Lauro Lins, Tommy Ellkvist,
+%% Phillip Mates, Daniel Rees, and Nathan Smith. Special thanks to
+%% Antonio Baptista who was instrumental in helping us develop the vision
+%% for the project; and Matthias Troyer, whose collaboration has helped
+%% us to improve the system, and in particular has provided much of the
+%% impetus for the development and release of the provenance-rich
+%% publication functionality. The research and development of the
+%% VisTrails system has been funded by the National Science Foundation under grants IIS 1050422, IIS-0905385, IIS 0844572, ATM-0835821,
+%% IIS-0844546, IIS-0746500, CNS-0751152, IIS-0713637, OCE-0424602,
+%% IIS-0534628, CNS-0514485, IIS-0513692, CNS-0524096, CCF-0401498,
+%% OISE-0405402, CCF-0528201, CNS-0551724,
+%% the Department of Energy SciDAC (VACET and SDM centers), and IBM Faculty Awards.
+VisTrailsに貢献してくれた優秀な開発者たちに感謝する。Erik Anderson、Louis Bavoil、Clifton Brooks、
+Jason Callahan、Steve Callahan、Lorena Carlo、Lauro Lins、Tommy Ellkvist、Phillip Mates、Daniel Rees、そしてNathan Smithだ。
+Antonio Baptistaに感謝する。このプロジェクトのビジョンを確立する上で大きな助けになってくれた。
+さらにMatthias Troyerにも感謝する。彼の助けのおかげでこのシステムはよりよいものとなり、
+特に履歴つきの公開機能の開発やリリースの大きな原動力になってくれた。
+VisTrailsシステムの研究や開発にはNational Science Foundationからの支援を受けた。
+IIS 1050422、IIS-0905385、IIS 0844572、ATM-0835821、IIS-0844546、IIS-0746500、CNS-0751152、
+IIS-0713637、OCE-0424602、IIS-0534628、CNS-0514485、IIS-0513692、CNS-0524096、CCF-0401498、
+OISE-0405402、CCF-0528201、CNS-0551724だ。
+また、Department of Energy SciDAC (VACET and SDM centers)やIBM Faculty Awardsからも支援を受けた。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\end{aosachaptertoc}
