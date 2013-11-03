@@ -10,6 +10,8 @@ Please see the [style guide][style_guide] for copyediting instructions. There is
 
 ## Building
 
+**Note: these are out of date and probably don't work**
+
 Building the book isn't necessary for copyediting, but it does help if you want to help fix formatting glitches.
 
 To build all chapters in PDF and ePUB format:
@@ -43,49 +45,3 @@ On Ubuntu:
     sudo apt-get install haskell-platform
     cabal update
     cabal install pandoc
-
-### TODO
-
-* <del>References (only really a problem for khmer and DaNCE... and maybe mobile-perf)</del> Latex refs work; get them working for html/epub. The pandoc ref format wasn't working for me, so try adding something to `preprocessor.py`.
-* <del>Epub - Mobi conversion</del>
-* Web design for the HTML version
-* <del>Set up a pelican env for posa</del>
-* Proof the HTML version (typesetting edge cases)
-  * Figure numbering in the HTML/epub version
-  * mdashes (should have worked automatically...)
-  * Ajax Math or whatever for the latex equations in chapters like khmer.
-    * Particularly for the epub/mobi versions -- can't really rely on ajaxmath, can we? 
-* Hard copy
-  * Cover art / cover design
-    * Add back cover copy (which is done, I just haven't added it yet)
-    * Add ISBN barcode (blocked on uploading contents to Lulu)
-    * Finalize spine width (blocked on uploading contents to Lulu)
-  * Finalize front matter (copyright page, intro etc)
-  * Finalize back matter (colophon)
-  * create images files for title page, half-title page, etc
-
-## Contributing
-
-You can
-
-* Copyedit (proofread). See the Copyediting section.
-* Translate (into other languages). This should wait until after the English version is done, though.
-* Test-read on your ebook device.
-
-## Who's doing what?
-
-Put your name here if you start on a chapter. When you're done, scratch it out so I know you're done <del>like this</del>.
-
-I'd like to have at least two copyeditors per chapter. For `pugixml` we probably can't go overboard.
-
-* <del>Alexandra: copyediting mobile-perf</del>
-* <del>Amy: copyediting pugixml</del>
-* <del>Natalie: copyediting ninja</del>
-* <del>Peter Rood: copyediting memshrink</del>
-* <del>Jessica McKellar: copyediting Talos</del>
-* <del>Erik Habbinga: copyediting Warp</del>
-* <del>Jeff Schwab: copyediting Infinispan</del>
-* <del>Michael Baker: copyediting khmer</del>
-* Adam Fletcher: copyediting mobile-perf
-* Ben Trevor: copyediting chrome
-* <del>Danielle Pham: copyediting chrome</del>
