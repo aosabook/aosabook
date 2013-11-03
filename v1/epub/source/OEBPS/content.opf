@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="2.0">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+        <dc:title>The Architecture of Open Source Applications</dc:title>
+        <dc:creator opf:role="aut" opf:file-as="Brown, Amy &amp; Wilson, Greg">Amy Brown &amp; Greg Wilson</dc:creator>
+        <dc:creator opf:role="aut" opf:file-as="Brown, Amy &amp; Wilson, Greg">Amy Brown &amp; Greg Wilson</dc:creator>
+        <dc:contributor opf:role="bkp">calibre (0.8.6) [http://calibre-ebook.com]</dc:contributor>
+        <dc:publisher>Lulu.com</dc:publisher>
+        <dc:language>en</dc:language>
+        <dc:identifier id="BookID" opf:scheme="UUID">urn:uuid:54170d8a-3929-4a01-ac7a-1ba7b90c3a16</dc:identifier>
+        <meta name="cover" content="Images/cover.jpg"/>
+        <meta name="Sigil version" content="0.3.4"/>
+    </metadata>
+    <manifest>
+        <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+        <item id="x0070342075.jpg" href="Images/0070342075.jpg" media-type="image/jpeg"/>
+        <item id="x012375030x.jpg" href="Images/012375030x.jpg" media-type="image/jpeg"/>
+        <item id="x0131177052.jpg" href="Images/0131177052.jpg" media-type="image/jpeg"/>
+        <item id="x0132350882.jpg" href="Images/0132350882.jpg" media-type="image/jpeg"/>
+        <item id="x0140139966.jpg" href="Images/0140139966.jpg" media-type="image/jpeg"/>
+        <item id="x0201103427.jpg" href="Images/0201103427.jpg" media-type="image/jpeg"/>
+        <item id="x0201543303.jpg" href="Images/0201543303.jpg" media-type="image/jpeg"/>
+        <item id="x0321117425.jpg" href="Images/0321117425.jpg" media-type="image/jpeg"/>
+        <item id="x0321223918.jpg" href="Images/0321223918.jpg" media-type="image/jpeg"/>
+        <item id="x0321490452.jpg" href="Images/0321490452.jpg" media-type="image/jpeg"/>
+        <item id="x0596007590.jpg" href="Images/0596007590.jpg" media-type="image/jpeg"/>
+        <item id="x0596510047.jpg" href="Images/0596510047.jpg" media-type="image/jpeg"/>
+        <item id="x0735619670.jpg" href="Images/0735619670.jpg" media-type="image/jpeg"/>
+        <item id="x0978739213.jpg" href="Images/0978739213.jpg" media-type="image/jpeg"/>
+        <item id="x1420082795.jpg" href="Images/1420082795.jpg" media-type="image/jpeg"/>
+        <item id="x1430219483.jpg" href="Images/1430219483.jpg" media-type="image/jpeg"/>
+        <item id="x1441928812.jpg" href="Images/1441928812.jpg" media-type="image/jpeg"/>
+        <item id="x1558604960.jpg" href="Images/1558604960.jpg" media-type="image/jpeg"/>
+        <item id="architecture.png" href="Images/architecture.png" media-type="image/png"/>
+        <item id="atoms.png" href="Images/atoms.png" media-type="image/png"/>
+        <item id="bash-article-diagram.png" href="Images/bash-article-diagram.png" media-type="image/png"/>
+        <item id="bdb20-actual.png" href="Images/bdb20-actual.png" media-type="image/png"/>
+        <item id="bdb20.png" href="Images/bdb20.png" media-type="image/png"/>
+        <item id="bdb50.png" href="Images/bdb50.png" media-type="image/png"/>
+        <item id="bigtable.png" href="Images/bigtable.png" media-type="image/png"/>
+        <item id="blockscombined.png" href="Images/blockscombined.png" media-type="image/png"/>
+        <item id="bridgedcall.png" href="Images/bridgedcall.png" media-type="image/png"/>
+        <item id="bridgeframeprocesssequence.png" href="Images/bridgeframeprocesssequence.png" media-type="image/png"/>
+        <item id="buffers.png" href="Images/buffers.png" media-type="image/png"/>
+        <item id="buildbot.png" href="Images/buildbot.png" media-type="image/png"/>
+        <item id="bundlelifecycle.png" href="Images/bundlelifecycle.png" media-type="image/png"/>
+        <item id="bus-hierarchy-conceptual.png" href="Images/bus-hierarchy-conceptual.png" media-type="image/png"/>
+        <item id="callsetupsequence.png" href="Images/callsetupsequence.png" media-type="image/png"/>
+        <item id="carbon-queues.png" href="Images/carbon-queues.png" media-type="image/png"/>
+        <item id="cdash.png" href="Images/cdash.png" media-type="image/png"/>
+        <item id="ch8-06.png" href="Images/ch8-06.png" media-type="image/png"/>
+        <item id="ch8-07.png" href="Images/ch8-07.png" media-type="image/png"/>
+        <item id="ch8-11.png" href="Images/ch8-11.png" media-type="image/png"/>
+        <item id="change-based-prov.png" href="Images/change-based-prov.png" media-type="image/png"/>
+        <item id="channellayers.png" href="Images/channellayers.png" media-type="image/png"/>
+        <item id="ci-internal.png" href="Images/ci-internal.png" media-type="image/png"/>
+        <item id="cluster.png" href="Images/cluster.png" media-type="image/png"/>
+        <item id="cm.png" href="Images/cm.png" media-type="image/png"/>
+        <item id="collab-borders.png" href="Images/collab-borders.png" media-type="image/png"/>
+        <item id="collab-conflict.png" href="Images/collab-conflict.png" media-type="image/png"/>
+        <item id="collab-flow.png" href="Images/collab-flow.png" media-type="image/png"/>
+        <item id="collab-olpc.png" href="Images/collab-olpc.png" media-type="image/png"/>
+        <item id="collab-resolution.png" href="Images/collab-resolution.png" media-type="image/png"/>
+        <item id="composer-ui.png" href="Images/composer-ui.png" media-type="image/png"/>
+        <item id="context.png" href="Images/context.png" media-type="image/png"/>
+        <item id="cover.jpg" href="Images/cover.jpg" media-type="image/jpeg"/>
+        <item id="createfile.png" href="Images/createfile.png" media-type="image/png"/>
+        <item id="dag.png" href="Images/dag.png" media-type="image/png"/>
+        <item id="dataclasses.png" href="Images/dataclasses.png" media-type="image/png"/>
+        <item id="dataflow.png" href="Images/dataflow.png" media-type="image/png"/>
+        <item id="dataset.png" href="Images/dataset.png" media-type="image/png"/>
+        <item id="dispatching-model.png" href="Images/dispatching-model.png" media-type="image/png"/>
+        <item id="drawing-arch.png" href="Images/drawing-arch.png" media-type="image/png"/>
+        <item id="drawing.png" href="Images/drawing.png" media-type="image/png"/>
+        <item id="e4.png" href="Images/e4.png" media-type="image/png"/>
+        <item id="eclipse33features.png" href="Images/eclipse33features.png" media-type="image/png"/>
+        <item id="examplemenu.png" href="Images/examplemenu.png" media-type="image/png"/>
+        <item id="find-file.png" href="Images/find-file.png" media-type="image/png"/>
+        <item id="firefox-driver-overall-architecture.png" href="Images/firefox-driver-overall-architecture.png" media-type="image/png"/>
+        <item id="full-ie-stack.png" href="Images/full-ie-stack.png" media-type="image/png"/>
+        <item id="gui1.png" href="Images/gui1.png" media-type="image/png"/>
+        <item id="gui2.png" href="Images/gui2.png" media-type="image/png"/>
+        <item id="hashring.png" href="Images/hashring.png" media-type="image/png"/>
+        <item id="ie-stack-no-threads.png" href="Images/ie-stack-no-threads.png" media-type="image/png"/>
+        <item id="installer.png" href="Images/installer.png" media-type="image/png"/>
+        <item id="installtime.png" href="Images/installtime.png" media-type="image/png"/>
+        <item id="javaperspective.png" href="Images/javaperspective.png" media-type="image/png"/>
+        <item id="layers.png" href="Images/layers.png" media-type="image/png"/>
+        <item id="libtp.png" href="Images/libtp.png" media-type="image/png"/>
+        <item id="llvmcompiler1.png" href="Images/llvmcompiler1.png" media-type="image/png"/>
+        <item id="lto.png" href="Images/lto.png" media-type="image/png"/>
+        <item id="mainpanelannotated.png" href="Images/mainpanelannotated.png" media-type="image/png"/>
+        <item id="making-software.jpg" href="Images/making-software.jpg" media-type="image/jpeg"/>
+        <item id="media.png" href="Images/media.png" media-type="image/png"/>
+        <item id="mirroring.png" href="Images/mirroring.png" media-type="image/png"/>
+        <item id="modelledworkbench.png" href="Images/modelledworkbench.png" media-type="image/png"/>
+        <item id="modules.png" href="Images/modules.png" media-type="image/png"/>
+        <item id="nativebridge.png" href="Images/nativebridge.png" media-type="image/png"/>
+        <item id="object-sample.png" href="Images/object-sample.png" media-type="image/png"/>
+        <item id="objects.png" href="Images/objects.png" media-type="image/png"/>
+        <item id="operationsets.png" href="Images/operationsets.png" media-type="image/png"/>
+        <item id="osgi.png" href="Images/osgi.png" media-type="image/png"/>
+        <item id="overview-tree.png" href="Images/overview-tree.png" media-type="image/png"/>
+        <item id="overview.png" href="Images/overview.png" media-type="image/png"/>
+        <item id="p2.png" href="Images/p2.png" media-type="image/png"/>
+        <item id="painter.png" href="Images/painter.png" media-type="image/png"/>
+        <item id="passlinkage.png" href="Images/passlinkage.png" media-type="image/png"/>
+        <item id="pipeline.png" href="Images/pipeline.png" media-type="image/png"/>
+        <item id="pipeline1.png" href="Images/pipeline1.png" media-type="image/png"/>
+        <item id="pkgs.png" href="Images/pkgs.png" media-type="image/png"/>
+        <item id="platform.png" href="Images/platform.png" media-type="image/png"/>
+        <item id="process.png" href="Images/process.png" media-type="image/png"/>
+        <item id="producerconsumer.png" href="Images/producerconsumer.png" media-type="image/png"/>
+        <item id="pypi-workflow.png" href="Images/pypi-workflow.png" media-type="image/png"/>
+        <item id="pypi.png" href="Images/pypi.png" media-type="image/png"/>
+        <item id="python-source.png" href="Images/python-source.png" media-type="image/png"/>
+        <item id="rcp.png" href="Images/rcp.png" media-type="image/png"/>
+        <item id="retargetablecompiler.png" href="Images/retargetablecompiler.png" media-type="image/png"/>
+        <item id="revlogs.png" href="Images/revlogs.png" media-type="image/png"/>
+        <item id="richtext-example.png" href="Images/richtext-example.png" media-type="image/png"/>
+        <item id="richtext-flow.png" href="Images/richtext-flow.png" media-type="image/png"/>
+        <item id="richtext-formats.png" href="Images/richtext-formats.png" media-type="image/png"/>
+        <item id="richtext-screenshot.png" href="Images/richtext-screenshot.png" media-type="image/png"/>
+        <item id="role-based-interfaces-one-interface.png" href="Images/role-based-interfaces-one-interface.png" media-type="image/png"/>
+        <item id="role-based-interfaces-two-interfaces.png" href="Images/role-based-interfaces-two-interfaces.png" media-type="image/png"/>
+        <item id="scripting.png" href="Images/scripting.png" media-type="image/png"/>
+        <item id="selenium-rc.png" href="Images/selenium-rc.png" media-type="image/png"/>
+        <item id="setup-py.png" href="Images/setup-py.png" media-type="image/png"/>
+        <item id="simple-ie-stack.png" href="Images/simple-ie-stack.png" media-type="image/png"/>
+        <item id="simplecompiler.png" href="Images/simplecompiler.png" media-type="image/png"/>
+        <item id="simplegraph-in-violet.png" href="Images/simplegraph-in-violet.png" media-type="image/png"/>
+        <item id="singlechannel.png" href="Images/singlechannel.png" media-type="image/png"/>
+        <item id="socialcalc-2046.png" href="Images/socialcalc-2046.png" media-type="image/png"/>
+        <item id="socialcalc-cell-handles.png" href="Images/socialcalc-cell-handles.png" media-type="image/png"/>
+        <item id="socialcalc-class-diagram.png" href="Images/socialcalc-class-diagram.png" media-type="image/png"/>
+        <item id="socialcalc-command-runloop.png" href="Images/socialcalc-command-runloop.png" media-type="image/png"/>
+        <item id="socialcalc-input.png" href="Images/socialcalc-input.png" media-type="image/png"/>
+        <item id="socialcalc-parts.png" href="Images/socialcalc-parts.png" media-type="image/png"/>
+        <item id="socialcalc-screenshot.png" href="Images/socialcalc-screenshot.png" media-type="image/png"/>
+        <item id="somedialog.png" href="Images/somedialog.png" media-type="image/png"/>
+        <item id="spreadsheet.png" href="Images/spreadsheet.png" media-type="image/png"/>
+        <item id="supervision-tree.png" href="Images/supervision-tree.png" media-type="image/png"/>
+        <item id="system-interaction.png" href="Images/system-interaction.png" media-type="image/png"/>
+        <item id="telepathy-components.png" href="Images/telepathy-components.png" media-type="image/png"/>
+        <item id="telepathy-types-unpacked.png" href="Images/telepathy-types-unpacked.png" media-type="image/png"/>
+        <item id="titlebar.jpg" href="Images/titlebar.jpg" media-type="image/jpeg"/>
+        <item id="twochannels.png" href="Images/twochannels.png" media-type="image/png"/>
+        <item id="undo.png" href="Images/undo.png" media-type="image/png"/>
+        <item id="versioning.png" href="Images/versioning.png" media-type="image/png"/>
+        <item id="voicemail.png" href="Images/voicemail.png" media-type="image/png"/>
+        <item id="webhooks.png" href="Images/webhooks.png" media-type="image/png"/>
+        <item id="whisper-file.png" href="Images/whisper-file.png" media-type="image/png"/>
+        <item id="wikicalc-components.png" href="Images/wikicalc-components.png" media-type="image/png"/>
+        <item id="wikicalc-flow.png" href="Images/wikicalc-flow.png" media-type="image/png"/>
+        <item id="wikicalc-loading.png" href="Images/wikicalc-loading.png" media-type="image/png"/>
+        <item id="wikicalc-screenshot.png" href="Images/wikicalc-screenshot.png" media-type="image/png"/>
+        <item id="x86target.png" href="Images/x86target.png" media-type="image/png"/>
+        <item id="stylesheet.css" href="Styles/stylesheet.css" media-type="text/css"/>
+        <item id="asterisk.html" href="Text/asterisk.html" media-type="application/xhtml+xml"/>
+        <item id="audacity.html" href="Text/audacity.html" media-type="application/xhtml+xml"/>
+        <item id="bash.html" href="Text/bash.html" media-type="application/xhtml+xml"/>
+        <item id="bdb.html" href="Text/bdb.html" media-type="application/xhtml+xml"/>
+        <item id="bibliography.html" href="Text/bibliography.html" media-type="application/xhtml+xml"/>
+        <item id="cmake.html" href="Text/cmake.html" media-type="application/xhtml+xml"/>
+        <item id="contents.html" href="Text/contents.html" media-type="application/xhtml+xml"/>
+        <item id="cover.html" href="Text/cover.html" media-type="application/xhtml+xml"/>
+        <item id="eclipse.html" href="Text/eclipse.html" media-type="application/xhtml+xml"/>
+        <item id="graphite.html" href="Text/graphite.html" media-type="application/xhtml+xml"/>
+        <item id="hdfs.html" href="Text/hdfs.html" media-type="application/xhtml+xml"/>
+        <item id="integration.html" href="Text/integration.html" media-type="application/xhtml+xml"/>
+        <item id="intro.html" href="Text/intro.html" media-type="application/xhtml+xml"/>
+        <item id="jitsi.html" href="Text/jitsi.html" media-type="application/xhtml+xml"/>
+        <item id="license.html" href="Text/license.html" media-type="application/xhtml+xml"/>
+        <item id="llvm.html" href="Text/llvm.html" media-type="application/xhtml+xml"/>
+        <item id="makingsoftware.html" href="Text/makingsoftware.html" media-type="application/xhtml+xml"/>
+        <item id="mercurial.html" href="Text/mercurial.html" media-type="application/xhtml+xml"/>
+        <item id="nosql.html" href="Text/nosql.html" media-type="application/xhtml+xml"/>
+        <item id="packaging.html" href="Text/packaging.html" media-type="application/xhtml+xml"/>
+        <item id="riak.html" href="Text/riak.html" media-type="application/xhtml+xml"/>
+        <item id="selenium.html" href="Text/selenium.html" media-type="application/xhtml+xml"/>
+        <item id="sendmail.html" href="Text/sendmail.html" media-type="application/xhtml+xml"/>
+        <item id="snowflock.html" href="Text/snowflock.html" media-type="application/xhtml+xml"/>
+        <item id="socialcalc.html" href="Text/socialcalc.html" media-type="application/xhtml+xml"/>
+        <item id="telepathy.html" href="Text/telepathy.html" media-type="application/xhtml+xml"/>
+        <item id="thousandparsec.html" href="Text/thousandparsec.html" media-type="application/xhtml+xml"/>
+        <item id="titlepage.html" href="Text/titlepage.html" media-type="application/xhtml+xml"/>
+        <item id="violet.html" href="Text/violet.html" media-type="application/xhtml+xml"/>
+        <item id="vistrails.html" href="Text/vistrails.html" media-type="application/xhtml+xml"/>
+        <item id="vtk.html" href="Text/vtk.html" media-type="application/xhtml+xml"/>
+        <item id="wesnoth.html" href="Text/wesnoth.html" media-type="application/xhtml+xml"/>
+    </manifest>
+    <spine toc="ncx">
+        <itemref idref="cover.html"/>
+        <itemref idref="titlepage.html"/>
+        <itemref idref="license.html"/>
+        <itemref idref="contents.html"/>
+        <itemref idref="intro.html"/>
+        <itemref idref="asterisk.html"/>
+        <itemref idref="audacity.html"/>
+        <itemref idref="bash.html"/>
+        <itemref idref="bdb.html"/>
+        <itemref idref="cmake.html"/>
+        <itemref idref="eclipse.html"/>
+        <itemref idref="graphite.html"/>
+        <itemref idref="hdfs.html"/>
+        <itemref idref="integration.html"/>
+        <itemref idref="jitsi.html"/>
+        <itemref idref="llvm.html"/>
+        <itemref idref="mercurial.html"/>
+        <itemref idref="nosql.html"/>
+        <itemref idref="packaging.html"/>
+        <itemref idref="riak.html"/>
+        <itemref idref="selenium.html"/>
+        <itemref idref="sendmail.html"/>
+        <itemref idref="snowflock.html"/>
+        <itemref idref="socialcalc.html"/>
+        <itemref idref="telepathy.html"/>
+        <itemref idref="thousandparsec.html"/>
+        <itemref idref="violet.html"/>
+        <itemref idref="vistrails.html"/>
+        <itemref idref="vtk.html"/>
+        <itemref idref="wesnoth.html"/>
+        <itemref idref="bibliography.html"/>
+        <itemref idref="makingsoftware.html"/>
+    </spine>
+    <guide>
+        <reference type="cover" title="Title Page" href="Text/titlepage.html"/>
+    </guide>
+</package>

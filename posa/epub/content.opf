@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package version="2.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>The Performance of Open Source Applications</dc:title>
+    <dc:language>en-CA</dc:language>
+    <dc:identifier id="BookId">urn:uuid:8090d795-a424-4e7a-808a-21c23aa03e1e</dc:identifier>
+    <dc:creator opf:role="aut" opf:file-as="Armstrong, Tavish">Tavish Armstrong</dc:creator>
+    <dc:date opf:event="publication">2013-10-30</dc:date>
+    <dc:publisher>Lulu</dc:publisher>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml" />
+    <item id="style" href="stylesheet.css" media-type="text/css" />
+    <item id="navbro" href="nav.xhtml" media-type="application/xhtml+xml" />
+    <item id="title_page" href="title_page.xhtml" media-type="application/xhtml+xml" />
+    <item id="intro" href="introduction.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch001" href="ch001.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch002" href="ch002.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch003" href="ch003.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch004" href="ch004.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch005bro" href="ch005.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch006" href="ch006.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch007" href="ch007.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch008" href="ch008.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch009" href="ch009.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch010" href="ch010.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch011" href="ch011.xhtml" media-type="application/xhtml+xml" />
+    <item id="ch012" href="ch012.xhtml" media-type="application/xhtml+xml" />
+
+
+<item id='fake_id_0' href='chrome-images/navtiming.png' media-type='image/png' />
+
+<item id='fake_id_1' href='mobile-perf-images/fig9.png' media-type='image/png' />
+
+<item id='fake_id_2' href='khmer-images/layers.png' media-type='image/png' />
+
+<item id='fake_id_3' href='chrome-images/image11.png' media-type='image/png' />
+
+<item id='fake_id_4' href='warp-images/4.png' media-type='image/png' />
+
+<item id='fake_id_5' href='mobile-perf-images/figure10.png' media-type='image/png' />
+
+<item id='fake_id_6' href='chrome-images/transfer-size-total-requests.png' media-type='image/png' />
+
+<item id='fake_id_7' href='ethercalc-images/flow-prototype.png' media-type='image/png' />
+
+<item id='fake_id_8' href='ethercalc-images/scaling-cluster.png' media-type='image/png' />
+
+<item id='fake_id_9' href='mobile-perf-images/figure6.png' media-type='image/png' />
+
+<item id='fake_id_10' href='mobile-perf-images/fig10.png' media-type='image/png' />
+
+<item id='fake_id_11' href='chrome-images/image06.png' media-type='image/png' />
+
+<item id='fake_id_12' href='chrome-images/image10.png' media-type='image/png' />
+
+<item id='fake_id_13' href='mobile-perf-images/figure13.png' media-type='image/png' />
+
+<item id='fake_id_14' href='warp-images/bytestring-splicing.png' media-type='image/png' />
+
+<item id='fake_id_15' href='infinispan-images/image00.png' media-type='image/png' />
+
+<item id='fake_id_16' href='warp-images/tcpdump.png' media-type='image/png' />
+
+<item id='fake_id_17' href='khmer-images/bloomFilter.pdf' media-type='application/pdf' />
+
+<item id='fake_id_18' href='mobile-perf-images/figure11.png' media-type='image/png' />
+
+<item id='fake_id_19' href='dance-images/abstract-arch.eps' media-type='image/x-eps' />
+
+<item id='fake_id_20' href='chrome-images/async-dns.png' media-type='image/png' />
+
+<item id='fake_id_21' href='warp-images/benchmark.png' media-type='image/png' />
+
+<item id='fake_id_22' href='chrome-images/netinternals-prerender.png' media-type='image/png' />
+
+<item id='fake_id_23' href='chrome-images/dns-prefetch.png' media-type='image/png' />
+
+<item id='fake_id_24' href='chrome-images/internals-cache.jpg' media-type='image/jpeg' />
+
+<item id='fake_id_25' href='dance-images/old-na.eps' media-type='image/x-eps' />
+
+<item id='fake_id_26' href='pugixml-images/image01.png' media-type='image/png' />
+
+<item id='fake_id_27' href='warp-images/wai.png' media-type='image/png' />
+
+<item id='fake_id_28' href='mobile-perf-images/fig8.png' media-type='image/png' />
+
+<item id='fake_id_29' href='ethercalc-images/scaling-threads.png' media-type='image/png' />
+
+<item id='fake_id_30' href='mobile-perf-images/fig4.png' media-type='image/png' />
+
+<item id='fake_id_31' href='mobile-perf-images/figure5.png' media-type='image/png' />
+
+<item id='fake_id_32' href='mobile-perf-images/fig1.png' media-type='image/png' />
+
+<item id='fake_id_33' href='chrome-images/subresource-stats.png' media-type='image/png' />
+
+<item id='fake_id_34' href='ethercalc-images/scaling-evented.png' media-type='image/png' />
+
+<item id='fake_id_35' href='khmer-images/layers.pdf' media-type='application/pdf' />
+
+<item id='fake_id_36' href='warp-images/3.png' media-type='image/png' />
+
+<item id='fake_id_37' href='dance-images/abstract-arch.png' media-type='image/png' />
+
+<item id='fake_id_38' href='mobile-perf-images/fig6.png' media-type='image/png' />
+
+<item id='fake_id_39' href='khmer-images/scaling.eps' media-type='image/x-eps' />
+
+<item id='fake_id_40' href='mobile-perf-images/figure3.png' media-type='image/png' />
+
+<item id='fake_id_41' href='mobile-perf-images/figure2.png' media-type='image/png' />
+
+<item id='fake_id_42' href='pugixml-images/image04.png' media-type='image/png' />
+
+<item id='fake_id_43' href='chrome-images/netinternals.png' media-type='image/png' />
+
+<item id='fake_id_44' href='khmer-images/data_flow.pdf' media-type='application/pdf' />
+
+<item id='fake_id_45' href='talos-images/arch.png' media-type='image/png' />
+
+<item id='fake_id_46' href='chrome-images/startup-dns.png' media-type='image/png' />
+
+<item id='fake_id_47' href='chrome-images/image07.png' media-type='image/png' />
+
+<item id='fake_id_48' href='chrome-images/image01.png' media-type='image/png' />
+
+<item id='fake_id_49' href='chrome-images/image09.png' media-type='image/png' />
+
+<item id='fake_id_50' href='mobile-perf-images/figure8.png' media-type='image/png' />
+
+<item id='fake_id_51' href='chrome-images/ipc.png' media-type='image/png' />
+
+<item id='fake_id_52' href='mobile-perf-images/fig3.png' media-type='image/png' />
+
+<item id='fake_id_53' href='warp-images/multi-workers.png' media-type='image/png' />
+
+
+<item id='fake_id_55' href='warp-images/2.png' media-type='image/png' />
+
+<item id='fake_id_56' href='warp-images/1.png' media-type='image/png' />
+
+<item id='fake_id_57' href='mobile-perf-images/figure9.png' media-type='image/png' />
+
+<item id='fake_id_58' href='warp-images/middleware.png' media-type='image/png' />
+
+<item id='fake_id_59' href='mobile-perf-images/figure1.png' media-type='image/png' />
+
+<item id='fake_id_60' href='infinispan-images/image02.png' media-type='image/png' />
+
+<item id='fake_id_61' href='dance-images/dnc-arch.png' media-type='image/png' />
+
+<item id='fake_id_62' href='dance-images/dnc-arch.eps' media-type='image/x-eps' />
+
+<item id='fake_id_63' href='khmer-images/kmers.png' media-type='image/png' />
+
+<item id='fake_id_64' href='khmer-images/scaling.png' media-type='image/png' />
+
+<item id='fake_id_65' href='khmer-images/data_flow.png' media-type='image/png' />
+
+<item id='fake_id_66' href='ethercalc-images/profiler-jsdom.png' media-type='image/png' />
+
+<item id='fake_id_67' href='dance-images/deployment-scheduler.png' media-type='image/png' />
+
+<item id='fake_id_68' href='pugixml-images/image00.png' media-type='image/png' />
+
+<item id='fake_id_69' href='chrome-images/image00.png' media-type='image/png' />
+
+<item id='fake_id_70' href='pugixml-images/image03.png' media-type='image/png' />
+
+<item id='fake_id_71' href='warp-images/middleware-michael.png' media-type='image/png' />
+
+<item id='fake_id_72' href='mobile-perf-images/fig7.png' media-type='image/png' />
+
+<item id='fake_id_73' href='warp-images/benchmark.png.1' media-type='image/png' />
+
+<item id='fake_id_74' href='infinispan-images/image01.png' media-type='image/png' />
+
+<item id='fake_id_75' href='dance-images/deployment-scheduler.eps' media-type='image/x-eps' />
+
+<item id='fake_id_76' href='memshrink-images/figure1.png' media-type='image/png' />
+
+<item id='fake_id_77' href='warp-images/eventlog.png' media-type='image/png' />
+
+<item id='fake_id_78' href='chrome-images/three-way.png' media-type='image/png' />
+
+<item id='fake_id_79' href='warp-images/5.png' media-type='image/png' />
+
+<item id='fake_id_80' href='mobile-perf-images/fig5.png' media-type='image/png' />
+
+<item id='fake_id_81' href='warp-images/timeout.png' media-type='image/png' />
+
+<item id='fake_id_82' href='mobile-perf-images/figure7.png' media-type='image/png' />
+
+<item id='fake_id_83' href='zotonic-images/zotonic-architecture.png' media-type='image/png' />
+
+<item id='fake_id_84' href='ethercalc-images/wikicalc-socialcalc.png' media-type='image/png' />
+
+<item id='fake_id_85' href='mobile-perf-images/figure12.png' media-type='image/png' />
+
+<item id='fake_id_86' href='chrome-images/preconn-pagespeed.png' media-type='image/png' />
+
+<item id='fake_id_87' href='ethercalc-images/multiplayer-socialcalc.png' media-type='image/png' />
+
+<item id='fake_id_88' href='ethercalc-images/flow-nodejs.png' media-type='image/png' />
+
+<item id='fake_id_89' href='mobile-perf-images/fig2.png' media-type='image/png' />
+
+<item id='fake_id_90' href='chrome-images/image04.png' media-type='image/png' />
+
+<item id='fake_id_91' href='warp-images/warp.png' media-type='image/png' />
+
+<item id='fake_id_92' href='khmer-images/kmers.pdf' media-type='application/pdf' />
+
+<item id='fake_id_93' href='ethercalc-images/profiler-no-jsdom.png' media-type='image/png' />
+
+<item id='fake_id_94' href='chrome-images/multiproc.png' media-type='image/png' />
+
+<item id='fake_id_95' href='dance-images/old-na.png' media-type='image/png' />
+
+<item id='fake_id_96' href='pugixml-images/image02.png' media-type='image/png' />
+
+<item id='fake_id_97' href='chrome-images/omni-pagespeed.png' media-type='image/png' />
+
+<item id='fake_id_98' href='cover.png' media-type='image/png' />
+
+<item id='fake_id_99' href='infinispan-images/image03.png' media-type='image/png' />
+
+<item id='fake_id_100' href='mobile-perf-images/figure4.png' media-type='image/png' />
+
+<item id='fake_id_101' href='warp-images/bytestring.png' media-type='image/png' />
+
+<item id='fake_id_102' href='chrome-images/image03.png' media-type='image/png' />
+
+<item id='fake_id_103' href='ethercalc-images/flow-snapshot.png' media-type='image/png' />
+
+
+
+
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="title_page" linear="yes" />
+    <itemref idref="navbro" linear="no" />
+    <itemref idref="intro" />
+    <itemref idref="ch001" />
+    <itemref idref="ch002" />
+    <itemref idref="ch003" />
+    <itemref idref="ch004" />
+    <itemref idref="ch005bro" />
+    <itemref idref="ch006" />
+    <itemref idref="ch007" />
+    <itemref idref="ch008" />
+    <itemref idref="ch009" />
+    <itemref idref="ch010" />
+    <itemref idref="ch011" />
+    <itemref idref="ch012" />
+  </spine>
+  <guide>
+    <reference type="toc" title="The Performance of Open Source Applications" href="nav.xhtml" />
+  </guide>
+</package>

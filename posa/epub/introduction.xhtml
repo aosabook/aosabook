@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title>Introduction</title>
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; background-color: #dddddd; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { font-weight: bold; }
+code > span.dt { color: #800000; }
+code > span.dv { color: #0000ff; }
+code > span.bn { color: #0000ff; }
+code > span.fl { color: #800080; }
+code > span.ch { color: #ff00ff; }
+code > span.st { color: #dd0000; }
+code > span.co { color: #808080; font-style: italic; }
+code > span.al { color: #00ff00; font-weight: bold; }
+code > span.fu { color: #000080; }
+code > span.er { color: #ff0000; font-weight: bold; }
+  </style>
+  <link rel="stylesheet" type="text/css" href="stylesheet.css" />
+</head>
+<body>
+<div id="book-introduction" class="section level1">
+<h1>Introduction</h1>
+<h2 class="author">Tavish Armstrong</h2>
+          <p>It’s commonplace to say that computer hardware is now so fast that most
+developers don’t have to worry about performance. In fact, Douglas
+Crockford declined to write a chapter for this book for that&nbsp;reason:</p>
+<blockquote>
+<p>If I were to write a chapter, it would be about anti-performance: most
+effort spent in pursuit of performance is wasted. I don’t think that
+is what you are looking&nbsp;for.</p>
+</blockquote>
+<p>Donald Knuth made the same point thirty years&nbsp;ago:</p>
+<blockquote>
+<p>We should forget about small efficiencies, say about 97% of the time:
+premature optimization is the root of all&nbsp;evil.</p>
+</blockquote>
+<p>but between mobile devices with limited power and memory, and data
+analysis projects that need to process terabytes, a growing number of
+developers <em>do</em> need to make their code faster, their data structures
+smaller, and their response times shorter. However, while hundreds of
+textbooks explain the basics of operating systems, networks, computer
+graphics, and databases, few (if any) explain how to find and fix things
+in real applications that are simply too damn&nbsp;slow.</p>
+<p>This collection of case studies is our attempt to fill that gap. Each
+chapter is written by real developers who have had to make an existing
+system faster or who had to design something to be fast in the first
+place. They cover many different kinds of software and performance
+goals; what they have in common is a detailed understanding of what
+actually happens when, and how the different parts of large applications
+fit together. Our hope is that this book will—like its predecessor <em>The
+Architecture of Open Source Applications</em>—help you become a better
+developer by letting you look over these experts’&nbsp;shoulders.</p>
+<p>&#8211; Tavish&nbsp;Armstrong</p>
+<h2>Contributors</h2>
+<p id="armstrong-tavish">
+<em>Tavish Armstrong (editorial)</em>: Tavish studies software engineering at Concordia University and hopes to graduate in the spring of 2014. His online home is <a href="http://tavisharmstrong.com">http://tavisharmstrong.com</a>.
+</p>
+
+<p id="snoyman-michael">
+<em>Michael Snoyman (Warp)</em>: Michael is the lead software engineer at <span class="caps">FP</span> Complete. He is the founder and lead developer of the Yesod Web Framework, which provides a means of creating robust, high-performance web applications. His formal studies include actuarial science, and he has previously worked in the <span class="caps">US</span> auto and homeowner insurance industry analyzing large data&nbsp;sets.
+</p>
+
+<p id="yamamoto-kazu">
+<em>Kazu Yamamoto (Warp)</em>: Kazu is a senior researcher of <span class="caps">IIJ</span> Innovation Institute. He has been working for open source software around 20 years. His products include Mew, <span class="caps">KAME</span>, Firemacs and&nbsp;mighty.
+</p>
+
+<p id="voellmy-andreas">
+<em>Andreas Voellmy (Warp)</em>: Andreas is a PhD candidate in Computer Science at Yale University. Andreas uses Haskell in his research on software-defined networks and has published open source Haskell packages, such as nettle-openflow, for controlling routers using Haskell programs. Andreas also contributes to the <span class="caps">GHC</span> project and is a maintainer of <span class="caps">GHC</span>’s <span class="caps">IO</span>&nbsp;manager.
+</p>
+
+<p id="grigorik-ilya">
+<em>Ilya Grigorik (Chrome)</em>: Ilya is a web performance engineer and developer advocate on the Make The Web Fast team at Google, where he spends his days and nights on making the web fast and driving adoption of performance best practices. You can find Ilya online on his blog at <a href="http://igvita.com">igvita.com</a> and under <code>@igrigorik</code> on&nbsp;Twitter.
+</p>
+
+<p id="martin-evan">
+<em>Evan Martin (Ninja)</em>: Evan has been a programmer at Google for nine years. His background before that includes degrees in computer science and linguistics. He has hacked on many minor free software projects and a few major ones, including LiveJournal. His website is <a href="http://neugierig.org">http://neugierig.org</a>&nbsp;.
+</p>
+
+<p id="howard-bryce">
+<em>Bryce Howard (Mobile Performance)</em>: Bryce is a software architect who obsesses about making things go fast. He has 15+ years in the industry, and has worked for a number of startups you’ve never heard of. He is currently taking a stab at this whole “writing” thing and authoring an introductory Amazon Web Services book for O’Reilly&nbsp;Associates.
+</p>
+
+<p id="huey-kyle">
+<em>Kyle Huey (Memshrink)</em>: Kyle works at the Mozilla Corporation on the Gecko rendering engine that powers the Firefox web browser. He earned a Bachelor’s degree in mathematics from the University of Florida before moving to San Francisco. He blogs at <a href="http://blog.kylehuey.com">blog.kylehuey.com</a>&nbsp;.
+</p>
+
+<p id="talbert-clint">
+<em>Clint Talbert (Talos)</em>: Clint has been involved in the Mozilla project for almost a decade, first as a volunteer and then as an employee. He currently leads the Automation and Tools team with a mandate to automate everything that can be automated, and a personal vendetta to eliminate idle cycles on any automation machine. You can follow his adventures in open source and writing at <a href="http://clinttalbert.com">clinttalbert.com</a> .
+</p>
+
+<p id="maher-joel">
+<em>Joel Maher (Talos)</em>: Joel has over 15 years of experience automating software. In the last 5 years at Mozilla, Joel has hacked the automation and tools at Mozilla to extend to mobile phones as well as taken ownership of Talos to expand tests, reliability and improve regression detection. While his automation is running, Joel likes to get outdoors and tackle new challenges in life. For more automation adventures, follow along at <a href="http://elvis314.wordpress.com">elvis314.wordpress.com</a> .
+</p>
+
+<p id="tang-audrey">
+<em>Audrey Tang (Ethercalc)</em>: A self-educated programmer and translator based in Taiwan, Audrey currently works at Socialtext with the job title “Untitled Page”, as well as at Apple on localization and release engineering. Audrey has previously designed and led the Pugs project, the first working Perl 6 implementation, and served in language design committees for Haskell, Perl 5, and Perl 6, with numerous contributions to <span class="caps">CPAN</span> and Hackage. Follow Audrey on Twitter at <code>@audreyt</code>.
+</p>
+
+<p id="brown-titus">
+<em>C. Titus Brown (Khmer)</em>: Titus has worked in evolutionary modeling, physical meteorology, developmental biology, genomics, and bioinformatics. He is now an Assistant Professor at Michigan State University, where he has expanded his interests into several new areas, including reproducibility and maintainability of scientific software. He is also a member of the Python Software Foundation, and blogs at <a href="http://ivory.idyll.org">http://ivory.idyll.org</a>&nbsp;.
+</p>
+
+<p id="mcdonald-eric">
+<em>Eric McDonald (Khmer)</em>: Eric McDonald is a developer of scientific software with an emphasis on high performance computing (<span class="caps">HPC</span>), the area in which he has worked much of the past 13 years. Having previously worked with several varieties of physicists, he now helps bioinformaticians. He holds a bachelor’s degree in Computer Science, Mathematics, and Physics. Eric has been a fan of <span class="caps">FOSS</span> since the&nbsp;mid-nineties.
+</p>
+
+<p id="schmidt-douglas">
+<em>Douglas C. Schmidt (DaNCE)</em>: Dr. Douglas C. Schmidt is a Professor of Computer Science, Associate Chair of the Computer Science and Engineering program, and a Senior Researcher at the Institute at Software Integrated Systems, all at Vanderbilt University. Doug has published 10 books and more than 500 technical papers covering a wide range of software-related topics, and led the development of <span class="caps">ACE</span>, <span class="caps">TAO</span>, <span class="caps">CIAO</span>, and CoSMIC for the past two&nbsp;decades.
+</p>
+
+<p id="gokhale-aniruddha">
+<em>Aniruddha Gokhale (DaNCE)</em>: Dr. Aniruddha S. Gokhale is an Associate Professor in the Department of Electrical Engineering and Computer Science, and Senior Research Scientist at the Institute for Software Integrated Systems (<span class="caps">ISIS</span>) both at Vanderbilt University. He has over 140 technical articles to his credit, and his current research focuses on developing novel solutions to emerging challenges in cloud computing and cyber physical&nbsp;systems.
+</p>
+
+<p id="otte-william">
+<em>William R. Otte (DaNCE)</em>: Dr. William R. Otte is a Research Scientist at the Institute for Software Integrated Systems (<span class="caps">ISIS</span>) at Vanderbilt University. He has nearly a decade of experience developing open source middleware and modeling tools for distributed, real-time and embedded systems, working with both government and industrial partners including <span class="caps">DARPA</span>, <span class="caps">NASA</span>, Northrup Grumman and Lockheed-Martin. He has published numerous technical articles and reports describing these advances and has participated in the development of open standards for component&nbsp;middleware.
+</p>
+
+<p id="surtani-manik">
+<em>Manik Surtani (Infinispan)</em>: Manik is a core R&amp;D engineer at JBoss, Red Hat’s middleware division. He is the founder of the Infinispan project, and Platform Architect of the JBoss Data Grid. He is also the spec lead of <span class="caps">JSR</span> 347 (Data Grids for the Java Platform), and represents Red Hat on the Expert Group of <span class="caps">JSR</span> 107 (Temporary caching for Java). His interests lie in cloud and distributed computing, big data and NoSQL, autonomous systems and highly available&nbsp;computing.
+</p>
+
+<p id="kapoulkine-arseny">
+<em>Arseny Kapoulkine (Pugixml)</em>: Arseny has spent his entire career programming graphics and low-level systems in video games, ranging from small niche titles to multi-platform <span class="caps">AAA</span> blockbusters such as <span class="caps">FIFA</span> Soccer. He enjoys making slow things fast and fast things even faster. He can be reached at <code>mail@zeuxcg.org</code> or on Twitter at <code>@zeuxcg</code>.
+</p>
+
+<p id="scherpenisse-arjan">
+<em>Arjan Scherpenisse (Zotonic)</em>: Arjan is one of the main architects of Zotonic and manages to work on dozens of projects at the same time, mostly using Zotonic and Erlang. Arjan bridges the gap between back-end and front-end Erlang projects. Besides issues like scalability and performance, Arjan is often involved in creative projects. Arjan is a regular speaker at&nbsp;events.
+</p>
+
+<p id="worrell-marc">
+<em>Marc Worrell (Zotonic)</em>: Marc is a respected member of the Erlang community and was the initiator of the Zotonic project. Marc spends his time consulting for large Erlang projects, the development of Zotonic and is the <span class="caps">CTO</span> of Maximonster, the builders of MaxClass and&nbsp;LearnStone.
+</p>
+
+<h2>Acknowledgements</h2>
+<p>This book would not exist without the help of Amy Brown and Greg Wilson,
+who asked me to edit the book and convinced me that it was possible.
+I&#8217;m also grateful to Tony Arkles for his help in the earlier stages of editing, and to our technical&nbsp;reviewers:</p>
+<ul>
+<li>Colin&nbsp;Morris</li>
+<li>Corey&nbsp;Chivers</li>
+<li>Greg&nbsp;Wilson </li>
+<li>Julia&nbsp;Evans </li>
+<li>Kamal&nbsp;Marhubi </li>
+<li>Kim&nbsp;Moir </li>
+<li>Laurie MacDougall&nbsp;Sookraj </li>
+<li>Logan&nbsp;Smyth </li>
+<li>Monica&nbsp;Dinculescu </li>
+<li>Nikita&nbsp;Pchelin </li>
+<li>Natalie&nbsp;Black</li>
+<li>Pierre-Antoine&nbsp;Lafayette </li>
+</ul>
+<p>A small army of copyeditors and helpers ensured the book got published this&nbsp;decade:</p>
+<ul>
+<li>Adam&nbsp;Fletcher </li>
+<li>Amy&nbsp;Brown </li>
+<li>Danielle&nbsp;Pham </li>
+<li>Erik&nbsp;Habbinga </li>
+<li>Jeff&nbsp;Schwab  </li>
+<li>Jessica&nbsp;McKellar </li>
+<li>Michael&nbsp;Baker </li>
+<li>Natalie&nbsp;Black </li>
+<li>Alexandra&nbsp;Phillips </li>
+<li>Peter&nbsp;Rood</li>
+</ul>
+<p>Amy Brown, Bruno Kinoshita, and Danielle Pham deserve special thanks
+for their help with the book&#8217;s build process, &nbsp;graphics, and typesetting.</p>
+<p>Editing a book is a difficult task,
+but it gets easier when you have encouraging friends.
+Natalie Black, Julia Evans, and Kamal Marhubi were patient and enthusiastic&nbsp;throughout.</p>
+<h2>Contributing</h2>
+<p>Dozens of volunteers worked hard to create this book, but there is still
+a lot to do. If you’d like to help, you can do so by reporting errors,
+translating the content into other languages, or describing other open
+source systems. Please contact us at <code>aosa@aosabook.org</code> if you would like to get&nbsp;involved.</p>
+
+<h2>Colophon</h2>
+<p>
+<em>In the print edition, this appears on the last page. Notes on fonts are specific to the print and PDF editions.</em>
+</p>
+<p>
+The cover font is Museo from the exljibris foundry, by Jos Buivenga. The text font is TEXGyre
+Termes and the heading font is TEXGyre Heros, both by Bogusław Jackowski and Janusz M. Nowacki.
+The code font is Inconsolata by Raph Levien.
+</p>
+<p>
+The front cover photo is of the former workings of the turret clock of St. Stephen’s Cathedral
+in Vienna. The workings can now be seen in the Vienna Clock Museum. The picture was taken by
+<a href="http://www.mjenemark.com/">Michelle Enemark</a>. The cover was designed by <a href="http://www.amyrbrown.ca/">Amy Brown</a>.
+</p>
+<p>
+This book was built with open source software (with the exception of the cover). Programs like
+LaTeX, Pandoc, Python, and Calibre (ebook-convert) were especially helpful.
+</p>
+
+
+</div>
+</body>
+</html>

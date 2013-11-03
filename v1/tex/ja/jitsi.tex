@@ -1,0 +1,1150 @@
+\begin{aosachapter}{Jitsi}{s:jitsi}{Emil Ivov}
+%% Based on EN-Revision r229
+
+%% Jitsi is an application that allows people to make video and voice
+%% calls, share their desktops, and exchange files and messages. More
+%% importantly it allows people to do this over a number of different
+%% protocols, ranging from the standardized XMPP (Extensible Messaging
+%% and Presence Protocol) and SIP (Session Initiation Protocol) to
+%% proprietary ones like Yahoo! and Windows Live Messenger (MSN).  It
+%% runs on Microsoft Windows, Apple Mac OS X, Linux, and FreeBSD\@. It is
+%% written mostly in Java but it also contains parts written in native
+%% code.  In this chapter, we'll look at Jitsi's OSGi-based architecture,
+%% see how it implements and manages protocols, and look back on what
+%% we've learned from building it.\footnote{To refer directly to the
+%% source as you read, download it from
+%% \url{http://jitsi.org/source}.  If you are using Eclipse or NetBeans,
+%% you can go to \url{http://jitsi.org/eclipse} or
+%% \url{http://jitsi.org/netbeans} for instructions on how configure
+%% them.}
+Jitsiはビデオ通話、音声通話、デスクトップ共有、ファイル交換、メッセージング
+などを行うアプリケーションである。さらに重要な事は多くのプロトコルを使って
+これらを実装していることである。実装しているプロトコルには、XMPP(Extensible Messaging
+and Presence Protocol)やSIP(Session Initiation Protocol)のような
+標準プロトコルからYahoo!やWindows Live Messenger(MSN)のような専用プロトコルまで
+含まれる。また、Microsoft WindowsやApple Mac OS X、Linux、FreeBSD\@上で
+動作する。多くの部分をJavaで記述しているが、ネイティブで記述している部分もある。
+本章では、JitsiのOSGiベース・アーキテクチャに注目する。プロトコルをどのように実装および
+管理しているのか、構築する上で学んだことも振り返る\footnote{ソースコードの参照は、
+\url{http://jitsi.org/source}。EclipseやNetBeansを使っているのなら、次のサイトに
+コンフィグレーション方法が載っている： \url{http://jitsi.org/eclipse}
+、\url{http://jitsi.org/netbeans}}。
+
+%% \begin{aosasect1}{Designing Jitsi}
+\begin{aosasect1}{Jitsiの設計}
+
+%% The three most important constraints that we had to keep in mind when
+%% designing Jitsi (at the time called SIP Communicator) were
+%% multi-protocol support, cross-platform operation, and
+%% developer-friendliness.
+マルチプロトコル・サポート、クロスプラットフォーム、開発者フレンドリーの３点が、
+Jitsi(かつてSIP Communicatorと呼ばれた)の設計に際して制約として重視している項目である。
+
+%% From a developer's perspective, being multi-protocol comes down to
+%% having a common interface for all protocols. In other words, when a
+%% user sends a message, our graphical user interface needs to always
+%% call the same \code{sendMessage} method regardless of whether the
+%% currently selected protocol actually uses a method called
+%% \code{sendXmppMessage} or \code{sendSipMsg}.
+開発者の視点からみると、マルチプロトコルを採用するということは、すべてのプロトコルに対して
+共通のインタフェースが必要になる事を意味する。具体的には、ユーザがメッセージを送信するときには、
+グラフィカル・ユーザ・インタフェースは、常に\code{sendMessage}というメソッドを呼び出す必要がある。
+実際には、使用しているプロトコルによって、\code{sendXmppMessage}が呼ばれたり、\code{sendSipMsg}が呼ばれたりする。
+
+%% The fact that most of our code is written in Java satisfies, to a
+%% large degree, our second constraint: cross-platform operation. Still,
+%% there are things that the Java Runtime Environment (JRE) does not
+%% support or does not do the way we'd like it to, such as capturing
+%% video from your webcam. Therefore, we need to use DirectShow on
+%% Windows, QTKit on Mac OS X, and Video for Linux 2 on Linux. Just as
+%% with protocols, the parts of the code that control video calls cannot
+%% be bothered with these details (they are complicated enough as it is).
+我々のソースコードの多くがJavaで記述されているという事実は、かなりの部分、2点目の制約：クロスプラットフォーム　
+を満たしている。しかし、Java Runtime Environment (JRE)がサポートしていなかったり、我々が望むような方法で実装されて
+いない部分もある。例えば、ウェブカムからのビデオキャプチャのようなものSIP Communicatorである。そのために、WindowsではDirectShowを使ったり
+Mac OS XではQTKitを使ったり、LinuxではVideo for Linux 2を使ったりしている。プロトコルの場合と同じようにビデオ電話を
+制御する部分のソースコードは、これらの詳細部を隠蔽する(かなり複雑ではある)。
+
+%% Finally, being developer-friendly means that it should be easy for
+%% people to add new features. There are millions of people using VoIP
+%% today in thousands of different ways; various service providers and
+%% server vendors come up with different use cases and ideas about new
+%% features. We have to make sure that it is easy for them to use Jitsi
+%% the way they want.  Someone who needs to add something new should have
+%% to read and understand only those parts of the project they are
+%% modifying or extending.  Similarly, one person's changes should have
+%% as little impact as possible on everyone else's work.
+最後の開発者フレンドリーとは、新しい機能の追加が容易であるべきという事を意味する。今日、大勢の人々がVoIPを使っているが、
+使い方は様々である。多くのサービス・プロバイダやサーバ・ベンダは、異なるユースケースやアイデアを用いて新しい機能を追加している。
+Jistiを使う人にとって、これらの望まれる機能の実装が簡単で無ければならない。何か新しい機能を追加する人が、追加・変更に関わる部分の
+ソースコードだけを読んで理解できる必要がある。同様に、ある人の変更が他の人の作業に与える影響が最小限でなければならない。
+
+%% To sum up, we needed an environment where different parts of the code
+%% are relatively independent from each other. It had to be possible to
+%% easily replace some parts depending on the operating system; have
+%% others, like protocols, run in parallel and yet act the same; and it
+%% had to be possible to completely rewrite any one of those parts and
+%% have the rest of the code work without any changes.  Finally, we
+%% wanted the ability to easily switch parts on and off, as well as the
+%% ability to download plugins over the Internet to our list.
+要約すれば、ソースコードの各部分は、それぞれ独立しているという環境が必要である。オペレーティング・システムに依存している部分が
+容易に置き換え可能でなければならない；プロトコルのように同時に複数が動作しても同じように動作しなければならない。
+また、各部分が完全にリライト可能でかつ、残りの部分は変更不要でなければならない。最後に、インターネット経由でダウンロードして
+プラグインとして追加できる機能や各部分を簡単にオン・オフできる機能も望まれる。
+
+%% We briefly considered writing our own framework, but soon dropped the
+%% idea. We were itching to start writing VoIP and IM code as soon as
+%% possible, and spending a couple of months on a plugin framework
+%% didn't seem that exciting. Someone suggested OSGi, and it seemed to be
+%% the perfect fit.
+我々は、単純に我々自身でフレームワークを記述することを考えた、しかし、直ぐにそのアイデアを捨てた。
+我々は、できるだけ早くVoIPとIMのソースコードの記述を開始することを望んだ。プラグイン・フレームワークに数ヶ月間費やしたが、
+エキサイティングには思えなかった。誰かがOSGiの採用を提案したとき、これが完全にフィットするように思えた。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Jitsi and the OSGi Framework}
+\begin{aosasect1}{JitsiとOSGiフレームワーク}
+
+%% People have written entire books about OSGi, so we're not going to go
+%% over everything the framework stands for. Instead we will only explain
+%% what it gives us and the way we use it in Jitsi.
+OSGiの解説本は既にある。よって、このフレームワークの全体を説明するつもりは無い。
+代わりに、このフレームワークから得られる事およびJitsiでの使われ方を説明する。
+
+%% Above everything else, OSGi is about modules.  Features in OSGi
+%% applications are separated into bundles. An OSGi bundle is little more
+%% than a regular JAR file like the ones used to distribute Java
+%% libraries and applications. Jitsi is a collection of such
+%% bundles. There is one responsible for connecting to Windows Live
+%% Messenger, another one that does XMPP, yet another one that handles
+%% the GUI, and so on.  All these bundles run together in an environment
+%% provided, in our case, by Apache Felix, an open source OSGi
+%% implementation.
+OSGiにおいて最も大切な事はモジュールである。OSGiアプリケーションの機能はバンドルに分割されている。
+ひとつのOSGiバンドルは、JavaライブラリやJavaアプリケーションを配布するときに使われる標準のJARファイルよりも小さい単位である。
+Jitsiは、これらのバンドルの集合である。 Windows Live Messengerと接続する責任を持つバンドルもあれば、XMPPと接続する責任を持つバンドル
+もある。ほかにも、GUIを扱うバンドルなどもある。これらすべてのバンドルは与えられた環境で動作する。我々の場合は、Apache Felixという
+オープンソースのOSGi実装の環境下で動作する。
+
+%% All these modules need to work together. The GUI bundle needs to send
+%% messages via the protocol bundles, which in turn need to store them
+%% via the bundles handling message history. This is what OSGi services
+%% are for: they represent the part of a bundle that is visible to
+%% everyone else. An OSGi service is most often a group of Java
+%% interfaces that allow use of a specific functionality like logging,
+%% sending messages over the network, or retrieving the list of recent
+%% calls. The classes that actually implement the functionality are known
+%% as a service implementation. Most of them carry the name of the
+%% service interface they implement, with an ``Impl'' suffix at the end
+%% (e.g., \code{ConfigurationServiceImpl}). The OSGi framework allows
+%% developers to hide service implementations and make sure that they are
+%% never visible outside the bundle they are in. This way, other bundles
+%% can only use them through the service interfaces.
+これらのモジュールは全て一緒に動作する必要がある。GUIバンドルは、プロトコル・バンドルを通じてメッセージを送信する必要がある。
+さらにメッセージ履歴を取り扱うバンドルを経由してこれらのメッセージを保存する必要がある。
+これは、OSGiサービスが何であるかを示している：OSGiサービスはバンドルの一部を表していて他バンドルからアクセス可能である。
+OSGiサービスは、ログ、ネットワーク経由のメッセージ送信、通話履歴の読出しのような特定機能の利用を許可するJavaインタフェースのグループである。
+実際に機能を実装するクラスは、サービス実装として知られている。サービス実装の多くは実装したサービス・インタフェース名を携える。 
+サービス実装名は、``Impl''の接尾辞を持っている(例えば, \code{ConfigurationServiceImpl})。OSGiフレームワークは開発者に
+サービスの実装を隠蔽している。また、OSGiフレームワークは、サービス実装がバンドル自身の外側には決して見えないことを確実にしている。この様にして、
+他のバンドルは、サービス・インタフェースを通してのみ利用できる。
+
+%% Most bundles also have activators. Activators are simple interfaces
+%% that define a \code{start} and a \code{stop} method. Every time Felix
+%% loads or removes a bundle in Jitsi, it calls these methods so that the
+%% bundle can prepare to run or shut down. When calling these methods
+%% Felix passes them a parameter called BundleContext. The BundleContext
+%% gives bundles a way to connect to the OSGi environment. This way they
+%% can discover whatever OSGi service they need to use, or register one
+%% themselves (\aosafigref{fig.jit.osgi}).
+ほとんどのバンドルはアクティベータも持つ。アクティベータは、\code{start}と \code{stop}メソッドを定義したシンプルなインタフェースである。
+FelixがJitsiのバンドルをロードやリムーブする度に、バンドルが起動やシャットダウンの準備ができるように、これらのメソッドをコールする。
+これらのメソッドをコールするとき、FelixはBundleContextと言う名前のパラメータを渡す。BundleContextは、バンドルにOSGi環境に接続する方法を与える。
+この様にして、使用したいOSGiサービスが何であろうと見つける事ができたり、自身を登録したりできる(\aosafigref{fig.jit.osgi})。
+
+%% \aosafigure{../images/jitsi/OSGI.eps}{OSGi Bundle Activation}{fig.jit.osgi}
+\aosafigure{../images/jitsi/OSGI.eps}{OSGiバンドル・アクティベーション}{fig.jit.osgi}
+
+%% So let's see how this actually works.  Imagine a service that
+%% persistently stores and retrieves properties. In Jitsi this is what we
+%% call the ConfigurationService and it looks like this:
+それでは、実際にこれがどのように動作するのかを見ていこう。プロパティを保存したり引き出したりするだけのサービスを想像してみよう。
+Jitsiでは、これをConfigurationServiceと呼んでいて次のようなものだ：
+
+\pagebreak 
+
+\begin{verbatim}
+package net.java.sip.communicator.service.configuration;
+
+public interface ConfigurationService
+{
+  public void setProperty(String propertyName, Object property);
+  public Object getProperty(String propertyName);
+}
+\end{verbatim}
+
+%% A very simple implementation of the \code{ConfigurationService} looks like
+%% this:
+極めてシンプルな\code{ConfigurationService}の実装は次のようなものである：
+
+\begin{verbatim}
+package net.java.sip.communicator.impl.configuration;
+
+import java.util.*;
+import net.java.sip.communicator.service.configuration.*;
+
+public class ConfigurationServiceImpl implements ConfigurationService
+{
+  private final Properties properties = new Properties();
+
+  public Object getProperty(String name)
+  {
+    return properties.get(name);
+  }
+
+  public void setProperty(String name, Object value)
+  {
+    properties.setProperty(name, value.toString());
+  }
+}
+\end{verbatim}
+
+%% \noindent Notice how the service is defined in the
+%% \code{net.java.sip.communicator.\emph{service}} package, while the
+%% implementation is in \code{net.java.sip.communicator.\emph{impl}}. All
+%% services and implementations in Jitsi are separated under these two
+%% packages. OSGi allows bundles to only make some packages visible
+%% outside their own JAR, so the separation makes it easier for bundles
+%% to only \emph{export} their service packages and keep their
+%% implementations hidden.
+\noindent \code{net.java.sip.communicator.\emph{service}}パッケージの中でサービスがどのように定義されるか注目すること。
+また、実装は\code{net.java.sip.communicator.\emph{impl}}にある。Jitsiにおけるすべてのサービスと実装は、このように２つのパッケージに
+分割される。OSGiは、バンドル自身が含まれるJARの外部に対して、いくつかのパッケージだけを可視化する事を許可する。こうして、この分割は、
+バンドルに対してサービス・パッケージだけを\emph{export}して実装を隠蔽する事ができる。
+
+%% The last thing we need to do so that people can start using our
+%% implementation is to register it in the \code{BundleContext} and
+%% indicate that it provides an implementation of the
+%% \code{ConfigurationService}. Here's how this happens:
+ユーザが、我々の実装を使い始めるのに必要となる最後の作業は、\code{BundleContext}に登録する事と\code{ConfigurationService}の実装を備えている事を、伝える事である。
+次は、これがどのように行われるかを示している：
+
+\begin{verbatim}
+package net.java.sip.communicator.impl.configuration;
+
+import org.osgi.framework.*;
+import net.java.sip.communicator.service.configuration;
+
+public class ConfigActivator implements BundleActivator
+{
+  public void start(BundleContext bc) throws Exception
+  {
+    bc.registerService(ConfigurationService.class.getName(), // service name
+         new ConfigurationServiceImpl(), // service implementation
+         null);
+  }
+}
+\end{verbatim}
+
+%% \noindent Once the \code{ConfigurationServiceImpl} class is registered in the
+%% \code{BundleContext}, other bundles can start using it. Here's an
+%% example showing how some random bundle can use our configuration
+%% service:
+\noindent \code{ConfigurationServiceImpl}クラスが\code{BundleContext}に登録されると他のバンドルが使い始める事ができる。
+いくつかのランダム・バンドルがコンフィグレーション・サービスを使う例を示す：
+
+\begin{verbatim}
+package net.java.sip.communicator.plugin.randombundle;
+
+import org.osgi.framework.*;
+import net.java.sip.communicator.service.configuration.*;
+
+public class RandomBundleActivator implements BundleActivator
+{
+  public void start(BundleContext bc) throws Exception
+  {
+    ServiceReference cRef = bc.getServiceReference(
+                              ConfigurationService.class.getName());
+    configService = (ConfigurationService) bc.getService(cRef);
+
+    // And that's all! We have a reference to the service implementation
+    // and we are ready to start saving properties:
+    configService.setProperty("propertyName", "propertyValue");
+  }
+}
+\end{verbatim}
+
+%% \noindent Once again, notice the package. In
+%% \code{net.java.sip.communicator.plugin} we keep bundles that use
+%% services defined by others but that neither export nor implement any
+%% themselves. Configuration forms are a good example of such plugins:
+%% They are additions to the Jitsi user interface that allow users to
+%% configure certain aspects of the application. When users change
+%% preferences, configuration forms interact with the
+%% \code{ConfigurationService} or directly with the bundles responsible
+%% for a feature. However, none of the other bundles ever need to
+%% interact with them in any way (\aosafigref{fig.jit.pkgs}).
+\noindent 再びパッケージに注目する。\code{net.java.sip.communicator.plugin}の中で他によって定義されたサービスを使うバンドルをキープするが、
+自身をエクスポートしたりインプリメントしたりはしない。
+コンフィグレーション・フォームは、このようなプラグインの良い例である：これらは、ユーザにアプリケーションのある部分を
+コンフィグする事を許可するJitsiユーザインタフェースへの追加である。ユーザが優先権を変更するとコンフィグレーション・フォームは、\code{ConfigurationService}
+や、この機能に対する責任を持つバンドルと直接に作用し合う。しかし、他のバンドルは、作用する必要は無い(\aosafigref{fig.jit.pkgs})。
+
+%% \aosafigure[250pt]{../images/jitsi/PKGs.eps}{Service Structure}{fig.jit.pkgs}
+\aosafigure[250pt]{../images/jitsi/PKGs.eps}{サービス・ストラクチャ}{fig.jit.pkgs}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Building and Running a Bundle}
+\begin{aosasect1}{バンドルの構築と実行}
+
+%% Now that we've seen how to write the code in a bundle, it's time to
+%% talk about packaging. When running, all bundles need to indicate three
+%% different things to the OSGi environment: the Java packages they make
+%% available to others (i.e. exported packages), the ones that they would
+%% like to use from others (i.e. imported packages), and the name of
+%% their BundleActivator class. Bundles do this through the manifest of
+%% the JAR file that they will be deployed in.
+バンドルのコード記述方法を一通り見てきた所で、次はパッケージングについて説明しよう。
+実行中、すべてのバンドルはOSGi環境に次の３つを示す：他が利用可能なJavaパッケージ(すなわちエクスポート・パッケージ)、
+他が使いたいと思うJavaパッケージ(すなわちインポート・パッケージ)、BundleActivatorクラスの名前。バンドルは、これを自身が配置されるJARファイルのマニフェスト
+を通して行う。
+
+%% For the \code{ConfigurationService} that we defined above, the
+%% manifest file could look like this:
+上記で定義した\code{ConfigurationService}に対するマニフェスト・ファイルは次のようになる：
+
+\begin{verbatim}
+Bundle-Activator: net.java.sip.communicator.impl.configuration.ConfigActivator
+Bundle-Name: Configuration Service Implementation
+Bundle-Description: A bundle that offers configuration utilities
+Bundle-Vendor: jitsi.org
+Bundle-Version: 0.0.1
+System-Bundle: yes
+Import-Package: org.osgi.framework,
+Export-Package: net.java.sip.communicator.service.configuration
+\end{verbatim}
+
+%% After creating the JAR manifest, we are ready to create the bundle
+%% itself. In Jitsi we use Apache Ant to handle all build-related
+%% tasks. In order to add a bundle to the Jitsi build process, you need
+%% to edit the \code{build.xml} file in the root directory of the
+%% project.  Bundle JARs are created at the bottom of the
+%% \code{build.xml} file, with \code{bundle-xxx} targets. In order to
+%% build our configuration service we need the following:
+JARマニフェストが生成されると、バンドルを生成する準備ができる。Jitsiでは、構築関連のタスクにはApache Antを使う。
+バンドルをJitsiビルド・プロセスに追加するために、プロジェクトのルート・ディレクトリにある\code{build.xml}を編集する必要がある。
+バンドルJARは、\code{build.xml}ファイルの最後の\code{bundle-xxx}ターゲットによって生成される。コンフィグレーション・サービスを
+構築するためには、次のようにする：
+
+\begin{verbatim}
+<target name="bundle-configuration">
+  <jar destfile="${bundles.dest}/configuration.jar" manifest=
+    "${src}/net/java/sip/communicator/impl/configuration/conf.manifest.mf" >
+
+    <zipfileset dir="${dest}/net/java/sip/communicator/service/configuration"
+        prefix="net/java/sip/communicator/service/configuration"/>
+    <zipfileset dir="${dest}/net/java/sip/communicator/impl/configuration"
+        prefix="net/java/sip/communicator/impl/configuration" />
+  </jar>
+</target>
+\end{verbatim}
+
+%% As you can see, the Ant target simply creates a JAR file using our
+%% configuration manifest, and adds to it the configuration packages from
+%% the \code{service} and \code{impl} hierarchies. Now the only thing
+%% that we need to do is to make Felix load it.
+お分かりのように、Antターゲットは、単純にコンフィグレーション・マニフェストを使ってJARファイルを生成して、
+\code{service}と\code{impl}の階層構造から構成されるコンフィグレーション・パッケージに追加する。我々が必要な事はFelixにロードさせる事だけである。
+
+%% We already mentioned that Jitsi is merely a collection of OSGi
+%% bundles. When a user executes the application, they actually start
+%% Felix with a list of bundles that it needs to load.  You can find that
+%% list in our \code{lib} directory, inside a file called
+%% \code{felix.client.run.properties}. Felix starts bundles in the order
+%% defined by start levels: All those within a particular level are
+%% guaranteed to complete before bundles in subsequent levels start
+%% loading. Although you can't see this in the example code above, our
+%% configuration service stores properties in files so it needs to use
+%% our \emph{FileAccessService}, shipped within the \code{fileaccess.jar}
+%% file. We'll therefore make sure that the ConfigurationService starts
+%% after the FileAccessService:
+Jitsiは単にOSGiバンドルの集合であることは既に説明した。ユーザがアプリケーションを実行する時、OSGiバンドルは、
+ロードする必要のあるバンドルのリストとともに、Felixをスタートさせる。 このリストは、\code{lib}ディレクトリの
+\code{felix.client.run.properties}ファイルの中にある。Felixは、スタートレベルによって定義される順番にバンドルをスタートする：
+すべての、あるレベルのバンドルは、続くレベルのバンドルがロードを開始する前に、ロードが完了していることを保証されている。このことは
+上記の例では確認できないが、我々のコンフィグレーション・サービスはプロパティをファイルに保存する。
+よって、\emph{FileAccessService}を使う必要がある。これは、\code{fileaccess.jar}ファイルに収められている。ConfigurationServiceは、
+FileAccessServiceのあとに開始することを確実にする：
+
+\begin{verbatim}
+...
+felix.auto.start.30= \
+  reference:file:sc-bundles/fileaccess.jar
+
+felix.auto.start.40= \
+  reference:file:sc-bundles/configuration.jar \
+  reference:file:sc-bundles/jmdnslib.jar \
+  reference:file:sc-bundles/provdisc.jar \
+...
+\end{verbatim}
+
+%% If you look at the \code{felix.client.run.properties} file, you'll see
+%% a list of packages at the beginning:
+\code{felix.client.run.properties}ファイルを見ると、先頭にパッケージのリストを見つける事ができる：
+
+\begin{verbatim}
+org.osgi.framework.system.packages.extra= \
+  apple.awt; \
+  com.apple.cocoa.application; \
+  com.apple.cocoa.foundation; \
+  com.apple.eawt; \
+...
+\end{verbatim}
+
+%% \noindent The list tells Felix what packages it needs to make available to
+%% bundles from the system classpath. This means that packages that are
+%% on this list can be imported by bundles (i.e. added to their
+%% \emph{Import-Package} manifest header) without any being exported by
+%% any other bundle. The list mostly contains packages that come from
+%% OS-specific JRE parts, and Jitsi developers rarely need to add new
+%% ones to it; in most cases packages are made available by bundles.
+\noindent このリストは、Felixにシステムのクラス・パスからバンドルを利用するのに必要なパッケージは何であるかを教える。
+これは、このリスト上のパッケージは、他のバンドルによってエクスポートされる事なしに、バンドルによってインポートされうる
+(つまり、\emph{Import-Package}マニフェスト・ヘッダに加える)事を意味する。リストは、大抵、OS依存のJRE部品に由来するパッケージ
+を含む。そして、Jitsi開発者は、新しいパッケージを追加する必要はほとんどない；多くの場合、パッケージはバンドルによって利用される事ができる。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Protocol Provider Service}
+\begin{aosasect1}{プロトコル・プロバイダ・サービス}
+
+%% The \code{ProtocolProviderService} in Jitsi defines the way all
+%% protocol implementations behave. It is the interface that other
+%% bundles (like the user interface) use when they need to send and
+%% receive messages, make calls, and share files through the networks
+%% that Jitsi connects to.
+Jitsiの\code{ProtocolProviderService}は、すべてのプロトコルの実装の振る舞いを定義する。これは、Jitsiが接続しているネットワーク上で、
+(ユーザ・インタフェースのような)他のバンドルがメッセージの送受信、通話、ファイルシェアを行う必要があるときに使うインタフェースである。
+
+%% The protocol service interfaces can all be found under the
+%% \path{net.java.sip.communicator.service.protocol} package.  There are
+%% multiple implementations of the service, one per supported protocol,
+%% and all are stored in
+%% \code{net.java.sip.communicator.impl.protocol.\-protocol\_name}.
+プロトコル・サービス・インタフェースは、\path{net.java.sip.communicator.service.protocol}パッケージ下に見つける事ができる。
+サービスに対して複数の実装があったり、サポート・プロトコル毎のサービス実装があったりする。
+全ては、\code{net.java.sip.communicator.impl.protocol.\-protocol\_name}に保存されている。
+
+%% Let's start with the \code{service.protocol} directory. The most
+%% prominent piece is the \emph{ProtocolProviderService} interface.
+%% Whenever someone needs to perform a protocol-related task, they have
+%% to look up an implementation of that service in the
+%% \code{BundleContext}. The service and its implementations allow Jitsi
+%% to connect to any of the supported networks, to retrieve the connection
+%% status and details, and most importantly to obtain references to the
+%% classes that implement the actual communications tasks like chatting
+%% and making calls.
+\code{service.protocol}ディレクトリから始めよう。もっとも重要な部分は、\emph{ProtocolProviderService}インタフェースである。
+プロトコル関連のタスクを行おうとすると、必ず\code{BundleContext}にあるサービスの実装を調べなくてはならない。
+サービスとその実装は、Jitsiにサポートするネットワーク、接続状態の確認や詳細確認、最も重要なチャットや通話のような実際の通信タスクを実装したクラスへの
+参照を取得する事を可能にする。
+
+%% \begin{aosasect2}{Operation Sets}
+\begin{aosasect2}{オペレーション・セット}
+
+%% As we mentioned earlier, the \code{ProtocolProviderService} needs to
+%% leverage the various communication protocols and their
+%% differences. While this is particularly simple for features that all
+%% protocols share, like sending a message, things get trickier for tasks
+%% that only some protocols support. Sometimes these differences come
+%% from the service itself: For example, most of the SIP services out
+%% there do not support server-stored contact lists, while this is a
+%% relatively well-supported feature with all other protocols. MSN and
+%% AIM are another good example: at one time neither of them offered the
+%% ability to send messages to offline users, while everyone else
+%% did. (This has since changed.)
+前に触れたように、\code{ProtocolProviderService}は、様々な通信プロトコルとその差異を隠して利用するのに必要である。
+これは、メッセージ送信のようなすべてのプロトコルが持っている機能に対しては極めてシンプルであるが、
+サポートするプロトコルが少ない機能に対しては手の込んだものになる。これらの違いは、しばしばサービス自身に由来する：
+例えば、世の中にあるほとんどのSIPサービスは、連絡先リストをサポートしていないが、他のプロトコルでは大抵サポートしている。
+MSNとAIMは、もうひとつの分かりやすい例である：どちらのプロトコルもオフラインのユーザに対してのメッセージ送信はサポートしていないが、
+他のプロトコルではサポートしている(現在は変わった)。
+
+%% The bottom line is our \code{ProtocolProviderService} needs to have a
+%% way of handling these differences so that other bundles, like the GUI,
+%% act accordingly; there's no point in adding a call button to an AIM
+%% contact if there's no way to actually make a call.
+\code{ProtocolProviderService}は、GUI等の他のバンドルで行っているように、相違を扱う方法が必要である：
+実際に通話する機能がなければ、AIMコンタクトに通話ボタンを追加する意味がない。
+
+%% OperationSets to the rescue
+%% (\aosafigref{fig.jit.ops}). Unsurprisingly, they are sets of
+%% operations, and provide the interface that Jitsi bundles use to
+%% control the protocol implementations. The methods that you find in an
+%% operation set interface are all related to a particular feature.
+%% \emph{OperationSetBasicInstantMessaging}, for instance, contains
+%% methods for creating and sending instant messages, and registering
+%% listeners that allow Jitsi to retrieve messages it receives. Another
+%% example, \emph{OperationSetPresence}, has methods for querying the
+%% status of the contacts on your list and setting a status for
+%% yourself. So when the GUI updates the status it shows for a contact,
+%% or sends a message to a contact, it is first able to ask the
+%% corresponding provider whether they support presence and
+%% messaging. The methods that \code{ProtocolProviderService} defines for
+%% that purpose are:
+OperationSetsチェックシート(\aosafigref{fig.jit.ops})。当然の事だが、これらは操作のセットであり、Jitsiバンドルが、
+プロトコル実装を制御するのに使用するインタフェースを提供する。オペレーション・セット・インタフェースにあるメソッドは、
+すべて特定の機能に関連している。例えば、\emph{OperationSetBasicInstantMessaging}は、インスタント・メッセージの送受信用の
+メソッドを持っていて、Jitsiが受信したメッセージを引き出すためのリスナーを登録する。もうひとつの例は、\emph{OperationSetPresence}である。
+\emph{OperationSetPresence}は、連絡先リスト上の状態を問い合わせたり、自分自身の状態を登録するメソッドを持っている。よって、
+GUIが状態を更新して、連絡先を表示したり、連絡先にメッセージを送信するとき、プレゼンスやメッセージングをサポートしようがしまいが、
+対応するプロバイダに最初に問い合わせる事ができる。\code{ProtocolProviderService}がこの目的で定義するメソッドは、次のようになる：
+
+\begin{verbatim}
+public Map<String, OperationSet> getSupportedOperationSets();
+public <T extends OperationSet> T getOperationSet(Class<T> opsetClass);
+\end{verbatim}
+
+%% OperationSets have to be designed so that it is unlikely that a new
+%% protocol we add has support for only some of the operations defined in
+%% an OperationSet. For example, some protocols do not support server-stored
+%% contact lists even though they allow users to query each other's status. 
+%% Therefore, rather than combining the presence management and buddy list 
+%% retrieval features in \code{OperationSetPresence}, we also defined an
+%% \code{OperationSetPersistentPresence} which is only used with protocols
+%% that can store contacts online. On the other hand, we have yet to come 
+%% across a protocol that only allows sending messages without receiving 
+%% any, which is why things like sending and receiving messages can be 
+%% safely combined.
+OperationSetsは、新しく追加したプロトコルがOperationSetで定義したオペレーションのいくつかしかサポートしないような事がないように設計されなければならない。
+例えば、相互の状態を問い合わせる機能はあるが、サーバに連絡先を保存する機能をサポートしないプロトコルがある。よって、
+\code{OperationSetPresence}のプレゼンス管理と仲間リストの引き出し機能を結合するよりも、連絡先をオンラインで保存できる
+プロトコルとだけ使用できる\code{OperationSetPersistentPresence}を定義した方が良い。
+他方、受信することはせずに送信だけできるプロトコルもあり、送信メッセージと受信メッセージが安全に結合できる理由である。
+
+%% \aosafigureTop{../images/jitsi/OperationSets.eps}{Operation Sets}{fig.jit.ops}
+\aosafigureTop{../images/jitsi/OperationSets.eps}{オペレーション・セット}{fig.jit.ops}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Accounts, Factories and Provider Instances}
+\begin{aosasect2}{アカウント、ファクトリおよびプロバイダのインスタンス}
+
+%% An important characteristic of the \code{ProtocolProviderService} is
+%% that one instance corresponds to one protocol account. Therefore, at
+%% any given time you have as many service implementations in the
+%% \code{BundleContext} as you have accounts registered by the user.
+\code{ProtocolProviderService}の重要な特性は、インスタンスとプロトコル・アカウントは1対1に対応しているという事である。
+よって、常にユーザが登録したアカウントの数と同じ数の\code{BundleContext}のサービス実装がある。
+
+%% At this point you may be wondering who creates and registers the
+%% protocol providers.  There are two different entities involved. First,
+%% there is \code{ProtocolProviderFactory}. This is the service that
+%% allows other bundles to instantiate providers and then registers them
+%% as services. There is one factory per protocol and every factory is
+%% responsible for creating providers for that particular
+%% protocol. Factory implementations are stored with the rest of the
+%% protocol internals. For SIP, for example we have
+%% \code{net.java.sip.communicator.impl.protocol.sip.ProtocolProviderFactorySipImpl}.
+ここで、誰がプロトコル・プロバイダを生成・登録するのだろうかと思うだろう。これには、２つの異なるエンティティが関わっている。
+一つ目は、\code{ProtocolProviderFactory}である。これは、他のバンドルがプロバイダをインスタンス化して、サービスとして登録する事を許可する。
+プロトコル毎にファクトリがあり、各ファクトリは対応するプロトコルのプロバイダを生成する責任を持つ。ファクトリ実装は、
+プロトコル内部の残りの部分に保存される。
+SIPを例にすると、\code{net.java.sip.communicator.impl.protocol.sip.ProtocolProviderFactorySipImpl}である。
+
+%% The second entity involved in account creation is the protocol wizard.
+%% Unlike factories, wizards are separated from the rest of the protocol
+%% implementation because they involve the graphical user interface. The
+%% wizard that allows users to create SIP accounts, for example, can be
+%% found in \code{net.java.sip.communicator.plugin.sipaccregwizz}.
+アカウント生成を含むふたつ目のエンティティは、プロトコル・ウィザードである。
+ファクトリとは違って、ウィザードグラフィカル・ユーザ・インタフェースを含むためプロトコル実装の残りの部分から分離されている。
+例えば、SIPアカウントを生成を許可するウィザードは、\code{net.java.sip.communicator.plugin.sipaccregwizz}にある。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Media Service}
+\begin{aosasect1}{メディア・サービス}
+
+%% When working with real-time communication over IP, there is one
+%% important thing to understand: protocols like SIP and XMPP, while
+%% recognized by many as the most common VoIP protocols, are not the ones
+%% that actually move voice and video over the Internet. This task is
+%% handled by the Real-time Transport Protocol (RTP).  SIP and XMPP are
+%% only responsible for preparing everything that RTP needs, like
+%% determining the address where RTP packets need to be sent and
+%% negotiating the format that audio and video need to be encoded in
+%% (i.e. codec), etc. They also take care of things like locating users,
+%% maintaining their presence, making the phones ring, and many
+%% others. This is why protocols like SIP and XMPP are often referred to
+%% as signalling protocols.
+IP上でリアルタイム通信を行う場合、理解しておくべき重要な事がある：SIPやXMPPのようなプロトコルは、もっとも一般的なVoIPプロトコルとして認識されている一方、
+インターネット上で音声やビデオを実際に動かすプロトコルではない。これはリアルタイム・プロトコル(RTP)によって扱われる。SIPとXMPPは、RTPパケット
+の送信先アドレスの決定、音声、ビデオの符号化方式(つまりコーデック)の交渉などのRTPが必要とするすべての準備に対してだけ責任を持つ。
+ユーザの位置管理、プレゼンス管理、着信音など他の多くの事に対しても面倒を見る。これは、SIPやXMPPのようなプロトコルはシグナリング・プロトコルと
+呼ばれる理由である。
+
+%% What does this mean in the context of Jitsi? Well, first of all it
+%% means that you are not going to find any code manipulating audio or
+%% video flows in either the \emph{sip} or \emph{jabber} jitsi packages.
+%% This kind of code lives in our MediaService. The MediaService and its
+%% implementation are located in
+%% \path{net.java.sip.communicator.service.neomedia} and
+%% \path{net.java.sip.communicator.impl.neomedia}.
+これは、Jitsiのコンテキストではどんな意味をもつのだろうか？ まず最初に、\emph{sip}や\emph{jabber}のJitsiパッケージには、音声やビデオのフローを
+操作するソースコードは見つからないと言う事である。この手のソースコードは、MediaServiceにある。MediaServiceとその実装は、
+\path{net.java.sip.communicator.service.neomedia}と\path{net.java.sip.communicator.impl.neomedia}にある。
+
+%% \begin{aosabox}{Why ``neomedia''?}
+\begin{aosabox}{なぜ``neomedia''?}
+
+%% The ``neo'' in the neomedia package name indicates that it replaces a
+%% similar package that we used originally and that we then had to
+%% completely rewrite. This is actually how we came up with one of our
+%% rules of thumb: It is hardly ever worth it to spend a lot of time
+%% designing an application to be 100\% future-proof. There is simply no
+%% way of taking everything into account, so you are bound to have to
+%% make changes later anyway. Besides, it is quite likely that a
+%% painstaking design phase will introduce complexities that you will
+%% never need because the scenarios you prepared for never happen.
+neomediaパッケージ名の``neo''は、初期に使っていた類似のパッケージを置き換えである事を意味し、完全に置き換えを行った。
+これは、我々の経験則「最新を完全に保つ所までアプリケーションを設計するのに多くの時間を使う事には価値が無い」を生んだ。
+単純に、すべてを考慮にいれる方法は無いので、後に変更される運命にある。さらに、綿密な設計フェーズは複雑性を産むが、準備したようなシナリオは決して発生しない
+ために、使われることはない。
+
+\end{aosabox}
+
+%% In addition to the MediaService itself, there are two other interfaces
+%% that are particularly important: MediaDevice and MediaStream.
+MediaService自身に加えて、特に重要なインタフェースが二つある：MediaDeviceとMediaStreamである。
+
+%% \begin{aosasect2}{Capture, Streaming, and Playback}
+\begin{aosasect2}{キャプチャ、ストリーミング、再生}
+
+%% MediaDevices represent the capture and playback devices that we use
+%% during a call (\aosafigref{fig.jit.media}). Your microphone and
+%% speakers, your headset and your webcam are all examples of such
+%% MediaDevices, but they are not the only ones.  Desktop streaming and
+%% sharing calls in Jitsi capture video from your desktop, while a
+%% conference call uses an AudioMixer device in order to mix the audio we
+%% receive from the active participants. In all cases, MediaDevices
+%% represent only a single MediaType. That is, they can only be either
+%% audio or video but never both. This means that if, for example, you
+%% have a webcam with an integrated microphone, Jitsi sees it as two
+%% devices: one that can only capture video, and another one that can
+%% only capture sound.
+MediaDeviceは、通話時に使うキャプチャ・デバイスと再生デバイスを表わす(\aosafigref{fig.jit.media})。
+マイクロフォン、スピーカ、ヘッドセット、ウェブカムは全てこのようなMediaDeviceの例であるが、
+これだけではない。Jitsiのデスクトップ・ストリーミングとシェアリング・コールは、デスクトップからビデオ・キャプチャを行う。会議通話は、参加者の
+音声を合成するためにAudioMixerデバイスを使う。すべてのケースで、MediaDeviceは単一のMediaTypeを表わす。つまり、音声かビデオのどちらかには成れるが
+両方にはなれない。これは、例えば、マイクロフォンが統合されたウェブカムを持っている場合、Jitsiはふたつのデバイスと認識する：ひとつはビデオ・キャプチャだけを行い、もうひとつはサウンド・キャプチャだけを行う。
+
+%% Devices alone, however, are not enough to make a phone or a video
+%% call.  In addition to playing and capturing media, one has to also be
+%% able to send it over the network. This is where MediaStreams come
+%% in. A MediaStream interface is what connects a MediaDevice to your
+%% interlocutor. It represents incoming and outgoing packets that you
+%% exchange with them within a call.
+デバイスだけでは、電話やビデオ通話を行うには、不十分である。メディアを再生したりキャプチャしたりするのに加えて、ネットワーク上に送信できなければならない。
+これには、MediaStreamが使われる。MediaStreamインタフェースは、MediaDeviceと通話相手をつなげる。通話中に交換する通話相手との受信および送信パケットを表わす。
+
+%% Just as with devices, one stream can be responsible for only one
+%% MediaType. This means that in the case of an audio/video call Jitsi
+%% has to create two separate media streams and then connect each to the
+%% corresponding audio or video MediaDevice.
+デバイスと同様に、ひとつのストリームは、一つのMediaTypeに対してのみ責任を持つ。これは、音声/ビデオ通話の場合、Jitsiはふたつの分離したメディア・ストリームを
+生成して、それぞれを対応する音声、ビデオのMediaDeviceと接続する。
+
+%% \aosafigureTop{../images/jitsi/Media.eps}{Media Streams For Different Devices}{fig.jit.media}
+\aosafigureTop{../images/jitsi/Media.eps}{異なるデバイスに対するメディア・ストリーム}{fig.jit.media}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Codecs}
+\begin{aosasect2}{コーデック}
+
+%% Another important concept in media streaming is that of MediaFormats,
+%% also known as codecs. By default most operating systems let you
+%% capture audio in 48KHz PCM or something similar.  This is what we
+%% often refer to as ``raw audio'' and it's the kind of audio you get in
+%% WAV files: great quality and enormous size. It is quite impractical to
+%% try and transport audio over the Internet in the PCM format.
+メディア・ストリーミングで、もう一つの重要な概念は、コーデックとして知られているMediaFormatである。
+デフォルトでは、多くのオペレーティング・システムは、オーディオを48KHz PCMか類似の方式でキャプチャする。
+これは、我々がしばしば、``raw audio''として参照するもので、WAVファイルとして取得するオーディオ方式である。
+WAVファイルは、高品質であるが莫大なサイズを持つ。このPCMフォーマットでインターネット上にオーディオを転送を試みるのは非現実的である。
+
+%% This is what codecs are for: they let you present and transport audio
+%% or video in a variety of different ways.  Some audio codecs like iLBC,
+%% 8KHz Speex, or G.729, have low bandwidth requirements but sound
+%% somewhat muffled.  Others like wideband Speex and G.722 give you great
+%% audio quality but also require more bandwidth. There are codecs that
+%% try to deliver good quality while keeping bandwidth requirements at a
+%% reasonable level.  H.264, the popular video codec, is a good example
+%% of that. The trade-off here is the amount of calculation required
+%% during conversion. If you use Jitsi for an H.264 video call you see a
+%% good quality image and your bandwidth requirements are quite
+%% reasonable, but your CPU runs at maximum.
+これは、コーデックの意味を示す：オーディオやビデオを様々な方法で表現し転送する。iLBCや8KHz SpeexやG.729のようなオーディオ・コーデックは、狭帯域であるが、
+こもったように聞こえる。ワイドバンドSpeexやG.722は、高品質のオーディオを提供するが、より多くの帯域を使用する。高い品質を保ちつつ帯域も合理的であることを
+狙ったコーデックもある。ポピュラーなビデオコーデックであるH.264が好例である。ここでのトレードオフは、変換時の計算量である。JitsiでH.264ビデオ通話を使用すると、
+高い品質の画像と合理的な帯域幅を痛感するだろう。しかし、CPU負荷は高い。
+
+%% All this is an oversimplification, but the idea is that codec choice
+%% is all about compromises. You either sacrifice bandwidth, quality, CPU
+%% intensity, or some combination of those. People working with VoIP
+%% rarely need to know more about codecs.
+単純化すると、コーデック選択は妥協が全てであるという事である。帯域幅、品質、CPU消費量または、これらの組み合せのどれかを犠牲にする。
+ほとんどの場合、VoIP関連の人はコーデックについて、これ以上知る必要は無い。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Connecting with the Protocol Providers}
+\begin{aosasect2}{プロトコル・プロバイダとの接続}
+
+%% Protocols in Jitsi that currently have audio/video support all use our
+%% MediaServices exactly the same way. First they ask the MediaService
+%% about the devices that are available on the system:
+オーディオ/ビデオをサポートしているJitsiのプロトコルは全て、MediaServiceを全く同じ方法で使用する。最初にシステムで使用可能なデバイスをMediaServiceに問い合わせる：
+
+\begin{verbatim}
+public List<MediaDevice> getDevices(MediaType mediaType, MediaUseCase useCase);
+\end{verbatim}
+
+%% \noindent The MediaType indicates whether we are interested in audio or video
+%% devices. The MediaUseCase parameter is currently only considered in
+%% the case of video devices. It tells the media service whether we'd
+%% like to get devices that could be used in a regular call
+%% (MediaUseCase.CALL), in which case it returns a list of available
+%% webcams, or a desktop sharing session (MediaUseCase.DESKTOP), in which
+%% case it returns references to the user desktops.
+\noindent MediaTypeはオーディオ・デバイスかビデオ・デバイスのどちらに興味があるのかを示す。
+MediaUseCaseパラメータは、現在の所、ビデオ・デバイスの場合のみ扱われる。
+これは、次のようにしてメディア・サービスに利用できるデバイスを知らせる。
+通常通話(MediaUseCase.CALL)の場合は、利用可能なウェブカムのリストを返し、
+デスクトップ・シェアリング・セッション(MediaUseCase.DESKTOP)の場合は、ユーザ・デスクトップへの参照を返す。
+
+%% The next step is to obtain the list of formats that are available for
+%% a specific device. We do this through the
+%% \code{MediaDevice.getSupportedFormats} method:
+次のステップは、デバイスが利用できるフォーマットのリストを取得する事である。これは、\code{MediaDevice.getSupportedFormats}メソッドを使って次のようにする：
+
+\begin{verbatim}
+public List<MediaFormat> getSupportedFormats();
+\end{verbatim}
+
+%% \noindent Once it has this list, the protocol implementation sends it to the
+%% remote party, which responds with a subset of them to indicate which
+%% ones it supports. This exchange is also known as the Offer/Answer
+%% Model and it often uses the Session Description Protocol or some form
+%% of it.
+\noindent プロトコルの実装は、このリストを取得してリモート・パーティに送る。
+リモート・パーティは、このリストの中からサポートしているフォーマットのサブセットを作成して応答する。
+この交換は、オファー/アンサーモデルとして知られていて、セッション記述プロトコルや同類のプロトコルで利用される。
+
+%% After exchanging formats and some port numbers and IP addresses, VoIP
+%% protocols create, configure and start the MediaStreams. Roughly
+%% speaking, this initialization is along the following lines:
+フォーマット、ポート番号およびIPアドレスを交換した後、VoIPプロトコルはメディア・ストリームの生成、コンフィグ、開始を行う。
+この初期化は、大雑把に次のような流れになる：
+
+%% \begin{verbatim}
+%% // first create a stream connector telling the media service what sockets
+%% // to use when transport media with RTP and flow control and statistics
+%% // messages with RTCP
+%% StreamConnector connector =  new DefaultStreamConnector(rtpSocket, rtcpSocket);
+%% MediaStream stream = mediaService.createMediaStream(connector, device, control);
+
+%% // A MediaStreamTarget indicates the address and ports where our
+%% // interlocutor is expecting media. Different VoIP protocols have their
+%% // own ways of exchanging this information
+%% stream.setTarget(target);
+
+%% // The MediaDirection parameter tells the stream whether it is going to be
+%% // incoming, outgoing or both
+%% stream.setDirection(direction);
+
+%% // Then we set the stream format. We use the one that came
+%% // first in the list returned in the session negotiation answer.
+%% stream.setFormat(format);
+
+%% // Finally, we are ready to actually start grabbing media from our
+%% // media device and streaming it over the Internet
+%% stream.start();
+%% \end{verbatim}
+\begin{verbatim}
+// 最初にストリーム・コネクタを生成する。ストリームコネクタはメディア・サービス
+// に利用するソケットを教える。
+// 利用するソケットは、メディア転送時のRTP、フロー制御や統計メッセージのRTCPである。
+StreamConnector connector =  new DefaultStreamConnector(rtpSocket, rtcpSocket);
+MediaStream stream = mediaService.createMediaStream(connector, device, control);
+
+// MediaStreamTargetは、通信相手のメディアが使おうとするアドレスとポート番号を示す。
+// この情報を交換する方法は、VoIPプロトコル毎に異なる。
+stream.setTarget(target);
+
+// MediaDirectionパラメータは、stream に着信なのか発信なのか両方なのかを知らせる。
+stream.setDirection(direction);
+
+// そして、ストリーム・フォーマットを設定する。セッション交渉の応答に含まれるリストの
+// 最初のフォーマットを使う。
+stream.setFormat(format);
+
+// 最後に、メディア・デバイスからmediaを取得する準備が整い、インターネット上に、
+// ストリーミングする。
+stream.start();
+\end{verbatim}
+
+%% \noindent Now you can wave at your webcam, grab the mic and say, ``Hello
+%% world!''
+\noindent 自分のウェブカムでwaveでき、マイクを使って、「Hello world!」と言うことができる。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{UI Service}
+\begin{aosasect1}{UIサービス}
+
+%% So far we have covered parts of Jitsi that deal with protocols,
+%% sending and receiving messages and making calls. Above all, however,
+%% Jitsi is an application used by actual people and as such, one of its
+%% most important aspects is its user interface. Most of the time the
+%% user interface uses the services that all the other bundles in Jitsi
+%% expose. There are some cases, however, where things happen the other
+%% way around.
+ここまでの所で、Jitsiにおけるプロトコルの扱い、メッセージ送受信、通話の部分をカバーした。
+さらに、Jitsiは実際の一般の人々に使われるアプリケーションであり、ユーザインタフェースが最も重要な側面を持つ。
+多くの時間、ユーザインタフェースはJitsiの他の全てのバンドルが明示するサービスを使う。
+しかし、そうとも限らない場面もある。
+
+%% Plugins are the first example that comes to mind. Plugins in Jitsi
+%% often need to be able to interact with the user. This means they have
+%% to open, close, move or add components to existing windows and panels
+%% in the user interface. This is where our UIService comes into play. It
+%% allows for basic control over the main window in Jitsi and this is how
+%% our icons in the Mac OS X dock and the Windows notification area let
+%% users control the application.
+プラグインは、気に留めておくべき最初の例である。Jitsiにおけるプラグインは、ユーザと相互作用できる必要がある。
+これは、プラグインは、ユーザ・インタフェースのウィンドウやパネルに、コンポーネントをオープンしたり、クローズしたり、ムーブしたり、
+追加する必要がある事を意味する。これは、UIServiceが実行される時の話である。
+Jitsiメイン・ウィンドウの基本制御を可能にすると供に、Mac OS XドックのアイコンやWindowsの通知エリアでアプリケーションをコントロールする方法である。
+
+%% In addition to simply playing with the contact list, plugins can also
+%% extend it. The plugin that implements support for chat encryption
+%% (OTR) in Jitsi is a good example for this. Our OTR bundle needs to
+%% register several GUI components in various parts of the user
+%% interface. It adds a padlock button in the chat window and a
+%% sub-section in the right-click menu of all contacts.
+プラグインは、単純に連絡先リストを使うのに加えて、この機能を拡張できる。
+Jitsiの暗号チャット(OTR)をサポートするプラグインは、プラグインによる機能拡張の良い例である。
+OTRバンドルは、ユーザ・インタフェースの様々な部品の中からいくつかのGUIコンポーネントを登録する必要がある。
+チャット・ウィンドウに錠前ボタンを追加し、すべての連絡先に対する右クリックメニューにサブセクションを追加する。
+
+%% The good news is that it can do all this with just a few method calls.
+%% The OSGi activator for the OTR bundle, OtrActivator, contains the
+%% following lines:
+良いニュースは、いくつかのメソッド呼び出しだけで、これを行う事ができるという事である。
+OTRバンドルに対するOSGiアクティベータ OtrActivatorは、次のソースコードを含んでいる：
+
+\begin{verbatim}
+Hashtable<String, String> filter = new Hashtable<String, String>();
+
+// Register the right-click menu item.
+filter(Container.CONTAINER_ID,
+    Container.CONTAINER_CONTACT_RIGHT_BUTTON_MENU.getID());
+
+bundleContext.registerService(PluginComponent.class.getName(),
+    new OtrMetaContactMenu(Container.CONTAINER_CONTACT_RIGHT_BUTTON_MENU),
+    filter);
+
+// Register the chat window menu bar item.
+filter.put(Container.CONTAINER_ID,
+           Container.CONTAINER_CHAT_MENU_BAR.getID());
+
+bundleContext.registerService(PluginComponent.class.getName(),
+           new OtrMetaContactMenu(Container.CONTAINER_CHAT_MENU_BAR),
+           filter);
+\end{verbatim}
+
+%% As you can see, adding components to our graphical user interface
+%% simply comes down to registering OSGi services. On the other side of
+%% the fence, our UIService implementation is looking for implementations
+%% of its PluginComponent interface. Whenever it detects that a new
+%% implementation has been registered, it obtains a reference to it and
+%% adds it to the container indicated in the OSGi service filter.
+みてわかるように、グラフィカル・ユーザ・インタフェースへのコンポーネント追加は、単純にOSGiサービスの登録に行き着く。
+反面、UIServiceの実装は、PluginComponentインタフェースの実装を探索する。
+新しい実装が登録された事を検出すると直ぐに、実装への参照を取得し、OSGiサービス・フィルタに示されたコンテナに追加する。
+
+%% Here's how this happens in the case of the right-click menu
+%% item. Within the UI bundle, the class that represents the right click
+%% menu, MetaContactRightButtonMenu, contains the following lines:
+右クリック・メニュー項目のときに、これがどのように起こるのかを示す。UIバンドル内で、右クリック・メニューを表わすクラス MetaContactRightButtonMenuは、
+次のソースコードを含んでいる：
+
+\begin{verbatim}
+// Search for plugin components registered through the OSGI bundle context.
+ServiceReference[] serRefs = null;
+
+String osgiFilter = "("
+    + Container.CONTAINER_ID
+    + "="+Container.CONTAINER_CONTACT_RIGHT_BUTTON_MENU.getID()+")";
+
+serRefs = GuiActivator.bundleContext.getServiceReferences(
+        PluginComponent.class.getName(),
+        osgiFilter);
+// Go through all the plugins we found and add them to the menu.
+for (int i = 0; i < serRefs.length; i ++)
+{
+    PluginComponent component = (PluginComponent) GuiActivator
+        .bundleContext.getService(serRefs[i]);
+
+    component.setCurrentContact(metaContact);
+
+    if (component.getComponent() == null)
+        continue;
+
+    this.add((Component)component.getComponent());
+}
+\end{verbatim}
+
+%% \noindent And that's all there is to it. Most of the windows that you see within
+%% Jitsi do exactly the same thing: They look through the bundle context
+%% for services implementing the PluginComponent interface that have a
+%% filter indicating that they want to be added to the corresponding
+%% container.  Plugins are like hitch-hikers holding up signs with the
+%% names of their destinations, making Jitsi windows the drivers who pick
+%% them up.
+\noindent これで全てである。Jitsi内にあるウィンドウの多くは、全く同じ事をする：
+PluginComponetインタフェースを実装するサービスに対するバンドル・コンテキストを探索する。
+このインタフェースはフィルタを持っていて、このフィルタは対応するコンテナに追加されたい事を示す。
+プラグインは、行き先を示すボードを持っているヒッチハイカーのようなものである。
+Jitsiウィンドウが彼らを拾う運転手である。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Lessons Learned}
+\begin{aosasect1}{得た教訓}
+
+%% When we started work on SIP Communicator, one of the most common
+%% criticisms or questions we heard was: ``Why are you using Java? Don't
+%% you know it's slow? You'd never be able to get decent quality for
+%% audio/video calls!'' The ``Java is slow'' myth has even been repeated
+%% by potential users as a reason they stick with Skype instead of trying
+%% Jitsi. But the first lesson we've learned from our work on the project
+%% is that efficiency is no more of a concern with Java than it would
+%% have been with C++ or other native alternatives.
+SIP Communicatorに取り掛かったときに、最も多かった批判、疑問は、次のようなものである：
+``なぜJavaを使っている?、動作が遅いでしょう？、音声通話やビデオ通話での音声品質は、たかが知れている！''。
+``Javaは遅い''という通説は、Jitsiを試さずにSkypeを使い続けるとめの理由として、潜在的なユーザによって、繰り返し述べられている。
+しかし、このプロジェクトにおける我々が最初に学んだ教訓は、Javaにおける効率性への関心は、既にC++や他のネイティブ言語における関心と
+同程度のものである、という事である。
+
+%% We won't pretend that the decision to choose Java was the result of
+%% rigorous analysis of all possible options. We simply wanted an easy
+%% way to build something that ran on Windows and Linux, and Java and the
+%% Java Media Framework seemed to offer one relatively easy way of doing
+%% so.
+全ての項目を厳密に分析した結果、Javaを選択したというつもりはない。我々は、シンプルににWindowsやLinux上で実行する簡単な方法を望んだ。
+そして、JavaとJava Media Frameworkは、これを行う比較的簡単な方法のように思えた。
+
+%% Throughout the years we haven't had many reasons to regret this
+%% decision.  Quite the contrary: even though it doesn't make it
+%% completely transparent, Java does help portability and 90\% of the code
+%% in SIP Communicator doesn't change from one OS to the next. This
+%% includes all the protocol stack implementations (e.g.,  SIP, XMPP, RTP,
+%% etc.) that are complex enough as they are. Not having to worry about
+%% OS specifics in such parts of the code has proven immensely useful.
+この決定を悔やむ理由は、今の所、ほとんどない。それどころか、
+完全に透過的というわけではないが、Javaは、移植性が高く、SIP Communicatorのソースコードの90\%は、OS間で共通である。
+これは、かなり複雑にも係わらず、すべてのプロトコル・スタック(たとえば、SIP、XMPP、RTPなど)の実装を含んでいる。
+OSに依存するようなソースコード部分に心配を払う必要は無く、大変便利という事が証明された。
+
+%% Furthermore, Java's popularity has turned out to be very important
+%% when building our community. Contributors are a scarce resource as it
+%% is.  People need to like the nature of the application, they need to
+%% find time and motivation---all of this is hard to muster. Not
+%% requiring them to learn a new language is, therefore, an advantage.
+さらに、Javaの高い評判は、コミュニティを形成する上で大変重要である事が分かった。コントリビュータは希少資源である。
+人々は、アプリケーションの性質を気に入る必要があり、時間とモチベーションを見つける必要がある---これらのすべてを集めるのは困難である。
+よって、新しい言語を習う必要がないというのは、利点である。
+
+%% Contrary to most expectations, Java's presumed lack of speed has
+%% rarely been a reason to go native. Most of the time decisions to use
+%% native languages were driven by OS integration and how much access
+%% Java was giving us to OS-specific utilities.  Below we discuss
+%% the three most important areas where Java fell short.
+多くの期待に反して、Javaの実効速度が遅いという仮説は、ネイティブ言語に移行する理由にはなっていない。
+多くの場合、ネイティブ言語にする決断は、OSとの融合とJavaがどれだけOS依存のユーティリティにアクセスできるかに掛かっている。
+以下で、Javaが不十分である３大領域について説明する。
+
+%% \begin{aosasect2}{Java Sound vs.\ PortAudio}
+\begin{aosasect2}{Javaサウンド対PortAudio}
+
+%% Java Sound is Java's default API for capturing and playing audio. It
+%% is part of the runtime environment and therefore runs on all the
+%% platforms the Java Virtual Machine comes for. During its first years
+%% as SIP Communicator, Jitsi used JavaSound exclusively and this
+%% presented us with quite a few inconveniences.
+Javaサウンドは、オーディオを取り込んだり、再生したりするJavaのデフォルトAPIである。
+これは、Javaランタイム環境の一部であるので、Java仮想マシン上のすべてのプラットフォームで動作する。
+SIP Communicator としての最初の数年、Jitsiは、もっぱらJavaSoundを使っていて、かなり不便であった。
+
+%% First of all, the API did not give us the option of choosing which
+%% audio device to use. This is a big problem. When using their computer
+%% for audio and video calls, users often use advanced USB headsets or
+%% other audio devices to get the best possible quality. When multiple
+%% devices are present on a computer, JavaSound routes all audio through
+%% whichever device the OS considers default, and this is not good enough
+%% in many cases. Many users like to keep all other applications running
+%% on their default sound card so that, for example, they could keep
+%% hearing music through their speakers. What's even more important is
+%% that in many cases it is best for SIP Communicator to send audio
+%% notifications to one device and the actual call audio to another,
+%% allowing a user to hear an incoming call alert on their speakers even
+%% if they are not in front of the computer and then, after picking up
+%% the call, to start using a headset.
+まず第一に、このAPIは使用するオーディオ・デバイスを選択する方法を提供しなかった。
+これは大問題である。コンピュータを音声やビデオ通話に使うとき、ユーザは、よく先進のUSBヘッドセットや、他の高品質なオーディオ・デバイスを使う。
+コンピュータ上で、複数のデバイスが存在するとき、JavaSoundはOSがデフォルトと考えるデバイスを辿るが、多くの場合良くない。
+デフォルトのサウンドカード上のスピーカーを通して音楽を聞きながら、という風に多くのユーザは、他のアプリケーションを走らせながら使う事を好む。
+さらに重要なことは、多くの場合、SIP Communicatorにとって、オーディオ通知を一つのデバイスに送り、実際の通話音声は他のデバイスに送るのが都合が良い。
+つまり、着信通知をコンピュータの前にないとしてもユーザに聞こえるようにスピーカーから流し、着信に応答したらヘッドセット側に切り替える。
+
+%% None of this is possible with Java Sound. What's more, the Linux
+%% implementation uses OSS which is deprecated on most of today's Linux
+%% distributions.
+これは、Java Soundでは不可能である。さらにLinuxの実装では、今日のLinuxディストリビューションでは廃止予定のOSSを使っている。
+
+%% We decided to use an alternative audio system. We didn't want to
+%% compromise our multi-platform nature and, if possible, we wanted to
+%% avoid having to handle it all by ourselves. This is where 
+%% PortAudio\footnote{\url{http://portaudio.com/}} came in extremely handy.
+我々は、他のオーディオシステムを使うことを決定した。我々は、マルチプラットフォームを諦めたくなかったので、できれば我々自身での実装は避けたかった。
+これは、PortAudio\footnote{\url{http://portaudio.com/}}が特に得意とする事である。
+
+%% When Java doesn't let you do something itself, cross-platform open
+%% source projects are the next best thing. Switching to PortAudio has
+%% allowed us to implement support for fine-grained configurable audio
+%% rendering and capture just as we described it above. It also runs on
+%% Windows, Linux, Mac OS X, FreeBSD and others that we haven't had the
+%% time to provide packages for.
+Javaで実現できないことは、クロスプラットフォームのオープンソースプロジェクトを使うのが次善の策である。
+PortAudioへの切り替えは、上記のようなオーディオのレンダリングや取り込みに関する優れたサポートを提供する。
+また、Windows、Linux、Mac OS Xで動作し、FreeBSDなど我々がパッケージを提供できないでいるOSもサポートしている。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Video Capture and Rendering}
+\begin{aosasect2}{ビデオ・キャプチャ、レンダリング}
+
+%% Video is just as important to us as audio. However, this didn't seem
+%% to be the case for the creators of Java, because there is no default
+%% API in the JRE that allows capturing or rendering video. For a while
+%% the Java Media Framework seemed to be destined to become such an API
+%% until Sun stopped maintaining it.
+ビデオは、オーディオと同様に重要である。しかし、これは、Javaクリエータにとっては同様では無いようである。
+なぜなら、ビデオをキャプチャしたり、レンダリングしたりするデフォルトのJRE APIが無いからである。
+Sunがメンテナンスを止めるまで、しばらく、Java Media FrameworkがこのようなAPIを目指していたようである。
+
+%% Naturally we started looking for a PortAudio-style video alternative,
+%% but this time we weren't so lucky. At first we decided to go with the
+%% LTI-CIVIL framework from Ken
+%% Larson\footnote{\url{http://lti-civil.org/}}. This is a wonderful
+%% project and we used it for quite a while\footnote{Actually we still have it as
+%% a non-default option.}. However it turned out to be suboptimal
+%% when used in a real-time communications context.
+自然に、我々はPortAudio方式のビデオの代替手段を探し始めた。
+しかし、今回はダメだった。最初は、Ken Larson\footnote{\url{http://lti-civil.org/}}のLTI-CIVILフレームワークに決め掛けた。
+これは、すばらしいプロジェクトで、しばらく\footnote{実際に、まだ、非デフォルトのオプションとして残っている}使用した。
+しかし、リアルタイム通信のコンテキストで使うには最適というわけではない事がわかった。
+
+%% So we came to the conclusion that the only way to provide impeccable
+%% video communication for Jitsi would be for us to implement native
+%% grabbers and renderers all by ourselves. This was not an easy decision
+%% since it implied adding a lot of complexity and a substantial
+%% maintenance load to the project but we simply had no choice: we really
+%% wanted to have quality video calls. And now we do!
+Jitsiでのビデオ通信を満足に行う唯一の方法は、我々自身でネイティブの取り込みやレンダリングを実装する事だった。
+これは、簡単な決断ではなかった。複雑性が大幅に増し、潜在的なメンテナンス負荷がプロジェクトに追加される。
+しかし、他に選択肢はなかった。我々は高品質のビデオ通話を望んだ。そして実現した！
+
+%% Our native grabbers and renderers directly use Video4Linux 2, QTKit
+%% and DirectShow/Direct3D on Linux, Mac OS X, and Windows respectively.
+我々のネイティブの取り込みとレンダリングは、Linux、Mac OS X、Windowsでそれぞれ、Video4Linux 2、QTKit、DirectShow/Direct3Dを直に使った。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Video Encoding and Decoding}
+\begin{aosasect2}{ビデオのエンコーディングとデコーディング}
+
+%% SIP Communicator, and hence Jitsi, supported video calls from its
+%% first days. That's because the Java Media Framework allowed encoding
+%% video using the H.263 codec and a 176x144 (CIF) format.  Those of you
+%% who know what H.263 CIF looks like are probably smiling right now; few
+%% of us would use a video chat application today if that's all it had to
+%% offer.
+SIP Communicator従ってJitsiは、最初のリリースからビデオ通話をサポートした。
+これは、Java Media Frameworkは、H.263コーデックと176x144(CIF)フォーマットをサポートするからである。
+H.264 CIFの見た目を知っている人は笑うだろう。現在、もしこれしか提供できないのであれば、ビデオ・チャット アプリケーションを使う人はいないだろう。
+
+%% In order to offer decent quality we've had to use other libraries like
+%% FFmpeg. Video encoding is actually one of the few places where Java
+%% shows its limits performance-wise. So do other languages, as evidenced
+%% by the fact that FFmpeg developers actually use Assembler in a number
+%% of places in order to handle video in the most efficient way possible.
+より高い品質を提供するためには、FFmpegのような他のライブラリを使う必要があった。
+ビデオ・エンコーディングは、Javaが性能的な限界を示す数少ない分野である。
+よって、FFmpeg開発者がビデオを最も効率的な方法で処理するために実際にアセンブラを多くの場所で使っているという事実が示すように、我々も他の言語を使う。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Others}
+\begin{aosasect2}{その他}
+
+%% There are a number of other places where we've decided that we needed
+%% to go native for better results. Systray notifications with Growl on
+%% Mac OS X and libnotify on Linux are one such example. Others include
+%% querying contact databases from Microsoft Outlook and Apple Address
+%% Book, determining source IP address depending on a destination, using
+%% existing codec implementations for Speex and G.722, capturing desktop
+%% screenshots, and translating chars into key codes.
+より良い結果を得るために、ネイティブにする事を決定した箇所が多くある。
+Mac OS XにおけるSystray通知のGrowl、Linuxにおけるlibnotifyは、こういった例である。
+他には、Microsoft OutlookやApple Address Bookの連絡先データベースへの問い合わせ、
+相手先アドレスによる送信元IPアドレスの決定、既にあるSpeexやG.722のコーデック実装の利用、
+デスクトップ・スクリーンショットの取得、キャラクタのキーコードへの変換がある。
+
+\end{aosasect2}
+
+%% The important thing is that whenever we needed to choose a native
+%% solution, we could, and we did. This brings us to our point: Ever
+%% since we've started Jitsi we've fixed, added, or even entirely
+%% rewritten various parts of it because we wanted them to look, feel or
+%% perform better.  However, we've never ever regretted any of the things
+%% we didn't get right the first time. When in doubt, we simply picked
+%% one of the available options and went with it. We could have waited
+%% until we knew better what we were doing, but if we had, there
+%% would be no Jitsi today.
+重要な事は、我々がネイティブに解決策を求めようと思えば可能であり、実際に行ったという事である。
+これは、次のポイントをもたらした。Jitsiを初めて以来、多くの部分を修正したり、追加したり、完全に書き換えたりしている。
+これは、見た目、使い心地、性能をより良いものにしたかったからである。しかし、最初によいものを出せなかった事を後悔はしていない。
+疑いを持ったら、選択肢の中から可能なものを選び、実行した。より良い方法を知るまで待つ事もできたが、これを行っていたら、今日までにJitsiは存在していないだろう。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Acknowledgments}
+\begin{aosasect1}{謝辞}
+
+%% Many thanks to Yana Stamcheva for creating all the diagrams in this
+%% chapter.
+本章の全ての図を作成してくれたYana Stamchevaに感謝する。
+
+\end{aosasect1}
+
+\end{aosachapter}

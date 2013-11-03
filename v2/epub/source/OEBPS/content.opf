@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="2.0">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+        <dc:title>The Architecture of Open Source Applications, Volume II</dc:title>
+        <dc:creator opf:role="aut">Amy Brown and Greg Wilson (eds)</dc:creator>
+        <dc:creator opf:role="edt">Amy Brown</dc:creator>
+        <dc:creator opf:role="edt">Greg Wilson</dc:creator>
+        <dc:language>en</dc:language>
+        <dc:identifier id="BookID" opf:scheme="UUID">urn:uuid:1384d7d5-c4a7-46e2-8c69-a7511205bdc4</dc:identifier>
+        <meta name="cover" content="cover2.jpeg"/>
+        <meta name="Sigil version" content="0.3.4"/>
+    </metadata>
+    <manifest>
+        <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+        <item id="BrainProtonDensitySlice.png" href="Images/BrainProtonDensitySlice.png" media-type="image/png"/>
+        <item id="BrainProtonDensitySliceCanny.png" href="Images/BrainProtonDensitySliceCanny.png" media-type="image/png"/>
+        <item id="BrainProtonDensitySliceMedian.png" href="Images/BrainProtonDensitySliceMedian.png" media-type="image/png"/>
+        <item id="CallSiteClasses.png" href="Images/CallSiteClasses.png" media-type="image/png"/>
+        <item id="CallSites.png" href="Images/CallSites.png" media-type="image/png"/>
+        <item id="ExampleImageProcessingPipeline.png" href="Images/ExampleImageProcessingPipeline.png" media-type="image/png"/>
+        <item id="IDMOP.png" href="Images/IDMOP.png" media-type="image/png"/>
+        <item id="IllustrationOfModularStructure.png" href="Images/IllustrationOfModularStructure.png" media-type="image/png"/>
+        <item id="ImageIOFactoriesDesignPattern.png" href="Images/ImageIOFactoriesDesignPattern.png" media-type="image/png"/>
+        <item id="ProcessObjectDataObject.png" href="Images/ProcessObjectDataObject.png" media-type="image/png"/>
+        <item id="ProcessObjectDataObjectHierarchy.png" href="Images/ProcessObjectDataObjectHierarchy.png" media-type="image/png"/>
+        <item id="ProcessObjectDataObjectInteractionUML.png" href="Images/ProcessObjectDataObjectInteractionUML.png" media-type="image/png"/>
+        <item id="StreamingImageDiagram.png" href="Images/StreamingImageDiagram.png" media-type="image/png"/>
+        <item id="TimingDiagram.png" href="Images/TimingDiagram.png" media-type="image/png"/>
+        <item id="accessingData.png" href="Images/accessingData.png" media-type="image/png"/>
+        <item id="aosa1.jpg" href="Images/aosa1.jpg" media-type="image/jpeg"/>
+        <item id="aosa1.png" href="Images/aosa1.png" media-type="image/png"/>
+        <item id="aosa2.jpg" href="Images/aosa2.jpg" media-type="image/jpeg"/>
+        <item id="aosa2.png" href="Images/aosa2.png" media-type="image/png"/>
+        <item id="aosa3.jpg" href="Images/aosa3.jpg" media-type="image/jpeg"/>
+        <item id="aosa3.png" href="Images/aosa3.png" media-type="image/png"/>
+        <item id="aosa4.png" href="Images/aosa4.png" media-type="image/png"/>
+        <item id="aosa5.png" href="Images/aosa5.png" media-type="image/png"/>
+        <item id="aosa6.png" href="Images/aosa6.png" media-type="image/png"/>
+        <item id="aosa7.png" href="Images/aosa7.png" media-type="image/png"/>
+        <item id="aosa8.png" href="Images/aosa8.png" media-type="image/png"/>
+        <item id="aosa9.png" href="Images/aosa9.png" media-type="image/png"/>
+        <item id="architecture.png" href="Images/architecture.png" media-type="image/png"/>
+        <item id="artists_figure.png" href="Images/artists_figure.png" media-type="image/png"/>
+        <item id="artists_tree.png" href="Images/artists_tree.png" media-type="image/png"/>
+        <item id="basic-schema.png" href="Images/basic-schema.png" media-type="image/png"/>
+        <item id="cache.png" href="Images/cache.png" media-type="image/png"/>
+        <item id="chains.png" href="Images/chains.png" media-type="image/png"/>
+        <item id="collapseRequests.png" href="Images/collapseRequests.png" media-type="image/png"/>
+        <item id="collapseRequestsSpatial.png" href="Images/collapseRequestsSpatial.png" media-type="image/png"/>
+        <item id="common-dbapi.png" href="Images/common-dbapi.png" media-type="image/png"/>
+        <item id="compiler-hierarchy.png" href="Images/compiler-hierarchy.png" media-type="image/png"/>
+        <item id="contexts.png" href="Images/contexts.png" media-type="image/png"/>
+        <item id="course.png" href="Images/course.png" media-type="image/png"/>
+        <item id="cover2.jpeg" href="Images/cover2.jpeg" media-type="image/jpeg"/>
+        <item id="dag-example.png" href="Images/dag-example.png" media-type="image/png"/>
+        <item id="database-restructure.png" href="Images/database-restructure.png" media-type="image/png"/>
+        <item id="database-schema.png" href="Images/database-schema.png" media-type="image/png"/>
+        <item id="dataflow.png" href="Images/dataflow.png" media-type="image/png"/>
+        <item id="deferred.png" href="Images/deferred.png" media-type="image/png"/>
+        <item id="dialect-simple.png" href="Images/dialect-simple.png" media-type="image/png"/>
+        <item id="distributedCaching.png" href="Images/distributedCaching.png" media-type="image/png"/>
+        <item id="ecog.png" href="Images/ecog.png" media-type="image/png"/>
+        <item id="engine.png" href="Images/engine.png" media-type="image/png"/>
+        <item id="example-expression.png" href="Images/example-expression.png" media-type="image/png"/>
+        <item id="expression-hierarchy.png" href="Images/expression-hierarchy.png" media-type="image/png"/>
+        <item id="extra-large.png" href="Images/extra-large.png" media-type="image/png"/>
+        <item id="flowgraph.png" href="Images/flowgraph.png" media-type="image/png"/>
+        <item id="freertos-figures-basic-ready-list.png" href="Images/freertos-figures-basic-ready-list.png" media-type="image/png"/>
+        <item id="freertos-figures-full-ready-list-2.png" href="Images/freertos-figures-full-ready-list-2.png" media-type="image/png"/>
+        <item id="freertos-figures-full-ready-list.png" href="Images/freertos-figures-full-ready-list.png" media-type="image/png"/>
+        <item id="freertos-figures-layers.png" href="Images/freertos-figures-layers.png" media-type="image/png"/>
+        <item id="gdb-structure.png" href="Images/gdb-structure.png" media-type="image/png"/>
+        <item id="gdbserver.png" href="Images/gdbserver.png" media-type="image/png"/>
+        <item id="globalCache1.png" href="Images/globalCache1.png" media-type="image/png"/>
+        <item id="globalCache2.png" href="Images/globalCache2.png" media-type="image/png"/>
+        <item id="gotobuild.png" href="Images/gotobuild.png" media-type="image/png"/>
+        <item id="guard_fails.png" href="Images/guard_fails.png" media-type="image/png"/>
+        <item id="histogram_demo.png" href="Images/histogram_demo.png" media-type="image/png"/>
+        <item id="hscpipe2.png" href="Images/hscpipe2.png" media-type="image/png"/>
+        <item id="imageHosting1.jpg" href="Images/imageHosting1.jpg" media-type="image/jpeg"/>
+        <item id="imageHosting2.png" href="Images/imageHosting2.png" media-type="image/png"/>
+        <item id="imageHosting3.png" href="Images/imageHosting3.png" media-type="image/png"/>
+        <item id="imageHosting4.png" href="Images/imageHosting4.png" media-type="image/png"/>
+        <item id="indexes.jpg" href="Images/indexes.jpg" media-type="image/jpeg"/>
+        <item id="integratordataretrieval.png" href="Images/integratordataretrieval.png" media-type="image/png"/>
+        <item id="integratordemodownload.png" href="Images/integratordemodownload.png" media-type="image/png"/>
+        <item id="integratoroscar.png" href="Images/integratoroscar.png" media-type="image/png"/>
+        <item id="integratorupload.png" href="Images/integratorupload.png" media-type="image/png"/>
+        <item id="jitviewer.png" href="Images/jitviewer.png" media-type="image/png"/>
+        <item id="layers.png" href="Images/layers.png" media-type="image/png"/>
+        <item id="loadBalancer.png" href="Images/loadBalancer.png" media-type="image/png"/>
+        <item id="mapper-components.png" href="Images/mapper-components.png" media-type="image/png"/>
+        <item id="matrix.png" href="Images/matrix.png" media-type="image/png"/>
+        <item id="merge-history.png" href="Images/merge-history.png" media-type="image/png"/>
+        <item id="mime.png" href="Images/mime.png" media-type="image/png"/>
+        <item id="moduleSizePlotCombined.png" href="Images/moduleSizePlotCombined.png" media-type="image/png"/>
+        <item id="multipleCaches.png" href="Images/multipleCaches.png" media-type="image/png"/>
+        <item id="multipleIndexes.jpg" href="Images/multipleIndexes.jpg" media-type="image/jpeg"/>
+        <item id="multipleLoadBalancers.png" href="Images/multipleLoadBalancers.png" media-type="image/png"/>
+        <item id="nonaffine_transforms.png" href="Images/nonaffine_transforms.png" media-type="image/png"/>
+        <item id="object-hierarchy.png" href="Images/object-hierarchy.png" media-type="image/png"/>
+        <item id="open-mpi-layers.png" href="Images/open-mpi-layers.png" media-type="image/png"/>
+        <item id="open-mpi-mca-struct-nesting.png" href="Images/open-mpi-mca-struct-nesting.png" media-type="image/png"/>
+        <item id="open-mpi-mca.png" href="Images/open-mpi-mca.png" media-type="image/png"/>
+        <item id="overSimpleWeb.png" href="Images/overSimpleWeb.png" media-type="image/png"/>
+        <item id="overview.png" href="Images/overview.png" media-type="image/png"/>
+        <item id="packed-format.png" href="Images/packed-format.png" media-type="image/png"/>
+        <item id="path_simplification.png" href="Images/path_simplification.png" media-type="image/png"/>
+        <item id="pipeline.png" href="Images/pipeline.png" media-type="image/png"/>
+        <item id="pixel_snapping.png" href="Images/pixel_snapping.png" media-type="image/png"/>
+        <item id="proxies.png" href="Images/proxies.png" media-type="image/png"/>
+        <item id="query-loading.png" href="Images/query-loading.png" media-type="image/png"/>
+        <item id="queues.png" href="Images/queues.png" media-type="image/png"/>
+        <item id="regression.png" href="Images/regression.png" media-type="image/png"/>
+        <item id="repacksl10n.png" href="Images/repacksl10n.png" media-type="image/png"/>
+        <item id="session-overview.png" href="Images/session-overview.png" media-type="image/png"/>
+        <item id="signing.png" href="Images/signing.png" media-type="image/png"/>
+        <item id="simpleWeb.png" href="Images/simpleWeb.png" media-type="image/png"/>
+        <item id="software-layers.png" href="Images/software-layers.png" media-type="image/png"/>
+        <item id="statement-compilation.png" href="Images/statement-compilation.png" media-type="image/png"/>
+        <item id="synchronousRequest.png" href="Images/synchronousRequest.png" media-type="image/png"/>
+        <item id="table-column-crossover.png" href="Images/table-column-crossover.png" media-type="image/png"/>
+        <item id="tagging.png" href="Images/tagging.png" media-type="image/png"/>
+        <item id="threading_models.png" href="Images/threading_models.png" media-type="image/png"/>
+        <item id="timeline.png" href="Images/timeline.png" media-type="image/png"/>
+        <item id="timelineSm.png" href="Images/timelineSm.png" media-type="image/png"/>
+        <item id="topological-sort.png" href="Images/topological-sort.png" media-type="image/png"/>
+        <item id="transform_tree.png" href="Images/transform_tree.png" media-type="image/png"/>
+        <item id="translation_steps.png" href="Images/translation_steps.png" media-type="image/png"/>
+        <item id="tree.png" href="Images/tree.png" media-type="image/png"/>
+        <item id="university.png" href="Images/university.png" media-type="image/png"/>
+        <item id="uow-element-buckets.png" href="Images/uow-element-buckets.png" media-type="image/png"/>
+        <item id="uow-mapper-buckets.png" href="Images/uow-mapper-buckets.png" media-type="image/png"/>
+        <item id="aosa.css" href="Styles/aosa.css" media-type="text/css"/>
+        <item id="bootstrap-responsive.css" href="Styles/bootstrap-responsive.css" media-type="text/css"/>
+        <item id="bootstrap.css" href="Styles/bootstrap.css" media-type="text/css"/>
+        <item id="Title.xhtml" href="Text/Title.xhtml" media-type="application/xhtml+xml"/>
+        <item id="bib2.html" href="Text/bib2.html" media-type="application/xhtml+xml"/>
+        <item id="distsys.html" href="Text/distsys.html" media-type="application/xhtml+xml"/>
+        <item id="ffreleng.html" href="Text/ffreleng.html" media-type="application/xhtml+xml"/>
+        <item id="freertos.html" href="Text/freertos.html" media-type="application/xhtml+xml"/>
+        <item id="gdb.html" href="Text/gdb.html" media-type="application/xhtml+xml"/>
+        <item id="ghc.html" href="Text/ghc.html" media-type="application/xhtml+xml"/>
+        <item id="git.html" href="Text/git.html" media-type="application/xhtml+xml"/>
+        <item id="gpsd.html" href="Text/gpsd.html" media-type="application/xhtml+xml"/>
+        <item id="intro2.html" href="Text/intro2.html" media-type="application/xhtml+xml"/>
+        <item id="ironlang.html" href="Text/ironlang.html" media-type="application/xhtml+xml"/>
+        <item id="itk.html" href="Text/itk.html" media-type="application/xhtml+xml"/>
+        <item id="mailman.html" href="Text/mailman.html" media-type="application/xhtml+xml"/>
+        <item id="matplotlib.html" href="Text/matplotlib.html" media-type="application/xhtml+xml"/>
+        <item id="mediawiki.html" href="Text/mediawiki.html" media-type="application/xhtml+xml"/>
+        <item id="moodle.html" href="Text/moodle.html" media-type="application/xhtml+xml"/>
+        <item id="nginx.html" href="Text/nginx.html" media-type="application/xhtml+xml"/>
+        <item id="openmpi.html" href="Text/openmpi.html" media-type="application/xhtml+xml"/>
+        <item id="oscar.html" href="Text/oscar.html" media-type="application/xhtml+xml"/>
+        <item id="pjs.html" href="Text/pjs.html" media-type="application/xhtml+xml"/>
+        <item id="puppet.html" href="Text/puppet.html" media-type="application/xhtml+xml"/>
+        <item id="pypy.html" href="Text/pypy.html" media-type="application/xhtml+xml"/>
+        <item id="sqlalchemy.html" href="Text/sqlalchemy.html" media-type="application/xhtml+xml"/>
+        <item id="twisted.html" href="Text/twisted.html" media-type="application/xhtml+xml"/>
+        <item id="yesod.html" href="Text/yesod.html" media-type="application/xhtml+xml"/>
+        <item id="yocto.html" href="Text/yocto.html" media-type="application/xhtml+xml"/>
+        <item id="zeromq.html" href="Text/zeromq.html" media-type="application/xhtml+xml"/>
+    </manifest>
+    <spine toc="ncx">
+        <itemref idref="Title.xhtml"/>
+        <itemref idref="intro2.html"/>
+        <itemref idref="distsys.html"/>
+        <itemref idref="ffreleng.html"/>
+        <itemref idref="freertos.html"/>
+        <itemref idref="gdb.html"/>
+        <itemref idref="ghc.html"/>
+        <itemref idref="git.html"/>
+        <itemref idref="gpsd.html"/>
+        <itemref idref="ironlang.html"/>
+        <itemref idref="itk.html"/>
+        <itemref idref="mailman.html"/>
+        <itemref idref="matplotlib.html"/>
+        <itemref idref="mediawiki.html"/>
+        <itemref idref="moodle.html"/>
+        <itemref idref="nginx.html"/>
+        <itemref idref="openmpi.html"/>
+        <itemref idref="oscar.html"/>
+        <itemref idref="pjs.html"/>
+        <itemref idref="puppet.html"/>
+        <itemref idref="pypy.html"/>
+        <itemref idref="sqlalchemy.html"/>
+        <itemref idref="twisted.html"/>
+        <itemref idref="yesod.html"/>
+        <itemref idref="yocto.html"/>
+        <itemref idref="zeromq.html"/>
+        <itemref idref="bib2.html"/>
+    </spine>
+    <guide>
+        <reference type="cover" title="Cover" href="Text/Title.xhtml"/>
+        <reference type="bibliography" title="Bibliography" href="Text/bib2.html"/>
+    </guide>
+</package>

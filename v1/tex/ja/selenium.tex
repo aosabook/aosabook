@@ -1,0 +1,1777 @@
+\begin{aosachapter}{Selenium WebDriver}{s:selenium}{Simon Stewart}
+%% Based on EN-Revision r1602
+
+%% Selenium is a browser automation tool, commonly used for writing
+%% end-to-end tests of web applications. A browser automation tool
+%% does exactly what you would expect: automate the control of a
+%% browser so that repetitive tasks can be automated. It sounds like
+%% a simple problem to solve, but as we will see, a lot has to happen
+%% behind the scenes to make it work.
+Seleniumはブラウザの自動化ツールで、ウェブアプリケーションのエンドツーエンドテストを書くときによく使われる。ブラウザの自動化ツールが行うのは、その名前から想像できるとおりのことだ。ブラウザを制御して、繰り返し行われるタスクを自動化できる。解決しようとしている問題は単純なものだが、本章で説明するとおり、その裏側ではさまざまなことが起こっている。
+
+%% Before describing the architecture of Selenium it helps to understand
+%% how the various related pieces of the
+%% project fit together. At a very high level, Selenium is a suite of
+%% three tools. The first of these tools, Selenium
+%% IDE, is an extension for Firefox that allows users to record and
+%% playback tests. The record/playback paradigm can be limiting and isn't
+%% suitable for many users, so the second tool in the suite, Selenium
+%% WebDriver, provides APIs in a variety of languages to allow for more
+%% control and the application of standard software development
+%% practices. The final tool, Selenium Grid, makes it possible to use the
+%% Selenium APIs to control browser instances distributed over a grid of
+%% machines, allowing more tests to run in parallel. Within the project,
+%% they are referred to as ``IDE'', ``WebDriver'' and ``Grid''. This
+%% chapter explores the architecture of Selenium WebDriver.
+Seleniumのアーキテクチャについて語る前に、プロジェクト内のさまざまなパーツがどのように関連するのかを説明しておこう。上位レベルから見ると、Seleniumは三つのツールを組み合わせたものである。そのうちの一つであるSelenium IDEはFirefoxの拡張で、これを使うとテストの記録や再生ができる。この「記録/再生」のパラダイムは限定的なものであり、多くのユーザーにとっては物足りないものだ。そこで登場するのが第二のツールであるSelenium WebDriverだ。さまざまな言語向けのAPIを提供しており、より細やかな制御を行うことができるし、標準のソフトウェア開発の流れに組み込むこともできる。最後のツールはSelenium Gridだ。これを使うと、Selenium APIで分散環境にあるブラウザのインスタンスを制御でき、テストを並列に実行できるようになる。Seleniumプロジェクト内では、これらのツールはそれぞれ``IDE''、``WebDriver''そして``Grid''と呼ばれている。本章で扱うのはSelenium WebDriverのアーキテクチャである。
+
+%% This chapter was written during the betas of Selenium 2.0 in late
+%% 2010. If you're reading the book after then, then things will have
+%% moved forward, and you'll be able to see how the architectural choices
+%% described here have unfolded. If you're reading before that date:
+%% Congratulations! You have a time machine. Can I have some winning
+%% lottery numbers?
+本章の内容はSelenium 2.0のベータ版に基づいており、2010年の後半に執筆された。もしそれより後にこれを読んでいるのなら、世間はさらに進んでいることだろう。ここで取り上げたアーキテクチャに関する選択が実際にどのような形で実装されたのかを見られるかもしれない。もし2010年後半よりも前にこれを読んでいるのなら…おめでとう!あなたはついにタイムマシンを手に入れたんだね!頼むから、宝くじの当選番号を教えてくれないかな?
+
+%% \begin{aosasect1}{History}
+\begin{aosasect1}{歴史}
+
+%% Jason Huggins started the Selenium project in 2004 while working at
+%% ThoughtWorks on their in-house Time and Expenses (T\&E) system, which
+%% made extensive use of Javascript. Although Internet Explorer was the
+%% dominant browser at the time, ThoughtWorks used a number of
+%% alternative browsers (in particular Mozilla variants) and would file
+%% bug reports when the T\&E app wouldn't work on their browser of
+%% choice. Open Source testing tools at the time were either focused on a
+%% single browser (typically IE) or were simulations of a browser (like
+%% HttpUnit).  The cost of a license for a commercial tool would have
+%% exhausted the limited budget for a small in-house project, so they
+%% weren't even considered as viable testing choices.
+ジェイソン・ハギンズがSeleniumプロジェクトを立ち上げたのは2004年のこと。そのとき彼はThoughtWorksで社内用の勤怠管理(T\&E: Time and Expenses)システムを開発していた。それは、Javascriptを使いまくるシステムだった。Internet Explorerがシェアを支配していた時代だったが、ThoughtWorksではそれ以外のブラウザも使われており(特にMozilla系が多かった)、T\&Eアプリがそういったブラウザで動かないというバグ報告も受けていた。当時のオープンソースのテストツールといえば、特定のブラウザ(たいていIE)に絞ったものかブラウザをシミュレートするもの(HttpUnitなど)しかなかった。商用のツールのライセンスを購入するというのは、限られた予算の社内システムでは無理な話だった。そのため、そもそも選択肢にすら入っていなかった。
+
+%% Where automation is difficult, it's common to rely on manual
+%% testing. This approach doesn't scale when the team is very small or
+%% when releases are extremely frequent. It's also a waste of humanity to
+%% ask people to step through a script that could be automated. More
+%% prosaically, people are slower and more error prone than a machine for
+%% dull repetitive tasks.  Manual testing wasn't an option.
+自動化が困難なときには手動でのテストに頼るのが一般的だ。しかし、チームの規模が小さいときやリリース頻度が極端に高いときなどにはこの方式はスケールしない。また、自動化できるはずの手順をいちいちやってもらうように頼むのも、彼らの人間性を浪費しているように思える。はっきり言って、人はくだらない繰り返し作業をするのが苦手だ。機械に比べて能率も悪いし間違いも多い。手動でのテストも選択肢から消えた。
+
+%% Fortunately, all the browsers being tested supported Javascript. It
+%% made sense to Jason and the team he was working with to write a
+%% testing tool in that language which could be used to verify the
+%% behavior of the application. Inspired by work being done on
+%% FIT\footnote{\url{http://fit.c2.com}}, a table-based syntax was placed
+%% over the raw Javascript and this allowed tests to be written by people
+%% with limited programming experience using a keyword-driven approach in
+%% HTML files. This tool, originally called ``Selenium'' but later
+%% referred to as ``Selenium Core'', was released under the Apache 2
+%% license in 2004.
+幸いなことに、テスト対象のブラウザはすべてJavascriptをサポートしていた。ジェイソンやチームのメンバーがJavascriptを使ってテストツールを書こうとしたのも自然なことだった。そのツールを使って、アプリケーションのふるまいを検証しようとしたのだ。既にあったFIT\footnote{\url{http://fit.c2.com}}の影響を受け、生のJavascriptではなく表形式の構文を採用した。そのおかげて、プログラミングの経験が少ない人でもHTMLファイルにキーワードを書き込んでテストを書けるようになった。このツールは当初``Selenium''と呼ばれていたが、後に``Selenium Core''という名前に変わり、Apache 2ライセンスで2004年に公開された。
+
+%% The table format of Selenium is structured similarly to the
+%% ActionFixture from FIT\@. Each row of the table is split into three
+%% columns. The first column gives the name of the command to execute,
+%% the second column typically contains an element identifier and the
+%% third column contains an optional value. For example, this is how to
+%% type the string ``Selenium WebDriver'' into an element identified with
+%% the name ``q'':
+Seleniumの表の書式は、FITのActionFixtureと似ており、テーブルの各行が三つのカラムに分かれている。最初のカラムには実行するコマンド名を指定し、次のカラムには要素のID、そして最後のカラムにはオプションの値を指定する。たとえばこれは、``Selenium WebDriver''という文字列ををnameが``q''である要素に入力する例だ。
+
+\begin{verbatim}
+type       name=q       Selenium WebDriver
+\end{verbatim}
+
+%% Because Selenium was written in pure Javascript,
+%% its initial design required developers to host Core and
+%% their tests on the same server as the application under test
+%% (AUT) in order to avoid falling foul of the browser's security
+%% policies and the Javascript sandbox. This was not always
+%% practical or possible.  Worse, although a
+%% developer's IDE gives them the ability to swiftly manipulate code and
+%% navigate a large codebase, there is no such tool for HTML\@. It rapidly
+%% became clear that maintaining even a medium-sized suite of tests was
+%% an unwieldy and painful proposition.\footnote{This is very similar to
+%% FIT, and James Shore, one of that project's coordinators, helps
+%% explain some of the drawbacks at
+%% \url{http://jamesshore.com/Blog/The-Problems-With-Acceptance-Testing.html}.}
+SeleniumはJavascriptだけで書かれているので、初期の設計ではCoreやテスト群をテスト対象のアプリケーション(AUT)と同じサーバーに置く必要があった。ブラウザのセキュリティポリシーやJavascriptのサンドボックスの制限を回避するためである。しかし、現実的にそれが不可能な場合だってある。さらに悪いことに、開発者用のIDEには巨大なコードベースを縦横無尽に渡り歩くための機能が用意されているのに、HTML用のツールにはそういったものが存在しない。程なくわかったことだが、そんなに大きくないテストスイートの保守ですら面倒できつい作業になった。\footnote{これはFITでも同じだった。プロジェクトのメンバーの一人であるジェイムズ・ショアが、その弱点について\url{http://jamesshore.com/Blog/The-Problems-With-Acceptance-Testing.html}で説明している。}
+
+
+%% To resolve this and other issues, an HTTP proxy was written so that
+%% every HTTP request could be intercepted by Selenium. Using this
+%% proxy made it possible to side-step many of the constraints of the ``same host
+%% origin'' policy, where a browser won't allow Javascript to make calls
+%% to anything other than the server from which the current page has been
+%% served, allowing the first weakness to be mitigated. The design opened
+%% up the possibility of writing Selenium bindings in multiple languages:
+%% they just needed to be able to send HTTP requests to a particular
+%% URL\@. The wire format was closely modeled on the table-based syntax of
+%% Selenium Core and it, along with the table-based syntax, became
+%% known as ``Selenese''. Because the language bindings were controlling
+%% the browser at a distance, the tool was called ``Selenium Remote
+%% Control'', or ``Selenium RC''.
+この問題やその他の問題を解決するために、HTTPプロキシが書かれた。これを使い、すべてのHTTPリクエストをSeleniumで捕捉できるようにしたのだ。このプロキシを使えば、``同一生成元ポリシー''の制約の多くを回避できるようになった。このポリシーは、Javascriptからそのページを提供するサーバー以外への呼び出しを許可しないというものである。これを回避できたことで、最初の弱点は何とかしのげるようになった。この設計のおかげて、Seleniumのバインディングを複数の言語で書けるようにもなった。必要なのは、単に特定のURLにHTTPリクエストを送信する機能だけである。連結用の書式はSelenium Coreの表形式の構文をもとにして作られ、その表形式の構文と併せて後に``Selenese''として知られるようになった。他言語のバインディングはブラウザを遠隔操作するものだったので、このツールは``Selenium Remote Control''あるいは``Selenium RC''と呼ばれることになった。
+
+%% While Selenium was being developed, another browser automation
+%% framework was brewing at ThoughtWorks: WebDriver. The initial code for
+%% this was released early in 2007. WebDriver was derived from work on
+%% projects which wanted to isolate their end-to-end tests from the
+%% underlying test tool.  Typically, the way that this isolation is done
+%% is via the Adapter pattern.  WebDriver grew out of insight
+%% developed by applying this approach consistently over numerous
+%% projects, and initially was a wrapper around HtmlUnit. Internet
+%% Explorer and Firefox support followed rapidly after release.
+Seleniumの開発が進む一方で、別のブラウザ自動化フレームワークもThoughtWorksで生まれていた。それがWebDriverで、最初のコードは2007年始めに公開された。WebDriverは、あるプロジェクトから派生したツールである。そのプロジェクトでは、エンドツーエンドテストをテストツールから分離しようとしていたのだ。一般的な例にならい、分離する方法としてAdapterパターンを使った。WebDriverは、これまでに多数のプロジェクトに適用されてきた結果から生み出されたもので、当初はHtmlUnitに対するラッパーだった。その後、Internet ExplorerやFirefoxのサポートもすぐに追加された。
+
+%% When WebDriver was released there were significant differences between
+%% it and Selenium RC, though they sat in the same software niche of an
+%% API for browser automation.  The most obvious difference to a user was
+%% that Selenium RC had a dictionary-based API, with all methods exposed
+%% on a single class, whereas WebDriver had a more object-oriented API\@.
+%% In addition, WebDriver only supported Java, whereas Selenium RC
+%% offered support for a wide-range of languages.  There were also strong
+%% technical differences: Selenium Core (on which RC was based) was
+%% essentially a Javascript application, running inside the browser's
+%% security sandbox. WebDriver attempted to bind natively to the browser,
+%% side-stepping the browser's security model at the cost of
+%% significantly increased development effort for the framework itself.
+WebDriverが公開されたとき、WebDriverとSelenium RCの間には大きな違いがあった。しかしどちらも、ブラウザの自動化のためのAPIを提供するというニッチを狙っているという点では共通していた。ユーザーから見たときの最大の相違点は、Selenium RCは辞書ベースのAPIですべてのメソッドを単一のクラスで公開しているのに対してWebDriverはよりオブジェクト指向なAPIを提供していることだった。さらに、WebDriverがサポートするのがJavaだけであるのに対してSelenium RCはさまざまな言語に対応していた。それ以外にも技術的な違いがあった。Selenium Core (RCの元になっているもの)は基本的にJavascriptアプリケーションで、ブラウザのセキュリティサンドボックス内で動作する。WebDriverはネイティブにブラウザにバインドすることを試みており、フレームワーク自身の開発に要する労力を犠牲にしてでもブラウザのセキュリティモデルを回避しようとしている。
+
+%% In August, 2009, it was announced that the two projects would merge,
+%% and Selenium WebDriver is the result of those merged projects.
+%% As I write this, WebDriver supports language bindings for Java, C\#,
+%% Python and Ruby. It offers support for Chrome, Firefox, Internet
+%% Explorer, Opera, and the Android and iPhone browsers. There are sister
+%% projects, not kept in the same source code repository but working
+%% closely with the main project, that provide Perl bindings, an
+%% implementation for the BlackBerry browser, and for ``headless''
+%% WebKit---useful for those times where tests need to run on a
+%% continuous integration server without a proper display. The original
+%% Selenium RC mechanism is still maintained and allows WebDriver to
+%% provide support for browsers that would otherwise be unsupported.
+2009年8月、二つのプロジェクトが合流することが発表された。その結果として登場したのがSelenium WebDriverだ。執筆時点では、WebDriverがサポートしている言語はJavaとC\#、Python、そしてRubyである。また、ChromeやFirefox、Internet Explorer、Opera、そしてAndroidやiPhoneのブラウザに対応している。Selenium WebDriverには姉妹プロジェクトもある。ソースコードリポジトリは別だが本体のプロジェクトと密接に連携して開発が進められており、PerlのバインディングやBlackBerryのブラウザ用の実装を用意している。また、``headless(画面なし)''のWebKitにも対応する。これはテストを継続的インテグレーションサーバーで画面なしで実行しなければならないときに便利だ。元々のSelenium RCの仕組みは今でも保守されており、WebDriverが未対応なブラウザもこれでサポートすることができる。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{A Digression About Jargon}
+\begin{aosasect1}{ジャーゴンについての余談}
+
+%% Unfortunately, the Selenium project uses a lot of jargon.  To recap
+%% what we've already come across:
+残念ながら、Seleniumプロジェクトにはジャーゴンが氾濫している。これまでに登場したものをまとめてみよう。
+
+\begin{aosaitemize}
+
+  %% \item \emph{Selenium Core} is the heart of the original Selenium implementation,
+  %% and is a set of Javascript scripts that control the browser. This is
+  %% sometimes referred to as ``Selenium'' and sometimes as ``Core''.
+  \item \emph{Selenium Core} は当初のSeleniumの実装の中心となる部分のことで、ブラウザを制御するためのJavascript群である。時には``Selenium''と呼ばれることもあるし、``Core''と呼ばれることもある。
+
+  %% \item \emph{Selenium RC} was the name given to the language bindings for Selenium
+  %% Core, and is commonly, and confusingly, referred to as just
+  %% ``Selenium'' or ``RC''.  It has now been replaced by Selenium
+  %% WebDriver, where RC's API is referred to as the ``Selenium 1.x API''.
+  \item \emph{Selenium RC} は、Selenium Core用の言語バインディングを表す。紛らわしいことに、これもまた``Selenium''と呼ばれることもあるし``RC''と呼ばれることもある。現在はSelenium WebDriverに置き換わっており、RCのAPIは``Selenium 1.x API''と呼ばれる。
+
+  %% \item \emph{Selenium WebDriver} fits in the same niche as RC did, and has subsumed
+  %% the original 1.x bindings.  It refers to both the language bindings
+  %% and the implementations of the individual browser controlling
+  %% code. This is commonly referred to as just ``WebDriver'' or sometimes
+  %% as Selenium 2. Doubtless, this will be contracted to ``Selenium'' over
+  %% time.
+  \item \emph{Selenium WebDriver} は、かつてRCが扱っていたのと同じニッチを埋めるものであり、1.x系のバインディングを包含している。この言葉は、言語バインディングだけでなく個別のブラウザ制御用コードの実装のことも指す。一般的には単に``WebDriver''と呼ばれており、時にはSelenium 2と呼ばれることもある。そのうち、さらに短縮して``Selenium''と呼ばれるようになるであろうことは疑う余地もない。
+
+\end{aosaitemize}
+
+%% The astute reader will have noticed that ``Selenium'' is used in a
+%% fairly general sense. Fortunately, context normally makes it clear
+%% which particular Selenium people are referring to.
+賢明な読者のみなさんはお気づきだろうが、``Selenium''という用語があまりにもいろんな場面で使われすぎている。しかし幸いなことに、その「Selenium」が何を表すのかは話の流れで明確になることが多い。
+
+%% Finally, there's one more phrase which I'll be using, and there's no
+%% graceful way of introducing it: ``driver'' is the name given to a
+%% particular implementation of the WebDriver API\@. For example, there is
+%% a Firefox driver, and an Internet Explorer driver.
+最後に、これから使うであろうフレーズをもうひとつ紹介しておく。``ドライバ''だ。この用語は、WebDriver APIの特定の実装を指す名前として使う。たとえば、FirefoxドライバやInternet Explorerドライバといった使い方をする。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Architectural Themes}
+\begin{aosasect1}{アーキテクチャについて}
+
+%% Before we start looking at the individual pieces to understand how
+%% they're wired together, it's useful to understand the the overarching
+%% themes of the architecture and development of the project. Succinctly
+%% put, these are:
+個々のピースを見てそのつながり具合を理解する前に、まずはプロジェクト全体のアーキテクチャや開発について知っておくと有用だ。簡潔にまとめると、このようになる。
+
+\begin{aosaitemize}
+
+%% \item Keep the costs down.
+\item コストを抑える。
+
+%% \item Emulate the user.
+\item ユーザーをエミュレートする。
+
+%% \item Prove the drivers work{\ldots}
+\item ドライバが動作することを実証する{\ldots}
+
+%% \item {\ldots}but you shouldn't need to understand how everything works.
+\item {\ldots}が、それがどのように動作するのかを知る必要はないようにする。
+
+%% \item Lower the bus factor.
+\item バス係数を上げる。
+
+%% \item Have sympathy for a Javascript implementation.
+\item Javascriptの実装を尊重する。
+
+%% \item Every method call is an RPC call.
+\item すべてのメソッドコールはRPCである。
+
+%% \item We are an Open Source project.
+\item 我々は、オープンソースプロジェクトである。
+
+\end{aosaitemize}
+
+%% \begin{aosasect2}{Keep the Costs Down}
+\begin{aosasect2}{コストを抑える}
+
+%% Supporting X browsers on Y platforms is inherently an expensive
+%% proposition, both in terms of initial development and maintenance. If
+%% we can find some way to keep the quality of the product high without
+%% violating too many of the other principles, then that's the route we
+%% favor. This is most clearly seen in our adoption of Javascript where
+%% possible, as you'll read about shortly.
+○○プラットフォーム上の■■ブラウザをサポートするというのは本質的にコストのかかる提案である。最初の開発の面でも、その後の保守の面でも。その品質を高く保ちつつその他の原則を破らずに済む手段がもしあれば、それこそが我々の目指す道となる。我々が可能な限りJavascriptを採用しているのも、それが理由だ。後ほど詳しく説明する。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Emulate the User}
+\begin{aosasect2}{ユーザーをエミュレートする}
+
+%% WebDriver is designed to accurately simulate the way that a user will
+%% interact with a web application. A common approach for simulating user
+%% input is to make use of Javascript to synthesize and fire the series
+%% of events that an app would see if a real user were to perform the
+%% same interaction. This ``synthesized events'' approach is fraught with
+%% difficulties as each browser, and sometimes different versions of the
+%% same browser, fire slightly different events with slightly different
+%% values. To complicate matters, most browsers won't allow a user to
+%% interact in this way with form elements such as file input
+%% elements for security reasons.
+WebDriverは、ユーザーがウェブアプリケーションとやりとりする内容をそのまま正確にシミュレートするように作られている。ユーザーの入力をシミュレートする一般的な手段は、Javascriptを使って一連のイベントを合成することだ。アプリケーション側からは、ユーザーがその操作をしたのと同じように見える。このような``イベント合成''方式は、面倒なことだらけである。ブラウザによって、また場合によっては同じブラウザでもバージョンによって、発火するイベントが微妙に異なったり微妙に違う値をとったりする。さらに問題を複雑にしているのが、多くのブラウザがこのような手段でのフォーム要素の操作を許可していないという事実だ。たとえばファイルアップロード要素などは、セキュリティの観点から``イベント合成''ができないようになっている。
+
+%% Where possible WebDriver uses the alternative approach of firing
+%% events at the OS level. As these ``native events'' aren't generated by
+%% the browser this approach circumvents the security restrictions placed
+%% on synthesized events and, because they are OS specific, once they are
+%% working for one browser on a particular platform reusing the code in
+%% another browser is relatively easy. Sadly, this approach is only
+%% possible where WebDriver can bind closely with the browser
+%% and where the development team have determined how best to send
+%% native events without requiring the browser window to be focused
+%% (as Selenium tests take a long time to run, and it's useful to be
+%% able to use the machine for other tasks as they run). At the time
+%% of writing, this means that native events can be used on Linux and
+%% Windows, but not Mac OS X.
+WebDriverでは、可能な場合はJavascriptを使わずOSレベルでイベントを発火させるという手法をとる。このような``ネイティブイベント''はブラウザが生成するものではないので、イベント合成方式に立ちはだかったセキュリティの制約を回避できる。そして、OSの機能を使っているので、特定のプラットフォーム上のあるブラウザで動作するようになれば、そのコードを再利用して同じプラットフォーム上の別のブラウザに対応させるのも容易である。不幸にも、この手法が使える環境は限られている。WebDriverとブラウザを密接にバインドでき、かつウィンドウにフォーカスを合わせずにブラウザへネイティブイベントを送る方法を開発チームが見つけた場合(Seleniumのテストは実行に時間がかかるので、テストの実行中にはマシン上で他のタスクを実行できるようにしておきたい)にしか使えない。執筆時点では、この条件を満たしてネイティブイベントが使える環境はLinuxとWindowsである。Mac OS Xでは使えない。
+
+%% No matter how WebDriver is emulating user input, we try hard to mimic
+%% user behavior as closely as possible. This in contrast to RC, which
+%% provided APIs that operated at a level far lower than that which a
+%% user works at.
+WebDriverがユーザーの入力をどうやってエミュレートするかにかかわらず、我々は可能な限りユーザーのふるまいを再現できるよう努力している。これはRCとは対照的で、RCが提供するAPIは実際のユーザーの作業よりずっと低レベルな操作をするものである。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Prove the Drivers Work}
+\begin{aosasect2}{ドライバが動作することを実証する}
+
+%% It may be an idealistic, ``motherhood and apple pie'' thing, but I
+%% believe there's no point in writing code if it doesn't work. The way
+%% we prove the drivers work on the Selenium project is to have an
+%% extensive set of automated test cases. These are typically
+%% ``integration tests'', requiring the code to be compiled and making
+%% use of a browser interacting with a web server, but where possible we
+%% write ``unit tests'', which, unlike an integration test can be run
+%% without a full recompilation. At the time of writing, there are about
+%% 500 integration tests and about 250 unit tests that could be run
+%% across each and every browser. We add more as we fix issues and write
+%% new code, and our focus is shifting to writing more unit tests.
+ある意味理想主義的かもしれないが、動作しないコードなどまったく無意味である。Seleniumプロジェクトでドライバが正しく動作することを実証するために、自動テストのテストケースを豊富にそろえている。その多くは``インテグレーションテスト''であり、コードがコンパイルされていることとブラウザを使ってウェブサーバーとやりとりすることを前提としている。しかし、書ける場面では``ユニットテスト''も書いている。これはインテグレーションテストとは異なり、完全に再コンパイルしなくても実行できる。執筆時点では、約500のインテグレーションと約250のユニットテストがあってそれぞれすべてのブラウザで実行できる。バグ修正や機能追加のときには新たなテストを追加するし、我々としてはもっとユニットテストを書くように力を注いでいる。
+
+%% Not every test is run against every browser. Some test specific
+%% capabilities that some browsers don't support, or which are handled in
+%% different ways on different browsers. Examples would include the tests
+%% for new HTML5 features which aren't supported on all browsers. Despite
+%% this, each of the major desktop browsers have a significant subset of
+%% tests run against them. Understandably, finding a way to run 500+
+%% tests per browser on multiple platforms is a significant challenge,
+%% and it's one that the project continues to wrestle with.
+すべてのテストがすべてのブラウザで動作するというわけではない。いくつかのブラウザでは対応していない特定の機能を確認するテストもあるし、ブラウザによって処理方法が変わる機能のテストもある。たとえばHTML5の機能のテストがこれにあたる。HTML5の中には、すべてのブラウザが対応しているわけではない機能もある。それにもかかわらず、主要なデスクトップブラウザには、それぞれ大量のテストのサブセットがある。ご存じの通り、500を超えるテストを複数のプラットフォームでブラウザごとに実行するのは大変な作業だ。我々が常に闘い続けている課題でもある。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{You Shouldn't Need to Understand How Everything Works}
+\begin{aosasect2}{すべての動作原理を理解する必要はない}
+
+%% Very few developers are proficient and comfortable in every language
+%% and technology we use. Consequently, our architecture needs to allow
+%% developers to focus their talents where they can do the most good,
+%% without needing them to work on pieces of the codebase where they are
+%% uncomfortable.
+我々が使っているすべての言語や技術について熟練しているという人はほとんどいない。したがって、我々のアーキテクチャは各開発者が自分の得意分野だけに注力できるようにすべきだ。満足に扱えない不得手な部分をいじらなくても、やりたいことができるようにする。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Lower the Bus Factor}
+\begin{aosasect2}{バス係数を上げる}
+
+%% There's a (not entirely serious) concept in software development
+%% called the ``bus factor''. It refers to the number of key developers
+%% who would need to meet some grisly end---presumably by being hit by a
+%% bus---to leave the project in a state where it couldn't
+%% continue. Something as complex as browser automation could be
+%% especially prone to this, so a lot of our architectural decisions are
+%% made to raise this number as high as possible.
+ソフトウェア開発の世界には``バス係数(bus factor)''と呼ばれる概念がある(まじめなものではない)。この係数は、プロジェクトのコア開発者の数を表す。仮にプロジェクトに何らかの災難(バスに追突されるなど)があったときに、その人が欠けてしまえばプロジェクトが続行不能になるような人のことである。ブラウザの自動化のように複雑な作業は、特にこのようになりやすい。そこで、我々のアーキテクチャに関する決断は、この係数を可能な限り上げる方向に進めている。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Have Sympathy for a Javascript Implementation}
+\begin{aosasect2}{Javascriptの実装を尊重する}
+
+%% WebDriver falls back to using pure Javascript to drive the browser if
+%% there is no other way of controlling it. This means that any API we
+%% add should be ``sympathetic'' to a Javascript implementation.
+%% As a concrete example, HTML5 introduces LocalStorage, an API for
+%% storing structured data on the client-side. This is typically
+%% implemented in the browser using SQLite. A natural implementation
+%% would have been to provide a database connection to the underlying
+%% data store, using something like JDBC\@.
+%% Eventually, we settled on an API that closely models the underlying
+%% Javascript implementation because something that modeled typical
+%% database access APIs wasn't sympathetic to a Javascript implementation.
+WebDriverは、他に何も手段がない場合は最終的にピュアJavascriptを使ってブラウザを操作する。つまり、我々が用意するAPIはJavascriptの実装にあわせたものでなければいけないということだ。ここで具体例を示す。HTML5で導入されたLocalStorageは、構造化されたデータをクライアント側に保存するためのAPIである。このAPIのブラウザでの実装には、通常はSQLiteが使われている。我々としての自然な実装は、ベースとなっているデータストアへのデータベース接続を(JDBCなどで)提供することだろう。しかし、最終的に我々が用意したAPIは背後にあるJavascriptの実装を模したものだった。なぜなら、典型的なデータベースアクセス用APIを参考にするとJavascriptの実装とは食い違ってしまうからだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Every Call Is an RPC Call}
+\begin{aosasect2}{すべてのメソッドコールはRPCである}
+
+%% WebDriver controls browsers that are running in other processes. Although
+%% it's easy to overlook it, this means that every call that is made
+%% through its API is an RPC call and therefore the performance of the
+%% framework is at the mercy of network latency. In normal operation,
+%% this may not be terribly noticeable---most OSes optimize routing to
+%% localhost---but as the network latency between the browser and the
+%% test code increases, what may have seemed efficient becomes less so to
+%% both API designers and users of that API.
+WebDriverが制御するブラウザは、別のプロセスで動いている。見落としがちなことだが、これはつまり、APIからのすべての呼び出しはRPCコールになるということだ。したがって、フレームワークのパフォーマンスはネットワークのレイテンシに大きな影響を受ける。通常の操作では、特に気になるほどの問題は発生しない(たいていのOSは、localhostへのルーティングを最適化している)。しかしブラウザとテストコードの間のネットワークレイテンシが増加すると、APIの設計側もAPIの利用者側も使いづらくなる。
+
+%% This introduces some tension into the design of APIs. A larger API,
+%% with coarser functions would help reduce latency by collapsing
+%% multiple calls, but this must be balanced by keeping the API
+%% expressive and easy to use. For example, there are several checks that
+%% need to be made to determine whether an element is visible to an
+%% end-user. Not only do we need to take into account various CSS
+%% properties, which may need to be inferred by looking at parent
+%% elements, but we should probably also check the dimensions of the
+%% element. A minimalist API would require each of these checks to be
+%% made individually. WebDriver collapses all of them into a single
+%% \code{isDisplayed} method.
+このせいで、APIの設計に関してちょっとした対立が発生する。大きなAPIで荒い関数群を用意すると、複数のコールをひとまとめにしてレイテンシを下げることができる。しかしこれは、APIを表現力があって使いやすいものにすることとのトレードオフとなる。たとえば、ある要素がエンドユーザーに見えるかどうかを調べるには、いくつかのチェックが必要となる。CSSのさまざまなプロパティを(親要素のプロパティも含めて)考慮するだけでなく、おそらく要素の大きさも調べなければならないだろう。ミニマルなAPIなら、これらのチェックをそれぞれ個別に行うことになるだろう。WebDriverでは、これらのチェックを単一のメソッド\code{isDisplayed}にまとめた。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Final Thought: This Is Open Source}
+\begin{aosasect2}{結論: オープンソースです}
+
+%% Although it's not strictly an architectural point, Selenium is an Open
+%% Source project. The theme that ties all the above points together is
+%% that we'd like to make it as easy as possible for a new developer to
+%% contribute. By keeping the depth of knowledge required as shallow as
+%% possible, using as few languages as necessary and by relying on
+%% automated tests to verify that nothing has broken, we hopefully enable
+%% this ease of contribution.
+アーキテクチャの観点からは少しずれるが、Seleniumはオープンソースプロジェクトである。ここまであげてきたポイントをまとめると、我々が望むのは新しい開発者がプロジェクトに参加しやすいようにするということだ。参加するために必要な知識をできるだけ抑え、知っていてほしい言語の数も最小にして、さらに自動テストを活用して何も壊さないことを確かめる。これらはすべて、新規参入を促すのが狙いである。
+
+%% Originally the project was split into a series of modules, with each
+%% module representing a particular browser with additional modules for
+%% common code and for support and utility code. Source trees for each
+%% binding were stored under these modules. This approach made a lot of
+%% sense for languages such as Java and C\#, but was painful to work with
+%% for Rubyists and Pythonistas. This translated almost directly into
+%% relative contributor numbers, with only a handful of people able and
+%% interested to work on the Python and Ruby bindings. To address this,
+%% in October and November of 2010 the source code was reorganized with
+%% the Ruby and Python code stored under a single top-level directory per
+%% language. This more closely matched the expectations of Open Source
+%% developers in those languages, and the effect on contributions from
+%% the community was noticeable almost immediately.
+最初は、このプロジェクトは複数のモジュール群に分かれていた。特定のブラウザ用のモジュールがいくつかあって、さらに全体に共通するコードやユーティリティコードを含むモジュールがあったのだ。各バインディングのソースツリーもこれらのモジュールの配下にあった。この方式はJavaやC\#使いの人たちにとっては便利だったが、RubyistやPythonistaにとってはやりにくいものだった。これはそのまま、各言語の貢献者数の違いとなって現れた。PythonやRubyのバインディングを開発できる人(あるいは開発に興味を持つ人)がほんの少ししかいなかったのだ。これを解決するために、2010年の10月から11月にかけてソースコードの構成を見直し、RubyやPythonのコードはトップレベルに言語ごとのディレクトリを置いてそこで管理するようにした。RubyやPythonの世界にいるオープンソース開発者には、このほうが見慣れた構造だった。そして、それからすぐに、これらの言語のコミュニティからの貢献が目に見えて増加した。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Coping with Complexity}
+\begin{aosasect1}{複雑性への対応}
+
+%% Software is a lumpy construct. The lumps are complexity, and as
+%% designers of an API we have a choice as where to push that
+%% complexity. At one extreme we could spread the complexity as evenly as
+%% possible, meaning that every consumer of the API needs to be party to
+%% it. The other extreme suggests taking as much of the complexity as
+%% possible and isolating it in a single place. That single place would
+%% be a place of darkness and terror for many if they have to venture
+%% there, but the trade-off is that users of the API, who need not delve
+%% into the implementation, have that cost of complexity paid up-front
+%% for them.
+ソフトウェアは、こぶだらけででこぼこな構造である。その原因は複雑性であり、APIを設計する側の立場で考えると、その複雑性をどこに押し込めるかを判断しなければならない。究極の選択として、複雑性を可能な限りまんべんなく広げるという方法がある。これは、APIの利用者に複雑性をすべて押しつけてしまうというものである。その対極にあるのが、API側で可能な限り複雑性を囲い込み、一か所に隔離してしまうという方法である。囲い込んだ場所は暗黒地帯となり、そこに手を入れるのはとても恐ろしい作業になるだろう。しかしその見返りとして、APIのユーザーは実装に深入りせずに済むようになる。つまり、ユーザーが複雑性に立ち向かうためのコストを設計者側で前払いしたことになる。
+
+%% The WebDriver developers lean more towards finding and isolating the
+%% complexity in a few places rather than spreading it out. One reason
+%% for this is our users. They're exceptionally good at finding problems
+%% and issues, as a glance at our bug list shows, but because many of
+%% them are not developers a complex API isn't going to work well. We
+%% sought to provide an API that guides people in the right direction. As
+%% an example, consider the following methods from the original Selenium
+%% API, each of which can be used to set the value of an input element:
+WebDriverの開発者は、複雑性を見つけたらそれをできるだけ特定のいくつかの場所に隔離するよう心がけている。そのまま広めることはしない。その理由のひとつはユーザー層である。彼らはバグや問題点を見つけることにかけては並はずれた力を持っている。それは我々のバグリストを見れば明らかだ。しかし、彼らの多くは開発者ではないので、あまり複雑なAPIはうまく使いこなせない。我々が求めるAPIは、利用者を正しい方向に導けるようなものだ。たとえば、オリジナルのSelenium APIのこれらのメソッドについて考えてみよう。これらはどれも、input要素に値を設定するために使うものだ。
+
+\begin{aosaitemize}
+
+\item type
+
+\item typeKeys
+
+\item typeKeysNative
+
+\item keydown
+
+\item keypress
+
+\item keyup
+
+\item keydownNative
+
+\item keypressNative
+
+\item keyupNative
+
+\item attachFile
+
+\end{aosaitemize}
+
+%% Here's the equivalent in the WebDriver API:
+同じことを実現するためのWebDriverのAPIは、これだ。
+
+\begin{aosaitemize}
+
+\item sendKeys
+
+\end{aosaitemize}
+
+%% As discussed earlier, this highlights one of the major philosophical
+%% differences between RC and WebDriver in that WebDriver is striving to
+%% emulate the user, whereas RC offers APIs that deal at a lower level
+%% that a user would find hard or impossible to reach. The distinction
+%% between \code{typeKeys} and \code{typeKeysNative} is that the former
+%% always uses synthetic events, whereas the latter attempts to use the
+%% AWT Robot to type the keys. Disappointingly, the AWT Robot sends the
+%% key presses to whichever window has focus, which may not necessarily
+%% be the browser. WebDriver's native events, by contrast, are sent
+%% directly to the window handle, avoiding the requirement that the
+%% browser window have focus.
+先述のとおり、これはRCとWebDriverの思想の大きな違いのひとつを表している。WebDriverが目指すのがユーザーをエミュレートすることであるのに対して、RCが提供するAPIはより低レベルのものであり、ユーザーの視点では見つけづらかったり到達不能だったりするものである。\code{typeKeys}と\code{typeKeysNative}の違いは、前者が常に合成イベントを使うのに対して後者はAWTのRobotを使ったキータイプを試みるという点である。残念なことに、AWTのRobotがキープレスイベントを送信する先はフォーカスがあたっているウィンドウになる。これは必ずしもブラウザであるとは限らない。WebDriverは、それとは対照的に、ウィンドウハンドルに対して直接イベントを送信する。そのため、ブラウザのウィンドウにフォーカスがあたっている必要はない。
+
+%% \begin{aosasect2}{The WebDriver Design}
+\begin{aosasect2}{WebDriverの設計}
+
+%% The team refers to WebDriver's API as being ``object-based''. The
+%% interfaces are clearly defined and try to adhere to having only a
+%% single role or responsibility, but rather than modeling every single
+%% possible HTML tag as its own class we only have a single
+%% \code{WebElement} interface. By following this approach developers
+%% who are using an IDE which supports auto-completion can be led towards
+%% the next step to take. The result is that coding sessions may
+%% look like this (in Java):
+開発チームでは、WebDriverのAPIが``オブジェクトベース''であるよう心がけている。インターフェイスを明確に定義して単一のロールあるいは責務だけを受け持たせようとする。しかし、考えうるすべてのHTMLタグを個別にモデル化するわけではなく、我々が用意したのは一つの\code{WebElement}インターフェイスだけである。この方針で進めると、自動補完機能を持つIDEを使う開発者に対して次に進むべき道を示せる。コーディングは、(たとえばJavaの場合)このような具合になる。
+
+%% \begin{verbatim}
+%% WebDriver driver = new FirefoxDriver();
+%% driver.<user hits space>
+%% \end{verbatim}
+\begin{verbatim}
+WebDriver driver = new FirefoxDriver();
+driver.<ここでスペースキーを打つ>
+\end{verbatim}
+
+%% \noindent At this point, a relatively short list of 13 methods to pick from
+%% appears. The user selects one:
+\noindent このときに現れるのは、比較的少なめな13種類のメソッドである。その中から適切なものを選ぶことになる。
+
+%% \begin{verbatim}
+%% driver.findElement(<user hits space>)
+%% \end{verbatim}
+\begin{verbatim}
+driver.findElement(<ここでスペースキーを打つ>)
+\end{verbatim}
+
+%% \noindent Most IDEs will now drop a hint about the type of the argument
+%% expected, in this case a ``By''. There are a number of preconfigured
+%% factory methods for ``By'' objects declared as static methods on the
+%% By itself. Our user will quickly end up with a line of code that looks
+%% like:
+\noindent たいていのIDEは、ここで引数の型に関するヒントを表示する。この場合は``By''である。``By''オブジェクトには定義済みのファクトリーメソッドが数多く用意されており、By自身のスタティックメソッドとして宣言されている。ユーザーは、あっという間にこのような状態までたどりつけるだろう。
+
+\begin{verbatim}
+driver.findElement(By.id("some_id"));
+\end{verbatim}
+
+%% \begin{aosabox}{Role-based Interfaces}
+\begin{aosabox}{ロールベースのインターフェイス}
+
+%% Think of a simplified \code{Shop} class. Every day, it needs to be
+%% restocked, and it collaborates with a \code{Stockist} to deliver this
+%% new stock. Every month, it needs to pay staff and taxes. For the sake
+%% of argument, let's assume that it does this using an
+%% \code{Accountant}. One way of modeling this looks like:
+単純な\code{Shop}クラスを考えてみよう。この店では、毎日のように在庫の補充が必要となる。そこで、\code{Stockist}と協調して新たな在庫を配達する。また、従業員への給与の支払いや税金の支払いが毎月発生する。議論の都合上、これらの処理には\code{Accountant}を使うものとしよう。これをモデリングした一例を次に示す。
+
+\begin{verbatim}
+public interface Shop {
+    void addStock(StockItem item, int quantity);
+    Money getSalesTotal(Date startDate, Date endDate);
+}
+\end{verbatim}
+
+%% We have two choices about where to draw the boundaries when defining
+%% the interface between the Shop, the Accountant and the Stockist. We
+%% could draw a theoretical line as shown in \aosafigref{fig.sel.int1}.
+ShopとAccountantそしてStockistの間のインターフェイスを定義するときにどのあたりに境界線を引くか。この問いにはふたつの選択肢がある。理論上の線を\aosafigref{fig.sel.int1}のように引ける。
+
+%% This would mean that both \code{Accountant} and \code{Stockist} would
+%% accept a \code{Shop} as an argument to their respective methods. The
+%% drawback here, though, is that it's unlikely that the Accountant
+%% really wants to stack shelves, and it's probably not a great idea for
+%% the Stockist to realize the vast mark-up on prices that the Shop is
+%% adding. So, a better place to draw the line is shown in
+%% \aosafigref{fig.sel.int2}.
+これはつまり、\code{Accountant}や\code{Stockist}がそれぞれのメソッドの引数として\code{Shop}を受け付けることを意味する。しかし、この方式には問題もある。Accountantがほんとうに在庫棚を使いたがっているとは思えないし、StockistにとってはShopが追加したさまざまな商品の値上げ情報など知らせる必要もない。そこで、もう少しましな線の引き方を\aosafigref{fig.sel.int2}に示す。
+
+%% We'll need two interfaces that the Shop needs to implement, but these
+%% interfaces clearly define the role that the Shop fulfills for both the
+%% Accountant and the Stockist. They are role-based interfaces:
+この場合、Shopはふたつのインターフェイスを実装しなければならない。しかし、これらのインターフェイスは、ShopがAccountantとStockistに対して満たすべきロールを明確に定義している。これが、ロールベースのインターフェイスである。
+
+\begin{verbatim}
+public interface HasBalance {
+    Money getSalesTotal(Date startDate, Date endDate);
+}
+
+public interface Stockable {
+    void addStock(StockItem item, int quantity);
+}
+
+public interface Shop extends HasBalance, Stockable {
+}
+\end{verbatim}
+\end{aosabox}
+
+%% I find \code{UnsupportedOperationExceptions} and their ilk deeply
+%% displeasing, but there needs to be something that allows functionality
+%% to be exposed for the subset of users who might need it without
+%% cluttering the rest of the APIs for the majority of users. To this
+%% end, WebDriver makes extensive use of role-based interfaces. For
+%% example, there is a \code{JavascriptExecutor} interface that provides
+%% the ability to execute arbitrary chunks of Javascript in the context
+%% of the current page. A successful cast of a WebDriver instance to that
+%% interface indicates that you can expect the methods on it to work.
+\code{UnsupportedOperationExceptions}やその仲間たちはとても不愉快なものだったが、その機能を必要とする一部のユーザーに対して何らかの手段で機能を公開する必要があった。大多数の他のユーザー向けの他のAPIには影響を及ぼさない形式で。そのための手段として、WebDriverではロールベースのインターフェイスを活用した。たとえば\code{JavascriptExecutor}インターフェイスは、任意のJavascriptコード片を現在のページのコンテキストで実行する機能を提供する。WebDriverのインスタンスをこのインターフェイスにあわせてキャストすれば、このインターフェイスの持つメソッドを使える。
+
+%% \aosafigure[235pt]{../images/selenium/role-based-interfaces-one-interface.eps}{Accountant and Stockist Depend on Shop}{fig.sel.int1}
+\aosafigure[235pt]{../images/selenium/role-based-interfaces-one-interface.eps}{AccountantとStockistがShopに依存する}{fig.sel.int1}
+
+%% \aosafigure[235pt]{../images/selenium/role-based-interfaces-two-interfaces.eps}{Shop Implements HasBalance and Stockable}{fig.sel.int2}
+\aosafigure[235pt]{../images/selenium/role-based-interfaces-two-interfaces.eps}{ShopはHasBalanceとStockableを実装する}{fig.sel.int2}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Dealing with the Combinatorial Explosion}
+\begin{aosasect2}{組み合わせの激増への対処}
+
+%% One of the first things that is apparent from a moment's thought about
+%% the wide range of browsers and languages that WebDriver supports is
+%% that unless care is taken it would quickly face an escalating cost of
+%% maintenance. With X browsers and Y languages, it would be very easy to
+%% fall into the trap of maintaining X${\times}$Y implementations.
+ちょっと考えればすぐにわかることだが、WebDriverがさまざまなブランザや言語に対応しているということは、よっぽど注意しないと保守のコストが激増してしまうということである。X種類のブラウザとY種類の言語に対応しようとすると、最悪X${\times}$Y種類の実装を保守するはめになる。
+
+%% Reducing the number of languages that WebDriver supports would be one
+%% way to reduce this cost, but we don't want to go down this route for
+%% two reasons. Firstly, there's a cognitive load to be paid when
+%% switching from one language to another, so it's advantageous to users
+%% of the framework to be able to write their tests in the same language
+%% that they do the majority of their development work in. Secondly,
+%% mixing several languages on a single project is something that teams
+%% may not be comfortable with, and corporate coding standards and
+%% requirements often seem to demand a technology monoculture (although,
+%% pleasingly, I think that this second point is becoming less true over
+%% time), therefore reducing the number of supported languages isn't an
+%% available option.
+WebDriver でサポートする言語を減らすのもひとつの方法ではあるが、その道をゆくつもりはなかった。理由はふたつある。まず、ある言語から別の言語への切り替えには認識を切り替えるコストがかかる。つまり、フレームワークのユーザーにとっては、開発時に使っているのと同じ言語でテストを書ければ好都合になる。次に、ひとつのプロジェクトに複数の言語を混在させるとチーム内で不満が出る可能性がある。場合によっては、会社のコーディング規約などで特定の技術だけを使うよう強制されているかもしれない(しかし、ありがたいことに、最近は二番目の理由はあまり聞かなくなってきた)。したがって、サポートする言語を減らすという選択肢は取れなかった。
+
+%% Reducing the number of supported browsers also isn't an option---there
+%% were vociferous arguments when we phased out support for Firefox 2 in
+%% WebDriver, despite the fact that when we made this choice it
+%% represented less than 1\% of the browser market.
+サポートするブラウザを減らすというのも、あり得ない話だ。かつてWebDriverでFirefox 2のサポートを打ち切ったときには大騒ぎになった。当時のブラウザ市場でのFirefox 2のシェアは既に1\%を割っていたというのに。
+
+%% The only choice we have left is to try and make all the browsers look
+%% identical to the language bindings: they should offer a uniform
+%% interface that can be addressed easily in a wide variety of languages.
+%% What is more, we want the language bindings themselves to be as easy
+%% to write as possible, which suggests that we want to keep them as slim
+%% as possible. We push as much logic as we can into the underlying
+%% driver in order to support this: every piece of functionality we fail
+%% to push into the driver is something that needs to be implemented in
+%% every language we support, and this can represent a significant amount
+%% of work.
+残された道はひとつ。各言語のバインディングから、すべてのブラウザを同じように扱えるようにするという道だ。統一形式のインターフェイスを用意し、さまざまな言語から容易にアクセスできるようにする。さらに考えたのは、言語バインディングそのものもできる限り書きやすくするということだった。そのためには、言語バインディングをできるだけスリムにしておくことを考えた。これを実現するため、できる限りのロジックをベースとなるドライバ側に押し込めた。ドライバに組み込めなかった機能はすべての言語のバインディング側で実装する必要があり、大変な作業となってしまう。
+
+%% As an example, the IE driver has successfully pushed the
+%% responsibility for locating and starting IE into the main driver
+%% logic. Although this has resulted in a surprising number of lines of
+%% code being in the driver, the language binding for creating a new
+%% instance boils down to a single method call into that driver. For
+%% comparison, the Firefox driver has failed to make this change. In the
+%% Java world alone, this means that we have three major classes that
+%% handle configuring and starting Firefox weighing in at around 1300
+%% lines of code. These classes are duplicated in every language binding
+%% that wants to support the FirefoxDriver without relying on starting a
+%% Java server. That's a lot of additional code to maintain.
+たとえばIEドライバでは、IEを探して起動する責務をドライバ本体のロジックに組み込めた。その結果としてドライバ側のコードの行数はおそろしいほどに膨れ上がったが、新しいインスタンスを作るための言語バインディングはドライバのメソッドをひとつ呼び出すだけで済むことになった。ちなみに、Firefoxドライバの場合はこの変更に失敗した。Javaの世界だけでも、三つの巨大なクラスでFirefoxの設定や起動を処理していた。行数にして1300行ほどである。Javaサーバーを立てずにFirefoxDriverをサポートしようとすると、すべての言語のバインディングでこれらのクラスが重複することになる。つまり、同じようなコードを大量に保守しなければならないということだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Flaws in the WebDriver Design}
+\begin{aosasect2}{WebDriverの設計の問題点}
+
+%% The downside of the decision to expose capabilities in this way is
+%% that until someone knows that a particular interface exists they may
+%% not realize that WebDriver supports that type of functionality;
+%% there's a loss of explorability in the API\@. Certainly when WebDriver
+%% was new we seemed to spend a lot of time just pointing people towards
+%% particular interfaces. We've now put a lot more effort into our
+%% documentation and as the API gets more widely used it becomes easier
+%% and easier for users to find the information they need.
+この方式で機能を公開したことによるマイナスは、あるインターフェイスの存在に気づくまではWebDriverがそんな機能を持っていることに気づけないということである。これは、APIの探索性を損ねてしまう。実際、WebDriverが登場したばかりのころは、利用者にそのインターフェイスの存在に気づかせるために多くの時間を費やしていた。最近ではドキュメントにより力を注ぐようになり、APIも幅広く使われるようになったので、ユーザーにとっては必要な情報を見つけやすくなってきた。
+
+%% There is one place where I think our API is particularly poor. We have
+%% an interface called \code{RenderedWebElement} which has a strange
+%% mish-mash of methods to do with querying the rendered state of the
+%% element (\code{isDisplayed}, \code{getSize} and \code{getLocation}),
+%% performing operations on it (\code{hover} and drag and drop methods),
+%% and a handy method for getting the value of a particular CSS
+%% property. It was created because the HtmlUnit driver didn't expose the
+%% required information, but the Firefox and IE drivers did. It
+%% originally only had the first set of methods but we added the other
+%% methods before I'd done hard thinking about how I wanted the API to
+%% evolve. The interface is well known now, and the tough choice is
+%% whether we keep this unsightly corner of the API given that it's
+%% widely used, or whether we attempt to delete it. My preference is not
+%% to leave a ``broken window'' behind, so fixing this before we release
+%% Selenium 2.0 is important.
+%% As a result, by the time you read this chapter,
+%% \code{RenderedWebElement} may well be gone.
+自分たちのAPIって本当に貧弱だなあと感じる箇所をひとつ紹介しよう。\code{RenderedWebElement}というインターフェイスがあるのだが、これはいろんなメソッドがごちゃ混ぜになったものである。たとえばレンダリング後の要素の状態を取得したり(\code{isDisplayed}や\code{getSize}そして\code{getLocation})、その要素に対して何らかの操作をしたり(\code{hover}やドラッグ\&ドロップなど)、CSSのプロパティの値を取得したりといったことができる。そもそもこのインターフェイスが作られた理由はHtmlUnitドライバが必要な情報を公開していなかったことだが、FirefoxやIEのドライバは情報を公開していた。最初は要素の状態を取得するメソッド群しか提供していなかったが、どんどん他のメソッドが増えていった。メソッドを増やす前に、APIをどのように育てていくかを熟考すべきだったと後悔している。このインターフェイスは今や広く使われているため、どのように対処するかが難しい。見苦しいAPIではあるけれども広く使われているのだからそのまま維持し続けるのか、いっそのこと削除してしまうのか。私は``割れ窓''を放置しておきたくなかった。そこで、Selenium 2.0のリリースまでにこれを何とかすることが重要となった。その結果どうなったか。みなさんがこれを読むころには\code{RenderedWebElement}は削除されているはずだ。
+
+%% From an implementor's point of view, binding tightly to a browser is
+%% also a design flaw, albeit an inescapable one. It takes significant
+%% effort to support a new browser, and often several attempts need to be
+%% made in order to get it right. As a concrete example, the Chrome
+%% driver has gone through four complete rewrites, and the IE driver has
+%% had three major rewrites too. The advantage of binding tightly to a
+%% browser is that it offers more control.
+実装側の観点で考えると、ブラウザと密に結合してしまう設計にも問題がある。たとえそれが不可避なものであったとしてもである。新しいブラウザに対応するのは大変な作業になるし、うまく動かすにはたいてい試行錯誤が必要となるだろう。具体例を挙げると、Chromeドライバは4回ほどゼロから書き直したし、IEドライバも3回は大幅に書き直している。ブラウザと密結合する利点は、ブラウザをより細かく制御できるという点である。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Layers and Javascript}
+\begin{aosasect1}{レイヤーとJavascript}
+\label{sec.selenium.layers}
+
+%% A browser automation tool is essentially built of three moving parts:
+ブラウザの自動化ツールは、基本的にこれらの三つの部分から構成されている。
+
+\begin{aosaitemize}
+
+%% \item A way of interrogating the DOM.
+\item DOMへの問い合わせ手段。
+
+%% \item A mechanism for executing Javascript.
+\item Javascriptを実行する仕組み。
+
+%% \item Some means of emulating user input.
+\item ユーザーの入力をエミュレートする何らかの手段。
+
+\end{aosaitemize}
+
+%% This section focuses on the first part: providing a mechanism to
+%% interrogate the DOM\@. The lingua franca of the browser is Javascript,
+%% and this seems like the ideal language to use when interrogating the
+%% DOM\@. Although this choice seems obvious, making it leads to some
+%% interesting challenges and competing requirements that need balancing
+%% when thinking about Javascript.
+このセクションで扱うのは最初の項目、つまりDOMへの問い合わせの仕組みである。ブラウザの世界の共通語はJavascriptであり、これを使ってDOMの問い合わせができれば理想的であろう。この選択は一見明らかなようだが、Javascriptを採用するにはいくつかの問題や競合する要件があり、バランスをとる必要がある。
+
+%% Like most large projects, Selenium makes use of a layered set of
+%% libraries.  The bottom layer is Google's Closure Library, which
+%% supplies primitives and a modularization mechanism allowing source
+%% files to be kept focused and as small as possible. Above this, there
+%% is a utility library providing functions that range from simple tasks
+%% such as getting the value of an attribute, through determining whether
+%% an element would be visible to an end user, to far more complex
+%% actions such as simulating a click using synthesized events. Within
+%% the project, these are viewed as offering the smallest units of
+%% browser automation, and so are called Browser Automation Atoms or
+%% atoms. Finally, there are adapter layers that compose atoms in order
+%% to meet the API contracts of both WebDriver and Core.
+多くの大規模プロジェクトと同様、Seleniumのライブラリ群は階層構造になっている。最下層にあるのがGoogleのClosure Libraryで、これはプリミティブやモジュール化機構を提供する。これを使うと、ソースファイルを集中的に保持しつつサイズを小さくできる。その上に乗るのがユーティリティライブラリで、このライブラリではさまざまな関数を提供する。属性の値を取得したりある要素がユーザーに見えるかどうかを調べたりといった単純なタスクをこなす関数もあれば、同期イベントを使ってクリック操作をシミュレートするなどの複雑な関数もある。プロジェクト全体から見たときに、このライブラリはブラウザ自動化の最小単位の機能を提供するものに見える。そのため、このライブラリはBrowser Automation Atomsあるいはatomsと呼ばれる。最後に、その上に乗るのがアダプタ層である。これが、WebDriverおよびコアとのAPIの役割をする。
+
+%% \aosafigure[150pt]{../images/selenium/atoms.eps}{Layers of Selenium Javascript Library}{fig.sel.atoms}
+\aosafigure[150pt]{../images/selenium/atoms.eps}{Selenium Javascriptライブラリの階層}{fig.sel.atoms}
+
+%% The Closure Library was chosen for several reasons. The main one was
+%% that the Closure Compiler understands the modularization technique the
+%% Library uses. The Closure Compiler is a compiler targeting Javascript
+%% as the output language. ``Compilation'' can be as simple as ordering
+%% input files in dependency order, concatenating and pretty printing
+%% them, or as complex as doing advanced minification and dead code
+%% removal. Another undeniable advantage was that several members of the
+%% team doing the work on the Javascript code were very familiar with
+%% Closure Library.
+Closure Libraryが選ばれたのにはいくつか理由がある。最大の理由は、Closure Compilerがそのライブラリの使っているモジュール化技術を理解するということだ。Closure Compilerは、出力言語としてJavascriptを対象としたコンパイラである。``コンパイル''とひとことで言ってもその幅は広い。単に入力ファイルを依存関係の順で並べ替えて連結・整形するだけのこともあれば、高度な最適化や未使用コードの削除まで含めることもある。Closure Libraryには、それ以外にもまぎれもない利点があった。Javascriptのコードを開発するチームのメンバーの中に、Closure Libraryにとても詳しい人が何人かいたのだ。
+
+%% This ``atomic'' library of code is used pervasively throughout the
+%% project when there is a requirement to interrogate the DOM\@.  For RC
+%% and those drivers largely composed of Javascript, the library is used
+%% directly, typically compiled as a monolithic script. For drivers
+%% written in Java, individual functions from the WebDriver adapter layer
+%% are compiled with full optimization enabled, and the generated
+%% Javascript included as resources in the JARs. For drivers written in C
+%% variants, such as the iPhone and IE drivers, not only are the
+%% individual functions compiled with full optimization, but the
+%% generated output is converted to a constant defined in a header which
+%% is executed via the driver's normal Javascript execution mechanism on
+%% demand. Although this seems like a strange thing to do, it allows the
+%% Javascript to be pushed into the underlying driver without needing to
+%% expose the raw source in multiple places.
+この``核となる''ライブラリは、プロジェクト全般でDOMを扱う必要のある場面に幅広く用いられている。RCや主にJavascriptで書かれたドライバの場合は、このライブラリを直接使う。ひとつのスクリプトにまとめてしまうことが多い。Javaで書かれたドライバの場合は、WebDriverアダプタ層の個々の関数を完全に最適化した状態でコンパイルし、生成されたJavascriptをJARにリソースとして組み込む。C系の言語で書かれたドライバ、たとえばiPhone用やIE用のドライバの場合は、個々の関数を最適化してコンパイルするだけではなく、生成された出力をヘッダで定義する定数に変換する。そしてそれを、ドライバの標準的なJavascript実行機能を使って必要に応じて実行する。奇妙なことに思えるかもしれないが、Javascriptを基盤のドライバに押し込むこともできる。そうすれば、複数の場所で生のソースを公開する必要がなくなる。
+
+%% Because the atoms are used pervasively it's possible to ensure
+%% consistent behavior between the different browsers, and because the
+%% library is written in Javascript and doesn't require elevated
+%% privileges to execute the development cycle, is easy and fast. The
+%% Closure Library can load dependencies dynamically, so the Selenium
+%% developer need only write a test and load it in a browser, modifying
+%% code and hitting the refresh button as required. Once the test is
+%% passing in one browser, it's easy to load it in another browser and
+%% confirm that it passes there. Because the Closure Library does a good
+%% job of abstracting away the differences between browsers, this is
+%% often enough, though it's reassuring to know that there are continuous
+%% builds that will run the test suite in every supported browser.
+atomsは広範囲で使われているので、さまざまなブラウザで一貫したふるまいを保証できる。また、ライブラリがJavascriptで書かれていて実行するのに権限の昇格が不要なので、開発サイクルを手軽にすばやく回せるようになる。Closure Libraryは動的に依存を読み込めるので、Seleniumの開発者はただ単にテストを書いてそれをブラウザに読ませるだけでよい。コードを修正したら、必要に応じて再読み込みさせる。あるブラウザでテストが通れば、あとはそれを他のブラウザでも読ませてテストが通ることを確認するだけである。Closure Libraryがうまい具合にブラウザ間の差異を取り去ってくれているので通常はこれで十分だが、サポート対象の全ブラウザ用のテストスイートを実行する継続的ビルド環境もあることを知ればさらに安心できるだろう。
+
+%% Originally Core and WebDriver had many areas of congruent code---code
+%% that performed the same function in slightly different ways. When we
+%% started work on the atoms, this code was combed through to try and
+%% find the ``best of breed'' functionality. After all, both projects had
+%% been used extensively and their code was very robust so throwing away
+%% everything and starting from scratch would not only have been wasteful
+%% but foolish.  As each atom was extracted, the sites at which it would
+%% be used were identified and switched to using the atom. For example,
+%% the Firefox driver's \code{getAttribute} method shrunk from
+%% approximately 50 lines of code to 6 lines long, including blank lines:
+もともと、CoreとWebDriverで同じようなことをしているコードは多かった。同じ機能を微妙に異なる方法で実現していたのだ。atomsを使った開発を始める際に、我々はコードを念入りに調べて``最適なもの''を残そうとした。結局のところ、どちらのプロジェクトについても、幅広く使われていたこともあってコードは非常に堅牢だった。すべての投げ捨ててゼロから書き直すのは無駄だし馬鹿げていた。個々のatomをピックアップして、それを使うであろう場面を調べてatomを使うように切り替えた。たとえばFirefoxドライバの\code{getAttribute}メソッドは、もともと50行ほどあったのが空行込みで6行にまで縮まった。
+
+\begin{verbatim}
+FirefoxDriver.prototype.getElementAttribute =
+  function(respond, parameters) {
+  var element = Utils.getElementAt(parameters.id,
+                                   respond.session.getDocument());
+  var attributeName = parameters.name;
+
+  respond.value = webdriver.element.getAttribute(element, attributeName);
+  respond.send();
+};
+\end{verbatim}
+
+%% \noindent That second-to-last line, where \code{respond.value} is assigned to,
+%% is using the atomic WebDriver library.
+\noindent 最後から2行目の\code{respond.value}に代入しているところで、WebDriver用のatomを使っている。
+
+%% The atoms are a practical demonstration of several of the
+%% architectural themes of the project. Naturally they enforce the
+%% requirement that an implementation of an API be sympathetic to a
+%% Javascript implementation. What's even better is that the same library
+%% is shared throughout the codebase; where once a bug had to be verified
+%% and fixed across multiple implementations, it is now enough to fix the
+%% bug in one place, which reduces the cost of change while improving
+%% stability and effectiveness. The atoms also make the bus factor of the
+%% project more favorable. Since a normal Javascript unit test can be
+%% used to check that a fix works the barrier to joining the Open Source
+%% project is considerably lower than it was when knowledge of how each
+%% driver was implemented was required.
+atomsは、このプロジェクトのアーキテクチャに関する主題のいくつかを現実的に実証したものである。当然、APIの実装はJavascriptの実装に従うという要件を強要する。さらによい点は、同じライブラリをコードベース全体で共有しているというところだ。複数のプラットフォームにまたがるバグが検出されて修正することになっても、一か所でバグを修正するだけでよくなる。変更に対するコストは下がり、安定性や効率性も向上した。atomsを使えば、プロジェクトのバス係数をより好ましい方向に進められる。通常のJavascriptのユニットテストツールをつかえば修正がうまく機能するかどうかを検証できるので、プロジェクトへの新規参入障壁はかなり下がるだろう。参加する前に各ドライバの実装の詳細を知っておく必要がなくなる。
+
+%% There is another benefit to using the atoms. A layer emulating the
+%% existing RC implementation but backed by WebDriver is an important
+%% tool for teams looking to migrate in a controlled fashion to the newer
+%% WebDriver APIs. As Selenium Core is atomized it becomes possible to
+%% compile each function from it individually, making the task of writing
+%% this emulating layer both easier to implement and more accurate.
+atomsを使うメリットはそれ以外にもある。既存のRCの実装をエミュレートした(しかし裏側にはWebDriverがいる)レイヤーをうまく使えば、きちんと管理された方法で新しいWebDriverのAPIに移行させることができる。Selenium Coreはatom化されているので、その各関数を個別にコンパイルできるようになった。そのおかげで、このエミュレートレイヤーを書く作業は容易になり、より正確に書けるようになった。
+
+%% It goes without saying that there are downsides to the approach taken.
+%% Most importantly, compiling Javascript to a C \code{const} is a very
+%% strange thing to do, and it always baffles new contributors to the
+%% project who want to work on the C code. It is also a rare developer
+%% who has every version of every browser and is dedicated enough to run
+%% every test in all of those browsers---it is possible for someone to
+%% inadvertently cause a regression in an unexpected place, and it can
+%% take some time to identify the problem, particularly if the continuous
+%% builds are being flaky.
+もちろん、このアプローチには弱点もあることは言うまでもない。中でも最も重大なのが、JavascriptをコンパイルしてCの定数にしてしまうという奇妙な作業だ。これは、Cのコードでプロジェクトに貢献したいと考えている人の気持ちを挫折させてしまうに十分だ。また、すべてのブラウザの全バージョンを持っていてそのすべてで全テストを実行できるような開発者などめったにいない。誰かが不注意で予期せぬ場所にバグを作りこんでしまうこともあり得るし、もし継続的ビルドがうまく機能していなければ、そんなバグが見つかるまでにはある程度の時間を要してしまうだろう。
+
+%% Because the atoms normalize return values between browsers, there can
+%% also be unexpected return values. For example, consider this HTML:
+atomsはブラウザごとの返り値を正規化するので、予期せぬ値が返ってくることもあり得る。たとえば、このようなHTMLを考えよう。
+
+\begin{verbatim}
+<input name="example" checked>
+\end{verbatim}
+
+%% \noindent The value of the \code{checked} attribute will depend on the browser
+%% being used. The atoms normalize this, and other Boolean attributes
+%% defined in the HTML5 spec, to be ``true'' or ``false''. When this atom
+%% was introduced to the code base, we discovered many places where
+%% people were making browser-dependent assumptions about what the return
+%% value should be. While the value was now consistent there was an
+%% extended period where we explained to the community what had happened
+%% and why.
+\noindent \code{checked}属性のvalueが何になるかはブラウザに依存する。atomsはこれを正規化し、その他HTML5仕様で定義されているすべてのBoolean属性の値を``true''か``false''に揃える。このatomをはじめてコードベースに投入したときに気付いたのは、返り値に関してブラウザ依存の値を前提としているコードがいかに多いかということだった。この値は今は一貫しているが、それまでにはコミュニティに対して「何が起こったのか」「なぜそうなったのか」を説明するための期間を要した。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Remote Driver, and the Firefox Driver in Particular}
+\begin{aosasect1}{リモートドライバ、中でも特にFirefoxドライバについて}
+
+%% The remote WebDriver was originally a glorified RPC mechanism. It has
+%% since evolved into one of the key mechanisms we use to reduce the cost
+%% of maintaining WebDriver by providing a uniform interface that
+%% language bindings can code against. Even though we've pushed as much
+%% of the logic as we can out of the language bindings and into the
+%% driver, if each driver needed to communicate via a unique protocol we
+%% would still have an enormous amount of code to repeat across all the
+%% language bindings.
+リモートWebDriverは、当初からRPCの仕組みを尊重していた。それは徐々に成長してWebDriverの主要な仕組みのひとつとなり、保守コストの軽減に役立った。統一インターフェイスを提供することで、各言語のバインディングがそれを使えるようにしたのだ。ロジックのほとんどを言語バインディングからドライバ側に移してはいるが、もしドライバ側から独自のプロトコルでの通信が必要になったときは、それに対応するコードがすべての言語バインディングにまたがって用意されている。
+
+%% The remote WebDriver protocol is used wherever we need to communicate
+%% with a browser instance that's running out of process.  Designing this
+%% protocol meant taking into consideration a number of concerns. Most of
+%% these were technical, but, this being open source, there was also the
+%% social aspect to consider.
+リモートWebDriverプロトコルは、別プロセスで動いているブラウザのインスタンスとの通信が必要になったときに使うものである。このプロトコルの設計にあたっては、さまざまな内容を検討した。ほとんどは技術的なものだが、オープンソースプロジェクトであることを鑑みて、ソーシャルな面も検討材料のひとつになった。
+
+%% Any RPC mechanism is split into two pieces: the transport and the
+%% encoding. We knew that however we implemented the remote WebDriver
+%% protocol, we would need support for both pieces in the languages we
+%% wanted to use as clients. The first iteration of the design was
+%% developed as part of the Firefox driver.
+あらゆるRPC機構は、二つの部分に分かれる。トランスポートとエンコーディングだ。リモートWebDriverプロトコルをどのように実装したところで、クライアントとして想定するすべての言語に対してこれら両方のサポートが必要になることはわかっていた。設計の最初のイテレーションでは、Firefoxドライバについて検討した。
+
+%% Mozilla, and therefore Firefox, was always seen as being a
+%% multi-platform application by its developers. In order to facilitate
+%% the development, Mozilla created a framework inspired by Microsoft's
+%% COM that allowed components to be built and bolted together called
+%% XPCOM (cross-platform COM). An XPCOM interface is declared using IDL,
+%% and there are
+%% language bindings for C and Javascript as well as other languages. Because
+%% XPCOM is used to construct Firefox, and because XPCOM has Javascript
+%% bindings, it's possible to make use of XPCOM objects in Firefox
+%% extensions.
+Mozillaは(つまりFirefoxも)常に、マルチプラットフォームアプリケーションとして開発されてきた。その開発を促進するために、MozillaはMicrosoftのCOMに似たフレームワークを作った。このフレームワークを使うと、コンポーネントの組み立てや連携がXPCOM(クロスプラットフォームCOM)という仕組みで可能となる。XPCOMのインターフェイスはIDLで宣言されており、CやJavascriptだけでなくその他の言語のバインディングも用意されている。XPCOMはFirefox自体を作るためにも使われており、さらにJavascriptバインディングを持っているので、XPCOMオブジェクトをFirefox拡張で使うことができる。
+
+%% Normal Win32 COM allows interfaces to be accessed remotely. There were
+%% plans to add the same ability to XPCOM too, and Darin Fisher added an
+%% XPCOM ServerSocket implementation to facilitate this. Although the
+%% plans for D-XPCOM never came to fruition, like an appendix, the
+%% vestigial infrastructure is still there.  We took advantage of this to
+%% create a very basic server within a custom Firefox extension
+%% containing all the logic for controlling Firefox. The protocol used
+%% was originally text-based and line-oriented, encoding all strings as
+%% UTF-2. Each request or response began with a number, indicating how
+%% many newlines to count before concluding that the request or reply had
+%% been sent. Crucially, this scheme was easy to implement in Javascript
+%% as SeaMonkey (Firefox's Javascript engine at the time) stores
+%% Javascript strings internally as 16 bit unsigned integers.
+Win32 COMには、リモートからアクセスするためのインターフェイスが用意されている。XPCOMにも同様の機能を追加する計画があった。実際、ダーリン・フィッシャーがXPCOM ServerSocketの実装を追加してこれを実現しようとしていた。結局このD-XPCOM計画が日の目を見ることはなかったが、その基盤の痕跡は今でも残っている。我々はこの機能を使い、基本的なサーバー機能をFirefoxの拡張機能として実装した。そしてそこに、Firefoxの制御のためのすべてのロジックを閉じ込めた。利用したプロトコルは、テキストベースで行指向なもので、すべての文字列をUTF-2でエンコードしていた。個々のリクエストやレスポンスは数値から始まる。この数値は、リクエストやレスポンスに達するまでに改行文字がいくつ現れるかを指している。最も重要だったのは、このスキームはJavascriptでSeaMonkey(当時のFirefoxが採用していたJavascriptエンジン)として実装しやすかったということだ。これは、Javascriptの文字列を内部的に符号なし16ビット整数値で格納している。
+
+%% Although futzing with custom encoding protocols over raw sockets is a
+%% fun way to pass the time, it has several drawbacks. There were no
+%% widely available libraries for the custom protocol, so it needed to be
+%% implemented from the ground up for every language that we wanted to
+%% support. This requirement to implement more code would make it less
+%% likely that generous Open Source contributors would participate in the
+%% development of new language bindings. Also, although a line-oriented
+%% protocol was fine when we were only sending text-based data around, it
+%% brought problems when we wanted to send images (such as screenshots)
+%% around.
+独自の符号化プロトコルを生のソケットにのせてやりとりするのは、暇つぶしとしてはいいだろう。しかし、いくつかの問題点もある。まず、自前のプロトコルに対応したライブラリは広く出回っていないので、サポートしたいすべての言語についてライブラリをゼロから自前で実装する必要がある。実装すべきコードの量もそのぶん多くなるので、新しい言語のバインディングを作って貢献しようと考える人たちにとっての敷居が高くなってしまう。また、また、行指向のプロトコルはテキストデータを扱う限りは便利なのだが、スクリーンショットなど画像を扱おうとし始めると問題になる。
+
+%% It became very obvious, very quickly that this original RPC mechanism
+%% wasn't practical. Fortunately, there was a well-known transport that
+%% has widespread adoption and support in almost every language that
+%% would allow us to do what we wanted: HTTP.
+最初に採用したRPCの仕組みは実践的ではないということが、間もなくはっきりとしてきた。幸いにも、それ以外にもよく知られたトランスポートの仕組みがあった。幅広く採用されており、ほぼすべての言語でサポートされているという、まさに我々の望み通りのもの。それがHTTPだ。
+
+%% Once we had decided to use HTTP for a transport mechanism, the next
+%% choice that needed to be made was whether to use a single end-point
+%% (\`{a} la SOAP) or multiple end points (in the style of REST) The
+%% original Selenese protocol used a single end-point and had encoded
+%% commands and arguments in the query string. While this approach worked
+%% well, it didn't ``feel'' right: we had visions of being able to
+%% connect to a remote WebDriver instance in a browser to view the state
+%% of the server. We ended up choosing an approach we call ``REST-ish'':
+%% multiple end-point URLs using the verbs of HTTP to help provide
+%% meaning, but breaking a number of the constraints required for a truly
+%% RESTful system, notably around the location of state and cacheability,
+%% largely because there is only one location for the application state
+%% to meaningfully exist.
+我々はHTTPをトランスポートとして採用することに決めた。次に決める必要があったのが、エンドポイントを単一にする(SOAP風)かあるいは複数にする(REST風)かということだった。当初のSeleniumプロトコルは単一エンドポイント方式で、コマンドと引数を符号化したクエリ文字列を使っていた。この手法はうまく機能していたが、どうも``気分的に''間違っている感じがした。我々が思い描いていたのは、リモートのWebDriverインスタンスにブラウザ内から接続して、サーバーの状態を見られるようにすることだった。そして最終的に採用したのが、``REST的な''手法だった。複数のエンドポイントURLを用意し、HTTPメソッドを使って意味づけをする。しかし、真にRESTfulなシステムに求められる制約のいくつかは満たしていない。状態を保持する場所やキャッシュなどである。その大きな理由は、アプリケーションの状態が存在する箇所はひとつだけだからである。
+
+%% Although HTTP makes it easy to support multiple ways of encoding data
+%% based on content type negotiation, we decided that we needed a
+%% canonical form that all implementations of the remote WebDriver
+%% protocol could work with. There were a handful of obvious choices:
+%% HTML, XML or JSON\@. We quickly ruled out XML: although it's a
+%% perfectly reasonable data format and there are libraries that support
+%% it for almost every language, my perception of how well-liked it is in
+%% the Open Source community was that people don't enjoy working with
+%% it. In addition, it was entirely possible that although the returned
+%% data would share a common ``shape'' it would be easy for additional
+%% fields to be added\footnote{For example, the remote server returns a
+%% base64-encoded screen grab with every exception as a debugging aid
+%% but the Firefox driver doesn't.}. Although these extensions could be
+%% modeled using XML namespaces this would start to introduce Yet More
+%% Complexity into the client code: something I was keen to avoid.  XML
+%% was discarded as an option.  HTML wasn't really a good choice, as we
+%% needed to be able to define our own data format, and though an
+%% embedded micro-format could have been devised and used that seems like
+%% using a hammer to crack an egg.
+HTTPを採用したおかげで、符号化されたデータも(コンテンツネゴシエーションに基づく)さまざまな方法でサポートできるようになった。しかし、正式な形式をひとつ用意して、すべてのリモートWebDriverプロトコルがそれに対応できるように実装すべきだと判断した。選択肢としてすぐ候補にあがるのが、HTMLやXMLあるいはJSONである。XMLは真っ先に候補から外した。データフォーマットとしてはよくできているしライブラリのサポートもほぼすべての言語でそろっているとはいえ、経験上オープンソースのコミュニティではあまりXMLが好まれないこともわかっていた。さらに、返されるデータは共通の``形式''ではあるものの、フィールドが追加されることも十分あり得た\footnote{たとえば、リモートサーバーはbase64でエンコードしたスクリーンショットに加えて発生した例外もすべて返し、デバッグの助けにしている。しかしFirefoxドライバはそれを返さない。}。これらの拡張機能でXML名前空間を使ったモデリングもできたが、そんなことをしたらクライアント側のコードが無駄に複雑化してしまう。それだけは避けたかった。そこで、XMLは「オプションで使うこともできる」という扱いになった。HTMLはまったくもってうまい選択だと言えないだろう。我々は自前のデータフォーマットを定義しなければならない。マイクロフォーマットで無理やりフォーマットを埋め込むこともできるが、それはまるで、卵を割るときにハンマーを使うようなものだ。
+
+%% The final possibility considered was Javascript Object Notation
+%% (JSON). Browsers can transform a string into an object using either a
+%% straight call to \code{eval} or, on more recent browsers, with
+%% primitives designed to transform a Javascript object to and from a
+%% string securely and without side-effects. From a practical
+%% perspective, JSON is a popular data format with libraries for handling
+%% it available for almost every language and all the cool kids like
+%% it. An easy choice.
+最終的に残った候補がJavascript Object Notation (JSON)だった。ブラウザ側での文字列からオブジェクトへの変換は直接\code{eval}を呼ぶだけでいいし、最近のブラウザならJavascriptオブジェクトと文字列の相互変換を安全に副作用なしで行うプリミティブが用意されている。現実的な観点からも、JSONはよく使われているデータフォーマットであり、ほとんどすべての言語でJSON処理用のライブラリが用意されている。また、開発者にも人気が高い。無難な選択肢と言える。
+
+%% The second iteration of the remote WebDriver protocol therefore used
+%% HTTP as the transport mechanism and UTF-8 encoded JSON as the default
+%% encoding scheme. UTF-8 was picked as the default encoding so that
+%% clients could easily be written in languages with limited support for
+%% Unicode, as UTF-8 is backwardly compatible with ASCII\@. Commands sent
+%% to the server used the URL to determine which command was being sent,
+%% and encoded the parameters for the command in an array.
+リモートWebDriverプロトコルの第2イテレーションでは、HTTPをトランスポートとして採用し、UTF-8でエンコードしたJSONをデフォルトの符号化スキームとした。UTF-8はデフォルトの符号化方式として選ばれたものであり、Unicodeのサポートがあまり充実していない言語でクライアントを書くのも容易である。というのも、UTF-8はASCIIと後方互換性があるからだ。サーバーに送信するコマンドは、URLを使ってどのコマンドが送信されたのかを判断し、コマンドへのパラメータは配列形式でエンコードする。
+
+%% For example a call to \code{WebDriver.get("http://www.example.com")}
+%% mapped to a POST request to a URL encoding the session ID and ending
+%% with ``/url'', with the array of parameters looking like
+%% \code{{[}'http://www.example.com'{]}}.  The returned result was a
+%% little more structured, and had place-holders for a returned value and
+%% an error code.  It wasn't long until the third iteration of remote
+%% protocol, which replaced the request's array of parameters with a
+%% dictionary of named parameters. This had the benefit of making
+%% debugging requests significantly easier, and removed the possibility
+%% of clients mistakenly mis-ordering parameters, making the system as a
+%% whole more robust.  Naturally, it was decided to use normal HTTP error
+%% codes to indicate certain return values and responses where they were
+%% the most appropriate way to do so; for example, if a user attempts to
+%% call a URL with nothing mapped to it, or when we want to indicate the
+%% ``empty response''.
+たとえば\code{WebDriver.get("http://www.example.com")}の呼び出しは、セッションIDをエンコードして最後に``/url''をつけたURLへのPOSTリクエストにマップされる。このとき、パラメータの配列は\code{{[}'http://www.example.com'{]}}のようになる。返される結果はもう少し構造化されており、返り値やエラーコード用のプレースホルダーが用意されている。この形式は、リモートプロトコルの第3イテレーションまでしか続かなかった。リクエストにおけるパラメータの配列は、そのイテレーションで名前つきパラメータの辞書に変わった。この変更によって、デバッグ用のリクエストがとても簡単に実行できるようになった。また、クライアントがパラメータの順番を間違えてしまう可能性をなくし、システム全体としてより堅牢になった。必然的に、通常のHTTPステータスコードを使って特定の返り値や応答を表すようになった。それが最も適切な方法だったからである。たとえば、どこにもマップされていないURLを呼ぼうとしたときや``空のレスポンス''を表したいときなどに使える。
+
+%% The remote WebDriver protocol has two levels of error handling, one
+%% for invalid requests, and one for failed commands. An example of an
+%% invalid request is for a resource that doesn't exist on the server, or
+%% perhaps for a verb that the resource doesn't understand (such as
+%% sending a DELETE command to the the resource used for dealing with the
+%% URL of the current page) In those cases, a normal HTTP 4xx response is
+%% sent. For a failed command, the responses error code is set to 500
+%% (``Internal Server Error'') and the returned data contains a more
+%% detailed breakdown of what went wrong.
+リモートWebDriverプロトコルには二段階のエラー処理がある。無効なリクエストを扱うものと、コマンドが失敗した場合を扱うものである。無効なリクエストの例としては、サーバー上に存在しないリソースへのリクエストあるいはそのリソースが処理できないメソッドでのリクエスト(たとえば、現在のページのURLを指すリソースに対するDELETEコマンド)などがある。このような場合は、通常のHTTP 4xxレスポンスが送出される。コマンドが失敗した場合には、レスポンスのエラーコードは500 (``Internal Server Error'')となり、返すデータの中により詳しい情報を含めて何が悪かったのかをわかりやすくする。
+
+%% When a response containing data is sent from the server, it takes the
+%% form of a JSON object:\\
+データを含むレスポンスがサーバーから返されるときには、JSONオブジェクト形式となる。
+
+\begin{tabular}{|lp{4in}|}
+\hline
+%% Key & Description \\
+キー & 説明 \\
+\hline
+%% sessionId & An opaque handle used by the server to determine where to route session-specific commands. \\
+sessionId & 不透過なハンドル。サーバーがセッション固有のコマンドの送り先を決めるために使う。\\
+%% status & A numeric status code summarizing the result of the command. A non-zero value indicates that the command failed. \\
+status & コマンドの結果を表す数値のステータスコード。ゼロ以外の値は、コマンドが失敗したことを表す。\\
+%% value & The response JSON value. \\
+value & レスポンスのJSONデータ。\\
+\hline
+\end{tabular}
+
+~\\
+
+\noindent
+%% An example response would be:
+レスポンスは、たとえばこのようになる。
+
+\begin{verbatim}
+{
+  sessionId: 'BD204170-1A52-49C2-A6F8-872D127E7AE8',
+  status: 7,
+  value: 'Unable to locate element with id: foo'
+}
+\end{verbatim}
+
+%% \noindent As can be seen, we encode status codes in the response, with a
+%% non-zero value indicating that something has gone horribly awry. The
+%% IE driver was the first to use status codes, and the values used in
+%% the wire protocol mirror these. Because all error codes are consistent
+%% between drivers, it is possible to share error handling code between
+%% all the drivers written in a particular language, making the job of
+%% the client-side implementors easier.
+\noindent 見てわかるとおり、ステータスコードをレスポンス内で符号化しており、ゼロではない値が入っていることから何かがうまくいかなかったことがわかる。IEドライバはまず最初にステータスコードを使い、プロトコル内で使う値はこの値をミラーしている。すべてのエラーコードは各ドライバで共通なので、エラー処理のコードは特定の言語で書いてすべてのドライバで共有できる。これにより、クライアント側の実装がより容易になる。
+
+%% The Remote WebDriver Server is simply a Java servlet that acts as a
+%% multiplexer, routing any commands it receives to an appropriate
+%% WebDriver instance. It's the sort of thing that a second year graduate
+%% student could write. The Firefox driver also implements the remote
+%% WebDriver protocol, and its architecture is far more interesting, so
+%% let's follow a request through from the call in the language bindings
+%% to that back-end until it returns to the user.
+Remote WebDriver Serverは単なるJavaサーブレットである。これはマルチプレクサとして動作し、受け付けたコマンドを適切なWebDriverインスタンスに振り向ける。まあ大学院の二年目くらいでも書けるレベルのものだ。FirefoxドライバでもリモートWebDriverプロトコルを実装しており、そのアーキテクチャのほうがずっと興味深い。そこで、言語バインディングから受け取ったリクエストがバックエンドに到達してからユーザーに応答を返すまでの流れを追いかけてみよう。
+
+%% \pagebreak
+
+%% Assuming that we're using Java, and that ``element'' is an instance of
+%% WebElement, it all starts here:
+ここではJavaを使っているものとする。また``element''がWebElementのインスタンスである。すべてはこの行からはじまる。
+
+\begin{verbatim}
+element.getAttribute("row");
+\end{verbatim}
+
+%% \noindent Internally, the element has an opaque ``id'' that the server-side uses
+%% to identify which element we're talking about. For the sake of this
+%% discussion, we'll imagine it has the value ``some\_opaque\_id''. This
+%% is encoded into a Java \code{Command} object with a \code{Map} holding
+%% the (now named) parameters \code{id} for the element ID
+%% and \code{name} for the name of the attribute being queried.
+\noindent 内部的に、elementは不透過な``id''を保持している。サーバーサイドではこれを使い、対話相手の要素を識別する。ここでは仮に、idの値が``some\_opaque\_id''であるものとして話を進める。これはJavaの\code{Command}オブジェクトに\code{Map}として符号化されており、(名前付きの)パラメータ\code{id}に要素のID、そして\code{name}に問い合わせ対象の属性の名前を保持する。
+
+%% A quick look up in a table indicates that the correct URL is:
+正しいURLを指すテーブル内での検索は、このようになる。
+
+\begin{verbatim}
+/session/:sessionId/element/:id/attribute/:name
+\end{verbatim}
+
+%% \noindent Any section of the URL that begins with a colon is assumed to be a
+%% variable that requires substitution. We've been given the \code{id}
+%% and \code{name} parameters already, and the \code{sessionId} is
+%% another opaque handle that is used for routing when a server can
+%% handle more than one session at a time (which the Firefox driver
+%% cannot). This URL therefore typically expands to something like:
+\noindent URLのセクションの中でコロンから始まるものはすべて、変数であって後で何かの値で置き換えられるものである。パラメータ\code{id}と\code{name}は既に指定している。\code{sessionId}はもうひとつの不透過なハンドルで、ルーティングのために使う。これを使えば、サーバーが複数のセッションを同時に扱えるようになる(Firefoxドライバではこれができない)。このURLを展開したものは、たとえばこのようになる。
+
+\begin{verbatim}
+http://localhost:7055/hub/session/XXX/element/some_opaque_id/attribute/row
+\end{verbatim}
+
+%% As an aside, WebDriver's remote wire protocol was originally developed
+%% at the same time as URL Templates were proposed as a draft RFC\@. Both
+%% our scheme for specifying URLs and URL Templates allow variables to be
+%% expanded (and therefore derived) within a URL\@. Sadly, although URL
+%% Templates were proposed at the same time, we only became aware of them
+%% relatively late in the day, and therefore they are not used to
+%% describe the wire protocol.
+余談だが、WebDriverのリモートワイヤプロトコルの開発が始まったのは、URL TemplatesがRFC草案として提案されたのとほぼ同時期だった。我々が考えたURLの指定方法もURL Templatesも、どちらもURL内での変数の展開(そして派生)を許していた。残念なことに、URL Templatesが提案されていることを我々が知ったのはかなり後になってからのことだった。そのため、ワイヤプロトコルの記述にURL Templatesを使うことができなかった。
+
+%% Because the method we're executing is idempotent\footnote{I.e., always
+%% returns the same result.}, the correct HTTP method to use is a
+%% GET\@. We delegate down to a Java library that can handle HTTP (the
+%% Apache HTTP Client) to call the server.
+我々の実装するメソッドは冪等\footnote{すなわち、何度実行しても同じ値を返す。}なので、ここで使うべき正しいHTTPメソッドはGETである。このあたりの処理は、HTTPを話せるJavaライブラリ(Apache HTTP Client)に委譲して、そのライブラリにサーバーを呼ばせる。
+
+%% \aosafigure{../images/selenium/firefox-driver-overall-architecture.eps}{Overview of the Firefox Driver Architecture}{fig.sel.ffdr}
+\aosafigure{../images/selenium/firefox-driver-overall-architecture.eps}{Firefoxドライバのアーキテクチャ概要}{fig.sel.ffdr}
+
+%% The Firefox driver is implemented as a Firefox extension, the basic
+%% design of which is shown in~\aosafigref{fig.sel.ffdr}.
+%% Somewhat unusually, it has an embedded HTTP server.  Although
+%% originally we used one that we had built ourselves, writing HTTP
+%% servers in XPCOM wasn't one of our core competencies, so when the
+%% opportunity arose we replaced it with a basic HTTPD written by Mozilla
+%% themselves.  Requests are received by the HTTPD and almost straight
+%% away passed to a \code{dispatcher} object.
+Firefoxドライバは、Firefoxの拡張機能として実装されている。その基本的な設計は\aosafigref{fig.sel.ffdr}のとおりだ。多少風変わりなところがあるとすれば、それはHTTPサーバーを組み込んでいるところだ。元々は自前でこれを実装していたのだが、HTTPサーバーをXPCOMで書くというのは我々の得意分野ではない。そこで、Mozilla自身が用意している基本的なHTTPDでそれを置き換えた。リクエストはこのHTTPDが受け取り、ほぼそのままの形で\code{dispatcher}オブジェクトに渡される。
+
+%% The dispatcher takes the request and iterates over a known list of
+%% supported URLs, attempting to find one that matches the request. This
+%% matching is done with knowledge of the variable interpolation that
+%% went on in the client side. Once an exact match is found, including
+%% the verb being used, a JSON object, representing the command to
+%% execute, is constructed. In our case it looks like:
+ディスパッチャは、リクエストを受け取ってからサポートする既知のURLリストを順にたどり、リクエストにマッチするURLを探す。このマッチングは、クライアント側で行われた変数の置換に基づいて行われる。リクエストメソッドも含めて完全に一致するものが見つかれば、実行するコマンドを表すJSONオブジェクトを組み立てる。今回の場合は、このようなオブジェクトになる。
+
+\begin{verbatim}
+{
+  'name': 'getElementAttribute',
+  'sessionId': { 'value': 'XXX' },
+  'parameters': {
+    'id': 'some_opaque_key',
+    'name': 'rows'
+  }
+}
+\end{verbatim}
+
+%% \noindent This is then passed as a JSON string to a custom XPCOM component we've
+%% written called the CommandProcessor. Here's the code:
+\noindent 次にこれが、JSON文字列として我々の書いたXPCOMコンポーネントに渡される。このコンポーネントはCommandProcessorと呼ばれている。このようなコードだ。
+
+%% \begin{verbatim}
+%% var jsonResponseString = JSON.stringify(json);
+%% var callback = function(jsonResponseString) {
+%%   var jsonResponse = JSON.parse(jsonResponseString);
+
+%%   if (jsonResponse.status != ErrorCode.SUCCESS) {
+%%     response.setStatus(Response.INTERNAL_ERROR);
+%%   }
+
+%%   response.setContentType('application/json');
+%%   response.setBody(jsonResponseString);
+%%   response.commit();
+%% };
+
+%% // Dispatch the command.
+%% Components.classes['@googlecode.com/webdriver/command-processor;1'].
+%%     getService(Components.interfaces.nsICommandProcessor).
+%%     execute(jsonString, callback);
+%% \end{verbatim}
+\begin{verbatim}
+var jsonResponseString = JSON.stringify(json);
+var callback = function(jsonResponseString) {
+  var jsonResponse = JSON.parse(jsonResponseString);
+
+  if (jsonResponse.status != ErrorCode.SUCCESS) {
+    response.setStatus(Response.INTERNAL_ERROR);
+  }
+
+  response.setContentType('application/json');
+  response.setBody(jsonResponseString);
+  response.commit();
+};
+
+// コマンドをディスパッチする
+Components.classes['@googlecode.com/webdriver/command-processor;1'].
+    getService(Components.interfaces.nsICommandProcessor).
+    execute(jsonString, callback);
+\end{verbatim}
+
+%% \pagebreak
+
+%% There's quite a lot of code here, but there are two key points. First,
+%% we converted the object above to a JSON string.  Secondly, we pass a
+%% callback to the execute method that causes the HTTP response to be
+%% sent.
+やたら大量のコードがあるが、ポイントとなるのは次のふたつだ。まず、上のオブジェクトをJSON文字列に変換する。次に、コールバックを渡してメソッドを実行させる。これが、送出するHTTPレスポンスを作る。
+
+%% The execute method of the command processor looks up the ``name'' to
+%% determine which function to call, which it then does. The first
+%% parameter given to this implementing function is a \code{respond}''
+%% object (so called because it was originally just the function used to
+%% send the response back to the user), which encapsulates not only the
+%% possible values that might be sent, but also has a method that allows
+%% the response to be dispatched back to the user and mechanisms to find
+%% out information about the DOM\@. The second parameter is the value of
+%% the \code{parameters} object seen above (in this case, \code{id} and
+%% \code{name}). The advantage of this scheme is that each function has a
+%% uniform interface that mirrors the structure used on the client
+%% side. This means that the mental models used for thinking about the
+%% code on each side are similar.  Here's the underlying implementation
+%% of \code{getAttribute}, which you've seen before in
+%% \aosasecref{sec.selenium.layers}:
+コマンドプロセッサで実行するメソッドは、``name''を見てどの関数を呼ぶかを判断し、そしてそれを実行する。この実装関数に渡す最初のパラメータは\code{respond}オブジェクトで(このように呼ばれているのは、もともとこの関数は単にユーザーにレスポンスを返すためだけのものだったからである)、これは返す値をカプセル化するだけではなく、レスポンスをユーザーに送り返せるようにするメソッドやDOMの情報を見つけるための仕組みも用意されている。二番目のパラメータは、先述の\code{parameters}オブジェクトの値(この場合は\code{id}と\code{name})である。この方式のメリットは、各関数が統一インターフェイスを持っていて、それがクライアント側で使うデータ構造を反映しているということだ。つまり、コードを書くときに頭の中で考えるモデルがクライアント側でもサーバー側でも同じようになるのだ。ここに\code{getAttribute}の実装を示す。これは先ほど\aosasecref{sec.selenium.layers}で見たものである。
+
+\begin{verbatim}
+FirefoxDriver.prototype.getElementAttribute = function(respond, parameters) {
+  var element = Utils.getElementAt(parameters.id,
+                                  respond.session.getDocument());
+  var attributeName = parameters.name;
+
+  respond.value = webdriver.element.getAttribute(element, attributeName);
+  respond.send();
+};
+\end{verbatim}
+
+%% \noindent In order to make element references consistent, the first line simply
+%% looks up the element referred to by the opaque ID in a cache. In the
+%% Firefox driver, that opaque ID is a UUID and the ``cache'' is simply a
+%% map.  The \code{getElementAt} method also checks to see if the
+%% referred to element is both known and attached to the DOM\@. If either
+%% check fails, the ID is removed from the cache (if necessary) and an
+%% exception is thrown and returned to the user.
+\noindent 要素の参照に矛盾を生じさせないようにするために、最初の行は単にキャッシュ内の不透過なIDが参照する要素を探すだけになっている。Firefoxドライバの場合、この不透過なIDはUUIDであり、``キャッシュ''は単なるマップである。\code{getElementAt}メソッドは、要素への参照が既知のものであるかどうかとそれがDOMにアタッチされているかどうかもチェックする。どちらかのチェックに失敗すると、そのIDは(必要に応じて)キャッシュから削除され、例外を投げてそれをユーザーに返す。
+
+%% The second line from the end makes use of the browser automation atoms
+%% discussed earlier, this time compiled as a monolithic script and
+%% loaded as part of the extension.
+最後から二行目では、先述のブラウザ自動化用atomを使っている。ここでは一つのスクリプトとしてコンパイルされ、拡張機能の一部として読み込まれている。
+
+%% In the final line, the \code{send} method is called.  This does a
+%% simple check to ensure that we only send a response once before it
+%% calls the callback given to the execute method. The response is sent
+%% back to the user in the form of a JSON string, which is decanted into
+%% an object that looks like (assuming that \code{getAttribute} returned
+%% ``7'', meaning the element wasn't found):
+最後の行で呼ばれているのが\code{send}メソッドだ。このメソッドはシンプルなチェックを行い、executeメソッドで指定したコールバックを呼んでからレスポンスを送出する。レスポンスはJSON文字列形式でユーザーに戻され、それがこのような形式のオブジェクトに移される(\code{getAttribute}の返り値が``7''、つまりその要素が見つからなかったものと仮定する)。
+
+\begin{verbatim}
+{
+  'value': '7',
+  'status': 0,
+  'sessionId': 'XXX'
+}
+\end{verbatim}
+
+%% The Java client then checks the value of the status field. If that
+%% value is non-zero, it converts the numeric status code into an
+%% exception of the correct type and throws that, using the ``value''
+%% field to help set the message sent to the user. If the status is zero
+%% the value of the ``value'' field is returned to to the user.
+その後、Javaクライアントがstatusフィールドの値をチェックする。もし値がゼロでなければ、数値のステータスコードを適切な型の例外オブジェクトに変換して投げる。その際に、``value''フィールドの値を使ってユーザー向けのメッセージを設定する。statusがゼロの場合は、``value''フィールドの値をユーザーに返す。
+
+%% Most of this makes a certain amount of sense, but there was one piece
+%% that an astute reader will raise questions about: why did the
+%% dispatcher convert the object it had into a string before calling the
+%% \code{execute} method?
+ほとんどは、ごく自然な処理だろう。しかし一カ所だけ、賢明な読者なら疑問に思うところがあるはずだ。なぜディスパッチャは、\code{execute}メソッドを呼ぶ前にわざわざオブジェクトを文字列に変換するのだろう?
+
+%% The reason for this is that the Firefox Driver also supports running
+%% tests written in pure Javascript. Normally, this would be an extremely
+%% difficult thing to support: the tests are running in the context of
+%% the browser's Javascript security sandbox, and so may not do a range
+%% of things that are useful in tests, such as traveling between domains
+%% or uploading files. The WebDriver Firefox extension, however, provides
+%% an escape hatch from the sandbox. It announces its presence by adding
+%% a \code{webdriver} property to the document element. The WebDriver
+%% Javascript API uses this as an indicator that it can add JSON
+%% serialized command objects as the value of a \code{command} property on
+%% the document element, fire a custom \code{webdriverCommand} event and
+%% then listen for a \code{webdriverResponse} event on the same element to
+%% be notified that the \code{response} property has been set.
+なぜそうしているかというと、FirefoxドライバはJavascriptだけで書かれたテストの実行もサポートしているからである。普通は、これをサポートするのはかなり難しい。テストが実行されるのはブラウザのJavascriptセキュリティサンドボックスの中であり、テストで有用な多くの作業(別ドメインへの移動やファイルのアップロードなど)に制限が出てしまうからである。しかしFirefoxのWebDriver拡張機能では、サンドボックスから脱出するためのハッチを提供している。document要素に\code{webdriver}というプロパティを追加しているのだ。WebDriverのJavascript APIはこれを見て、次のような操作ができると判断する。JSONでシリアライズしたコマンドオブジェクトをdocument要素の\code{command}プロパティに追加して\code{webdriverCommand}イベントを発火させ、何らかの要素での\code{webdriverResponse}イベントの発生を監視する。このイベントが、\code{response}プロパティの値が設定されたことを示す。
+
+%% This suggests that browsing the web in a copy of Firefox with the
+%% WebDriver extension installed is a seriously bad idea as it makes it
+%% trivially easy for someone to remotely control the browser.
+これはつまり、WebDriver拡張機能をインストールしたFirefoxでウェブをブラウズするのは非常に危険だということだ。悪意のある人なら、リモートから容易にブラウザを乗っ取れてしまうからである。
+
+%% Behind the scenes, there is a DOM messenger, waiting for the
+%% \code{webdriverCommand} this reads the serialized JSON object and calls
+%% the \code{execute} method on the command processor. This time, the
+%% callback is one that simply sets the \code{response} attribute on the
+%% document element and then fires the expected \code{webdriverResponse}
+%% event.
+その裏側ではDOMメッセンジャーが動いていて\code{webdriverCommand}を待機している。シリアライズしたJSONオブジェクトをこれが読み込み、コマンドプロセッサの\code{execute}メソッドを呼び出す。このとき、コールバックは単にdocument要素の\code{response}属性に設定されるだけである。それが、期待する\code{webdriverResponse}イベントを発火させる。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The IE Driver}
+\begin{aosasect1}{IEドライバ}
+
+%% Internet Explorer is an interesting browser. It's constructed of a
+%% number of COM interfaces working in concert. This extends all the way
+%% into the Javascript engine, where the familiar Javascript variables
+%% actually refer to underlying COM instances. That Javascript
+%% \code{window} is an \code{IHTMLWindow}.  \code{document} is an
+%% instance of the COM interface \code{IHTMLDocument}. Microsoft have
+%% done an excellent job in maintaining existing behavior as they
+%% enhanced their browser. This means that if an application worked with
+%% the COM classes exposed by IE6 it will still continue to work with
+%% IE9.
+Internet Explorerは興味深いブラウザである。さまざまなCOMインターフェイスが一斉に動く構造になっている。Javascriptエンジンもまったく同じで、なじみのあるJavascriptの変数も実際はその背後にあるCOMインターフェイスへの参照となっている。たとえばJavascriptの\code{window}の実体は\code{IHTMLWindow}である。つまり、\code{document}はCOMインターフェイス\code{IHTMLDocument}のインスタンスとなる。Microsoftは、既存のふるまいを維持しつつブラウザに機能を追加するというすばらしい仕事をやってのけた。つまり、IE6が公開するCOMクラスを使ったアプリケーションは、そのままIE9でも動くということである。
+
+%% The Internet Explorer driver has an architecture that's evolved over
+%% time. One of the major forces upon its design has been a requirement
+%% to avoid an installer. This is a slightly unusual requirement, so
+%% perhaps needs some explanation. The first reason not to require an
+%% installer is that it makes it harder for WebDriver to pass the ``5
+%% minute test'', where a developer downloads a package and tries it out
+%% for a brief period of time. More importantly, it is relatively common
+%% for users of WebDriver to not be able to install software on their own
+%% machines. It also means that no-one needs to remember to log on to the
+%% continuous integration servers to run an installer when a project
+%% wants to start testing with IE\@. Finally, running installers just isn't
+%% in the culture of some languages. The common Java idiom is to simply
+%% drop JAR files on to the CLASSPATH, and, in my experience, those
+%% libraries that require installers tend not to be as well-liked or
+%% used.
+Internet Explorerドライバのアーキテクチャは、時を経て成長してきた。その設計の根底にある大きな目標は、インストーラーを使わないということだ。あまり聞き慣れない要件だと思うので、ここで少し捕足しておこう。インストーラーを不要にしたい第一の理由は、WebDriverが``5分でテストできる''という目標を満たせなくなるからだ。開発者がパッケージをダウンロードしてインストーラーを実行するまでに、ある程度の時間を要してしまう。さらに重要なのは、WebDriverのユーザーの中にはは自分のマシンにソフトウェアをインストールする権限を持っていない人も比較的多いということである。インストーラーをなくせば、あるプロジェクトでIEを使ったテストを始めるときに、継続的インテグレーションサーバーにログオンしてインストーラーを実行するという必要もなくなる。最後に、インストーラーを実行するという習慣を持たない言語もあるということだ。たとえばJavaなら、通常はCLASSPATHの通った場所にJARを置くだけだ。経験上、インストーラーがついているライブラリはあまり好まれず、使われることもない。
+
+%% So, no installer. There are consequences to this choice.
+だから、インストーラーはやめた。その結果、次のようになった。
+
+%% The natural language to use for programming on Windows would be
+%% something that ran on .Net, probably C\#. The IE driver integrates
+%% tightly with IE by making use of the IE COM Automation interfaces that
+%% ship with every version of Windows. In particular, we use COM
+%% interfaces from the native MSHTML and ShDocVw DLLs, which form part of
+%% IE\@. Prior to C\# 4, CLR/COM interoperability was achieved via the use of
+%% separate Primary Interop Assemblies (PIAs) A PIA is essentially a
+%% generated bridge between the managed world of the CLR and that of COM.
+Windows上でのプログラミングに使う言語として自然な選択は、.Net上で動くもの(おそらくC\#)になるだろう。IEドライバはIEのCOMオートメーションインターフェイスを使っており、IE自体と密に結合している。IEのCOMオートメーションインターフェイスは、すべてのバージョンのWindowsに組み込まれている。特に使っているのはネイティブのMSHTMLおよびShDocVw DLLであり、これらはIEの一部である。C\# 4 より前のバージョンでは、CLR/COMの相互運用性はPrimary Interop Assembly (PIA)を分離することで実現していた。PIAは本質的に、CLRが管理する世界とCOMが管理する世界の橋渡しをするために作られたものである。
+
+%% Sadly, using C\# 4 would mean using a very modern version of the .Net
+%% runtime, and many companies avoid living on the leading edge,
+%% preferring the stability and known issues of older releases. By using
+%% C\# 4 we would automatically exclude a reasonable percentage of our
+%% user-base. There are also other disadvantages to using a PIA\@. Consider
+%% licensing restrictions.  After consultation with Microsoft, it became
+%% clear that the Selenium project would not have the rights to
+%% distribute the PIAs of either the MSHTML or ShDocVw libraries. Even if
+%% those rights had been granted, each installation of Windows and IE has
+%% a unique combination of these libraries, which means that we would
+%% have needed to ship a vast number of these things. Building the PIAs
+%% on the client machine on demand is also a non-starter, as they require
+%% developer tools that may not exist on a normal user's machine.
+残念なことに、C\# 4を使おうとすると.Netランタイムの新しいバージョンを使うことになってしまう。多くの企業では最先端を使うのを避け、問題は残っているが安定している旧リリースを使うことを好む。C\# 4を使ってしまうと、無視できない割合のユーザー層を排除してしまうことになる。PIAを使うことにはそれ以外のデメリットもある。ライセンスの制約を考えてみよう。Microsoftに問い合わせた結果明らかになったことは、SeleniumプロジェクトにはMSHTMLやShDocVwのPIAを配布する権限がないということだった。仮に配布する権利が認められたとしても、世間にインストールされているWindowsとIEのライブラリには無数の組み合わせがある。それらすべてに対応するPIAを配布しなければならないということだ。クライアントマシン上で、その場でPIAを作るという方法もあるが、それは使えない。開発者向けのツールが必要になるし、通常のユーザーのマシン上にはそんなものはインストールされていないからだ。
+
+%% So, although C\# would have been an attractive language to do the bulk
+%% of the coding in, it wasn't an option. We needed to use something
+%% native, at least for the communication with IE\@. The next natural
+%% choice for this is C++, and this is the language that we chose in the
+%% end. Using C++ has the advantage that we don't need to use PIAs, but
+%% it does mean that we need to redistribute the Visual Studio C++
+%% runtime DLL unless we statically link against them.  Since we'd need
+%% to run an installer in order to make that DLL available, we statically
+%% link our library for communicating with IE.
+したがって、大規模なコードを書くにはC\#はとても魅力的な言語だが、今回の選択肢からは消えた。我々が必要としたのは何かネイティブな言語で、少なくともIEとの通信ができるものだった。この目的にかなう次の選択肢はC++であり、最終的に我々が選んだのもこの言語だった。C++を使えばPIAが不要になるというメリットがあるが、それと同時に、Visual Studio C++ランタイムDLLを再配布するかあるいは静的にリンクするかの選択を迫られることになってしまう。DLLを配布するにはインストーラーが必要になってしまうので、IEと通信するライブラリを静的にリンクすることにした。
+
+%% That's a fairly high cost to pay for a requirement not to use an
+%% installer. However, going back to the theme of where complexity should
+%% live, it is worth the investment as it makes our users' lives
+%% considerably easier. It is a decision we re-evaluate on an ongoing
+%% basis, as the benefit to the user is a trade-off with the fact that
+%% the pool of people able to contribute to an advanced C++ Open Source
+%% project seems significantly smaller than those able to contribute to
+%% an equivalent C\# project.
+インストーラーを使わないという要件を満たすために、かなりのコストがかかっている。しかし、当初のテーマであった「複雑性をどこに押し込めるか」を考えると、ユーザーにとって使いやすくするための投資としては十分に意味のあるものだ。C++を採用するという決断については、現時点で改めて評価しなおしているところである。というのも、ユーザーにとっての使いやすさと引き替えに、協力してくれる開発者の母数が減ってしまうという事実があるからだ。高度なC++で書かれたオープンソースプロジェクトに貢献してくれる可能性のある開発者の数は、C\#のプロジェクトに比べて大幅に少ないように感じる。
+
+%% The initial design of the IE driver is shown in
+%% \aosafigref{fig.sel.sie}.
+IEドライバの当初の設計を\aosafigref{fig.sel.sie}に示す。
+
+%% \aosafigure{../images/selenium/simple-ie-stack.eps}{Original IE Driver}{fig.sel.sie}
+\aosafigure{../images/selenium/simple-ie-stack.eps}{当初のIEドライバ}{fig.sel.sie}
+
+%% Starting from the bottom of that stack, you can see that we're using
+%% IE's COM Automation interfaces.  In order to make these easier to deal
+%% with on a conceptual level, we wrapped those raw interfaces with a set
+%% of C++ classes that closely mirrored the main WebDriver API\@. In order
+%% to get the Java classes communicating with the C++ we made use of JNI,
+%% with the implementations of the JNI methods using the C++ abstractions
+%% of the COM interfaces.
+スタックの最下層から話を始めよう。ここでは、IEのCOMオートメーションインターフェイスを使っていることがわかる。概念的な意味での使いやすさを向上させるために、この生のインターフェイスをC++のクラス群でラップした。このラッパーは、WebDriver APIの構造に似せてある。JavaのクラスにC++との通信をさせるためにJNIを使い、JNIのメソッドでCOMインターフェイスのC++ラッパーと通信している。
+
+%% This approach worked reasonably well while Java was the only client
+%% language, but it would have been a source of pain and complexity if
+%% each language we supported needed us to alter the underlying
+%% library. Thus, although JNI worked, it didn't provide the correct
+%% level of abstraction.
+このアプローチは、クライアント側の言語がJavaだけに限られる場合はうまくいく。しかし、サポートすることになったすべての言語に対してバックにあるライブラリを変更するのは大変だし、複雑になってしまう。したがって、JNIだけでもうまくいくとは言え、これだけではまだ適切な抽象化が実現できていない。
+
+%% What was the correct level of abstraction? Every language that we
+%% wanted to support had a mechanism for calling down to straight C
+%% code. In C\#, this takes the form of PInvoke. In Ruby there is FFI, and
+%% Python has ctypes. In the Java world, there is an excellent library
+%% called JNA (Java Native Architecture). We needed to expose our API
+%% using this lowest common denominator. This was done by taking our
+%% object model and flattening it, using a simple two or three letter
+%% prefix to indicate the ``home interface'' of the method: ``wd'' for
+%% ``WebDriver'' and ``wde'' for WebDriver Element. Thus
+%% \code{WebDriver.get} became \code{wdGet}, and
+%% \code{WebElement.getText} became \code{wdeGetText}. Each method
+%% returns an integer representing a status code, with ``out'' parameters
+%% being used to allow functions to return more meaningful data. Thus we
+%% ended up with method signatures such as:
+適切な抽象化とは何だったのか? 我々がサポートしようとしていたすべての言語には、Cのコードを直接呼び出す仕組みがあった。C\#の場合はPInvoke形式がそれにあたる。RubyにはFFIがあるし、Pythonにはctypesがある。Javaの世界には、すばらしいライブラリであるJNA (Java Native Architecture)が存在する。我々が必要としていたのは、これらの共通項を使うAPIを公開することだった。これを実現するためにオブジェクトモデルを平坦化し、シンプルな2文字か3文字のプレフィックスを使って各メソッドの``ホームインターフェイス''を示した。たとえば``wd''は``WebDriver''を表し、``wde''はWebDriver Elementを表す。つまり\code{WebDriver.get}は\code{wdGet}となり、\code{WebElement.getText}は\code{wdeGetText}となった。各メソッドはステータスコードを表す整数値を返し、同時に``out''パラメータを使ってそれ以外のデータも返せるようにした。最終的に、メソッドのシグネチャはこのようになる。
+
+\begin{verbatim}
+int wdeGetAttribute(WebDriver*, WebElement*, const wchar_t*, StringWrapper**)
+\end{verbatim}
+
+%% \noindent To calling code, the \code{WebDriver}, \code{WebElement} and
+%% \code{StringWrapper} are opaque types: we expressed the difference in
+%% the API to make it clear what value should be used as that parameter,
+%% though could just as easily have been ``void *''. You can also see
+%% that we were using wide characters for text, since we wanted to deal
+%% with internationalized text properly.
+\noindent 呼び出す側のコードでは、\code{WebDriver}や\code{WebElement}そして\code{StringWrapper}は不透過型となる。APIではこれらの違いを表し、どの値をどのパラメータで使うのかを明確にしている。しかし、単に``void *''とすることもできる。また、テキストにはワイド文字を使っていることもわかるだろう。これは、国際化したテキストを適切に扱えるようにするためである。
+
+%% On the Java side, we exposed this library of functions via an
+%% interface, which we then adapted to make it look like the normal object-oriented
+%% interface presented by WebDriver. For example, the Java definition of
+%% the \code{getAttribute} method looks like:
+Java側では、この関数のライブラリをインターフェイス経由で公開している。それを使ってWebDriverが用意する通常のオブジェクト指向のインターフェイスと同じようにすることができる。たとえば、Javaでの\code{getAttribute}メソッドの定義はこのようになる。
+
+\begin{verbatim}
+public String getAttribute(String name) {
+  PointerByReference wrapper = new PointerByReference();
+  int result = lib.wdeGetAttribute(
+      parent.getDriverPointer(), element, new WString(name), wrapper);
+
+  errors.verifyErrorCode(result, "get attribute of");
+
+  return wrapper.getValue() == null ? null : new StringWrapper(lib, wrapper).toString();
+}
+\end{verbatim}
+
+%% \noindent This lead to the design shown in \aosafigref{fig.sel.ient}.
+\noindent これが、\aosafigref{fig.sel.ient}で示す設計につながる。
+
+%% \aosafigure{../images/selenium/ie-stack-no-threads.eps}{Modified IE Driver}{fig.sel.ient}
+\aosafigure{../images/selenium/ie-stack-no-threads.eps}{手を加えられたIEドライバ}{fig.sel.ient}
+
+%% While all the tests were running on the local machine, this worked out
+%% well, but once we started using the IE driver in the remote WebDriver
+%% we started running into random lock ups. We traced this problem back
+%% to a constraint on the IE COM Automation interfaces. They are designed
+%% to be used in a ``Single Thread Apartment'' model. Essentially, this
+%% boils down to a requirement that we call the interface from the same
+%% thread every time. While running locally, this happens by
+%% default. Java app servers, however, spin up multiple threads to handle
+%% the expected load. The end result? We had no way of being sure that
+%% the same thread would be used to access the IE driver in all cases.
+すべてのテストをローカルマシンで動かしている間はこれでうまくいく。しかし、IEドライバをリモートのWebDriverで使い始めると、ランダムなロックが発生してしまうようになった。原因を追跡していくと、最後はIEのCOMオートメーションインターフェイスの制約に行き着いた。このインターフェイスは、``Single Thread Apartment''モデルで使うように作られていたのだ。これは本質的に、インターフェイスを毎回同じスレッドから呼び出す必要があるということである。ローカルで動かしている場合は、デフォルトでこの挙動となる。しかしJavaアプリケーションサーバーは、負荷に対応するために複数スレッドをまとめて使う。で、どうなったって? どんな場合にも同じスレッドを使ってIEドライバにアクセスさせる方法なんか見つからなかった。
+
+%% One solution to this problem would have been to run the IE driver in a
+%% single-threaded executor and serialize all access via Futures in the
+%% app server, and for a while this was the design we chose. However, it
+%% seemed unfair to push this complexity up to the calling code, and it's
+%% all too easy to imagine instances where people accidentally make use
+%% of the IE driver from multiple threads. We decided to sink the
+%% complexity down into the driver itself. We did this by holding the IE
+%% instance in a separate thread and using the \code{PostThreadMessage}
+%% Win32 API to communicate across the thread boundary. Thus, at the time
+%% of writing, the design of the IE driver looks like
+%% \aosafigref{fig.sel.fullie}.
+この問題に対するひとつの解決策が、IEドライバをシングルスレッドのエグゼキュータ内で実行してアプリケーションサーバー内のFuture経由のアクセスをすべてシリアライズすることで、しばらくの間は我々もその方法をとっていた。しかしこれは、複雑性を呼び出し側のコードに残してしまうという点でアンフェアであり、不注意でIEドライバを複数のスレッドから呼んでしまうという自体が容易に想像できた。そこで、この複雑性はドライバ自身に押し込めることに決めた。IEのインスタンスを個別のスレッドに持たせ、Win32 APIの\code{PostThreadMessage}を使ってスレッド越しの通信を行った。というわけで、執筆時点でのIEドライバの設計は\aosafigref{fig.sel.fullie}のようになっている。
+
+%% \aosafigure{../images/selenium/full-ie-stack.eps}{IE Driver as of Selenium 2.0 alpha 7}{fig.sel.fullie}
+\aosafigure{../images/selenium/full-ie-stack.eps}{Selenium 2.0 alpha 7の時点のIEドライバ}{fig.sel.fullie}
+
+%% This isn't the sort of design that I would have chosen voluntarily,
+%% but it has the advantage of working and surviving the horrors that our
+%% users may chose to inflict upon it.
+これは自ら進んで選んだ設計ではない。しかしうまく動いており、ユーザーに不便な思いをさせずに済んでいる。
+
+%% One drawback to this design is that it can be hard to determine
+%% whether the IE instance has locked itself solid. This may happen if a
+%% modal dialog opens while we're interacting with the DOM, or it may
+%% happen if there's a catastrophic failure on the far side of the thread
+%% boundary. We therefore have a timeout associated with every thread
+%% message we post, and this is set to what we thought was a relatively
+%% generous 2 minutes. From user feedback on the mailing lists, this
+%% assumption, while generally true, isn't always correct, and later
+%% versions of the IE driver may well make the timeout configurable.
+この方式の問題のひとつが、IEのインスタンスがロックされているかどうかを自分では判断しづらいことだ。これが問題となるのは、DOMを操作している際にモーダルダイアログが開いたりスレッド境界のはるか向こう側で致命的な障害が発生したりした場合である。その対策として、送信するすべてのスレッドメッセージにはタイムアウトを設定しており、その値は太っ腹にも2分となっている。メーリングリストでのユーザーの声を見る限り、この値はほぼ適切なようだ。しかし、常にこれが正解というわけではないので、IEドライバの今後のバージョンではタイムアウトの値を変更可能にする予定だ。
+
+%% Another drawback is that debugging the internals can be deeply
+%% problematic, requiring a combination of speed (after all, you've got
+%% two minutes to trace the code through as far as possible), the
+%% judicious use of break points and an understanding of the expected
+%% code path that will be followed across the thread boundary. Needless
+%% to say, in an Open Source project with so many other interesting
+%% problems to solve, there is little appetite for this sort of grungy
+%% work. This significantly reduces the bus factor of the system, and as
+%% a project maintainer, this worries me.
+もうひとつの問題は、内部的なデバッグが非常に難しくなるということだ。まずスピードを問われる(要するに、2分以内にコードを追いかけきらないといけない)し、適切なブレークポイントを設定して、スレッドをまたがるコードの流れをきちんと追いかけなければならない。言うまでもないが、オープンソースの世界には興味をそそられる課題が満載だ。こんな汚れ仕事を進んでやろうとする人はまずいないだろう。そのおかげでシステムのバス係数が劇的に低下してしまう。プロジェクトのメンテナとして、これは気がかりなことだ。
+
+%% To address this, more and more of the IE driver is being moved to sit
+%% upon the same Automation Atoms as the Firefox driver and Selenium
+%% Core. We do this by compiling each of the atoms we plan to use and
+%% preparing it as a C++ header file, exposing each function as a
+%% constant. At runtime, we prepare the Javascript to execute from these
+%% constants. This approach means that we can develop and test a
+%% reasonable percentage of code for the IE driver without needing a C
+%% compiler involved, allowing far more people to contribute to finding
+%% and resolving bugs. In the end, the goal is to leave only the
+%% interaction APIs in native code, and rely on the atoms as much as
+%% Possible.
+その対策として、IEドライバをどんどんAutomation Atoms化している。FirefoxドライバやSelenium Coreと同様に、だ。使おうとしているatomをコンパイルしてC++のヘッダファイルを作り、個々の関数を定数として公開する。実行時には、Javascriptを使ってこれらの定数を実行する。このようにすると、IEドライバのコードの大部分はCコンパイラがなくても開発・テストできるようになる。そのぶん、バグを見つけたり修正してくれたりする人たちにとっても敷居が低くなるだろう。最終的な目標は、インタラクションAPIだけをネイティブコードのまま残し、それ以外はできる限りatomに任せるようにすることだ。
+
+%% Another approach we're exploring is to rewrite the IE driver to make
+%% use of a lightweight HTTP server, allowing us to treat it as a remote
+%% WebDriver. If this occurs, we can remove a lot of the complexity
+%% introduced by the thread boundary, reducing the total amount of code
+%% required and making the flow of control significantly easier to
+%% follow.
+もうひとつのアプローチとして検討中なのが、IEドライバを書き直して軽量HTTPサーバーを使うようにするということだ。そうすれば、IEドライバをリモートWebDriverとして扱えるようになる。もしこれが実現すれば、スレッドの境界にまつわる複雑性の多くを取り除け、必要なコードの量も減らせるうえに、処理の流れも非常に追いやすくなる。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Selenium RC}
+\begin{aosasect1}{Selenium RC}
+
+%% It's not always possible to bind tightly to a particular browser. In
+%% those cases, WebDriver falls back to the original mechanism used by
+%% Selenium. This means using Selenium Core, a pure Javascript framework,
+%% which introduces a number of drawbacks as it executes firmly in the
+%% context of the Javascript sandbox. From a user of WebDriver's APIs
+%% this means that the list of supported browsers falls into tiers, with
+%% some being tightly integrated with and offering exceptional control,
+%% and others being driven via Javascript and offering the same level of
+%% control as the original Selenium RC.
+特定のブラウザとの密な結合が常に可能だとは限らない。そんな場合、WebDriverは次善の策としてもともとSeleniumが使っていた仕組みを利用する。つまりSelenium Coreを使うということだ。これはピュアJavascriptフレームワークであり、Javascriptサンドボックスのコンテキストで動くこともあっていろいろ制約も多い。WebDriverのAPIを使う側から見ると、サポート対象とされているブラウザの中にもいくつかのレベルがあるということだ。いくつかのブラウザは密に統合されているので期待通りの制御ができるが、そうでないブラウザはJavascriptによるサポートしかなく、もともとのSelenium RCが持っていた機能と同程度の制御しかできないということになる。
+
+%% Conceptually, the design used is pretty simple, as you can see in
+%% \aosafigref{fig.sel.arch}.
+概念的には、ここで採用する設計は\aosafigref{fig.sel.arch}のように極めてシンプルなものである。
+
+%% \aosafigureTop[250pt]{../images/selenium/selenium-rc.eps}{Outline of Selenium RC's Architecture}{fig.sel.arch}
+\aosafigureTop[250pt]{../images/selenium/selenium-rc.eps}{Selenium RCのアーキテクチャの概要}{fig.sel.arch}
+
+%% As you can see, there are three moving pieces here: the client code,
+%% the intermediate server and the Javascript code of Selenium Core
+%% running in the browser. The client side is just an HTTP client that
+%% serializes commands to the server-side piece. Unlike the remote
+%% WebDriver, there is just a single end-point, and the HTTP verb used is
+%% largely irrelevant. This is partly because the Selenium RC protocol is
+%% derived from the table-based API offered by Selenium Core, and this
+%% means that the entire API can be described using three URL query
+%% parameters.
+ご覧の通り、全体が大きく三つに分かれている。クライアントのコード、中間サーバー、そしてブラウザ内で動作するSelenium CoreのJavascriptコードだ。クライアント側は単なるHTTPクライアントであり、シリアライズしたコマンドをサーバー側に送る。リモートWebDriverとは違って単にエンドポイントがひとつあるだけであり、どのHTTPメソッドを使うかはあまり関係ない。その理由のひとつは、Selenium RCのプロトコルがSelenium CoreのテーブルベースなAPIを元にしていることだ。そのため、URLのクエリパラメータを三つ使うだけでAPI全体をカバーできてしまう。
+
+%% When the client starts a new session, the Selenium server looks up the
+%% requested ``browser string'' to identify a matching browser
+%% launcher. The launcher is responsible for configuring and starting an
+%% instance of the requested browser. In the case of Firefox, this is as
+%% simple as expanding a pre-built profile with a handful of extensions
+%% pre-installed (one for handling a ``quit'' command, and another for
+%% modeling ``document.readyState'' which wasn't present on older
+%% Firefox releases that we still support). The key piece of
+%% configuration that's done is that the server configures itself as a
+%% proxy for the browser, meaning that at least some requests (those for
+%% ``/selenium-server'') are routed through it.  Selenium RC can operate
+%% in one of three modes: controlling a frame in a single window
+%% (``singlewindow'' mode), in a separate window controlling the AUT in a
+%% second window (``multiwindow'' mode) or by injecting itself into the
+%% page via a proxy (``proxyinjection'' mode). Depending on the mode of
+%% operation, all requests may be proxied.
+クライアントが新しいセッションを開始すると、Selenium Serverはリクエストされた``ブラウザ文字列''に対応するブラウザランチャーを探す。そしてランチャーが、指定されたブラウザの構成を設定してブラウザのインスタンスを立ち上げる。Firefoxの場合は、事前に用意したプロファイルやプレインストールの拡張機能(``quit''コマンドを処理するための拡張や、``document.readyState''に対応する拡張など。``document.readyState''は、SeleniumがサポートするFirefoxのバージョンの中でも古いものには存在しない)を展開するだけのことだ。ここで行われる設定の中でもポイントとなるのが、Selenium Serverが自分自身をブラウザのプロキシに設定するということだ。これにより、少なくとも一部のリクエスト(``/selenium-server''に向けたもの)をSelenium Serverでルーティングできるようになる。Selenium RCは、次の三つのモードのうちのいずれかで動作する。一つのウィンドウ内のフレームを制御するモード(``singlewindow''モード)、別のウィンドウを開いてAUTをそのウィンドウで制御するモード(``multiwindow''モード)、そして自分自身をプロキシ経由でページに差し込むモード(``proxyinjection''モード)だ。処理モードによっては、すべてのリクエストがプロキシ経由となることがある。
+
+%% Once the browser is configured, it is started, with an initial URL
+%% pointing to a page hosted on the Selenium
+%% server---\code{RemoteRunner.html}. This page is responsible for
+%% bootstrapping the process by loading all the required Javascript files
+%% for Selenium Core. Once complete, the ``runSeleniumTest'' function is
+%% called. This uses reflection of the \code{Selenium} object to
+%% initialize the list of available commands that are available before
+%% kicking off the main command processing loop.
+ブラウザの設定を終えたらブラウザを立ち上げる。そのときの初期URLは、Selenium Serverが稼働するページ---\code{RemoteRunner.html}である。このページがすべての初期化処理を受け持ち、Selenium Coreに必要なJavascriptファイル群をすべてここで読み込む。読み込みが完了すると、``runSeleniumTest''関数が呼ばれる。この関数は、\code{Selenium}オブジェクトのリフレクションを使って利用可能なコマンド群を初期化をしてから、メインのコマンド処理ループを起動する。
+
+%% The Javascript executing in the browser opens an XMLHttpRequest to a
+%% URL on the waiting server (\code{/selenium-server/driver}), relying on
+%% the fact that the server is proxying all requests to ensure that the
+%% request actually goes somewhere valid. Rather than making a request,
+%% the first thing that this does is send the response from the
+%% previously executed command, or ``OK'' in the case where the browser
+%% is just starting up. The server then keeps the request open until a
+%% new command is received from the user's test via the client, which is
+%% then sent as the response to the waiting Javascript.  This mechanism
+%% was originally dubbed ``Response/Request'', but would now be more
+%% likely to be called ``Comet with AJAX long polling''.
+ブラウザ内で動くJavascriptがXMLHttpRequestを待ち受けサーバーのURL(\code{/selenium-server/driver})に送る。このサーバーがすべてのリクエストのプロキシとなり、リクエストが正しい場所に届くことを保証する。リクエストを送るだけではなく、その前に前回実行したコマンドのレスポンスを送信したり、ブラウザが立ち上がったときに``OK''を送ったりもする。サーバーはその後リクエストをオープンし続け、クライアントからユーザーのテストのコマンドを受け取ったら、オープンしていたリクエストのレスポンスをJavascriptに返す。この方式は俗に``Response/Request''と呼ばれていたが、最近では``Comet with AJAX long polling''と呼ばれることが多い。
+
+%% Why does RC work this way? The server needs to be configured as a
+%% proxy so that it can intercept any requests that are made to it
+%% without causing the calling Javascript to fall foul of the ``Single
+%% Host Origin'' policy, which states that only resources from the same
+%% server that the script was served from can be requested via
+%% Javascript.  This is in place as a security measure, but from the
+%% point of view of a browser automation framework developer, it's pretty
+%% frustrating and requires a hack such as this.
+なぜRCの挙動がそうなっているのかって? Serverをプロキシとして設定しなければならない理由は、Javascriptの``同一生成元''ポリシーに違反せずにすべてのリクエストを横取りするためだ。``同一生成元''ポリシーとは、Javascriptではスクリプトがある場所と同じサーバー上のリソースしかリクエストできないという制限のことである。そもそもこれはセキュリティを考慮して用意されたポリシーだが、ブラウザ自動化フレームワークの開発者から見ると極めて邪魔なものであり、こうでもしないとどうにもならないのだ。
+
+%% The reason for making an XmlHttpRequest call to the server is
+%% two-fold.  Firstly, and most importantly, until WebSockets, a part of
+%% HTML5, become available in the majority of browsers there is no way to
+%% start up a server process reliably within a browser.  That means that
+%% the server had to live elsewhere. Secondly, an XMLHttpRequest calls
+%% the response callback asynchronously, which means that while we're
+%% waiting for the next command the normal execution of the browser is
+%% unaffected. The other two ways to wait for the next command would have
+%% been to poll the server on a regular basis to see if there was another
+%% command to execute, which would have introduced latency to the users
+%% tests, or to put the Javascript into a busy loop which would have
+%% pushed CPU usage through the roof and would have prevented other
+%% Javascript from executing in the browser (since there is only ever one
+%% Javascript thread executing in the context of a single window).
+XmlHttpRequestコールをサーバーに向けて行う理由は次のふたつだ。まずは最も重要な理由から。HTML5の一部であるWebSocketsが大半のブラウザに実装されるようになるまでは、サーバープロセスをブラウザ側から立ち上げるための信頼できる方法が存在しないということである。つまり、サーバーはどこか別の場所で立ち上げないといけないということだ。もうひとつの理由は、XMLHttpRequestがレスポンスコールバックを非同期で呼び出すことだ。これはつまり、次のコマンドを待ち受けている間にも、操作中のブラウザの動きには何の影響も及ぼさないと言うことである。次のコマンドを待ち受ける方法は、それ以外にも二通り存在する。ひとつは、定期的にサーバーをポーリングして、何か別のコマンドが実行されていないかを調べる方法だ。しかしこの方法だと、ユーザーのテストにある程度の遅延が生じてしまう。もうひとつの方法は、Javascriptをビジーループの中に置いてしまうことだ。しかしこの方法はCPUを食いつぶしてしまい、他のJavascriptをブラウザ内から実行できなくなってしまう(ひとつのウィンドウ内のコンテキストには、Javascriptのスレッドをひとつしか実行できないからである)。
+
+%% Inside Selenium Core there are two major moving pieces. These are the
+%% main \code{selenium} object, which acts as the host for all available
+%% commands and mirrors the API offered to users. The second piece is the
+%% \code{browserbot}. This is used by the Selenium object to abstract
+%% away the differences present in each browser and to present an
+%% idealized view of commonly used browser functionality. This means that
+%% the functions in \code{selenium} are clearer and easier to maintain,
+%% whilst the \code{browserbot} is tightly focused.
+Selenium Coreの中は、大きく二つの部分に分かれている。本体の\code{selenium}オブジェクトは利用可能なすべてのコマンドのホストとして機能し、そのAPIをユーザー向けに提供する。もうひとつの部分が\code{browserbot}だ。これは、Seleniumオブジェクトが各ブラウザの差異を取り払うための抽象化として使うもので、一般的なブラウザの機能を理想的な状態で表している。これによって\code{selenium}の関数はよりきれいで保守しやすくなり、一方で\code{browserbot}にすべてを集中させることになる。
+
+%% Increasingly, Core is being converted to make use of the Automation
+%% Atoms. Both \code{selenium} and \code{browserbot} will probably need
+%% to remain as there is an extensive amount of code that relies on using
+%% the APIs it exposes, but it is expected that they will ultimately be
+%% shell classes, delegating to the atoms as quickly as possible.
+Selenium Coreも、徐々にAutomation Atomsを使うように書き換えているところだ。\code{selenium}と\code{browserbot}はおそらく残さざるを得ないだろう。大量のコードがこれらの公開するAPIに依存しているからである。しかし、最終的にはこれらも単なるガワだけのクラスにしてしまって、内部の実装はすぐにでもatomsに委譲させてしまいたいところだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Looking Back}
+\begin{aosasect1}{過去を振り返って}
+
+%% Building a browser automation framework is a lot like painting a room;
+%% at first glance, it looks like something that should be pretty easy to
+%% do.  All it takes is a few coats of paint, and the job's done. The
+%% problem is, the closer you get, the more tasks and details emerge, and
+%% the longer the task becomes. With a room, it's things like working
+%% around light fittings, radiators and the skirting boards that start to
+%% consume time.  For a browser automation framework, it's the quirks and
+%% differing capabilities of browsers that make the situation more
+%% complex. The extreme case of this was expressed by Daniel Wagner-Hall
+%% as he sat next to me working on the Chrome driver; he banged his hands
+%% on the desk and in frustration muttered, "It's all edge cases!" It
+%% would be nice to be able to go back and tell myself that, and that the
+%% project is going to take a lot longer than I expected.
+ブラウザの自動化フレームワークを作るという作業は、部屋の塗装に似ている。始める前にはとても簡単な作業に思えるのだ。「要するに、ざっと塗ってしまえばそれでおしまいでしょ?」実際はそうではなく、作業をすればするほどやるべきことが増えてきて、ひとつひとつのタスクが面倒なものになっていく。部屋の塗装の例だと、照明周りや幅木などを手掛け始めるととたんに時間がかかるようになる。ブラウザの自動化フレームワークでこれにあたるのが、ブラウザごとの機能の違いや微妙な動きだ。そのおかげで作業はさらに複雑になる。極めつけが、私の隣の席でChromeドライバを開発するダニエル・ワグナー=ホールだ。あまりにもイライラした彼は、デスクに両手をたたきつけてこう叫んだ。「なんでこんなあり得ないことばかり起こるんだよ!」できることなら過去にさかのぼって当時の自分にこう伝えてやりたい。「そのプロジェクト、たぶん思ってるよりもずっと時間がかかるよ」と。
+
+%% I also can't help but wonder where the project would be if we'd
+%% identified and acted upon the need for a layer like the automation
+%% atoms sooner than we did. It would certainly have made some of the
+%% challenges the project faced, internal and external, technically and
+%% socially, easier to deal with. Core and RC were implemented in a
+%% focused set of languages---essentially just Javascript and Java. Jason
+%% Huggins used to refer to this as providing Selenium with a level of
+%% ``hackability'', which made it easy for people to get involved with
+%% the project. It's only with the atoms that this level of hackability
+%% has become widely available in WebDriver. Balanced against this, the
+%% reason why the atoms can be so widely applied is because of the
+%% Closure compiler, which we adopted almost as soon as it was released
+%% as Open Source.
+今さらどうにもならないことではあるが、もしAutomation Atomのようなレイヤーの必要性をもっと早くに認識して対応していたらどうなっただろうかと考えることもある。きっと、これまでに我々が直面してきた問題(内部的な問題も外部的な問題も、そして技術的な問題も社会的な問題も)のいくつかは、もっと容易に対処できたことだろう。CoreやRCは、特定の言語---基本的にJavascriptとJava---に注力しすぎた実装になっている。ジェイソン・ハギンズはかつて、これを指摘してSeleniumの``ハッカビリティ''を改善し、そのおかげでプロジェクトに参加するための敷居が下がった。atomがあったからこそ、WebDriverが幅広いハッカビリティを確保できたのだ。我々がatomを幅広く適用できたのは、Closureコンパイラのおかげである。Closureコンパイラがオープンソースでリリースされるとすぐに、それを採用した。
+
+%% It's also interesting to reflect on the things that we got right. The
+%% decision to write the framework from the viewpoint of the user is
+%% something that I still feel is correct. Initially, this paid off as
+%% early adopters highlighted areas for improvement, allowing the utility
+%% of the tool to increase rapidly. Later, as WebDriver gets asked to do
+%% more and harder things and the number of developers using it
+%% increases, it means that new APIs are added with care and attention,
+%% keeping the focus of the project tight. Given the scope of what we're
+%% trying to do, this focus is vital.
+「こうすればよかった」だけではなく、「これはうまくできた」ということを振り返るのもいいだろう。フレームワークを書くときにユーザーの視点を重視したという判断は、今でも間違いではなかったと思っている。初期の段階では、改善すべき点をアーリーアダプターが指摘してくれたおかげで、ツールの使いやすさを急速に改善することができた。後に、WebDriverがより高度な作業を行うようになるにつれて、利用する開発者の数も増えてきた。新たなAPIを追加するときには今まで以上に注意を払うようになり、それがプロジェクトを引き締めることにもつながった。我々がやろうとしていることを考えると、これは非常に大切なことだ。
+
+%% Binding tightly to the browser is something that is both right and
+%% wrong.  It's right, as it has allowed us to emulate the user with
+%% extreme fidelity, and to control the browser extremely well. It's
+%% wrong because this approach is extremely technically demanding,
+%% particularly when finding the necessary hook point into the
+%% browser. The constant evolution of the IE driver is a demonstration of
+%% this in action, and, although it's not covered here, the same is true
+%% of the Chrome driver, which has a long and storied history. At some
+%% point, we'll need to find a way to deal with this complexity.
+ブラウザと密に結合させたことには、功罪の両面がある。よい面は、忠実にユーザーをエミュレートしてブラウザを完璧に制御できるようになったということだ。逆に悪い面は、この手法をとると技術的な要求が厳しくなるということだ。特に、ブラウザのフックポイントを見つけ出すのが大変になる。その大変さは、IEドライバの開発の進み具合を見ればよくわかる。ここでは紹介できなかったがChromeドライバも同様で、これもまた話せば長くなる経緯がある。いつの日か、この複雑性とうまく向き合う方法を見つけ出したいものだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Looking to the Future}
+\begin{aosasect1}{今後に向けて}
+
+%% There will always be browsers that WebDriver can't integrate tightly
+%% to, so there will always be a need for Selenium Core. Migrating this
+%% from its current traditional design to a more modular design based on
+%% the same Closure Library that the atoms are using is underway. We also
+%% expect to embed the atoms more deeply within the existing WebDriver
+%% implementations.
+WebDriverとの密な結合ができないブラウザってのが、常に存在する。なので、Selenium Coreは今後もいつだって必要になるだろう。当初から続く現在の設計を変更して、atomsも使っているClosure Libraryと同じものを使うように変更しようという動きが進行中である。また、既存のWebDriverの実装にも、atomsをより深く埋め込んでいこうという動きもある。
+
+%% One of the initial goals of WebDriver was to act as a building block
+%% for other APIs and tools. Of course, Selenium doesn't live in a
+%% vacuum: there are plenty of other Open Source browser automation
+%% tools. One of these is Watir (Web Application Testing In Ruby), and
+%% work has begun, as a joint effort by the Selenium and Watir
+%% developers, to place the Watir API over the WebDriver core. We're keen
+%% to work with other projects too, as successfully driving all the
+%% browsers out there is hard work. It would be nice to have a solid
+%% kernel that others could build on. Our hope is that the kernel is
+%% WebDriver.
+WebDriverの当初の目標のひとつが、他のAPIやツールを組み立てるためのブロックとして使えるようにすることだった。もちろん、Seleniumが唯一のブラウザ自動化ツールというわけではない。それ以外にも、オープンソースのブラウザ自動化ツールはいくらでも存在する。そのひとつがWatir (Web Application Testing In Ruby)であり、SeleniumとWatirの開発者が協力して、Watir APIをWebDriverのコアにのせようという動きも始まっている。我々は、他のプロジェクトとの協力を望んでいる。すべてのブラウザに対応し続けるという作業はたいへんなものだからである。しっかりとした中核があって、他の開発者たちがその上に何かを構築しやすいようにできれば、すばらしいことだろう。我々としては、その中核がWebDriverとなって欲しい。
+
+%% A glimpse of this future is offered by Opera Software, who have
+%% independently implemented the WebDriver API, using the WebDriver test
+%% suites to verify the behavior of their code, and who will be
+%% releasing their own OperaDriver. Members of the Selenium team are also
+%% working with members of the Chromium team to add better hooks and
+%% support for WebDriver to that browser, and by extension to Chrome
+%% too. We have a friendly relationship with Mozilla, who have
+%% contributed code for the FirefoxDriver, and with the developers of the
+%% popular HtmlUnit Java browser emulator.
+そんな将来をうかがわせるような申し出がOpera Softwareからあった。彼らは独自にWebDriver APIを実装し、WebDriverのテストスイートを使ってそのコードのふるまいを検証し、そしてOperaDriverとしてリリースする。SeleniumチームのメンバーはChromiumチームとも共同作業をしており、WebDriverのサポートやよりよいフックをChromiumに追加しようとしている。Chromeに対しても同様だ。Mozillaとも良好な関係を築いている。彼らはFirefoxDriverのコードに貢献してくれたし、あの有名なJavaブラウザエミュレータであるHtmlUnitの開発者も提供してくれた。
+
+%% One view of the future sees this trend continue, with automation hooks
+%% being exposed in a uniform way across many different browsers. The
+%% advantages for people keen to write tests for web applications are
+%% clear, and the advantages for browser manufacturers are also
+%% obvious. For example, given the relative expense of manual testing,
+%% many large projects rely heavily on automated testing. If it's not
+%% possible, or even if it's ``only'' extremely taxing, to test with a
+%% particular browser, then tests just aren't run for it, with knock-on
+%% effects for how well complex applications work with that
+%% browser. Whether those automation hooks are going to be based on
+%% WebDriver is an open question, but we can hope!
+ひとつの見方として、この傾向は今後も続くだろう。さまざまなブラウザで、統一された方法で自動化のフックができるようになるという流れだ。ウェブアプリケーションのテストを書く開発者にとってのメリットは明白だし、ブラウザを作る側にとってもその利点は明らかだ。たとえば、手動テストのコストと比較して、多くの大規模プロジェクトでは自動テストにより依存している。もし特定のブラウザでのテストが不可能(あるいはばかみたいに高いコストがかかる)なら、そのブラウザに対するテストは行われないだろう。アプリケーションが複雑になればなるほど、テストしていないブラウザでそれがうまく動くかどうかは怪しくなる。最終的に統一された自動化フックがWebDriverベースのものになるかどうかはわからない。でも、そうあって欲しいものだね!
+
+%% The next few years are going to be very interesting. As we're an open
+%% source project, you'd be welcome to join us for the journey at
+%% \url{http://selenium.googlecode.com/}.
+今後数年の動きが楽しみだ。我々はオープンソースプロジェクトなので、いつでもみなさんの参加を歓迎する。さあ、一緒に\url{http://selenium.googlecode.com/}への旅に出ないかい?
+
+\end{aosasect1}
+
+\end{aosachapter}
+

@@ -1,0 +1,1466 @@
+\begin{aosachapter}{LLVM}{s:llvm}{Chris Lattner}
+%% Based on EN-Revision r272
+
+%% This chapter discusses some of the design decisions that shaped
+%% LLVM\footnote{\url{http://llvm.org}}, an umbrella project that hosts
+%% and develops a set of close-knit low-level toolchain components (e.g.,
+%% assemblers, compilers, debuggers, etc.), which are designed to be
+%% compatible with existing tools typically used on Unix systems.  The
+%% name ``LLVM'' was once an acronym, but is now just a brand for the
+%% umbrella project.  While LLVM provides some unique capabilities, and
+%% is known for some of its great tools (e.g., the Clang
+%% compiler\footnote{\url{http://clang.llvm.org}}, a C/C++/Objective-C
+%% compiler which provides a number of benefits over the GCC compiler),
+%% the main thing that sets LLVM apart from other compilers is its
+%% internal architecture.
+本章では、LLVM
+\footnote{\url{http://llvm.org}}を形づくるもとになった設計上の判断について議論する。
+LLVMは包括的なプロジェクトで、各種の低レベルツールコンポーネント(アセンブラやコンパイラ、デバッガなど)
+が密接に結びついている。また、主にUnixシステム上で使われている既存のツール群との互換性を考慮している。
+``LLVM''という名前は元々は略語だったが、今ではこのプロジェクトのブランドになっている。
+LLVMは独特の機能を提供するし、すばらしいツール
+(たとえばClangコンパイラ\footnote{\url{http://clang.llvm.org}}。これはC/C++/Objective-Cのコンパイラで、
+GCCに比べていろんな利点がある)
+が含まれていることでも有名だが、LLVMがその他のコンパイラと一線を画す最大の要因は、その内部アーキテクチャだ。
+
+%% From its beginning in December 2000, LLVM was designed as a set of
+%% reusable libraries with well-defined
+%% interfaces~\cite{bib:lattner:cgo}.  At the time, open source
+%% programming language implementations were designed as special-purpose
+%% tools which usually had monolithic executables. For example, it was
+%% very difficult to reuse the parser from a static compiler (e.g., GCC)
+%% for doing static analysis or refactoring.  While scripting languages
+%% often provided a way to embed their runtime and interpreter into
+%% larger applications, this runtime was a single monolithic lump of code
+%% that was included or excluded.  There was no way to reuse pieces, and
+%% very little sharing across language implementation projects.
+LLVMが生まれたのは2000年12月のこと。
+再利用可能なライブラリとよくできたインターフェイスをまとめたものとして設計された~\cite{bib:lattner:cgo}。
+その頃のオープンソースなプログラミング言語の実装は、
+特化型のツールとして設計されていることが多く、
+たいていは一枚岩の大きな実行ファイルだった。
+たとえば、GCCなどの静的なコンパイラの中からパーサーだけを再利用して
+静的解析やリファクタリングを施そうとしても、それはとても難しかったのだ。
+スクリプト言語の中にはそのランタイムを別のアプリケーションに組み込めるようになっているものも多かったが、
+そのランタイムだって一枚岩なひと固まりのコードで、それをインクルードするかしないかというだけのことだった。
+一部だけを再利用する手段はなくて、言語をまたがって実装を共有するプロジェクトなどほとんどなかった。
+
+%% Beyond the composition of the compiler itself, the communities
+%% surrounding popular language implementations were usually strongly
+%% polarized: an implementation usually provided \emph{either} a
+%% traditional static compiler like GCC, Free Pascal, and FreeBASIC,
+%% \emph{or} it provided a runtime compiler in the form of an
+%% interpreter or Just-In-Time (JIT) compiler.  It was very uncommon to
+%% see language implementation that supported both, and if they did,
+%% there was usually very little sharing of code.
+コンパイラ自体の構成以上に、主要な言語実装を取り巻くコミュニティもまた偏向していた。
+GCCやFree PascalそしてFree BASICのような昔ながらの静的コンパイラか、
+またはインタプリタやJust-In-Time (JIT)コンパイラのような実行時コンパイラ。
+その\emph{どちらかだけ}を提供するというところが多かった。
+両方に対応した言語実装はほとんどなかったし、
+仮にあったとしても、両方で共有しているコードはごく一部だけだった。
+
+%% Over the last ten years, LLVM has substantially altered this
+%% landscape.  LLVM is now used as a common infrastructure to implement a
+%% broad variety of statically and runtime compiled languages (e.g., the
+%% family of languages supported by GCC, Java, .NET, Python, Ruby,
+%% Scheme, Haskell, D, as well as countless lesser known languages).  It
+%% has also replaced a broad variety of special purpose compilers, such
+%% as the runtime specialization engine in Apple's OpenGL stack and the
+%% image processing library in Adobe's After Effects product.  Finally
+%% LLVM has also been used to create a broad variety of new products,
+%% perhaps the best known of which is the OpenCL GPU programming language
+%% and runtime.
+この10年で、LLVMがその状況を大きく変えた。
+LLVMは今や共通の基盤として使われるようになり、
+静的コンパイル型から実行時コンパイル型まで幅広い言語の実装に使われている
+(GCCがサポートする言語群の他にも、Javaや.NET、Python、Ruby、Scheme、Haskell、Dなど。
+あまり知られていないものも含めると、さらに多くの言語に対応する)。
+また、さまざまな特化型コンパイラにとって代わるようになってきた。
+AppleのOpenGLスタック内の実行時特殊化エンジンや、
+Adobe After Effectsの画像処理ライブラリなどだ。
+LLVMはさまざまな分野の新製品開発にも使われるようになっている。
+中でも一番有名なのは、GPUプログラミング言語OpenCLとそのランタイムだろう。
+
+%% \begin{aosasect1}{A Quick Introduction to Classical Compiler Design}
+\begin{aosasect1}{古典的なコンパイラの設計}
+
+%% The most popular design for a traditional static compiler (like most C
+%% compilers) is the three phase design whose major components are the
+%% front end, the optimizer and the back end
+%% (\aosafigref{fig.llvm.com}). The front end parses source code, checking
+%% it for errors, and builds a language-specific Abstract Syntax Tree
+%% (AST) to represent the input code.  The AST is optionally converted to
+%% a new representation for optimization, and the optimizer and back end
+%% are run on the code.
+昔ながらの静的コンパイラ(たいていのCコンパイラ)でよくある設計は、
+フロントエンド・オプティマイザ・バックエンドの3フェーズにわけるものだ
+(\aosafigref{fig.llvm.com})。
+フロントエンドは、ソースコードを解析してエラーをチェックし、言語固有の抽象構文木
+(AST)を作ってコードを表現する。ASTは最適化に備えて別の表現に変換されることもある。
+オプティマイザやバックエンドは、この表現上で動く。
+
+%% \aosafigure{../images/llvm/SimpleCompiler.eps}{Three Major Components of a Three-Phase Compiler}{fig.llvm.com}
+\aosafigure{../images/llvm/SimpleCompiler.eps}{3フェーズコンパイラの主要なコンポーネント}{fig.llvm.com}
+
+%% The optimizer is responsible for doing a broad variety of
+%% transformations to try to improve the code's running time, such as
+%% eliminating redundant computations, and is usually more or less
+%% independent of language and target.  The back end (also known as the
+%% code generator) then maps the code onto the target instruction set.
+%% In addition to making \emph{correct} code, it is responsible for
+%% generating \emph{good} code that takes advantage of unusual features
+%% of the supported architecture.  Common parts of a compiler back end
+%% include instruction selection, register allocation, and instruction
+%% scheduling.
+オプティマイザの役割は、さまざまな変換(冗長な計算の除去など)を行ってコードの実行時間を短縮することだ。
+通常は、言語やターゲットとは独立している。バックエンド(コードジェネレータとも呼ばれる)は、
+そのコードをターゲット上の命令セットにマップする。
+単に\emph{正しい}コードを作るだけではなく、より\emph{よい}
+コードを作ってそのアーキテクチャ独自の機能を活用できるようにするのもバックエンドの役割だ。
+コンパイラのバックエンドでの一般的な処理は、
+命令の選択やレジスタの確保、命令のスケジューリングなどだ。
+
+%% This model applies equally well to interpreters and JIT compilers.
+%% The Java Virtual Machine (JVM) is also an implementation of this
+%% model, which uses Java bytecode as the interface between the front end
+%% and optimizer.
+このモデルは、インタプリタやJITコンパイラにも同様にあてはまる。
+Java仮想マシン(JVM)もこのモデルの実装で、
+フロントエンドとオプティマイザの間のインターフェイスとしてJavaバイトコードを使っている。
+
+%% \begin{aosasect2}{Implications of this Design}
+\begin{aosasect2}{この設計の実装}
+
+%% The most important win of this classical design comes when a compiler
+%% decides to support multiple source languages or target
+%% architectures. If the compiler uses a common code representation in
+%% its optimizer, then a front end can be written for any language that
+%% can compile to it, and a back end can be written for any target that
+%% can compile from it, as shown in \aosafigref{fig.llvm.rtc}.
+この古典的な設計の重要な利点は、コンパイラで複数のソース言語や
+ターゲットアーキテクチャをサポートするようになったときに効いてくる。
+オプティマイザ内で共通のコード表現を使うようにしてすれば、
+どんな言語のフロントエンドだってその形式に変換するように書いておける。
+一方バックエンド側も、共通の表現から任意のターゲットへのコンパイルを書けるようになる。
+その様子を\aosafigref{fig.llvm.rtc}に示した。
+
+%% \aosafigure{../images/llvm/RetargetableCompiler.eps}{Retargetablity}{fig.llvm.rtc}
+\aosafigure{../images/llvm/RetargetableCompiler.eps}{再利用性}{fig.llvm.rtc}
+
+%% With this design, porting the compiler to support a new source
+%% language (e.g.,  Algol or BASIC) requires implementing a new front end,
+%% but the existing optimizer and back end can be reused.  If these parts
+%% weren't separated, implementing a new source language would require
+%% starting over from scratch, so supporting \code{N} targets and
+%% \code{M} source languages would need N*M compilers.
+この設計のコンパイラで新たなソース言語(AlgolやBASICなど)に対応するために必要なのは、
+それ用のフロントエンドを実装することだ。オプティマイザやバックエンドは、
+既存のものを流用できる。もしこれらのフェーズを分割していなければ、
+新たな言語をサポートしようとするたびにスクラッチですべて書かないといけないことになってしまう。
+\code{N}種類のターゲットと\code{M}種類のソース言語をサポートするには、
+N*M種類のコンパイラが必要になるということだ。
+
+%% Another advantage of the three-phase design (which follows directly
+%% from retargetability) is that the compiler serves a broader set of
+%% programmers than it would if it only supported one source language and
+%% one target. For an open source project, this means that there is a
+%% larger community of potential contributors to draw from, which
+%% naturally leads to more enhancements and improvements to the compiler.
+%% This is the reason why open source compilers that serve many
+%% communities (like GCC) tend to generate better optimized machine code
+%% than narrower compilers like FreePASCAL\@.  This isn't the case for
+%% proprietary compilers, whose quality is directly related to the
+%% project's budget.  For example, the Intel ICC Compiler is widely known
+%% for the quality of code it generates, even though it serves a narrow
+%% audience.
+3フェーズ設計には別の利点もある(再利用性から直接導けるものだ)。
+それは、単一のソース言語と単一のターゲットしかサポートしていないとしても、
+そのコンパイラがより幅広いプログラマーの役に立てるということだ。
+オープンソースプロジェクトにとっては、
+これはつまり、より多くの貢献者を巻き込めるようになるということだ。
+当然、そのほうがコンパイラの機能追加や改良も進めやすくなる。
+これこそが、多くのコミュニティで使われるオープンソースのコンパイラ(GCCなど)
+のほうがFreePASCALのような限定的なコンパイラよりも高性能のオプティマイザを作れる理由でもある。
+プロプライエタリなコンパイラの場合はその限りではない。
+コンパイラの品質は、純粋にそのプロジェクトの予算に絡んでくる。
+たとえばIntel ICC Compilerが生成するコードが高品質であることは広く知られているが、
+このコンパイラの利用者はそんなに多くない。
+
+%% A final major win of the three-phase design is that the skills
+%% required to implement a front end are different than those required for
+%% the optimizer and back end.  Separating these makes it easier for a
+%% ``front-end person'' to enhance and maintain their part of the
+%% compiler.  While this is a social issue, not a technical one, it
+%% matters a lot in practice, particularly for open source projects
+%% that want to reduce the barrier to contributing as much as possible.
+3フェーズ設計の主要な利点として最後にもう一つあげられるのが、
+各フェーズの実装に求められるスキルがそれぞれ異なるという点だ。
+これらを分割しておくことで、「他はともかくフロントエンドならわかるよ」
+といおう人でもコンパイラに手を加えたり保守したりできるようになる。
+技術的な問題というよりはソーシャルな問題ではあるが、
+現実的にはこのあたりが大きく影響してくる。
+特にオープンソースプロジェクトの場合、参入障壁はできるだけ低くしておきたいものだ。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Existing Language Implementations}
+\begin{aosasect1}{既存の言語の実装}
+
+%% While the benefits of a three-phase design are compelling and
+%% well-documented in compiler textbooks, in practice it is almost never
+%% fully realized. Looking across open source language implementations
+%% (back when LLVM was started), you'd find that the implementations of
+%% Perl, Python, Ruby and Java share no code.  Further, projects like the
+%% Glasgow Haskell Compiler (GHC) and FreeBASIC are retargetable to
+%% multiple different CPUs, but their implementations are very specific
+%% to the one source language they support.  There is also a broad
+%% variety of special purpose compiler technology deployed to implement
+%% JIT compilers for image processing, regular expressions, graphics card
+%% drivers, and other subdomains that require CPU intensive work.
+3フェーズコンパイラには利点があることは認めざるを得ないし、実際コンパイラの教科書にもそう書かれている。
+でも実際のところ、そのメリットを完全に理解している人は少ない。オープンソースの言語の実装を
+(LLVM以前にさかのぼって)見てみると、わかるはずだ。
+PerlやPython、Ruby、そしてJava。これらの言語間では一切コードを共有していない。
+さらに、Glasgow Haskell Compiler (GHC)やFreeBASICといったプロジェクトは
+さまざまなCPUに対応した再利用性を持っているが、その実装はたった一つのソース言語しかサポートしていない。
+特化型のコンパイラ技術はいろいろ公開されており、画像処理や正規表現、グラフィックカードのドライバ用などの
+CPU固有の作業用にJITコンパイラが実装されている。
+
+%% That said, there are three major success stories for this model, the
+%% first of which are the Java and .NET virtual machines.  These systems
+%% provide a JIT compiler, runtime support, and a very well defined
+%% bytecode format.  This means that any language that can compile to the
+%% bytecode format (and there are dozens of
+%% them\footnote{\url{http://en.wikipedia.org/wiki/List_of_JVM_languages}})
+%% can take advantage of the effort put into the optimizer and JIT as
+%% well as the runtime.  The tradeoff is that these implementations
+%% provide little flexibility in the choice of runtime: they both
+%% effectively force JIT compilation, garbage collection, and the use of
+%% a very particular object model.  This leads to suboptimal performance
+%% when compiling languages that don't match this model closely, such as
+%% C (e.g., with the LLJVM project).
+とはいえ、このモデルを採用してコードの共有に成功した例もある。ここでは三つの有名な例を取り上げよう。
+まずはJavaや.NETの仮想マシンだ。これらのシステムでは、JITコンパイラやランタイムサポート、
+そしてうまく考えられたバイトコードフォーマットを提供する。
+つまり、どんな言語であっても、このバイトコードフォーマットへの変換さえできれば
+(実際、できている言語がいろいろある\footnote{\url{http://en.wikipedia.org/wiki/List_of_JVM_languages}})
+、オプティマイザだけでなくJITやランタイムも活用できるということだ。
+その代償として、ランタイムの選択によって実装の柔軟性が縛られるという点がある。
+JITコンパイルやガベージコレクション、そして採用するオブジェクトモデルなどの制約を受けるということだ。
+その結果、このオブジェクトモデルにマッチしない言語、たとえばCなどを(LLVMプロジェクトで)コンパイルするときには、
+パフォーマンスが二の次になってしまう。
+
+%% A second success story is perhaps the most unfortunate, but
+%% also most popular way to reuse compiler technology: translate the input
+%% source to C code (or some other language) and send it through existing
+%% C compilers.  This allows reuse of the optimizer and code generator,
+%% gives good flexibility, control over the runtime, and is really easy
+%% for front-end implementers to understand, implement, and maintain.
+%% Unfortunately, doing this prevents efficient implementation of
+%% exception handling, provides a poor debugging experience, slows down
+%% compilation, and can be problematic for languages that require guaranteed
+%% tail calls (or other features not supported by C).
+二番目の例は、おそらく最も不運なものだ。しかし、
+コンパイラの技術の再利用という点では最も有名な例でもある。
+入力のソースをCのコード(あるいは別の言語のコード)に変換して、既存のCコンパイラに渡すというものだ。
+これによって、オプティマイザやコードジェネレータの再利用ができるようになり、
+柔軟性も上がり、ランタイムも制御できるようになる。
+実装する側にとっては、フロントエンドの実装がいちばんわかりやすいし、実装や保守も楽だ。
+残念ながら、この方式だと例外処理の実装が非効率的になるし、デバッグ機能も貧弱になる。
+コンパイル速度も遅くなるし、末尾再帰の保証(などのCでサポートしていない機能)を要求する言語で問題になる。
+
+%% A final successful implementation of this model is GCC\footnote{A
+%% backronym that now stands for ``GNU Compiler Collection''.}.  GCC
+%% supports many front ends and back ends, and has an active and broad
+%% community of contributors.  GCC has a long history of being a C
+%% compiler that supports multiple targets with hacky support for a few
+%% other languages bolted onto it.  As the years go by, the GCC community
+%% is slowly evolving a cleaner design.  As of GCC~4.4, it has a new
+%% representation for the optimizer (known as ``GIMPLE Tuples'') which is
+%% closer to being separate from the front-end representation than
+%% before.  Also, its Fortran and Ada front ends use a clean AST.
+このモデルの実装での成功例として最後に取り上げるのが、GCC\footnote{後付けで、今は``GNU Compiler Collection''の略だということになっている}だ。
+GCCはさまざまなフロントエンドとバックエンドに対応しており、幅広いコミュニティが活発に活動している。
+GCCは、Cコンパイラとしての長い歴史があり、複数のターゲットに対応している。
+そこにちょっとした手を加えて、いくつかの他の言語も組み込まれていた。
+時を経て、GCCコミュニティは徐々に設計を改良しはじめた。
+GCC~4.4の時点ではオプティマイザの内部表現が新しい形式(``GIMPLE Tuples'')になって、
+以前よりもフロントエンドの表現と切り離されたものになった。
+また、FortranやAda用のフロントエンドでは、クリーンなASTを使っている。
+
+%% While very successful, these three approaches have strong limitations
+%% to what they can be used for, because they are designed as monolithic
+%% applications.  As one example, it is not realistically possible to
+%% embed GCC into other applications, to use GCC as a runtime/JIT
+%% compiler, or extract and reuse pieces of GCC without pulling in most
+%% of the compiler.  People who have wanted to use GCC's C++ front end for
+%% documentation generation, code indexing, refactoring, and static
+%% analysis tools have had to use GCC as a monolithic application that
+%% emits interesting information as XML, or write plugins to inject
+%% foreign code into the GCC process.
+これら三つの例は大成功をしたものだが、
+どのアプローチにも使い方に大きな制限がある。もともとモノリシックなアプリケーション用に作られているからだ。
+たとえば、GCCを他のアプリケーションに組み込んだりするのは現実的に不可能だろう。
+同じく、GCCをJITコンパイラとして使ったりGCCの一部分だけを取り出して再利用したりといったことも不可能だ。
+GCCのC++フロントエンドだけを使ってドキュメントの生成やコードのインデキシング、リファクタリング、静的解析などが
+したいという人がいたとしても、GCC全体をモノリシックなアプリケーションとして使うしかない。
+あるいはプラグインを書いて、外部のコードをGCCのプロセスに注入するということになるだろう。
+
+%% There are multiple reasons why pieces of GCC cannot be reused as
+%% libraries, including rampant use of global variables, weakly enforced
+%% invariants, poorly-designed data structures, sprawling code base, and
+%% the use of macros that prevent the codebase from being compiled to
+%% support more than one front-end/target pair at a time.  The hardest
+%% problems to fix, though, are the inherent architectural problems that
+%% stem from its early design and age.  Specifically, GCC suffers from
+%% layering problems and leaky abstractions: the back end walks front-end
+%% ASTs to generate debug info, the front ends generate back-end data
+%% structures, and the entire compiler depends on global data structures
+%% set up by the command line interface.
+GCCの一部だけを切り出してライブラリとして再利用できないのには、複数の理由がある。
+グローバル変数を使いまくっていること、不変条件の強要が弱いこと、データ構造の設計がまずいこと、
+コードが乱雑なこと。
+さらに、マクロを使っているせいで、複数のフロントエンドとバックエンドのペアを同時にサポートするようにコンパイルすることができない。
+中でも一番修正しにくいのは、初期の設計や当時の時代背景に由来する先天的なアーキテクチャの問題だ。
+特に、GCCはレイヤー化の問題と抽象化の漏れに苦しんでいる。
+バックエンドはフロントエンドのASTを使ってデバッグ情報を生成するし、
+フロントエンドはバックエンドのデータ構造を生成する。
+そしてコンパイラ全体がグローバルなデータ構造に依存しており、これはコマンドラインインターフェイスで準備するものだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{LLVM's Code Representation: LLVM IR}
+\begin{aosasect1}{LLVMのコード表現: LLVM IR}
+
+%% With the historical background and context out of the way, let's dive
+%% into LLVM: The most important aspect of its design is the LLVM
+%% Intermediate Representation (IR), which is the form it uses to
+%% represent code in the compiler.  LLVM IR is designed to host mid-level
+%% analyses and transformations that you find in the optimizer section of
+%% a compiler.  It was designed with many specific goals in mind,
+%% including supporting lightweight runtime optimizations,
+%% cross-function/interprocedural optimizations, whole program analysis,
+%% and aggressive restructuring transformations, etc.  The most important
+%% aspect of it, though, is that it is itself defined as a first class
+%% language with well-defined semantics. To make this concrete, here is a
+%% simple example of a \code{.ll} file:
+歴史的な経緯やコンテキストはさておいて、LLVMの内部に飛び込んでみよう。
+LLVMの設計でいちばん重要な部分が
+LLVM Intermediate Representation (IR)だ。これは、コンパイラ内でのコードの表現形式である。
+LLVM IRは中間レベルの解析や変換のために作られたもので、コンパイラの中の
+オプティマイザの部分で使う。
+いろんな目標があった。軽量な実行時最適化、関数や手続きをまたがった最適化、
+プログラム全体の解析、積極的な構造変換などだ。
+しかし、中でも一番重要だったのは、それ自体をファーストクラスの言語として定義し、
+きちんと考えた文法にすることだった。
+具体例として、シンプルな\code{.ll}ファイルを示す。
+
+\begin{verbatim}
+define i32 @add1(i32 %a, i32 %b) {
+entry:
+  %tmp1 = add i32 %a, %b
+  ret i32 %tmp1
+}
+
+define i32 @add2(i32 %a, i32 %b) {
+entry:
+  %tmp1 = icmp eq i32 %a, 0
+  br i1 %tmp1, label %done, label %recurse
+
+recurse:
+  %tmp2 = sub i32 %a, 1
+  %tmp3 = add i32 %b, 1
+  %tmp4 = call i32 @add2(i32 %tmp2, i32 %tmp3)
+  ret i32 %tmp4
+
+done:
+  ret i32 %b
+}
+\end{verbatim}
+
+%% \noindent This LLVM IR corresponds to this C code, which provides two different
+%% ways to add integers:
+\noindent
+このLLVM IRは、次のCのコードに対応するものだ。このコードでは、二通りの方法で整数の足し算をしている。
+
+%% \begin{verbatim}
+%% unsigned add1(unsigned a, unsigned b) {
+%%   return a+b;
+%% }
+
+%% // Perhaps not the most efficient way to add two numbers.
+%% unsigned add2(unsigned a, unsigned b) {
+%%   if (a == 0) return b;
+%%   return add2(a-1, b+1);
+%% }
+%% \end{verbatim}
+\begin{verbatim}
+unsigned add1(unsigned a, unsigned b) {
+  return a+b;
+}
+
+// 非効率的な方法での足し算
+unsigned add2(unsigned a, unsigned b) {
+  if (a == 0) return b;
+  return add2(a-1, b+1);
+}
+\end{verbatim}
+
+%% \noindent As you can see from this example, LLVM IR is a low-level RISC-like
+%% virtual instruction set.  Like a real RISC instruction set, it
+%% supports linear sequences of simple instructions like add, subtract,
+%% compare, and branch.  These instructions are in three address form,
+%% which means that they take some number of inputs and produce a result
+%% in a different register.\footnote{This is in contrast to a two-address
+%% instruction set, like X86, which destructively updates an input
+%% register, or one-address machines which take one explicit operand
+%% and operate on an accumulator or the top of the stack on a stack
+%% machine.} LLVM IR supports labels and generally looks like a weird
+%% form of assembly language.
+\noindent
+この例からわかるとおり、LLVM IRはローレベルなRISC風の仮想命令セットである。
+実際のRISC命令セットと同様に、addやsubtract、compare、branchといったシンプルな命令のリニアなシーケンスに対応している。
+これらの命令は3アドレス形式で、いくつかの入力を受け取って、
+結果を別のレジスタに生成するというものだ。
+\footnote{これは、2アドレス形式(X86など、入力レジスタを破壊してしまう方式)
+や1アドレスマシン(オペランドだけを指定してアキュムレータを操作したり、
+スタックマシン上でスタックの先頭を操作したりするもの)とは対象的だ。}
+LLVM IRはラベルをサポートしており、ちょっと見た限りでは風変わりなアセンブリ言語にも見える。
+
+%% Unlike most RISC instruction sets, LLVM is strongly typed with a
+%% simple type system (e.g., \code{i32} is a 32-bit integer, \code{i32**}
+%% is a pointer to pointer to 32-bit integer) and some details of the
+%% machine are abstracted away.  For example, the calling convention is
+%% abstracted through \code{call} and \code{ret} instructions and
+%% explicit arguments.  Another significant difference from machine code
+%% is that the LLVM IR doesn't use a fixed set of named registers, it
+%% uses an infinite set of temporaries named with a \% character.
+多くのRISC命令セットとは異なり、LLVMはシンプルな型システムによる強い型付け
+(たとえば\code{i32}は32ビット整数、\code{i32**}は32ビット整数へのポインタのポインタ)
+があり、マシンの詳細は抽象化されている。
+たとえば、呼び出し規約の抽象化をしているのが\code{call}命令と\code{ret}命令で、
+これらに明示的に引数を指定する。
+マシンコードとの大きな違いがもうひとつあって、それはLLVM IRが名前付きレジスタの固定セットを使わないということだ。
+代わりに使うのは無限のテンポラリレジスタで、名前には\%文字を使う。
+
+%% Beyond being implemented as a language, LLVM IR is actually defined in
+%% three isomorphic forms: the textual format above, an in-memory data
+%% structure inspected and modified by optimizations themselves, and an
+%% efficient and dense on-disk binary ``bitcode'' format.  The LLVM
+%% Project also provides tools to convert the on-disk format from text to
+%% binary: \code{llvm-as} assembles the textual \code{.ll} file into a
+%% \code{.bc} file containing the bitcode goop and \code{llvm-dis} turns a
+%% \code{.bc} file into a \code{.ll} file.
+言語としての実装にとどまらず、LLVM IRは実際には三通りの形式で定義されている。
+先に示したテキスト形式、オプティマイザがインメモリで扱うときのデータ構造、そして
+効率的かつ濃縮した形式でディスク上に格納するバイナリ形式の``bitcode''フォーマットだ。
+LLVMプロジェクトでは、ディスク上のフォーマットをテキストからバイナリに変換するツールも用意している。
+\code{llvm-as}はテキスト形式の\code{.ll}ファイルをbitcode形式の\code{.bc}ファイルに変換し、
+\code{llvm-dis}はその逆で\code{.bc}ファイルから\code{.ll}ファイルに変換する。
+
+%% The intermediate representation of a compiler is interesting because
+%% it can be a ``perfect world'' for the compiler optimizer: unlike the
+%% front end and back end of the compiler, the optimizer isn't constrained
+%% by either a specific source language or a specific target machine.  On
+%% the other hand, it has to serve both well: it has to be designed to be
+%% easy for a front end to generate and be expressive enough to allow
+%% important optimizations to be performed for real targets.
+コンパイラの中間表現は興味深いものだ。なぜならそれは、コンパイラのオプティマイザにとって
+``理想の世界''だからである。コンパイラのフロントエンドやバックエンドとは違い、
+オプティマイザは特定のソース言語やターゲットマシンの制約を受けない。
+一方、オプティマイザはその両方を適切に扱えないといけない。
+フロントエンドが生成しやすいような設計にしないといけないし、
+実際のターゲット上での最適化が十分できるほどの表現力も必要だ。
+
+%% \begin{aosasect2}{Writing an LLVM IR Optimization}
+\begin{aosasect2}{LLVM IRの最適化}
+
+%% To give some intuition for how optimizations work, it is useful to
+%% walk through some examples.  There are lots of different kinds of
+%% compiler optimizations, so it is hard to provide a recipe for how to
+%% solve an arbitrary problem.  That said, most optimizations follow a
+%% simple three-part structure:
+最適化の様子を直感的につかむには、例を使って実際に動きを見るのがいいだろう。
+コンパイラの最適化にはいろんなやりかたがあるので、あらゆる問題に対応できるレシピを用意するのは難しい。
+とはいえ、ほとんどの最適化はこの三段階の構造になっている。
+
+\begin{aosaitemize}
+
+  %% \item Look for a pattern to be transformed.
+  \item 変換できそうなパターンを探す。
+
+  %% \item Verify that the transformation is safe/correct for the matched
+  %% instance.
+  \item その変換をしても安全か、そして動きが変わらないかを確かめる。
+
+  %% \item Do the transformation, updating the code.
+  \item 変換を施し、コードを更新する。
+
+\end{aosaitemize}
+
+%% The most trivial optimization is pattern matching on arithmetic
+%% identities, such as: for any integer \code{X}, \code{X-X} is 0,
+%% \code{X-0} is \code{X}, \code{(X*2)-X} is \code{X}.  The first
+%% question is what these look like in LLVM IR\@.  Some examples are:
+いちばんわかりやすい最適化は、数式上のパターンマッチングだ。
+たとえば、任意の整数\code{X}について\code{X-X}は0になるし、\code{X-0}は\code{X}、\code{(X*2)-X}は\code{X}になる。
+これを実現するための最初の課題は、これらの式がLLVM IR上でどのような表現になるのかを知ることだ。
+たとえば、こんなふうになる。
+
+\begin{verbatim}
+...
+%example1 = sub i32 %a, %a
+...
+%example2 = sub i32 %b, 0
+...
+%tmp = mul i32 %c, 2
+%example3 = sub i32 %tmp, %c
+...
+\end{verbatim}
+
+%% For these sorts of ``peephole'' transformations, LLVM provides an
+%% instruction simplification interface that is used as utilities by
+%% various other higher level transformations.  These particular
+%% transformations are in the \code{SimplifySubInst} function and look
+%% like this:
+この種の「節穴」的な変換用に、LLVMでは命令を単純化するインターフェイスを用意している。
+これをユーティリティとして使い、より上位レベルのさまざまな変換を行う。
+今回の例の変換は、\code{SimplifySubInst}関数を使って次のようにできる。
+
+%% \begin{verbatim}
+%% // X - 0 -> X
+%% if (match(Op1, m_Zero()))
+%%   return Op0;
+
+%% // X - X -> 0
+%% if (Op0 == Op1)
+%%   return Constant::getNullValue(Op0->getType());
+
+%% // (X*2) - X -> X
+%% if (match(Op0, m_Mul(m_Specific(Op1), m_ConstantInt<2>())))
+%%   return Op1;
+
+%% ...
+
+%% return 0;  // Nothing matched, return null to indicate no transformation.
+%% \end{verbatim}
+\begin{verbatim}
+// X - 0 -> X
+if (match(Op1, m_Zero()))
+  return Op0;
+
+// X - X -> 0
+if (Op0 == Op1)
+  return Constant::getNullValue(Op0->getType());
+
+// (X*2) - X -> X
+if (match(Op0, m_Mul(m_Specific(Op1), m_ConstantInt<2>())))
+  return Op1;
+
+...
+
+return 0;  // どれにもマッチしなかったときは、nullを返して何も変換しないことを示す
+\end{verbatim}
+
+%% \noindent In this code, Op0 and Op1 are bound to the left and right operands of
+%% an integer subtract instruction (importantly, these identities don't
+%% necessarily hold for IEEE floating point!).  LLVM is implemented in
+%% C++, which isn't well known for its pattern matching capabilities
+%% (compared to functional languages like Objective Caml), but it does
+%% offer a very general template system that allows us to implement
+%% something similar.  The \code{match} function and the \code{m\_}
+%% functions allow us to perform declarative pattern matching operations
+%% on LLVM IR code.  For example, the \code{m\_Specific} predicate only
+%% matches if the left hand side of the multiplication is the same as Op1.
+\noindent
+このコードでは、Op0とOp1がそれぞれ整数減算命令の左右のオペランドに束縛される
+(これらはIEEE浮動小数点にも適用できるとは限らないことに注意!)。
+LLVMはC++で実装されているが、C++のパターンマッチは
+(Objective Camlなどの関数型言語と比べて)そんなに高機能ではない。
+しかしC++には非常に汎用的なテンプレートシステムがあり、
+それと同等の仕組みを実装できる。
+\code{match}関数と\code{m\_}関数は、
+宣言型のパターンマッチ操作をLLVM IRコードに対して行う。
+たとえば\code{m\_Specific}述語は、
+乗算の左辺がOp1と等しい場合にだけマッチする。
+
+%% Together, these three cases are all pattern matched and the function
+%% returns the replacement if it can, or a null pointer if no replacement
+%% is possible.  The caller of this function (\code{SimplifyInstruction})
+%% is a dispatcher that does a switch on the instruction opcode,
+%% dispatching to the per-opcode helper functions.  It is called from
+%% various optimizations. A simple driver looks like this:
+これら三つのケースがどれもパターンマッチの対象となり、
+もし変換可能なら変換結果が返される。変換できなかった場合はnullポインタが返される。
+この関数(\code{SimplifyInstruction})の呼び出し元はディスパッチャで、
+命令のオペコードに応じてそれぞれのオペコード用のヘルパー関数に振り分ける。
+これが、各種最適化の場面で呼ばれる。
+シンプルなドライバの例を、次に示す。
+
+\begin{verbatim}
+for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
+  if (Value *V = SimplifyInstruction(I))
+    I->replaceAllUsesWith(V);
+\end{verbatim}
+
+%% \noindent This code simply loops over each instruction in a block, checking to
+%% see if any of them simplify.  If so (because
+%% \code{SimplifyInstruction} returns non-null), it uses the
+%% \code{replaceAllUsesWith} method to update anything in the code using
+%% the simplifiable operation with the simpler form.
+\noindent
+このコードは単にブロック内の各命令をループして、単純化できるものがあるかどうかを調べる。
+もしできるなら(つまり\code{SimplifyInstruction}が非nullを返したら)、
+\code{replaceAllUsesWith}メソッドを使ってよりシンプルな形式の操作に置き換える。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{LLVM's Implementation of Three-Phase Design}
+\begin{aosasect1}{LLVMでの3フェーズ設計の実装}
+
+%% In an LLVM-based compiler, a front end is responsible for parsing,
+%% validating and diagnosing errors in the input code, then translating
+%% the parsed code into LLVM IR (usually, but not always, by building an
+%% AST and then converting the AST to LLVM IR).  This IR is optionally
+%% fed through a series of analysis and optimization passes which improve
+%% the code, then is sent into a code generator to produce native machine
+%% code, as shown in \aosafigref{fig.llvm.lcom}. This is a very
+%% straightforward implementation of the three-phase design, but this
+%% simple description glosses over some of the power and flexibility
+%% that the LLVM architecture derives from LLVM IR.
+LLVMベースのコンパイラにおけるフロントエンドの役割は、
+入力されたコードのパースと検証そしてエラー診断で、
+パース済みのコードをLLVM IRに変換する
+(場合によっては、ASTを構築してからそれをLLVM IRに変換することもある)。
+このIRを、(オプションで)解析や最適化に回してコードを改善させ、
+それからコードジェネレータに送ってネイティブのマシン語を生成する。その様子を\aosafigref{fig.llvm.lcom}に示す。
+3フェーズ設計をそのままストレートに実装したものだが、
+この単純な説明の中に、LLVMのアーキテクチャがLLVM IRから受け継いだ威力や柔軟性が隠されている。
+
+%% \aosafigure{../images/llvm/LLVMCompiler1.eps}{LLVM's Implementation of the Three-Phase Design}{fig.llvm.lcom}
+\aosafigure{../images/llvm/LLVMCompiler1.eps}{LLVMでの3フェーズ設計の実装}{fig.llvm.lcom}
+
+%% \begin{aosasect2}{LLVM IR is a Complete Code Representation}
+\begin{aosasect2}{LLVM IRは完全なコード表現である}
+
+%% In particular, LLVM IR is both well specified and the \emph{only}
+%% interface to the optimizer.  This property means that all you need to
+%% know to write a front end for LLVM is what LLVM IR is, how it works,
+%% and the invariants it expects.  Since LLVM IR has a first-class
+%% textual form, it is both possible and reasonable to build a front end
+%% that outputs LLVM IR as text, then uses Unix pipes to send it through
+%% the optimizer sequence and code generator of your choice.
+より具体的に言うと、LLVM IRはきちんと規定されていて、かつオプティマイザへの\emph{唯一の}
+インターフェイスであるということだ。つまり、LLVMのフロントエンドを書くのに必要となる知識は、
+LLVM IRが何者かということとその動作原理そして期待する不変条件だけとなる。
+LLVM IRにはファーストクラスのテキスト表現形式があるので、
+LLVM IRをテキスト形式で出力するフロントエンドを作ってもかまわないし、それも十分理にかなっている。
+それをUnixのパイプに通してオプティマイザやコードジェネレータに渡せばいい。
+
+%% It might be surprising, but this is actually a pretty novel property
+%% to LLVM and one of the major reasons for its success in a broad range
+%% of different applications.  Even the widely successful and relatively
+%% well-architected GCC compiler does not have this property: its GIMPLE
+%% mid-level representation is not a self-contained representation.  As a
+%% simple example, when the GCC code generator goes to emit DWARF debug
+%% information, it reaches back and walks the source level ``tree'' form.
+%% GIMPLE itself uses a ``tuple'' representation for the operations in
+%% the code, but (at least as of GCC 4.5) still represents operands as
+%% references back to the source level tree form.
+驚くかもしれない。でもこれこそがLLVMの今までにない特徴となって、
+いろんなアプリケーションで幅広く使われるようになった理由にもなったのだ。
+大いに成功を収めて比較的きれいなアーキテクチャになっているGCCコンパイラでさえも、
+これは実現できなかった。GCCの中間表現であるGIMPLEは、自己完結していなかったのだ。
+単純な例をあげると、GCCのコードジェネレータはDWARF形式のデバッグ情報を発行するが、
+これはソースレベルの「ツリー」形式にまで達するものだ。
+GIMPLE自身は「タプル」表現を使ってコード内の操作を表しているが、
+(少なくともGCC 4.5の時点では)オペランドの表現はソースレベルのツリー形式にさかのぼっている。
+
+%% The implications of this are that front-end authors need to know and
+%% produce GCC's tree data structures as well as GIMPLE to write a GCC
+%% front end.  The GCC back end has similar problems, so they also need to
+%% know bits and pieces of how the RTL back end works as well.  Finally,
+%% GCC doesn't have a way to dump out ``everything representing my
+%% code'', or a way to read and write GIMPLE (and the related data
+%% structures that form the representation of the code) in text form.
+%% The result is that it is relatively hard to experiment with GCC, and
+%% therefore it has relatively few front ends.
+これが何を意味するかというと、GCCのフロントエンドを書きたければ、
+GIMPLEだけではなくGCCのツリーデータ構造も知らないといけないし、
+それを生成しないといけないということだ。
+GCCは、バックエンド側でも同様の問題を抱えている。
+つまり、バックエンドを書くためにはRTLバックエンドについても多少は知る必要があるということだ。
+GCCには「自分のコードを表すすべて」を出力する方法がない。
+そして、GIMPLE(および、コードを表すためのそれに関連するデータ構造)をテキスト形式で読み書きする方法もない。
+その結果、GCCは比較的扱いにくくなり、フロントエンドの数も多くないということだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{LLVM is a Collection of Libraries}
+\begin{aosasect2}{LLVMはライブラリ群である}
+
+%% After the design of LLVM IR, the next most important
+%% aspect of LLVM is that it is designed as a set of libraries, rather than as a
+%% monolithic command line compiler like GCC or an opaque virtual machine
+%% like the JVM or .NET virtual machines.  LLVM is an
+%% infrastructure, a collection of useful compiler technology that can be
+%% brought to bear on specific problems (like building a C compiler, or
+%% an optimizer in a special effects pipeline).  While one of its most
+%% powerful features, it is also one of its least understood design
+%% points.
+LLVM IRそのものの設計は別として、
+それ以外でもっとも重要なLLVMの性質は、ライブラリ群として作られているという点だ。
+GCCみたいなモノリシックなコマンドラインのコンパイラ、
+そしてJVMあるいは.NET仮想マシンのような不透明な仮想マシンとはこの点が異なる。
+LLVMは基盤であり、有用なコンパイラ技術を集めたものだ。
+これらを使って、さまざまな固有の問題
+(Cコンパイラを作ったり、特殊効果パイプライン内でのオプティマイザを作ったりなど)
+に対応できる。これは最も強力な機能の一つであるにも関わらず、
+最も過小評価されている点でもある。
+
+%% Let's look at the design of the optimizer as an example: it reads LLVM
+%% IR in, chews on it a bit, then emits LLVM IR which hopefully will
+%% execute faster.  In LLVM (as in many other compilers) the optimizer is
+%% organized as a pipeline of distinct optimization passes each of which
+%% is run on the input and has a chance to do something.  Common examples
+%% of passes are the inliner (which substitutes the body of a function
+%% into call sites), expression reassociation, loop invariant code
+%% motion, etc.  Depending on the optimization level, different passes
+%% are run: for example at -O0 (no optimization) the Clang compiler runs
+%% no passes, at -O3 it runs a series of 67 passes in its optimizer (as
+%% of LLVM 2.8).
+オプティマイザの設計を例にとって考えてみよう。
+オプティマイザはLLVM IR形式の入力を読んでいろいろかみ砕き、
+同じくLLVM IR形式を出力する。出力のほうが実行速度が速くなっていることだろう。
+LLVMのオプティマイザは、その他多くのコンパイラの場合と同じく、
+いくつかの最適化パスのパイプラインで構成されている。
+各パスが、入力を受け取って何らかの操作をする。
+よくあるパスの例は、インライナー(関数の本体を呼び出し側に移動させる)
+や式の再構成、ループ内で不変なコードの移動などだ。
+最適化のレベルに応じて、実行するパスが変わる。
+-O0 (最適化しない)の場合はClangコンパイラはどのパスも実行しないが、
+-O3の場合はコンパイラ内で67のパスを実行する(LLVM 2.8時点での値)。
+
+%% Each LLVM pass is written as a C++ class that derives (indirectly)
+%% from the \code{Pass} class.  Most passes are written in a single
+%% \code{.cpp} file, and their subclass of the \code{Pass} class is
+%% defined in an anonymous namespace (which makes it completely private
+%% to the defining file).  In order for the pass to be useful, code
+%% outside the file has to be able to get it, so a single function (to
+%% create the pass) is exported from the file.  Here is a slightly
+%% simplified example of a pass to make things concrete.\footnote{ For
+%% all the details, please see \emph{Writing an LLVM Pass manual} at
+%% \url{http://llvm.org/docs/WritingAnLLVMPass.html}.  }
+LLVMのパスはC++のクラスとして書かれており、(間接的に)\code{Pass}クラスを継承している。
+ほとんどのパスは単一の\code{.cpp}ファイルにまとめられており、
+\code{Pass}クラスのサブクラスは無名名前空間で定義されている
+(つまり、定義しているファイル内で完全に閉じたものになる)。
+パスを使いやすくするためには、そのファイルの外部のコードからも取得できなければいけない。
+そこで、パスを作るための関数をファイルから公開する。
+若干単純にした具体例を示す。
+\footnote{詳細は、マニュアルの\emph{Writing an LLVM Pass} (\url{http://llvm.org/docs/WritingAnLLVMPass.html})を参照のこと。}
+
+%% \begin{verbatim}
+%% namespace {
+%%   class Hello : public FunctionPass {
+%%   public:
+%%     // Print out the names of functions in the LLVM IR being optimized.
+%%     virtual bool runOnFunction(Function &F) {
+%%       cerr << "Hello: " << F.getName() << "\n";
+%%       return false;
+%%     }
+%%   };
+%% }
+
+%% FunctionPass *createHelloPass() { return new Hello(); }
+%% \end{verbatim}
+\begin{verbatim}
+namespace {
+  class Hello : public FunctionPass {
+  public:
+    // 最適化対象の LLVM IR 内にある関数の名前を表示する
+    virtual bool runOnFunction(Function &F) {
+      cerr << "Hello: " << F.getName() << "\n";
+      return false;
+    }
+  };
+}
+
+FunctionPass *createHelloPass() { return new Hello(); }
+\end{verbatim}
+
+%% As mentioned, the LLVM optimizer provides dozens of different passes,
+%% each of which are written in a similar style.  These passes are
+%% compiled into one or more \code{.o} files, which are then built into a
+%% series of archive libraries (\code{.a} files on Unix systems). These
+%% libraries provide all sorts of analysis and transformation
+%% capabilities, and the passes are as loosely coupled as possible: they
+%% are expected to stand on their own, or explicitly declare their
+%% dependencies among other passes if they depend on some other analysis
+%% to do their job.  When given a series of passes to run, the LLVM
+%% PassManager uses the explicit dependency information to satisfy these
+%% dependencies and optimize the execution of passes.
+既に説明したとおり、LLVMのオプティマイザは何十ものパスを提供しており、
+それぞれ似たスタイルで書かれている。これらのパスがコンパイルされてひとつあるいは複数の\code{.o}
+ファイルになり、それをアーカイブライブラリ(Unixシステムの場合は\code{.a}ファイル)に組み込む。
+これらのライブラリが解析や変換などのあらゆる機能を提供し、パスを可能な限り疎結合にする。
+つまり、各パスは基本的にそれ単体で動くものとされており、もし他の解析などに依存している場合は他のパスとの依存関係を明示する。
+実行する一連のパスを指定すると、LLVMのPassManagerはその依存情報を使って依存関係を見たし、
+パスの実行を最適化する。
+
+%% Libraries and abstract capabilities are great, but they don't actually
+%% solve problems.  The interesting bit comes when someone wants to build
+%% a new tool that can benefit from compiler technology, perhaps a JIT
+%% compiler for an image processing language.  The implementer of this
+%% JIT compiler has a set of constraints in mind: for example, perhaps
+%% the image processing language is highly sensitive to compile-time
+%% latency and has some idiomatic language properties that are important
+%% to optimize away for performance reasons.
+ライブラリや機能の抽象化はすばらしいが、それだけで万事解決というわけではない。
+興味深い例を考えてみよう。
+誰かがコンパイラの技術を活用する新しいツールを作ろうとしたとする。
+たとえば画像処理言語用のJITコンパイラなどだ。
+このJITコンパイラを実装する人は、いろんな制約を考慮しないといけない。
+たとえば、その画像処理言語がコンパイル時のレイテンシーにとても厳しいものかもしれない。
+そして、その言語に独特の特徴があって、パフォーマンス上の理由で最適化できなかったりするかもしれない。
+
+%% The library-based design of the LLVM optimizer allows our implementer
+%% to pick and choose both the order in which passes execute, and which
+%% ones make sense for the image processing domain: if everything is
+%% defined as a single big function, it doesn't make sense to waste time
+%% on inlining.  If there are few pointers, alias analysis and memory
+%% optimization aren't worth bothering about.  However, despite our best
+%% efforts, LLVM doesn't magically solve all optimization problems!
+%% Since the pass subsystem is modularized and the PassManager itself
+%% doesn't know anything about the internals of the passes, the
+%% implementer is free to implement their own language-specific passes to
+%% cover for deficiencies in the LLVM optimizer or to explicit
+%% language-specific optimization opportunities.
+%% \aosafigref{fig.llvn.pass} shows a simple example for our hypothetical
+%% XYZ image processing system:
+LLVMのオプティマイザはライブラリベースの設計になっているので、
+実装する人がどのパスをどの順番で実行するか取捨選択できる。
+それは、画像処理のドメインでも理にかなっているだろう。
+もしたった一つの大きな関数にすべてまとまっていたら、
+その中から必要な部分だけをインラインで切り出すという作業に無駄な時間を費やすことになる。
+もしポインタがほとんどなければ、エイリアスの解析やメモリの最適化はそれほど面倒ではない。
+でも、いくら最善を尽くしたところで、
+LLVMが最適化の問題を魔法のように解決してくれるわけじゃない！
+パスのシステムはモジュール化されており、PassManager自身はパスの内部について関知しないので、
+実装者はその言語専用のパスでLLVMオプティマイザの不備をカバーする必要はない。
+また、明示的にその言語専用の最適化をする必要もない。
+\aosafigref{fig.llvn.pass}は、その一例として、架空の画像処理システムXYZを示したものだ。
+
+%% \aosafigure[300pt]{../images/llvm/PassLinkage.eps}{Hypothetical XYZ System using LLVM}{fig.llvn.pass}
+\aosafigure[300pt]{../images/llvm/PassLinkage.eps}{LLVMを使った架空のXYZシステム}{fig.llvn.pass}
+
+%% Once the set of optimizations is chosen (and similar decisions are
+%% made for the code generator) the image processing compiler is built
+%% into an executable or dynamic library.  Since the only reference to
+%% the LLVM optimization passes is the simple \code{create} function
+%% defined in each \code{.o} file, and since the optimizers live in
+%% \code{.a} archive libraries, only the optimization passes \emph{that
+%% are actually used} are linked into the end application, not the
+%% entire LLVM optimizer.  In our example above, since there is a
+%% reference to PassA and PassB, they will get linked in.  Since PassB
+%% uses PassD to do some analysis, PassD gets linked in.  However, since
+%% PassC (and dozens of other optimizations) aren't used, its code isn't
+%% linked into the image processing application.
+利用する最適化のセットの選択(と、コードジェネレータについてのそれと同様の選択)
+が終わったら、画像処理コンパイラを実行形式にするか動的ライブラリとして組み込む。
+LLVMの最適化パスへの唯一の参照は\code{.o}ファイルで定義されたシンプルな\code{create}
+関数であり、オプティマイザ自体はアーカイブライブラリ\code{.a}に存在するので、
+\emph{実際に利用する}最適化パスだけがアプリケーションにリンクされる。
+LLVMオプティマイザ全体がリンクされるわけではない。
+先ほどの例ではPassAとPassBへの参照があるので、これらがリンクされる。
+また、PassBがPassDを使って何らかの解析をしているので、PassDも組み込まれる。
+しかし、PassC (そしてその他の最適化パス)は使われていないので、
+これらは画像処理アプリケーションにはリンクされない。
+
+%% This is where the power of the library-based design of LLVM comes into
+%% play. This straightforward design approach allows LLVM to provide a
+%% vast amount of capability, some of which may only be useful to
+%% specific audiences, without punishing clients of the libraries that
+%% just want to do simple things. In contrast, traditional compiler
+%% optimizers are built as a tightly interconnected mass of code, which
+%% is much more difficult to subset, reason about, and come up to speed
+%% on. With LLVM you can understand individual optimizers without knowing
+%% how the whole system fits together.
+ここで、LLVMがライブラリベースであるという特徴が威力を発揮する。
+このアプローチで設計していたおかげで、LLVMはいろんな可能性を手に入れた。
+ごく一部の人たちだけにしか役立たないようなものもあるが、
+それがその他大勢の人(ただ単にシンプルに使いたいだけの人)たちに害を及ぼすことはない。
+それとは対照的に、昔ながらのコンパイラのオプティマイザは
+大部分のコードが密結合しており、その一部だけを取り出して高速化するのはかなり難しい。
+LLVMなら、ある特定のオプティマイザを理解するのにシステム全体に関する知識は不要だ。
+
+%% This library-based design is also the reason why so many people
+%% misunderstand what LLVM is all about: the LLVM libraries have many
+%% capabilities, but they don't actually \emph{do} anything by themselves.
+%% It is up to the designer of the client of the libraries (e.g., the
+%% Clang C compiler) to decide how to put the pieces to best use.  This
+%% careful layering, factoring, and focus on subset-ability is also why
+%% the LLVM optimizer can be used for such a broad range of different
+%% applications in different contexts.  Also, just because LLVM provides
+%% JIT compilation capabilities, it doesn't mean that every client uses
+%% it.
+このライブラリベースの設計のせいで、多くの人がLLVMについて誤解しているところもある。
+LLVMのライブラリにはいろんな機能があるが、それ単体では実際には\emph{何もしない}。
+ライブラリをいかに組み合わせて機能を実現するかは、
+ライブラリを使うクライアント(Clang Cコンパイラなど)の設計に依存するということだ。
+注意深くレイヤー化され、分割され、それぞれの機能に焦点を合わせていることで、
+LLVMのオプティマイザはいろんな場面でいろんなアプリケーションから使えるようになった。
+また、LLVMがJITコンパイル機能を提供しているからといって、すべてのクライアントがその機能を使っているというわけでもない。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Design of the Retargetable LLVM Code Generator}
+\begin{aosasect1}{再利用性を考慮したLLVMコードジェネレータの設計}
+
+%% The LLVM code generator is responsible for transforming LLVM IR into
+%% target specific machine code.  On the one hand, it is the code
+%% generator's job to produce the best possible machine code for any
+%% given target.  Ideally, each code generator should be completely
+%% custom code for the target, but on the other hand, the code generators
+%% for each target need to solve very similar problems.  For example,
+%% each target needs to assign values to registers, and though each
+%% target has different register files, the algorithms used should be
+%% shared wherever possible.
+LLVMのコードジェネレータの役割は、LLVM IRを各ターゲット向けのマシンコードに変換することだ。
+指定されたターゲット向けに向けて、いちばんいいコードを作るというのもコードジェネレータの仕事だ。
+理想を言えば、コードジェネレータは個々のターゲットに特化したカスタムコードになるべきだろう。
+しかしその一方で、各ターゲット向けのコードジェネレータが解こうとしている問題は、どれも似たようなものだ。
+たとえば、値をレジスタに割り当てる必要があるというのはどのターゲットでも同じことだ。
+レジスタファイルはターゲットごとに異なるだろうが、そのときに使うアルゴリズムは可能な限り共有しておくべきだろう。
+
+%% Similar to the approach in the optimizer, LLVM's code generator splits
+%% the code generation problem into individual passes---instruction
+%% selection, register allocation, scheduling, code layout optimization,
+%% and assembly emission---and provides many builtin passes that are run
+%% by default.  The target author is then given the opportunity to choose
+%% among the default passes, override the defaults and implement
+%% completely custom target-specific passes as required.  For example,
+%% the x86 back end uses a register-pressure-reducing scheduler since it
+%% has very few registers, but the PowerPC back end uses a latency
+%% optimizing scheduler since it has many of them.  The x86 back end uses
+%% a custom pass to handle the x87 floating point stack, and the ARM
+%% back end uses a custom pass to place constant pool islands inside
+%% functions where needed.  This flexibility allows target authors to
+%% produce great code without having to write an entire code generator
+%% from scratch for their target.
+オプティマイザのときと同様に、LLVMのコードジェネレータも、
+コード生成に関する問題を個別のパス
+(命令の選択、レジスタの割り当て、スケジューリング、コード配置の最適化、
+アセンブリコードの発行など)に分割して、さまざまなパスをデフォルトで使えるよう組み込んでいる。
+各ターゲット用のコードジェネレータを作ろうとする人は
+デフォルトのパスの中から好きなものを使えるし、
+それをオーバーライドしてそのターゲット専用にカスタマイズしてしまってもいい。
+たとえばx86用のバックエンドはレジスタ数を節約するスケジューラを使っている。
+これはx86のレジスタ数が限られているからだが、一方PowerPC用のバックエンドでは
+レイテンシーを最適化したスケジューラを使っている。レジスタには余裕があるからだ。
+x86バックエンドではカスタムパスを使ってx87浮動小数点スタックを扱っており、
+ARMバックエンドでもカスタムパスを使って定数プールを関数内で必要に応じて配置する。
+この柔軟性のおかげで、バックエンドの作者はそのターゲット用のコードジェネレータを
+ゼロから書きあげる必要がなくなるというわけだ。
+
+%% \begin{aosasect2}{LLVM Target Description Files}
+\begin{aosasect2}{LLVMターゲット記述ファイル}
+
+%% The ``mix and match'' approach allows target authors to choose what
+%% makes sense for their architecture and permits a large amount of code
+%% reuse across different targets.  This brings up another challenge:
+%% each shared component needs to be able to reason about target specific
+%% properties in a generic way. For example, a shared register allocator
+%% needs to know the register file of each target and the constraints
+%% that exist between instructions and their register operands.  LLVM's
+%% solution to this is for each target to provide a target description in
+%% a declarative domain-specific language (a set of \code{.td} files)
+%% processed by the tblgen tool.  The (simplified) build process for the
+%% x86 target is shown in \aosafigref{fig.llvm.x86}.
+この「いろんなものを組み合わせる」手法のおかげで、
+バックエンドの作者はそのアーキテクチャに合わせた選択ができるようになる。
+そして、ターゲットをまたがってコードを再利用できるようにもなる。
+しかし、その一方で問題も出てくる。
+共有コンポーネントは、何らかの汎用的な方法で
+ターゲット固有の特性を判断できないといけない。
+たとえば、レジスタアロケータを共有する場合は、
+ターゲットごとのレジスタファイルの場所や
+命令とレジスタオペランドとの間の制約などについて知っておく必要がある。
+LLVMは、この問題を解決するために、ターゲットごとの記述をドメイン特化言語
+(\code{.td}ファイルの集まり)で提供するようにした。この記述はtblgenで生成する。
+x86ターゲット用の(簡略化した)ビルド手順を\aosafigref{fig.llvm.x86}に示す。
+
+%% \aosafigure{../images/llvm/X86Target.eps}{Simplified x86 Target Definition}{fig.llvm.x86}
+\aosafigure{../images/llvm/X86Target.eps}{簡略化したx86ターゲット定義}{fig.llvm.x86}
+
+%% The different subsystems supported by the \code{.td} files allow
+%% target authors to build up the different pieces of their target. For
+%% example, the x86 back end defines a register class that holds all of
+%% its 32-bit registers named ``GR32'' (in the \code{.td} files, target
+%% specific definitions are all caps) like this:
+\code{.td}ファイルがサポートするさまざまなサブシステムを使えば、
+バックエンドの作者は各ターゲット用にいろんなピースを作れるようになる。
+たとえばx86バックエンドで定義しているレジスタクラスは、
+``GR32''(\code{.td}ファイル内では、ターゲット固有の定義は大文字になる)
+という名前で32ビットレジスタをすべて保持している。
+
+\begin{verbatim}
+def GR32 : RegisterClass<[i32], 32,
+  [EAX, ECX, EDX, ESI, EDI, EBX, EBP, ESP,
+   R8D, R9D, R10D, R11D, R14D, R15D, R12D, R13D]> { ... }
+\end{verbatim}
+
+%% \noindent This definition says that registers in this class can hold 32-bit
+%% integer values (``i32''), prefer to be 32-bit aligned, have the
+%% specified 16 registers (which are defined elsewhere in the \code{.td}
+%% files) and have some more information to specify preferred allocation
+%% order and other things.  Given this definition, specific instructions
+%% can refer to this, using it as an operand.  For example, the
+%% ``complement a 32-bit register'' instruction is defined as:
+\noindent
+ここで定義しているのは、このクラスに属するレジスタに32ビット整数値(``i32'')を保持できること、
+32ビット単位で整列されること、16種類のレジスタがある(その定義は\code{.td}ファイル中のどこかにある)
+こと、そして代入の順序などのその他の情報だ。
+これを定義しておけば、各命令から参照でき、オペランドとして使えるようになる。
+たとえば、「32ビットレジスタの補集合をとる」という命令の定義はこのようになる。
+
+\begin{verbatim}
+let Constraints = "$src = $dst" in
+def NOT32r : I<0xF7, MRM2r,
+               (outs GR32:$dst), (ins GR32:$src),
+               "not{l}\t$dst",
+               [(set GR32:$dst, (not GR32:$src))]>;
+\end{verbatim}
+
+%% \noindent This definition says that NOT32r is an instruction (it uses the
+%% \code{I} tblgen class), specifies encoding information (\code{0xF7,
+%%   MRM2r}), specifies that it defines an ``output'' 32-bit register
+%% \code{\$dst} and has a 32-bit register ``input'' named \code{\$src}
+%% (the \code{GR32} register class defined above defines which registers
+%% are valid for the operand), specifies the assembly syntax for the
+%% instruction (using the \code{\{\}} syntax to handle both AT\&T and
+%% Intel syntax), specifies the effect of the instruction and provides
+%% the pattern that it should match on the last line.  The ``let''
+%% constraint on the first line tells the register allocator that the
+%% input and output register must be allocated to the same physical
+%% register.
+\noindent
+この定義では、まずNOT32rが命令であるということを示し(tblgenクラス\code{I}を使っている)、
+続けて符号化方式の情報(\code{0xF7,   MRM2r})を指定し、
+さらに出力用の32ビットレジスタ\code{\$dst}と入力用の32ビットレジスタ\code{\$src}
+(先ほどの定義のレジスタクラス\code{GR32}
+で、このオペランドに使えるレジスタがわかる)
+を指定する。さらに、その命令のアセンブリ構文
+(\code{\{\}}を使ってAT\&TとIntelの両方を扱う)とその命令の効果を指定し、
+マッチするパターンを最後の行で指定する。
+最初の行の``let''制約は、
+入出力用のレジスタをそれぞれ同じ物理レジスタ上に確保する必要があることを
+レジスタアロケータに指定する。
+
+%% This definition is a very dense description of the instruction, and
+%% the common LLVM code can do a lot with information derived from it (by
+%% the \code{tblgen} tool).  This one definition is enough for
+%% instruction selection to form this instruction by pattern matching on
+%% the input IR code for the compiler.  It also tells the register allocator how
+%% to process it, is enough to encode and decode the instruction to
+%% machine code bytes, and is enough to parse and print the instruction
+%% in a textual form.  These capabilities allow the x86 target to support
+%% generating a stand-alone x86 assembler (which is a drop-in replacement
+%% for the ``gas'' GNU assembler) and disassemblers from the target
+%% description as well as handle encoding the instruction for the JIT.
+この定義には命令に関する説明がぎっしり詰まっており、
+LLVMのコードは(\code{tblgen}を使って)ここから多くの情報を引き出せる。
+命令の選択をするにはこの定義だけで十分で、
+入力のIR形式のコードに対するパターンマッチングでこの命令を作る。
+また、レジスタアロケータにもその処理方法を伝えられるし、
+命令からバイトコードへの符号化や復号もできる。
+命令をテキスト形式で表示するにもこの定義だけで十分だ。
+これらを使えば、x86用のバックエンドで
+(``gas'' GNUアセンブラの一時的な代替として)
+スタンドアロンのx86アセンブラ形式を生成させたり
+ターゲット記述からのディスアセンブラをサポートしたりもできる。
+またJIT用に命令を符号化することもできる。
+
+%% In addition to providing useful functionality, having multiple pieces
+%% of information generated from the same ``truth'' is good for other
+%% reasons.  This approach makes it almost infeasible for the assembler
+%% and disassembler to disagree with each other in either assembly syntax
+%% or in the binary encoding.  It also makes the target description
+%% easily testable: instruction encodings can be unit tested without
+%% having to involve the entire code generator.
+便利な機能を提供できることだけに限らず、
+複数の情報をたったひとつの「正解」から生成できるということも利点のひとつだ。
+この方式にしておけば、アセンブラとディスアセンブラが構文や
+バイナリ符号化方式などで食い違うことがまずなくなる。
+また、ターゲット記述のテストもしやすい。
+命令の符号化を単体テストするときに、コードジェネレータ全体を巻き込まなくても済むようになる。
+
+%% While we aim to get as much target information as possible into the
+%% \code{.td} files in a nice declarative form, we still don't have
+%% everything. Instead, we require target authors to write some C++ code
+%% for various support routines and to implement any target specific
+%% passes they might need (like \code{X86FloatingPoint.cpp}, which
+%% handles the x87 floating point stack).  As LLVM continues to grow new
+%% targets, it becomes more and more important to increase the amount of
+%% the target that can be expressed in the \code{.td} file, and we
+%% continue to increase the expressiveness of the \code{.td} files to
+%% handle this.  A great benefit is that it gets easier and easier write
+%% targets in LLVM as time goes on.
+ターゲットに関する情報は可能な限り\code{.td}ファイルに取り込んで、
+宣言型の書式でまとめられるようにしてきた。しかし、すべてを取り込めたわけではない。
+そのかわりに、バックエンドの作者にちょっとしたC++のコードを書いてもらうようにしている。
+各種サポートルーチンや、そのターゲットにだけ必要になるようなパス
+(x87浮動小数点スタックを扱う\code{X86FloatingPoint.cpp}など)
+の実装は、そちらで扱う。LLVMが新たなターゲットに対応して成長するにつれて、
+\code{.td}ファイルで表現しきれるターゲットの量を増やすことがより重要になる。
+そのために、私たちは\code{.td}ファイルの表現力を向上させ続ける。
+表現力が上がれば上がるほど、LLVM用のターゲットがより書きやすくなるだろう。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Interesting Capabilities Provided by a Modular Design}
+\begin{aosasect1}{モジュラー設計がもたらす興味深い可能性}
+
+%% Besides being a generally elegant design, modularity provides clients
+%% of the LLVM libraries with several interesting capabilities. These
+%% capabilities stem from the fact that LLVM provides functionality, but
+%% lets the client decide most of the \emph{policies} on how to use it.
+全体的に洗練されているという点以外にも、
+モジュラー設計の利点はある。LLVMのライブラリを使うクライアントに、
+いくつかの興味深い可能性をもたらしてくれるのだ。
+そもそもはLLVM自体の機能によるものだが、
+クライアント側で、それをどう使うかという\emph{ポリシー}
+を決められるというのが大きい。
+
+%% \begin{aosasect2}{Choosing When and Where Each Phase Runs}
+\begin{aosasect2}{各フェーズを動かすタイミングを選ぶ}
+
+%% As mentioned earlier, LLVM IR can be efficiently (de)serialized
+%% to/from a binary format known as LLVM bitcode.  Since LLVM IR is
+%% self-contained, and serialization is a lossless process, we can do
+%% part of compilation, save our progress to disk, then continue work at
+%% some point in the future.  This feature provides a number of
+%% interesting capabilities including support for link-time and
+%% install-time optimization, both of which delay code generation from
+%% ``compile time''.
+先述のとおり、
+LLVM IRはバイナリ形式(LLVMビットコード)との間でのフォーマット変換ができる。
+LLVM IR自体が自己完結しているうえにフォーマット変換がロスレスな処理であることから、
+コンパイル処理の一部だけを行ってその状況をディスクに保存し、
+また違うときにその続きを実行するなどということもできる。
+この昨日を使えば、リンク時の最適化やインストール時の最適化なども実現できる。
+どちらも、「コンパイル時」のコード生成を遅らせるものだ。
+
+%% Link-Time Optimization (LTO) addresses the problem where the compiler
+%% traditionally only sees one translation unit (e.g., a \code{.c} file
+%% with all its headers) at a time and therefore cannot do optimizations
+%% (like inlining) across file boundaries.  LLVM compilers like Clang
+%% support this with the \code{-flto} or \code{-O4} command line option.
+%% This option instructs the compiler to emit LLVM bitcode to the
+%% \code{.o}file instead of writing out a native object file, and delays
+%% code generation to link time, shown in \aosafigref{fig.llvm.lto}.
+リンク時の最適化(Link-Time Optimization: LTO)は、
+コンパイラが伝統的にもつ問題に対応するものだ。
+その問題とは、一度に一つの変換ユニット(e.g., a \code{.c} file with all its headers)
+しか見ないために、ファイルをまたがる最適化(インライン化など)ができないというものだ。
+LLVMのコンパイラ(Clangなど)は、これに対応したコマンドラインオプション\code{-flto}あるいは\code{-O4}を用意している。
+このオプションは、ネイティブなオブジェクトファイルではなく\code{.o}ファイルにLLVMビットコードを書き出すよう指示する。
+そして、コードの生成はリンク時まで先延ばしにする。その様子を\aosafigref{fig.llvm.lto}に示す。
+
+%% \aosafigure{../images/llvm/LTO.eps}{Link-Time Optimization}{fig.llvm.lto}
+\aosafigure{../images/llvm/LTO.eps}{リンク時の最適化}{fig.llvm.lto}
+
+%% Details differ depending on which operating system you're on, but the
+%% important bit is that the linker detects that it has LLVM bitcode in
+%% the \code{.o} files instead of native object files.  When it sees
+%% this, it reads all the bitcode files into memory, links them together,
+%% then runs the LLVM optimizer over the aggregate.  Since the optimizer
+%% can now see across a much larger portion of the code, it can inline,
+%% propagate constants, do more aggressive dead code elimination, and
+%% more across file boundaries.  While many modern compilers support LTO,
+%% most of them (e.g., GCC, Open64, the Intel compiler, etc.) do so by
+%% having an expensive and slow serialization process.  In LLVM, LTO
+%% falls out naturally from the design of the system, and works across
+%% different source languages (unlike many other compilers) because the
+%% IR is truly source language neutral.
+OSによって詳細は異なるが、重要なのは、
+LLVMビットコードがネイティブオブジェクトファイルではなく\code{.o}ファイルにあるというのを
+リンカが気づくということだ。リンカがそれを発見したら、すべてのビットコードをメモリに読み込む。
+そしてそれをリンクし、とりまとめた結果に対してLLVMオプティマイザを実行する。
+オプティマイザはかなり大きなコード片を扱えるようになり、
+インライン化や定数の伝搬、より積極的なデッドコードの破棄などの最適化を
+ファイルをまたがって行えるようになる。最近のコンパイラの多くはLTOをサポートしているが、
+そのほとんど(GCCやOpen64、Intel compilerなど)は、
+コストのかかる低速なシリアライズ処理を使って実現している。
+LLVMの場合は、システムの設計からごく自然にLTOが実現でき、
+異なるソース言語の組み合わせでも利用できる(他のコンパイラでは無理なことだ)。
+これもまた、IRが本当の意味でソース言語に中立だからこそ実現できたことだ。
+
+%% Install-time optimization is the idea of delaying code generation even
+%% later than link time, all the way to install time, as shown in
+%% \aosafigref{fig.llvm.ito}.  Install time is a very interesting time
+%% (in cases when software is shipped in a box, downloaded, uploaded to a
+%% mobile device, etc.), because this is when you find out the specifics
+%% of the device you're targeting.  In the x86 family for example, there
+%% are broad variety of chips and characteristics.  By delaying
+%% instruction choice, scheduling, and other aspects of code generation,
+%% you can pick the best answers for the specific hardware an application
+%% ends up running on.
+インストール時の最適化とは、コードの生成をリンク時よりもさらに先延ばしにして、インストールのときに行うというものだ。
+その様子を\aosafigref{fig.llvm.ito}に示す。
+インストール時というのは
+(危機に組み込んだり、ダウンロードしたり、モバイルデバイスにアップロードしたりなど)いろいろ興味深いタイミングだ。
+というのも、導入しようとしているデバイスの詳細が判明するのがまさにことときだからである。
+x86ファミリーを例に取ると、いろんなチップが存在するしそれぞれ特性は違う。
+命令の選択やスケジューリングなどのコード生成がらみの処理を先送りすることで、
+最終的にアプリケーションを実行する環境のハードウェアにより特化した選択ができるようになる。
+
+%% \aosafigure{../images/llvm/InstallTime.eps}{Install-Time Optimization}{fig.llvm.ito}
+\aosafigure{../images/llvm/InstallTime.eps}{インストール時の最適化}{fig.llvm.ito}
+
+\end{aosasect2}
+
+\vspace{-.5cm}
+%% \begin{aosasect2}{Unit Testing the Optimizer}
+\begin{aosasect2}{オプティマイザのユニットテスト}
+
+%% Compilers are very complicated, and quality is important, therefore
+%% testing is critical.  For example, after fixing a bug that caused a
+%% crash in an optimizer, a regression test should be added to make sure
+%% it doesn't happen again.  The traditional approach to testing this is
+%% to write a \code{.c} file (for example) that is run through the
+%% compiler, and to have a test harness that verifies that the compiler
+%% doesn't crash.  This is the approach used by the GCC test suite, for
+%% example.
+コンパイラは非常に込み入ったものであり、高い品質が要求される。
+そのため、テストが重要になる。
+たとえば、オプティマイザでクラッシュを引き起こすようなバグを修正したとしたら、
+同じバグが再発しないようにリグレッションテストも追加しないといけない。
+リグレッションテストを書く昔ながらの手法は、
+コンパイラを通す(たとえば)\code{.c}ファイルを書いて、
+コンパイラがクラッシュしないことを確かめるテストハーネスを用意するというものだ。
+この手法は、たとえばGCCのテストスイートでも使われている。
+
+%% The problem with this approach is that the compiler consists of many
+%% different subsystems and even many different passes in the optimizer,
+%% all of which have the opportunity to change what the input code looks
+%% like by the time it gets to the previously buggy code in question.  If
+%% something changes in the front end or an earlier optimizer, a test
+%% case can easily fail to test what it is supposed to be testing.
+この手法の問題は、
+コンパイラがさまざまなサブシステムで構成されていて、
+オプティマイザにもさまざまなパスがあるということだ。
+そのすべてが、バグのあった箇所への入力となるコードに対して何かの変更を加える可能性がある。
+フロントエンドやオプティマイザの初期段階で何かを変更すると、
+これまでのテストケースが動かなくなりやすい。
+
+%% By using the textual form of LLVM IR with the modular optimizer, the
+%% LLVM test suite has highly focused regression tests that can load LLVM
+%% IR from disk, run it through exactly one optimization pass, and verify
+%% the expected behavior.  Beyond crashing, a more complicated behavioral
+%% test wants to verify that an optimization is actually performed.  Here
+%% is a simple test case that checks to see that the constant propagation
+%% pass is working with add instructions:
+LLVM IRのテキスト形式とモジュール式のオプティマイザを使うことで、
+LLVMのテストスイートはリグレッションテストに注力できるようになる。
+LLVM IRをディスクから読み込んで、特定の最適化パスを実行し、期待される挙動を検証できるのだ。
+クラッシュするかしないかというレベルではなく、もっと入り組んだ振る舞いをテストしたいこともある。
+最適化が実際に行われているのかというテストなどだ。
+ここで、シンプルなテストケースの例を示す。この例は、定数の伝搬の最適化が
+add命令に対して働いているかどうかのテストだ。
+
+\begin{verbatim}
+; RUN: opt < %s -constprop -S | FileCheck %s
+define i32 @test() {
+  %A = add i32 4, 5
+  ret i32 %A
+  ; CHECK: @test()
+  ; CHECK: ret i32 9
+}
+\end{verbatim}
+
+%% \noindent The \code{RUN} line specifies the command to execute: in this case,
+%% the \code{opt} and \code{FileCheck} command line tools.  The
+%% \code{opt} program is a simple wrapper around the LLVM pass manager,
+%% which links in all the standard passes (and can dynamically load
+%% plugins containing other passes) and exposes them through to the
+%% command line.  The \code{FileCheck} tool verifies that its standard
+%% input matches a series of \code{CHECK} directives.  In this case, this
+%% simple test is verifying that the \code{constprop} pass is folding the
+%% \code{add} of 4 and 5 into 9.
+\noindent
+\code{RUN}の行では、実行するコマンドを指定する。この例の場合は、
+コマンドラインツール\code{opt}と\code{FileCheck}だ。
+\code{opt}はLLVMパスマネージャーのシンプルなラッパーで、すべての標準パスをリンクして
+(そして、その他のパスを含むプラグインも動的に読み込めて)、それをコマンドラインに公開する。
+\code{FileCheck}は、標準入力に与えられた内容が一連の\code{CHECK}ディレクティブにマッチするかどうかを確かめる。
+今回の場合は、\code{constprop}パスが4と5の\code{add}を9にまとめるかどうかを調べている。
+
+%% While this might seem like a really trivial example, this is very
+%% difficult to test by writing .c files: front ends often do constant
+%% folding as they parse, so it is very difficult and fragile to write
+%% code that makes its way downstream to a constant folding optimization
+%% pass.  Because we can load LLVM IR as text and send it through the
+%% specific optimization pass we're interested in, then dump out the
+%% result as another text file, it is really straightforward to test
+%% exactly what we want, both for regression and feature tests.
+何てこともないごく当たり前の例に見えるかもしれないが、
+同じことを.cファイルを書いてテストしようとすると非常に難しい。
+フロントエンドが定数のたたみ込みをパース時に済ませてしまうことが多いので、
+わざわざそれを先延ばしにして、オプティマイザのパスで処理させるコードを書くのはとても難しいし不安定になる。
+LLVMの場合は、
+LLVM IRをテキスト形式で読み込んで特定のパスに送り、その結果を別のテキストファイルに書き出すだけだ。
+リグレッションテストについても機能テストについても、極めて直感的に実現できる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Automatic Test Case Reduction with BugPoint}
+\begin{aosasect2}{BugPointによる、自動的なテストケースの単純化}
+
+%% When a bug is found in a compiler or other client of the LLVM
+%% libraries, the first step to fixing it is to get a test case that
+%% reproduces the problem.  Once you have a test case, it is best to
+%% minimize it to the smallest example that reproduces the problem, and
+%% also narrow it down to the part of LLVM where the problem happens,
+%% such as the optimization pass at fault.  While you eventually learn
+%% how to do this, the process is tedious, manual, and particularly
+%% painful for cases where the compiler generates incorrect code but does
+%% not crash.
+コンパイラ、あるいはLLVMのライブラリを使う他のクライアントに何らかのバグが見つかったとして、
+それを修正するためにまず最初にすることは、問題を再現するためのテストケースを書くことだ。
+テストケースさえ書けてしまえば、問題を再現する必要最小限のサンプルが得られたことになる。
+そして、問題の発生源をLLVMの特定のパーツ、たとえば特定の最適化パスなどに絞り込めることにもなる。
+読者もいずれはその方法を身につけることになるだろうが、
+その手順はつまらない手作業になる。
+特に、コンパイラが生成するコードが何かおかしいけれどもクラッシュに至るほどではない、という場合の作業が難しい。
+
+%% The LLVM BugPoint
+%% tool\footnote{\url{http://llvm.org/docs/Bugpoint.html}} uses the IR
+%% serialization and modular design of LLVM to automate this process.
+%% For example, given an input \code{.ll} or \code{.bc} file along with a
+%% list of optimization passes that causes an optimizer crash, BugPoint
+%% reduces the input to a small test case and determines which optimizer
+%% is at fault.  It then outputs the reduced test case and the \code{opt}
+%% command used to reproduce the failure.  It finds this by using
+%% techniques similar to ``delta debugging'' to reduce the input and the
+%% optimizer pass list.  Because it knows the structure of LLVM IR,
+%% BugPoint does not waste time generating invalid IR to input to the
+%% optimizer, unlike the standard ``delta'' command line tool.
+LLVMのBugPoint\footnote{\url{http://llvm.org/docs/Bugpoint.html}}
+というツールは、IRのシリアライズ機能とLLVMのモジュラー構成を活用してこの手順を自動化する。
+たとえば、入力として\code{.ll}ファイルか\code{.bc}ファイルを与え、
+さらにオプティマイザのクラッシュを引き起こす最適化パスのリストを渡すと、
+BugPointが入力を単純化して小さなテストケースを作り、
+どのパスが問題なのかを特定する。それから単純化したテストケースを出力し、
+\code{opt}コマンドを使って障害を再現する。このツールが問題の原因を特定するときに使うのが
+``Delta Debugging''と似たテクニックで、これを使って入力と最適化パスのリストを減らしていく。
+BugPointはLLVM IRの構造を知っているので、
+オプティマイザが理解できないような無効なIRを生成したりはしない。
+標準のコマンドラインツール``delta''では、時にそんなことで時間を無駄にすることがある。
+
+%% In the more complex case of a miscompilation, you can specify the
+%% input, code generator information, the command line to pass to the
+%% executable, and a reference output. BugPoint will first determine if
+%% the problem is due to an optimizer or a code generator, and will then
+%% repeatedly partition the test case into two pieces: one that is sent
+%% into the ``known good'' component and one that is sent into the
+%% ``known buggy'' component.  By iteratively moving more and more code
+%% out of the partition that is sent into the known buggy code generator,
+%% it reduces the test case.
+もう少し複雑なコンパイルミスの場合は、
+入力とコードジェネレータの情報、そして実行形式に渡すコマンドラインや参考出力も指定できる。
+BugPointは、まずその問題がオプティマイザによるものなのかコードジェネレータによるものなのかを判断する。
+それからテストケースを繰り返し二分割して、
+一方を「正常に動く」コンポーネント、もう一方を「バグがある」コンポーネントとして振り分ける。
+分割を繰り返していくことで「バグのある」コンポーネントに送られる部分が減っていき、テストケースの単純化につなげる。
+
+%% BugPoint is a very simple tool and has saved countless hours of test
+%% case reduction throughout the life of LLVM\@.  No other open source
+%% compiler has a similarly powerful tool, because it relies on a
+%% well-defined intermediate representation.  That said, BugPoint isn't
+%% perfect, and would benefit from a rewrite.  It dates back to 2002, and
+%% is typically only improved when someone has a really tricky bug to
+%% track down that the existing tool doesn't handle well. It has grown
+%% over time, accreting new features (such as JIT debugging) without a
+%% consistent design or owner.
+BugPointは非常にシンプルなツールで、LLVMのテストケースを作る時間を数え切れないほど節約してくれた。
+オープンソースのコンパイラの中でこれほど強力なツールを持ち合わせているものは、他にないだろう。
+うまく作られたLLVMの中間表現があってこそ実現できたツールだからである。
+とはいうものの、BugPointは決してパーフェクトなツールではなく、書き直せばもっといいものになるだろう。
+2002年に戻って振り返ってみても、このツールに手を入れる機会は限られていた。
+誰かが奇妙なバグに遭遇して既存のツールではうまく処理できなかったときに、このツールに手を入れるというものだ。
+そんな具合い徐々に成長し、一貫した設計や作者もなしに新たな機能(JITデバッグなど)が追加されてきた。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Retrospective and Future Directions}
+\begin{aosasect1}{ふりかえりと今後の方針}
+
+LLVM's modularity wasn't originally designed to directly achieve any
+of the goals described here. It was a self-defense mechanism: it was
+obvious that we wouldn't get everything right on the first try.  The
+modular pass pipeline, for example, exists to make it easier to
+isolate passes so that they can be discarded after being replaced by
+better implementations\footnote{I often say that none of the
+subsystems in LLVM are really good until they have been rewritten at
+least once.}.
+
+Another major aspect of LLVM remaining nimble (and a controversial
+topic with clients of the libraries) is our willingness to reconsider
+previous decisions and make widespread changes to APIs without
+worrying about backwards compatibility.  Invasive changes to LLVM IR
+itself, for example, require updating all of the optimization passes
+and cause substantial churn to the C++ APIs.  We've done this on
+several occasions, and though it causes pain for clients, it is the
+right thing to do to maintain rapid forward progress.  To make life
+easier for external clients (and to support bindings for other
+languages), we provide C wrappers for many popular APIs (which are
+intended to be extremely stable) and new versions of LLVM aim to
+continue reading old \code{.ll} and \code{.bc} files.
+
+Looking forward, we would like to continue making LLVM more modular
+and easier to subset.  For example, the code generator is still too
+monolithic: it isn't currently possible to subset LLVM based on
+features.  For example, if you'd like to use the JIT, but have no need
+for inline assembly, exception handling, or debug information
+generation, it should be possible to build the code generator without
+linking in support for these features.  We are also continuously
+improving the quality of code generated by the optimizer and code
+generator, adding IR features to better support new language and
+target constructs, and adding better support for performing high-level
+language-specific optimizations in LLVM.
+
+The LLVM project continues to grow and improve in numerous ways.  It
+is really exciting to see the number of different ways that LLVM is
+being used in other projects and how it keeps turning up in surprising
+new contexts that its designers never even thought about.  The new
+LLDB debugger is a great example of this: it uses the
+C/C++/Objective-C parsers from Clang to parse expressions, uses the
+LLVM JIT to translate these into target code, uses the LLVM
+disassemblers, and uses LLVM targets to handle calling conventions
+among other things.  Being able to reuse this existing code allows
+people developing debuggers to focus on writing the debugger logic, instead of
+reimplementing yet another (marginally correct) C++ parser.
+
+Despite its success so far, there is still a lot left to be done, as
+well as the ever-present risk that LLVM will become less nimble and
+more calcified as it ages.  While there is no magic answer to this
+problem, I hope that the continued exposure to new problem domains, a
+willingness to reevaluate previous decisions, and to
+redesign and throw away code will help.  After all, the goal isn't to
+be perfect, it is to keep getting better over time.
+
+\end{aosasect1}
+
+\end{aosachapter}

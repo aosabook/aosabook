@@ -1,0 +1,34 @@
+Japanese Translation per file
+
+File                Transl. Assigned                           %        Proofreader
+---------------------------------------------------------------------------------------------
+aosa.tex            TAKAGI Masahiro <matakagi@gmail.com>      100
+asterisk.tex        Arai Kunimitsu                            100
+audacity.tex        TAKAGI Masahiro <matakagi@gmail.com>      100
+bash.tex            TAKAGI Masahiro <matakagi@gmail.com>      100
+bdb.tex             TAKAGI Masahiro <matakagi@gmail.com>      100
+cmake.tex           TAKAGI Masahiro <matakagi@gmail.com>      100
+colophon.tex        TAKAGI Masahiro <matakagi@gmail.com>      100
+eclipse.tex         TAKAGI Masahiro <matakagi@gmail.com>      100
+frontmatter.tex     TAKAGI Masahiro <matakagi@gmail.com>      100
+graphite.tex        TAKAGI Masahiro <matakagi@gmail.com>      100
+hdfs.tex            TAKAGI Masahiro <matakagi@gmail.com>      100
+integration.tex     TAKAGI Masahiro <matakagi@gmail.com>      100
+intro.tex           TAKAGI Masahiro <matakagi@gmail.com>      100
+jitsi.tex           Arai Kunimitsu                            100
+llvm.tex            TAKAGI Masahiro <matakagi@gmail.com>      100
+makingsoftware.tex  TAKAGI Masahiro <matakagi@gmail.com>      100
+mercurial.tex       TAKAGI Masahiro <matakagi@gmail.com>      100
+nosql.tex           TAKAGI Masahiro <matakagi@gmail.com>      100
+packaging.tex       TAKAGI Masahiro <matakagi@gmail.com>      100
+riak.tex            Kazuya Sakakiahra <kazuya@violentlyhappy.org> 45
+selenium.tex        TAKAGI Masahiro <matakagi@gmail.com>      100
+sendmail.tex        TAKAGI Masahiro <matakagi@gmail.com>      100
+snowflock.tex       TAKAGI Masahiro <matakagi@gmail.com>      100
+socialcalc.tex      TAKAGI Masahiro <matakagi@gmail.com>      100
+telepathy.tex       TAKAGI Masahiro <matakagi@gmail.com>      100
+thousandparsec.tex  TAKAGI Masahiro <matakagi@gmail.com>      100
+violet.tex          TAKAGI Masahiro <matakagi@gmail.com>      100
+vistrails.tex       TAKAGI Masahiro <matakagi@gmail.com>      100
+vtk.tex             TAKAGI Masahiro <matakagi@gmail.com>      100
+wesnoth.tex         TAKAGI Masahiro <matakagi@gmail.com>      100

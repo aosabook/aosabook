@@ -1,0 +1,880 @@
+\begin{aosachapter}{SocialCalc}{s:socialcalc}{Audrey Tang}
+
+L'histoire des tableurs s'étend sur plus de 30 ans.  Le premier logiciel tableur, VisiCalc, fut conçu par Dan Bricklin en 1978 et distribué en 1979.  Le concept d'origine était assez simple : un tableau qui s'étend à l'infini sur deux dimensions, les cellules contenant du texte, des nombres, et des formules.  Les formules sont composées d'opérateurs arithmétiques normaux et de diverses fonctions intégrées, et chaque formule peut utiliser les contenus d'autres cellules comme valeurs.
+
+Bien que simple, cette métaphore avait de nombreuses applications : comptabilité, inventaire, et gestion de listes, pour n'en citer que quelques unes.  Les possibilités étaient pratiquement sans limites.  Avec toutes ces utilisations, VisiCalc fut la première "killer app" de l'ère de l'ordinateur individuel. 
+
+In the decades that followed successors like Lotus 1-2-3 and Excel
+made incremental improvements, but the core metaphor stayed the same.
+Most spreadsheets were stored as on-disk files, and loaded into memory
+when opened for editing.  Collaboration was particularly hard under
+the file-based model:
+
+Les décennies qui suivirent, des successeurs tels que Lotus 1-2-3 et Excel firent des améliorations progressives, mais le principe de base resta le meme. La plupart des tableaux étaient stockés sous forme de fichiers, et chargés en mémoire lorsqu'ils étaient ouverts pour etre édités.  Avec le modèle basé sur les fichiers, il était très difficile de collaborer  :
+
+\begin{aosaitemize}
+
+  \item Chaque utilisateur devait installer une version du logiciel tableur.
+
+  \item Le transfert d'informations par e-mail, dossiers partagés, ou mise en place d'un système de gestion de versions dédié, étaient toutes des utilisations demandant des traitements supplémentaires lourds à gérer.
+
+  \item Le suivi des changements était limité ; par exemple, Excel n'historise pas les changements de format et les commentaires de cellules.
+
+  \item Updating formatting or formulas in templates required painstaking changes to existing spreadsheet files that used that template.
+
+\end{aosaitemize}
+
+Heureusement, un nouveau modèle de collaboration a émergé pour apporter des solutions à ces problèmes avec une simplicité élégante.  C'est le modèle "wiki", inventé par Ward Cunninggham en 1994, et popularisé par Wikipedia au début des années 2000.
+
+A la place de la gestion basée sur les fichiers, le modèle wiki propose des pages hébergées sur un serveur, editables via le navigateur sans nul besoin de logiciel spécifique.  Ces pages hypertext peuvent etre facilement liées l'une à l'autre, et meme inclure des portions d'autres pages pour former des pages plus grandes.  Par défaut, tous les participants voient et éditent la dernière version, l'historique des révisions étant automatiquement géré par le serveur. 
+
+Inspiré par le modèle wiki, Dan Bricklin commença à travailler sur WikiCalc en 2005.  Son objectif : Combiner la facilité d'utilisation et l'édition multi-utilisateurs du wiki avec les principes de formatage visuel et de calcul auxquels nous sommes habitués avec le logiciel tableur.
+
+\begin{aosasect1}{WikiCalc}
+
+La première version de WikiCalc (\aosafigref{fig.soc.screenshot}) avait plusieurs fonctionnalités qui, à l'époque, en font un logiciel original par rapport aux autres tableurs :
+
+\begin{aosaitemize}
+
+  \item Plain text, HTML, and wiki-style markup rendering for text data.
+
+  \item Wiki-style text that includes commands to insert links, images,
+  and values from cell references.
+
+  \item Formula cells may reference values of other WikiCalc pages
+  hosted on other websites.
+
+  \item Ability to create output to be embedded in other web pages, both
+  static and live data.
+
+  \item Cell formatting with access to CSS style attributes and CSS
+  classes.
+
+  \item Logging of all edit operations as an audit trail.
+
+  \item Wiki-like retention of each new version of a page with roll-back
+  capability.
+
+\end{aosaitemize}
+
+\aosafigure[300pt]{../images/socialcalc/wikicalc-screenshot.eps}{WikiCalc 1.0 Interface}{fig.soc.screenshot}
+
+\aosafigure[250pt]{../images/socialcalc/wikicalc-components.eps}{WikiCalc Components}{fig.soc.comp}
+
+\aosafigure[300pt]{../images/socialcalc/wikicalc-flow.eps}{WikiCalc Flow}{fig.soc.flow}
+
+L'architecture interne (\aosafigref{fig.soc.comp}) et la gestion des flux d'information (\aosafigref{fig.soc.flow}) de WikiCalc 1.0 étaient simples, de manière délibérée, mais néanmoins puissants.  La capacité à composer un tableau maitre à partir de plusieurs tableaux plus petits s'avéra particulièrement pratique.  Par exemple, imaginez un scénario où chaque commercial stocke des chiffres dans un tableau.  Ensuite chaque responsable commercial de secteur consolide les chiffres des membres de son équipe dans un tableau régional, et enfin 
+le directeur commercial consolide les chiffres des régions dans un tableau global.
+
+Chaque fois qu'un des tableaux intermédiaires est mis à jour, l'information est répercutée dans tous les tableaux suivants.  Pour voir plus de détails, il suffit de cliquer pour voir le tableau derrière le tableau.  Cette fonctionnalité de "rool up" élimine l'effort redondant et source d'erreur qui consisterait à mettre à jour les chiffres à de multiples endroits, et permet d'avoir une information actualisée dans toutes les vues.  
+
+Pour que les informations soient régulièrement mises à jour, WikiCalc a adopté un modèle "thin-client", toute l'information étant maintenue coté serveur.  Chaque tableau est representé dans le navigateur comme un élément de type \code{{\textless}table{\textgreater}} ; l'édition d'une cellule déclenche un appel \code{ajaxsetcell} vers le serveur, et le serveur indique au navigateur les cellules à mettre à jour.
+
+Comme on aurait pu s'en douter, ce modèle nécessite une connexion rapide entre le navigateur et le serveur.  En cas de latence importante, les utilisateurs commencent à voir fréquemment des messages ``Loading\ldots' entre l'action de la mise à jour d'une cellule et l'affichage de son nouveau contenu, comme le montre la figure \aosafigref{fig.soc.load}.  Ceci est particulièrement problématique pour l'édition interactive de formules lorsque l'utilisateur espère voir le résultat de modifications précises en temps réel.  
+
+\aosafigure[250pt]{../images/socialcalc/wikicalc-loading.eps}{Loading Message}{fig.soc.load}
+
+De plus, du fait que l'élément \code{{\textless}table{\textgreater}} avait les meme dimensions que le tableau, pour une grille $100{\times}100$ l'on obtenait 10,000 objets DOM \code{{\textless}td{\textgreater}}, d'où une consommation importante de la mémoire du navigateur,
+limitant encore plus la taille des pages.
+
+Du fait de ces limitations, bien que WikiCalc était utile comme serveur autonome fonctionnant sur localhost, il n'était pas très pratique à embarquer dans des systèmes de gestion de contenu web.
+
+En 2006, Dan  Bricklin s'associa avec Socialtext pour développer SocialCalc, une ré-écriture complète en Javascript de WikiCalc, basée sur une partie du code original en Perl. 
+
+Cette ré-écriture visait à résoudre le problème des collaborations distribuées et importantes, et à fournir une ergonomie proche de celle d'une application desktop.  Les autres objectifs de conception étaient :
+
+\begin{aosaitemize}
+
+  \item Capacité à gérer des centaines de milliers de cellules.
+
+  \item Fast turnaround time for edit operations.
+
+  \item Client-side audit trail and undo/redo stack.
+
+  \item Better use of Javascript and CSS to provide full-fledged layout
+  functionality.
+
+  \item Cross-browser support, despite the more extensive use of
+  responsive Javascript.
+
+\end{aosaitemize}
+
+Après trois ans de développement et diverses livraisons de beta, Socialtext sorti SocialCalc 1.0 en 2009, atteignant avec succès ses objectifs de conception.  Regardons maintenant l'architecture du système SocialCalc.
+
+\end{aosasect1}
+
+\begin{aosasect1}{SocialCalc}
+
+\aosafigure[225pt]{../images/socialcalc/socialcalc-screenshot.eps}{SocialCalc Interface}{fig.soc.action}
+
+\aosafigref{fig.soc.action} et \aosafigref{fig.soc.class} montrent respectivement l'interface et les classes de SocialCalc. Comparé à WikiCalc, le role du serveur a été beaucoup réduit. Sa seule responsabilité consiste à répondre aux requetes HTTP de type GET en servant des tableaux entiers sérialisés dans le format de sauvegarde ; une fois que le navigateur reçoit les données, tous les calculs, le suivi de modifications et les interractions utilisateur sont maintenant implémentés en Javascript.
+
+\aosafigure[325pt]{../images/socialcalc/socialcalc-class-diagram.eps}{SocialCalc Class Diagram}{fig.soc.class}
+
+Les composants Javascript ont été conçus selon le modèle de séparation des données, de la présentation et de la logique métier, dit MVC (Modèle/Vue/Contrôleur) ; chaque classe se concentre sur un seul aspect :
+
+\begin{aosadescription}
+
+  \item{\emph{Sheet}} est le modèle de données, représentant la structure d'un tableau, stockée en mémoire.  Ce composant contient un dictionnaire des objets \emph{Cell} correspondant aux coordonnées, chaque objet representant une cellule unique.  Les cellules vides ne nécessitent pas d'entrée, et donc ne consomment pas du tout de mémoire.
+
+  \item{\emph{Cell}} représente le contenu et les formats d'une cellule.  Certaines propriétés communes sont illustrées dans \aosatblref{tbl.soc.cellcontents}.
+
+  \item{\emph{RenderContext}} implémente la vue ; ce composant fournit le rendu de la feuille de calcul en objets DOM.
+
+  \item{\emph{TableControl}} est le principal contrôleur, acceptant les événements de la souris et du clavier.  Dès qu'il reçoit un événement d'affichage, par exemple défilement ou redimensionnement, il met à jour son objet \emph{RenderContext} associé.  Dès qu'il reçoit un événement de mise à jour du contenu, il planifie de nouvelles commandes via la file d'attente de commandes de la feuille de calcul.
+
+  \item{\emph{SpreadSheetControl}} constitue l'interface utilisateur finale avec les barres d'outils, barres d'état, boites de dialogue, et outils de personnalisation de couleurs.
+
+  \item{\emph{SpreadSheetViewer}} est une interface utilisateur finale alternative qui fournit une vue interactive en lecture seule.
+
+\end{aosadescription}
+
+\begin{table}\centering
+  \begin{tabular}{|ll|}
+    \hline
+    \code{datatype} & \code{t} \\
+    \code{datavalue} & \code{1Q84} \\
+    \code{color} & \code{black} \\
+    \code{bgcolor} & \code{white} \\
+    \code{font} & \code{italic bold 12pt Ubuntu} \\
+    \code{comment} & \code{Ichi-Kyu-Hachi-Yon} \\
+    \hline
+  \end{tabular}
+  \caption{Contenus et formats des cellules}
+  \label{tbl.soc.cellcontents}
+\end{table}
+
+We adopted a minimal class-based object system with simple
+composition/delegation, and make no use of inheritance or object
+prototypes.  All symbols are placed under the \code{SocialCalc.*}
+namespace to avoid naming conflicts.
+
+Each update on the sheet goes through the \code{ScheduleSheetCommands}
+method, which takes a command string representing the edit. (Some
+common commands are show in \aosatblref{tbl.soc.commands}.)  The
+application embedding SocialCalc may define extra commands on their
+own, by adding named callbacks into the
+\code{SocialCalc.SheetCommandInfo.CmdExtensionCallbacks} object, and
+use the \code{startcmdextension} command to invoke them.
+
+\begin{table}[ht]
+\begin{minipage}[b]{0.4\linewidth}\centering
+
+\begin{verbatim}
+    set     sheet defaultcolor blue
+    set     A width 100
+    set     A1 value n 42
+    set     A2 text t Hello
+    set     A3 formula A1*2
+    set     A4 empty
+    set     A5 bgcolor green
+    merge   A1:B2
+    unmerge A1
+\end{verbatim}
+
+\end{minipage}
+\hspace{0.5cm}
+\begin{minipage}[b]{0.6\linewidth}
+\centering
+
+\begin{verbatim}
+    erase   A2
+    cut     A3
+    paste   A4
+    copy    A5
+    sort    A1:B9 A up B down
+    name    define Foo A1:A5
+    name    desc   Foo Used in formulas like SUM(Foo)
+    name    delete Foo
+    startcmdextension UserDefined args
+\end{verbatim}
+
+\end{minipage}
+\caption{SocialCalc Commands}
+\label{tbl.soc.commands}
+\end{table}
+
+\end{aosasect1}
+
+\begin{aosasect1}{Command Run-loop}
+
+To improve responsiveness, SocialCalc performs all recalculation and
+DOM updates in the background, so the user can keep making changes to
+several cells while the engine catches up on earlier changes in the
+command queue.
+
+\aosafigure[300pt]{../images/socialcalc/socialcalc-command-runloop.eps}{SocialCalc Command Run-loop}{fig.soc.loop}
+
+When a command is running, the \code{TableEditor} object sets its
+\code{busy} flag to true; subsequent commands are then pushed into the
+\code{deferredCommands} queue, ensuring a sequential order of
+execution.  As the event loop diagram in \aosafigref{fig.soc.loop}
+shows, the Sheet object keeps sending \code{StatusCallback} events to
+notify the user of the current state of command execution, through
+each of the four steps:
+
+\begin{aosadescription}
+
+  \item{\emph{ExecuteCommand}}: Sends \code{cmdstart} upon start, and
+   \code{cmdend} when the command finishes execution.  If the command
+   changed a cell's value indirectly, enter the \emph{Recalc} step.
+   Otherwise, if the command changed the visual appearance of one or
+   more on-screen cells, enter the \emph{Render} step.  If neither of
+   the above applies (for example with the \code{copy} command), skip
+   to the \emph{PositionCalculations} step.
+
+\pagebreak
+
+  \item{\emph{Recalc}} \emph{(as{ }needed)}: Sends \code{calcstart} upon start,
+  \code{calcorder} every 100ms when checking the dependency chain of
+  cells, \code{calccheckdone} when the check finishes, and
+  \code{calcfinished} when all affected cells received their
+  re-calculated values.  This step is always followed by the \emph{Render}
+  step.
+
+  \item{\emph{Render}} \emph{(as{ }needed)}: Sends \code{schedrender} upon
+  start, and \code{renderdone} when the
+  \code{{\textless}table{\textgreater}} element is updated with
+  formatted cells. This step is always followed by \emph{PositionCalculations}.
+
+  \item{\emph{PositionCalculations}}: Sends \code{schedposcalc} upon
+  start, and \code{doneposcalc} after updating the scrollbars, the
+  current editable cell cursor, and other visual components of the
+  \code{TableEditor}.
+
+\end{aosadescription}
+
+Because all commands are saved as they are executed, we naturally get
+an audit log of all operations.  The \code{Sheet.CreateAuditString}
+method provides a newline-delimited string as the audit trail, with
+each command in a single line.
+
+\code{ExecuteSheetCommand} also creates an undo command for each
+command it executes.  For example, if the cell A1 contains ``Foo''
+and the user executes \code{set A1 text Bar}, then an undo-command
+\code{set A1 text Foo} is pushed to the undo stack.  If the user
+clicks Undo, then the undo-command is executed to restore A1 to its
+original value.
+
+\end{aosasect1}
+
+\begin{aosasect1}{Table Editor}
+
+Now let's look at the TableEditor layer.  It calculates the on-screen
+coordinates of its \code{RenderContext}, and manages
+horizontal/vertical scroll bars through two \code{TableControl}
+instances.
+
+\aosafigure[225pt]{../images/socialcalc/socialcalc-parts.eps}{TableControl Instances Manage Scroll Bars}{fig.soc.parts}
+
+The view layer, handled by the \code{RenderContext} class, also
+differs from WikiCalc's design.  Instead of mapping each cell to a
+\code{{\textless}td{\textgreater}} element, we now simply create a
+fixed-size \code{{\textless}table{\textgreater}} that fits the
+browser's visible area, and pre-populate it with
+\code{{\textless}td{\textgreater}} elements.
+
+As the user scrolls the spreadsheet through our custom-drawn scroll
+bars, we dynamically update the \code{innerHTML} of the pre-drawn
+\code{{\textless}td{\textgreater}} elements.  This means we don't need to
+create or destroy any \code{{\textless}tr{\textgreater}} or
+\code{{\textless}td{\textgreater}} elements in many common cases,
+which greatly speeds up response time.
+
+Because \code{RenderContext} only renders the visible region, the size
+of Sheet object can be arbitrarily large without affecting its
+performance.
+
+\code{TableEditor} also contains a \code{CellHandles} object, which
+implements the radial fill/move/slide menu attached to the
+bottom-right corner to the current editable cell, known as the ECell,
+shown in \aosafigref{fig.soc.ecell}.
+
+\aosafigure[180pt]{../images/socialcalc/socialcalc-cell-handles.eps}{Current Editable Cell, Known as the ECell}{fig.soc.ecell}
+
+The input box is managed by two classes: \code{InputBox} and
+\code{InputEcho}.  The former manages the above-the-grid edit row,
+while the latter shows an updated-as-you-type preview layer,
+overlaying the ECell's content (\aosafigref{fig.soc.input}).
+
+\aosafigure[200pt]{../images/socialcalc/socialcalc-input.eps}{The Input Box is Managed by Two Classes}{fig.soc.input}
+
+Usually, the SocialCalc engine only needs to communicate to the server
+when opening a spreadsheet for edit, and when saving it back to
+server.  For this purpose, the \code{Sheet.ParseSheetSave} method
+parses a save format string into a \code{Sheet} object, and the
+\code{Sheet.CreateSheetSave} method serializes a \code{Sheet} object
+back into the save format.
+
+Formulas may refer to values from any remote spreadsheet with a URL.
+The \code{recalc} command re-fetches the externally referenced
+spreadsheets, parses them again with \code{Sheet.ParseSheetSave}, and
+stores them in a cache so the user can refer to other cells in the
+same remote spreadsheets without re-fetching its content.
+
+\end{aosasect1}
+
+\begin{aosasect1}{Save Format}
+
+The save format is in standard MIME \code{multipart/mixed} format,
+consisting of four \code{text/plain; charset=UTF-8} parts, each part
+containing newline-delimited text with colon-delimited data fields.
+The parts are:
+
+\begin{aosaitemize}
+
+  \item The \code{meta} part lists the types of the other parts.
+
+  \item The \code{sheet} part lists each cell's format and content, each
+  column's width (if not default), the sheet's default format, followed
+  by a list of fonts, colors and borders used in the sheet.
+
+  \item The optional \code{edit} part saves the \code{TableEditor}'s
+  edit state, including ECell's last position, as well as the fixed sizes of
+  row/column panes.
+
+  \item The optional \code{audit} part contains the history of
+ commands executed in the previous editing session.
+
+\end{aosaitemize}
+
+For example, \aosafigref{fig.soc.save} shows a spreadsheet with three
+cells, with \code{1874} in A1 as the ECell, the formula \code{2\^{}2*43}
+in A2, and the formula \code{SUM(Foo)} in A3 rendered in bold,
+referring to the named range \code{Foo} over \code{A1:A2}.
+
+\aosafigure[180pt]{../images/socialcalc/socialcalc-2046.eps}{A Spreadsheet with Three Cells}{fig.soc.save}
+
+The serialized save format for the spreadsheet looks like this:
+
+\begin{verbatim}
+    socialcalc:version:1.0
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary=SocialCalcSpreadsheetControlSave
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    # SocialCalc Spreadsheet Control Save
+    version:1.0
+    part:sheet
+    part:edit
+    part:audit
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    version:1.5
+    cell:A1:v:1874
+    cell:A2:vtf:n:172:2^2*43
+    cell:A3:vtf:n:2046:SUM(Foo):f:1
+    sheet:c:1:r:3
+    font:1:normal bold * *
+    name:FOO::A1\cA2
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    version:1.0
+    rowpane:0:1:14
+    colpane:0:1:16
+    ecell:A1
+    --SocialCalcSpreadsheetControlSave
+    Content-type: text/plain; charset=UTF-8
+
+    set A1 value n 1874
+    set A2 formula 2^2*43
+    name define Foo A1:A2
+    set A3 formula SUM(Foo)
+    --SocialCalcSpreadsheetControlSave--
+\end{verbatim}
+
+\noindent This format is designed to be human-readable, as well as being
+relatively easy to generate programmatically.  This makes it possible
+for Drupal's Sheetnode plugin to use PHP to convert
+between this format and other popular spreadsheet formats, such as
+Excel (\code{.xls}) and OpenDocument (\code{.ods}).
+
+Now that we have a good idea about how the pieces in SocialCalc fit
+together, let's look at two real-world examples of extending
+SocialCalc.
+
+\end{aosasect1}
+
+\begin{aosasect1}{Rich-text Editing}
+
+The first example we'll look at is enhancing SocialCalc's text cells
+with wiki markup to display its rich-text rendering right in the
+table editor (\aosafigref{fig.soc.rt}).
+
+\aosafigure[200pt]{../images/socialcalc/richtext-screenshot.eps}{Rich Text Rendering in the Table Editor}{fig.soc.rt}
+
+We added this feature to SocialCalc right after its 1.0 release, to
+address the popular request of inserting images, links and text
+markups using a unified syntax.  Since Socialtext already has an
+open-source wiki platform, it was natural to re-use the syntax for
+SocialCalc as well.
+
+To implement this, we need a custom renderer for the
+\code{textvalueformat} of \code{text-wiki}, and to change the default
+format for text cells to use it.
+
+What is this \code{textvalueformat}, you ask?  Read on.
+
+\begin{aosasect2}{Types and Formats}
+
+In SocialCalc, each cell has a \code{datatype} and a \code{valuetype}.
+Data cells with text or numbers correspond to text/numeric value
+types, and formula cells with \code{datatype="f"} may generate either
+numeric or text values.
+
+Recall that on the Render step, the \code{Sheet} object generates HTML
+from each of its cells.  It does so by inspecting each cell's
+\code{valuetype}: If it begins with t, then the cell's
+\code{textvalueformat} attribute determines how generation is done.
+If it begins with \code{n}, then the \code{nontextvalueformat} attribute is
+used instead.
+
+However, if the cell's \code{textvalueformat} or
+\code{nontextvalueformat} attribute is not defined explicitly, then a
+default format is looked up from its \code{valuetype}, as shown in
+\aosafigref{fig.soc.vformat}.
+
+\aosafigure[300pt]{../images/socialcalc/richtext-formats.eps}{Value Types}{fig.soc.vformat}
+
+% \pagebreak
+
+\noindent Support for the \code{text-wiki} value format is coded in
+\code{SocialCalc.format\_text\_for\_display}:
+
+\begin{verbatim}
+if (SocialCalc.Callbacks.expand_wiki && /^text-wiki/.test(valueformat)) {
+    // do general wiki markup
+    displayvalue = SocialCalc.Callbacks.expand_wiki(
+        displayvalue, sheetobj, linkstyle, valueformat
+    );
+}
+\end{verbatim}
+
+Instead of inlining the wiki-to-HTML expander in
+\code{format\_text\_for\_display}, we will define a new hook in
+\code{SocialCalc.Callbacks}.  This is the recommended style
+throughout the SocialCalc codebase; it improves modularity by making
+it possible to plug in different ways of expanding wikitext, as well
+as keeping compatibility with embedders that do not desire this
+feature.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Rendering Wikitext}
+
+Next, we'll make use of
+Wikiwyg\footnote{\url{https://github.com/audreyt/wikiwyg-js}}, a
+Javascript library offering two-way conversions between wikitext and
+HTML.
+
+We define the \code{expand\_wiki} function by taking the cell's text,
+running it through Wikiwyg's wikitext parser and its HTML emitter:
+
+\begin{verbatim}
+var parser = new Document.Parser.Wikitext();
+var emitter = new Document.Emitter.HTML();
+SocialCalc.Callbacks.expand_wiki = function(val) {
+    // Convert val from Wikitext to HTML
+    return parser.parse(val, emitter);
+}
+\end{verbatim}
+
+\pagebreak 
+\noindent The final step involves scheduling the \code{set sheet
+defaulttextvalueformat text-wiki} command right after the
+spreadsheet initializes:
+
+
+\begin{verbatim}
+// We assume there's a <div id="tableeditor"/> in the DOM already
+var spreadsheet = new SocialCalc.SpreadsheetControl();
+spreadsheet.InitializeSpreadsheetControl("tableeditor", 0, 0, 0);
+spreadsheet.ExecuteCommand('set sheet defaulttextvalueformat text-wiki');
+\end{verbatim}
+
+\noindent Taken together, the Render step now works as shown in
+\aosafigref{fig.soc.render}.
+
+\aosafigure[349pt]{../images/socialcalc/richtext-flow.eps}{Render Step}{fig.soc.render}
+
+That's all!  The enhanced SocialCalc now supports a rich set of wiki
+markup syntax:
+
+\begin{verbatim}
+*bold* _italic_ `monospace` {{unformatted}}
+> indented text
+* unordered list
+# ordered list
+"Hyperlink with label"<http://softwaregarden.com/>
+{image: http://www.socialtext.com/images/logo.png}
+\end{verbatim}
+
+\noindent Try entering \code{*bold* \_italic\_ `monospace`} in A1, and you'll
+see it rendered as rich text (\aosafigref{fig.soc.rtext}).
+
+\aosafigure[150pt]{../images/socialcalc/richtext-example.eps}{Wikywyg Example}{fig.soc.rtext}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+% \pagebreak
+
+\begin{aosasect1}{Real-time Collaboration}
+
+The next example we'll explore is multi-user, real-time editing on a
+shared spreadsheet.  This may seem complicated at first, but thanks to
+SocialCalc's modular design all it takes is for each on-line user to
+broadcast their commands to other participants.
+
+To distinguish between locally-issued commands and remote commands, we
+add an \code{isRemote} parameter to the \code{ScheduleSheetCommands}
+method:
+
+\begin{verbatim}
+SocialCalc.ScheduleSheetCommands = function(sheet, cmdstr, saveundo, isRemote) {
+   if (SocialCalc.Callbacks.broadcast && !isRemote) {
+       SocialCalc.Callbacks.broadcast('execute', {
+           cmdstr: cmdstr, saveundo: saveundo
+       });
+   }
+   // ...original ScheduleSheetCommands code here...
+}
+\end{verbatim}
+
+\noindent Now all we need to do is to define a suitable
+\code{SocialCalc.Callbacks.broadcast} callback function.  Once it's
+in place, the same commands will be executed on all users connected
+to the same spreadsheet.
+
+When this feature was first implemented for OLPC (One Laptop Per 
+Child\footnote{\url{http://one.laptop.org/}}) by SEETA's Sugar 
+Labs\footnote{\url{http://seeta.in/wiki/index.php?title=Collaboration_in_SocialCalc}}
+in 2009, the \code{broadcast} function was built with XPCOM calls into
+D-Bus/Telepathy, the standard transport for OLPC/Sugar networks (see
+\aosafigref{fig.soc.olpc}).
+
+\aosafigure[280pt]{../images/socialcalc/collab-olpc.eps}{OLPC Implementation}{fig.soc.olpc}
+
+That worked reasonably well, enabling XO instances in the same Sugar
+network to collaborate on a common SocialCalc spreadsheet.  However,
+it is both specific to the Mozilla/XPCOM browser platform, as well as
+to the D-Bus/Telepathy messaging platform.
+
+\begin{aosasect2}{Cross-browser Transport}
+
+To make this work across browsers and operating systems, we use the
+\code{Web::Hippie}\footnote{\url{http://search.cpan.org/dist/Web-Hippie/}}
+framework, a high-level abstraction of JSON-over-WebSocket with
+convenient jQuery bindings, with MXHR (Multipart XML HTTP
+Request\footnote{\url{http://about.digg.com/blog/duistream-and-mxhr}})
+as the fallback transport mechanism if WebSocket is not available.
+
+For browsers with Adobe Flash plugin installed but without native
+WebSocket support, we use the
+\code{web\_socket.js}\footnote{\url{https://github.com/gimite/web-socket-js}}
+project's Flash emulation of WebSocket, which is often faster and more reliable
+than MXHR.  The operation flow is shown in \aosafigref{fig.soc.collab}.
+
+\aosafigure{../images/socialcalc/collab-flow.eps}{Cross-Browser Flow}{fig.soc.collab}
+
+\pagebreak
+
+The client-side \code{SocialCalc.Callbacks.broadcast} function is
+defined as:
+
+\begin{verbatim}
+var hpipe = new Hippie.Pipe();
+
+SocialCalc.Callbacks.broadcast = function(type, data) {
+    hpipe.send({ type: type, data: data });
+};
+
+$(hpipe).bind("message.execute", function (e, d) {
+    var sheet = SocialCalc.CurrentSpreadsheetControlObject.context.sheetobj;
+    sheet.ScheduleSheetCommands(
+        d.data.cmdstr, d.data.saveundo, true // isRemote = true
+    );
+    break;
+});
+\end{verbatim}
+
+\noindent Although this works quite well, there are still two remaining issues
+to resolve.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Conflict Resolution}
+
+The first one is a race-condition in the order of commands executed:
+If users A and B simultaneously perform an operation affecting the
+same cells, then receive and execute commands broadcast from the other
+user, they will end up in different states, as shown in
+\aosafigref{fig.soc.conflict}.
+
+\aosafigure{../images/socialcalc/collab-conflict.eps}{Race Condition Conflict}{fig.soc.conflict}
+
+We can resolve this with SocialCalc's built-in undo/redo mechanism, as
+shown in \aosafigref{fig.soc.resolve}.
+
+\aosafigure{../images/socialcalc/collab-resolution.eps}{Race Condition Conflict Resolution}{fig.soc.resolve}
+
+The process used to resolve the conflict is as follows.  When a client
+broadcasts a command, it adds the command to a Pending queue.  When a client
+receives a command, it checks the remote command against the Pending queue.
+
+If the Pending queue is empty, then the command is simply executed as a remote
+action. If the remote command matches a command in the Pending queue, then the
+local command is removed from the queue.
+
+Otherwise, the client checks if there are any queued commands that conflict
+with the received command.  If there are conflicting commands, the client first
+\code{Undo}es those commands and marks them for later \code{Redo}.  After
+undoing the conflicting commands (if any), the remote command is executed as
+usual.
+
+When a marked-for-redo command is received from the server, the client will
+execute it again, then remove it from the queue.
+
+
+\end{aosasect2}
+
+\begin{aosasect2}{Remote Cursors}
+
+Even with race conditions resolved, it is still suboptimal to
+accidentally overwrite the cell another user is currently editing.  A
+simple improvement is for each client to broadcast its cursor position
+to other users, so everyone can see which cells are being worked on.
+
+To implement this idea, we add another \code{broadcast} handler to the
+\code{MoveECellCallback} event:
+
+\begin{verbatim}
+editor.MoveECellCallback.broadcast = function(e) {
+    hpipe.send({
+        type: 'ecell',
+        data: e.ecell.coord
+    });
+};
+
+$(hpipe).bind("message.ecell", function (e, d) {
+    var cr = SocialCalc.coordToCr(d.data);
+    var cell = SocialCalc.GetEditorCellElement(editor, cr.row, cr.col);
+    // ...decorate cell with styles specific to the remote user(s) on it...
+});
+\end{verbatim}
+
+To mark cell focus in spreadsheets, it's common to use colored
+borders.  However, a cell may already define its own \code{border}
+property, and since \code{border} is mono-colored, it can only
+represent one cursor on the same cell.
+
+Therefore, on browsers with support for CSS3, we use the \code{box-shadow}
+property to represent multiple peer cursors in the same cell:
+
+\begin{verbatim}
+/* Two cursors on the same cell */
+box-shadow: inset 0 0 0 4px red, inset 0 0 0 2px green;
+\end{verbatim}
+
+\aosafigref{fig.soc.borders} shows how the screen would look with four
+people editing on the same spreadsheet.
+
+\aosafigure[150pt]{../images/socialcalc/collab-borders.eps}{Four Users Editing One Spreadsheet}{fig.soc.borders}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\begin{aosasect1}{Lessons Learned}
+
+We delivered SocialCalc 1.0 on October 19th, 2009, the 30th
+anniversary of the initial release of VisiCalc.  The experience of
+collaborating with my colleagues at Socialtext under Dan Bricklin's
+guidance was very valuable to me, and I'd like to share some lessons
+I learned during that time.
+
+\begin{aosasect2}{Chief Designer with a Clear Vision}
+
+In \cite{bib:brooks:design}, Fred Brooks argues that when building
+complex systems, the conversation is much more direct if we focus on a
+coherent \emph{design concept}, rather than derivative
+representations. According to Brooks, the formulation of such a
+coherent design concept is best kept in a single person's mind:
+
+\begin{quotation}
+
+  \noindent
+  Since conceptual integrity is the most important attribute of a
+  great design, and since that comes from one or a few minds working
+  \emph{uno animo}, the wise manager boldly entrusts each design task to a
+  gifted chief designer.
+
+\end{quotation}
+
+In the case of SocialCalc, having Tracy Ruggles as our chief
+user-experience designer was the key for the project to converge
+toward a shared vision.  Since the underlying SocialCalc engine was
+so malleable, the temptation of feature creep was very real. Tracy's
+ability to communicate using design sketches really helped us
+present features in a way that feels intuitive to users.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Wikis for Project Continuity}
+
+Before I joined the SocialCalc project, there was already over two
+years' worth of ongoing design and development, but I was able to
+catch up and start contributing in less than a week, simply due to
+the fact that \emph{everything is in the wiki}. From the earliest
+design notes to the most up-to-date browser support matrix, the
+entire process was chronicled in wiki pages and SocialCalc
+spreadsheets.
+
+Reading through the project's workspace brought me quickly to the same
+page as others, without the usual hand-holding overhead
+typically associated with orienting a new team member.
+
+This would not be possible in traditional open source projects, where
+most conversation takes place on IRC and mailing lists and the wiki
+(if present) is only used for documentations and links to development
+resources.  For a newcomer, it's much more difficult to reconstruct
+context from unstructured IRC logs and mail archives.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Embrace Time Zone Differences}
+
+David Heinemeier Hansson, creator of Ruby on Rails, once remarked on
+the benefit of distributed teams when he first joined 37signals. "The
+seven time zones between Copenhagen and Chicago actually meant that
+we got a lot done with few interruptions." With nine time zones
+between Taipei and Palo Alto, that was true for us during
+SocialCalc's development as well.
+
+We often completed an entire Design-Development-QA feedback cycle
+within a 24-hour day, with each aspect taking one person's 8-hour
+work day in their local daytime.  This asynchronous style of
+collaboration compelled us to produce self-descriptive artifacts
+(design sketch, code and tests), which in turn greatly improved our
+trust in each other.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Optimize for Fun}
+
+In my 2006 keynote for the CONISLI conference~\cite{bib:tang:fun}, I
+summarized my experience leading a distributed team implementing the
+Perl 6 language into a few observations.  Among them, \emph{Always
+ have a Roadmap}, \emph{Forgiveness {\textgreater} Permission},
+\emph{Remove deadlocks}, \emph{Seek ideas, not consensus}, and
+\emph{Sketch ideas with code} are particularly relevant for small
+distributed teams.
+
+When developing SocialCalc, we took great care in distributing
+knowledge among team members with collaborative code ownership, so
+nobody would become a critical bottleneck.
+
+Furthermore, we pre-emptively resolved disputes by actually coding up
+alternatives to explore the design space, and were not afraid of
+replacing fully-working prototypes when a better design arrived.
+
+These cultural traits helped us foster a sense of anticipation and
+camaraderie despite the absence of face-to-face interaction, kept
+politics to a minimum, and made working on SocialCalc a lot of fun.
+
+\end{aosasect2}
+
+\begin{aosasect2}{Drive Development with Story Tests}
+
+Prior to joining Socialtext, I've advocated the ``interleave tests
+with the specification'' approach, as can be seen in the Perl 6
+specification\footnote{\url{http://perlcabal.org/syn/S02.html}}, where
+we annotate the language specification with the official test suite.
+However, it was Ken Pier and Matt Heusser, the QA team for SocialCalc,
+who really opened my eyes to how this can be taken to the next level,
+bringing tests to the place of \emph{executable specification}.
+
+% \pagebreak
+
+In Chapter 16 of \cite{bib:goucher:test}, Matt explained our
+story-test driven development process as follows:
+
+\begin{quotation}
+
+  The basic unit of work is a "story," which is an extremely
+  lightweight requirements document. A story contains a brief
+  description of a feature along with examples of what needs to happen
+  to consider the story completed; we call these examples "acceptance
+  tests" and describe them in plain English.
+
+  During the initial cut of the story, the product owner makes a
+  good-faith first attempt to create acceptance tests, which are
+  augmented by developers and testers before any developer writes
+  a line of code.
+
+\end{quotation}
+
+These story tests are then translated into wikitests, a table-based
+specification language inspired by Ward Cunningham's FIT
+framework\footnote{\url{http://fit.c2.com/}}, which drives automated
+testing frameworks such as
+\code{Test::WWW::Mechanize}\footnote{\url{http://search.cpan.org/dist/Test-WWW-Mechanize/}}
+and
+\code{Test::WWW::Selenium}\footnote{\url{http://search.cpan.org/dist/Test-WWW-Selenium/}}.
+
+It's hard to overstate the benefit of having story tests as a common
+language to express and validate requirements. It was instrumental in
+reducing misunderstanding, and has all but eliminated regressions from
+our monthly releases.
+
+\end{aosasect2}
+
+% \pagebreak
+
+\begin{aosasect2}{Open Source With CPAL}
+
+Last but not least, the open source model we chose for SocialCalc
+makes an interesting lesson in itself.
+
+% \vspace*{1.4ex}
+
+Socialtext created the Common Public Attribution
+License\footnote{\url{https://www.socialtext.net/open/?cpal}} for
+SocialCalc.  Based on the Mozilla Public License, CPAL is designed to
+allow the original author to require an attribution to be displayed
+on the software's user interface, and has a network-use clause that
+triggers share-alike provisions when derived work is hosted by a
+service over the network.
+
+% \vspace*{1.4ex}
+
+After its approval by both the Open Source
+Initiative\footnote{\url{http://opensource.org/}} and the Free
+Software Foundation\footnote{\url{http://www.fsf.org}}, we've seen prominent
+sites such as Facebook\footnote{\url{https://github.com/facebook/platform}}
+and Reddit\footnote{\url{https://github.com/reddit/reddit}} opting to release
+their platform's source code under the CPAL, which is very
+encouraging.
+
+% \vspace*{1.4ex}
+
+Because CPAL is a ``weak copyleft'' license, developers can freely
+combine it with either free or proprietary software, and only need to
+release modifications to SocialCalc itself.  This enabled various
+communities to adopt SocialCalc and made it more awesome.
+
+% \vspace*{1.4ex}
+
+There are many interesting possibilities with this open-source
+spreadsheet engine, and if you can find a way to embed SocialCalc
+into your favorite project, we'd definitely love to hear about it.
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+\end{aosachapter}

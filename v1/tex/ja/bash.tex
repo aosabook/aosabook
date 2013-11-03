@@ -1,0 +1,1114 @@
+\begin{aosachapter}{The Bourne-Again Shell}{s:bash}{Chet Ramey}
+%% Based on EN-Revision r229
+
+%% \begin{aosasect1}{Introduction}
+\begin{aosasect1}{導入}
+
+%% A Unix shell provides an interface that lets the user interact
+%% with the operating system by running commands.
+%% But a shell is also a fairly rich
+%% programming language: there are constructs for flow control,
+%% alternation, looping, conditionals, basic mathematical operations,
+%% named functions, string variables, and two-way communication between
+%% the shell and the commands it invokes.
+Unixのシェルは、ユーザーとOSとの間のコマンドによるインターフェイスを提供する。しかし、シェルはまた、リッチなプログラミング言語でもある。フロー制御やループそして条件分岐といった制御構造もあるし、基本的な数学演算や関数、文字列変数などもあり、シェルとコマンドの間の双方向の通信もある。
+
+%% Shells can be used interactively, from a terminal or terminal emulator
+%% such as xterm, and non-interactively, reading commands from a file.
+%% Most modern shells, including bash, provide command-line editing, in
+%% which the command line can be manipulated using emacs- or vi-like
+%% commands while it's being entered, and various forms of a saved
+%% history of commands.
+シェルは、ターミナルあるいはターミナルエミュレータ(xtermなど)から対話的に使うこともできるし、コマンドをファイルから読み込むこともできる。bashを含むモダンなシェルにはコマンドラインの編集機能があり、コマンドの入力中にemacs風あるいはvi風の操作でコマンドラインをいじることができる。また、さまざまな形式でコマンド履歴を記録する。
+
+%% Bash processing is much like a shell pipeline: after being read from
+%% the terminal or a script, data is passed through a number of stages,
+%% transformed at each step, until the shell finally executes a command
+%% and collects its return status.
+Bashの処理はシェルのパイプラインとそっくりだ。ターミナルあるいはスクリプトから読み込んだデータはいくつかのステージを通過し、各ステージで変換され、シェルが最終的にコマンドを実行してその返り値を受け取る。
+
+%% This chapter will explore bash's major components: input processing,
+%% parsing, the various word expansions and other command processing, and
+%% command execution, from the pipeline perspective.  These components
+%% act as a pipeline for data read from the keyboard or from a file,
+%% turning it into an executed command.
+本章では、bashの主要なコンポーネントである入力処理やパース、さまざまなワードの展開、その他のコマンド処理、そしてコマンドの実行について、パイプラインの観点から探求する。これらのコンポーネントはキーボードやファイルから読み込んだデータのパイプラインとして働き、それを実行されるコマンドに変える。
+
+%% \aosafigure{../images/bash/bash-article-diagram.eps}{Bash Component Architecture}{fig.bash.fig1}
+\aosafigure{../images/bash/bash-article-diagram.eps}{Bashのコンポーネントのアーキテクチャ}{fig.bash.fig1}
+
+%% \begin{aosasect2}{Bash}
+\begin{aosasect2}{Bash}
+
+%% Bash is the shell that appears in the GNU operating system, commonly
+%% implemented atop the Linux kernel, and several other common operating
+%% systems, most notably Mac OS X\@.  It offers functional improvements
+%% over historical versions of sh for both interactive and programming
+%% use.
+BashはGNUオペレーティングシステムで使われているシェルであり、一般的にはLinuxカーネル上で実装されている。また、Mac OS X\@などその他の主要OS上でも動く。過去の歴史上のバージョンであるshに対して、対話的な操作においてもプログラミング機能においても改良が施されている。
+
+%% The name is an acronym for Bourne-Again SHell, a pun combining the
+%% name of Stephen Bourne (the author of the direct ancestor of the
+%% current Unix shell \code{/bin/sh}, which appeared in the Bell Labs
+%% Seventh Edition Research version of Unix) with the notion of rebirth
+%% through reimplementation.
+%% The original author of bash was Brian Fox, an employee of the Free
+%% Software Foundation.  I am the current developer and maintainer, a
+%% volunteer who works at Case Western Reserve University in Cleveland,
+%% Ohio.
+名前の由来はBourne-Again SHellの頭文字をとったもので、Stephen Bourne(現在のUnixシェルの先祖である\code{/bin/sh}の作者。このシェルはベル研のVersion 7 Unixで登場した)の名前と再実装によって生まれ変わったことをかけている。bashの最初の作者はBrian Foxで、彼はFree Software Foundationのメンバーだった。私は現在の開発者兼メンテナ—であり、オハイオ州クリーブランドにあるケースウエスタンリザーブ大学に勤務している。
+
+%% Like other GNU software, bash is quite portable.  It currently runs on
+%% nearly every version of Unix and a few other operating
+%% systems---independently-supported ports exist for hosted Windows
+%% environments such as Cygwin and MinGW, and ports to Unix-like systems
+%% such as QNX and Minix are part of the distribution.  It only requires
+%% a Posix environment to build and run, such as one provided by
+%% Microsoft's Services for Unix (SFU).
+他のGNUソフトウェアと同様、bashも移植性がきわめて高い。Unixのほぼすべてのバージョンで動作するし、その他のOSでも動作する---独自にサポートしている移植版にはWindows上のCygwinやMinGWといった環境もあるし、QNXやMinixといったUnixライクなシステムへの移植版は配布物に含まれている。ビルドして実行するために必要なのはPosix環境だけである。つまり、MicrosoftのServices for Unix (SFU)などでもよい。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Syntactic Units and Primitives}
+\begin{aosasect1}{構文単位およびプリミティブ}
+
+%% \begin{aosasect2}{Primitives}
+\begin{aosasect2}{プリミティブ}
+
+%% To bash, there are basically three kinds of tokens: reserved
+%% words, words, and operators.  Reserved words are those that have
+%% meaning to the shell and its programming language; usually these words
+%% introduce flow control constructs, like \code{if} and \code{while}.
+%% Operators are composed of one or more metacharacters: characters that
+%% have special meaning to the shell on their own, such as \code{|} and
+%% \code{{\textgreater}}.  The rest of the shell's input consists of
+%% ordinary words, some of which have special meaning---assignment
+%% statements or numbers, for instance---depending on where they appear
+%% on the command line.
+bashには、基本的に三種類のトークンがある。予約語(reserved word)、単語(word)、そして演算子(operator)だ。予約語とはシェルやそのプログラミング言語に対して何らかの意味を持つ単語のことで、フロー制御構文に使われることが多い。たとえば\code{if}や\code{while}がそれにあたる。演算子とはメタ文字を組み合わせたもののことで、メタ文字とはシェル自身に対して特別な意味を持つ文字を指す。\code{|}や\code{{\textgreater}}などだ。それ以外のシェルへの入力は普通の単語で、その中にはコマンドライン内での登場位置によって特殊な意味を持つもの---代入文や数値など---もある。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Variables and Parameters}
+\begin{aosasect2}{変数およびパラメータ}
+
+%% As in any programming language, shells provide variables: names to
+%% refer to stored data and operate on it.  The shell provides basic
+%% user-settable variables and some built-in variables referred to as
+%% parameters.  Shell parameters generally reflect some aspect of the
+%% shell's internal state, and are set automatically or as a side effect
+%% of another operation.
+他のプログラミング言語と同様、シェルにも変数の機能があり、保存したデータを後で参照したり演算に使ったりすることができる。シェルが提供している変数には、ユーザーが設定可能な基本的な変数と、パラメータとして参照できる組み込みの変数がある。シェルのパラメータは一般的にシェルの内部状態を反映するもので、自動的に設定されたり別の操作の副作用として設定されたりする。
+
+%% Variable values are strings.  Some values are treated specially
+%% depending on context; these will be explained later.  Variables are
+%% assigned using statements of the form \code{name=value}.  The
+%% \code{value} is optional; omitting it assigns the empty string to
+%% \code{name}.  If the value is supplied, the shell expands the value
+%% and assigns it to \code{name}.  The shell can perform different
+%% operations based on whether or not a variable is set, but assigning a
+%% value is the only way to set a variable.  Variables that have not been
+%% assigned a value, even if they have been declared and given
+%% attributes, are referred to as \emph{unset}.
+変数の値は文字列である。値の中には状況によって特別な意味を持つものもあるが、それについては後で説明する。変数への代入は、\code{name=value}形式の文を使う。\code{value}は必須ではなく、省略した場合は空の文字列を\code{name}に代入する。valueを指定すると、シェルはその内容を展開して\code{name}に代入する。シェルは、変数が設定されているかどうかによって処理を変えることがある。しかし、変数に値を設定するには値を代入する以外の方法はない。値を代入されていない変数は、たとえ事前に宣言されていたとしても参照すると\emph{unset}となる。
+
+%% A word beginning with a dollar sign introduces a variable or parameter
+%% reference.  The word, including the dollar sign, is replaced with the
+%% value of the named variable.  The shell provides a rich set of
+%% expansion operators, from simple value replacement to changing or
+%% removing portions of a variable's value that match a pattern.
+ドル記号で始まる単語は、変数あるいはパラメータへの参照を意味する。ドル記号を含めた単語が、その名前の変数の値に置きかえられる。シェルには豊富な展開演算子が用意されており、単純な値の置換だけではなくパターンにマッチする部分を変更したり削除したりすることもできる。
+
+%% There are provisions for local and global variables.  By default, all
+%% variables are global.  Any simple command (the most familiar type of
+%% command---a command name and optional set of arguments and
+%% redirections) may be prefixed by a set of assignment statements to
+%% cause those variables to exist only for that command.  The shell
+%% implements stored procedures, or shell functions, which can have
+%% function-local variables.
+変数には、ローカルとグローバルの二種類がある。デフォルトでは、すべての変数はグローバルとなる。単純なコマンド(最も見なれた形式のコマンド---コマンド名の後にオプションで引数やリダイレクトが続く形式)の前には代入文がくることもあり、そのコマンドのためだけに変数が存在することになる。シェルはストアドプロシージャやシェル関数を実装しており、それぞれ関数ローカルな変数を持つことができる。
+
+%% Variables can be minimally typed: in addition to simple string-valued
+%% variables, there are integers and arrays.  Integer-typed variables are
+%% treated as numbers: any string assigned to them is expanded as an
+%% arithmetic expression and the result is assigned as the variable's
+%% value.  Arrays may be indexed or associative; indexed arrays use
+%% numbers as subscripts, while associative arrays use arbitrary strings.
+%% Array elements are strings, which can be treated as integers if
+%% desired.  Array elements may not be other arrays.
+変数には最低限の型をつけることができる。単純な文字列値の変数に加えて、静数値と配列が使える。整数型の変数は数値として扱われる。文字列を代入するとそれを計算式とみなして展開し、計算結果を変数の値として代入する。配列は、インデックス型と連想型のどちらかになる。インデックス型の配列は数値を添字として使い、連想配列は任意の文字列を添字として使う。配列の要素は文字列であり、望むなら静数値として扱うこともできる。配列の要素に別の配列が入ることはない。
+
+%% Bash uses hash tables to store and retrieve shell variables, and
+%% linked lists of these hash tables to implement variable scoping.
+%% There are different variable scopes for shell function calls and
+%% temporary scopes for variables set by assignment statements preceding
+%% a command.  When those assignment statements precede a command that is
+%% built into the shell, for instance, the shell has to keep track of the
+%% correct order in which to resolve variable references, and the linked
+%% scopes allow bash to do that.  There can be a surprising number of
+%% scopes to traverse depending on the execution nesting level.
+Bashは、ハッシュテーブルを使ってシェル変数の格納や取得を行う。また、そのハッシュテーブルの連結リストで変数のスコープを実装する。シェル関数の呼び出し用にさまざまなスコープがあり、コマンドの前にある代入文で設定した変数用のテンポラリスコープもある。代入文の後にシェルの組み込みコマンドが続くときは、シェルは変数の参照の解決順序を覚えておく必要がある。また、連結したスコープがbashにそれを許可しなければならない。実行のネストレベルによっては、走査するスコープの数が驚くほど多くなることもありえる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{The Shell Programming Language}
+\begin{aosasect2}{シェルプログラミング言語}
+
+%% A \emph{simple} shell command, one with which most readers are most
+%% familiar, consists of a command name, such as \code{echo} or
+%% \code{cd}, and a list of zero or more arguments and redirections.
+%% Redirections allow the shell user to control the input to and output
+%% from invoked commands.  As noted above, users can define variables
+%% local to simple commands.
+\emph{単純な}シェルコマンド、つまり読者の多くが最も見なれているであろうコマンドは、まず\code{echo}や\code{cd}のようなコマンド名があってその後にゼロ個以上の引数やリダイレクトが続く。リダイレクトを使うと、起動するコマンドへの入力やコマンドからの出力をシェルのユーザーが制御できるようになる。先ほど説明したように、単純なコマンド内のローカル変数を定義することができる。
+
+%% Reserved words introduce more complex shell commands.  There are
+%% constructs common to any high-level programming language, such as
+%% \code{if-then-else}, \code{while}, a \code{for} loop that iterates
+%% over a list of values, and a C-like arithmetic \code{for} loop.
+%% These more complex commands allow the shell to execute a
+%% command or otherwise test a condition and perform different operations
+%% based on the result, or execute commands multiple times.
+予約語を使えば、より複雑なシェルコマンドを実行できる。他の高級言語にもよくある制御構造である\code{if-then-else}や\code{while}も使えるし、\code{for}ループで値のリストを順に処理することもできる。また、C言語風にカウンタを用いた\code{for}ループも使える。これらの複雑なコマンドを使えば、ある条件を調べてその結果によって処理を切り替えるようなコマンドを実行することもできるし、あるコマンドを複数回実行することもできる。
+
+%% One of the gifts Unix brought the computing world is the pipeline: a
+%% linear list of commands, in which the output of one command in the
+%% list becomes the input of the next.  Any shell construct can be used
+%% in a pipeline, and it's not uncommon to see pipelines in which a
+%% command feeds data to a loop.
+Unixが計算機界にもたらした贈り物のひとつがパイプラインである。これを使えば、一連のコマンド群でひとつのコマンドの出力を次のコマンドへの入力とすることができる。シェルの制御構造はすべてパイプラインの中でも使え、あるコマンドがデータをループに送るようなパイプラインを見ることも珍しくない。
+
+%% Bash implements a facility that allows the standard input, standard
+%% output, and standard error streams for a command to be redirected to
+%% another file or process when the command is invoked.  Shell
+%% programmers can also use redirection to open and close files in the
+%% current shell environment.
+Bashには、あるコマンドの実行時に標準入力や標準出力そして標準エラー出力をリダイレクトして別のファイルやプロセスに送る機能がある。シェルプログラマーは、リダイレクトを使って現在のシェル環境でファイルを開いたり閉じたりすることができる。
+
+%% Bash allows shell programs to be stored and used more than once.
+%% Shell functions and shell scripts are both ways to name a group of
+%% commands and execute the group, just like executing any other command.
+%% Shell functions are declared using a special syntax and stored and
+%% executed in the same shell's context; shell scripts are created by
+%% putting commands into a file and executing a new instance of the shell
+%% to interpret them.  Shell functions share most of the execution
+%% context with the shell that calls them, but shell scripts, since they
+%% are interpreted by a new shell invocation, share only what is passed
+%% between processes in the environment.
+Bashでは、シェルのプログラムを保存して再利用することができる。シェル関数やシェルスクリプトは、どちらもコマンド群に名前をつけて実行できるようにしたものであり、他のコマンドと同じように実行できる。シェル関数の宣言は特別な構文で行い、同じシェルのコンテキストで使うことができる。シェルスクリプトはコマンドを書いたファイルとして作り、実行するときにはそれを解釈する新たなシェルのインスタンスを立ち上げる。シェル関数は大半の実行時コンテキストを呼び出し元のシェルと共有するが、シェルスクリプトは新たなシェルを立ち上げて動作するので、環境変数で渡された内容しか共有できない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{A Further Note}
+\begin{aosasect2}{さらなる注意}
+
+%% As you read further, keep in mind that the shell implements its
+%% features using only a few data structures: arrays, trees,
+%% singly-linked and doubly-linked lists, and hash tables.  Nearly all of
+%% the shell constructs are implemented using these primitives.
+さらに読み進めていくうえで覚えておいてほしいのは、シェルがその機能を実装するために使っているデータ構造はほんのわずかであるということだ。配列、ツリー、片方向連結リスト、双方向連結リスト、そしてハッシュテーブル。これだけである。シェルのほぼすべての構造が、これらのプリミティブを用いて実装されている。
+
+%% The basic data structure the shell uses to pass information from one
+%% stage to the next, and to operate on data units within each processing
+%% stage, is the \code{WORD\_DESC}:
+あるステージから次のステージに情報を渡したり各処理ステージでデータを操作したりするときに使う基本的なデータ構造が\code{WORD\_DESC}だ。
+
+\begin{verbatim}
+typedef struct word_desc {
+  char *word;           /* Zero terminated string. */
+  int flags;            /* Flags associated with this word. */
+} WORD_DESC;
+\end{verbatim}
+
+%% \noindent Words are combined into, for example, argument lists, using simple
+%% linked lists:
+\noindent 単語を組み合わせて引数リストなどを作るときには、単純な連結リストを使う。
+
+\begin{verbatim}
+typedef struct word_list {
+  struct word_list *next;
+  WORD_DESC *word;
+} WORD_LIST;
+\end{verbatim}
+
+%% \code{WORD\_LIST}s are pervasive throughout the shell.  A simple
+%% command is a word list, the result of expansion is a word list, and
+%% the built-in commands each take a word list of arguments.
+\code{WORD\_LIST}はシェル全体に広がる。単純なコマンドは単語のリストだし、その展開結果も単語のリスト、そして組み込みのコマンドも引数の一覧を単語のリストで受け取る。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Input Processing}
+\begin{aosasect1}{入力の処理}
+
+%% The first stage of the bash processing pipeline is input processing:
+%% taking characters from the terminal or a file, breaking them into
+%% lines, and passing the lines to the shell parser to transform into
+%% commands.  As you would expect, the lines are
+%% sequences of characters terminated by newlines.
+bashのパイプライン処理における最初のステージは、入力の処理である。ターミナルあるいはファイルから文字を受け取り、それを行単位に分け、各行をパーサに渡してコマンドに変換する。想像がつくだろうが、行とは改行文字で終わる文字列のことだ。
+
+%% \begin{aosasect2}{Readline and Command Line Editing}
+\begin{aosasect2}{Readlineおよびコマンドラインの編集}
+
+%% Bash reads input from the terminal when interactive, and from the
+%% script file specified as an argument otherwise.  When interactive,
+%% bash allows the user to edit command lines as they are typed in, using
+%% familiar key sequences and editing commands similar to the Unix emacs
+%% and vi editors.
+Bashは、対話モードのときにはターミナルから入力を読み込み、それ以外の場合は引数で指定したスクリプトファイルから入力を読み込む。対話モードのときは、ユーザーが入力したコマンドラインを編集することができる。編集時には、Unixのエディタemacsやviとよく似たキーシーケンスや編集コマンドが使える。
+
+%% Bash uses the readline library to implement command line editing.
+%% This provides a set of functions allowing users to edit command lines,
+%% functions to save command lines as they are entered, to recall
+%% previous commands, and to perform csh-like history expansion.  Bash is
+%% readline's primary client, and they are developed together, but there
+%% is no bash-specific code in readline.  Many other projects have
+%% adopted readline to provide a terminal-based line editing interface.
+Bashはreadlineライブラリを使ってコマンドラインの編集を実装している。このライブラリが提供する関数を使うと、コマンドラインの編集や入力内容の保存、過去のコマンドの呼び出し、そしてcsh風の履歴の展開ができるようになる。Readlineはもともとbash用に開発されたものであり、今でも一緒に開発が進められているが、readlineにはbash固有のコードは一切含まれていない。多くのプロジェクトが、readlineを使ってターミナルベースの行編集インターフェイスを提供している。
+
+%% Readline also allows users to bind key sequences of unlimited length
+%% to any of a large number of readline commands.  Readline has commands
+%% to move the cursor around the line, insert and remove text, retrieve
+%% previous lines, and complete partially-typed words.  On top of this,
+%% users may define macros, which are strings of characters that are
+%% inserted into the line in response to a key sequence, using the same
+%% syntax as key bindings.  Macros afford readline users a simple string
+%% substitution and shorthand facility.
+Readlineには、任意の長さのキーシーケンスをreadlineコマンドにバインドする機能もある。Readlineには、カーソルの移動やテキストの挿入・削除、前の行の取得、そして途中まで入力した単語の補完などに対応するコマンドがある。これらのコマンドを使い、ユーザーはキーバインドと同じ構文でマクロを定義できる。マクロとは、キーシーケンスに対応して挿入される文字列のことである。マクロのおかげで、readlineのユーザーはちょっとした文字列置換や作業の短縮をできるようになる。
+
+%% \begin{aosasect3}{Readline Structure}
+\begin{aosasect3}{Readlineの構造}
+
+%% Readline is structured as a basic read/dispatch/execute/redisplay
+%% loop.  It reads characters from the keyboard using \code{read} or
+%% equivalent, or obtains input from a macro.  Each character is used as
+%% an index into a keymap, or dispatch table.  Though indexed by a single
+%% eight-bit character, the contents of each element of the keymap can be
+%% several things.  The characters can resolve to additional keymaps,
+%% which is how multiple-character key sequences are possible.  Resolving
+%% to a readline command, such as \code{beginning-of-line}, causes that
+%% command to be executed.
+%% A character bound to the \code{self-insert} command is stored into the
+%% editing buffer.
+%% It's also possible to bind a key sequence to
+%% a command while simultaneously binding subsequences to different
+%% commands (a relatively recently-added feature); there is a special
+%% index into a keymap to indicate that this is done.  Binding a key
+%% sequence to a macro provides a great deal of flexibility, from
+%% inserting arbitrary strings into a command line to creating
+%% keyboard shortcuts for complex editing sequences.  Readline stores
+%% each character bound to \code{self-insert} in the
+%% editing buffer, which when displayed may occupy one or more lines on
+%% the screen.
+Readlineは、読み込み/送出/実行/再表示という基本的なループで構成されている。まず最初に、キーボードからの文字の読み込みを\code{read}などで行うか、あるいはマクロからの入力を取得する。個々の文字は、キーマップ(ディスパッチテーブル)のインデックスとして使われる。キーマップのインデックスは8ビットの1文字であるが、その要素はさまざまなものになり得る。たとえば、キーマップの要素の文字列を別のキーマップとして解決することもある。このようにして、複数文字のキーシーケンスを実装している。また、\code{beginning-of-line}のようなreadlineコマンドとして解決させることもあり、これは、そのコマンドを実行する。\code{self-insert}コマンドにバインドされた文字は、編集バッファに書き込まれる。あるキーシーケンスをひとつのコマンドにバインドすると同時に、そのシーケンスの一部を別のコマンドにバインドすることもできる(これは、比較的最近追加された機能である)。キーマップに特別なインデックスを追加して、これを実現している。キーシーケンスをマクロにバインドすることで、任意の文字列をコマンドラインに追加することから複雑な編集シーケンスのショートカットを作ることまで大きな柔軟性を実現した。Readlineは\code{self-insert}にバインドされた文字を編集バッファに格納する。表示するときには、これが画面の難行かを占めることがある。
+
+%% Readline manages only character buffers and strings using C
+%% \code{char}s, and builds multibyte characters out of them if
+%% necessary.  It does not use \code{wchar\_t} internally for both speed
+%% and storage reasons, and because the editing code existed before
+%% multibyte character support became widespread.  When in a locale that
+%% supports multibyte characters, readline automatically reads an entire
+%% multibyte character and inserts it into the editing buffer.  It's
+%% possible to bind multibyte characters to editing commands, but one has
+%% to bind such a character as a key sequence; this is possible, but
+%% difficult and usually not wanted.  The existing emacs and vi command
+%% sets do not use multibyte characters, for instance.
+Readlineが管理する文字バッファや文字列はCの\code{char}だけによるものであり、必要に応じてそこからマルチバイト文字を組み立てる。内部的には\code{wchar\_t}は使っていない。速度や記憶容量を考慮したことも理由のひとつだが、編集のコードが書かれた頃にはまだマルチバイト文字のサポートがそれほど広まっていなかったという理由もある。マルチバイト文字をサポートするロケールでは、readlineが自動的にマルチバイト文字全体を読み込んで編集バッファに追加する。マルチバイト文字を編集コマンドとしてバインドすることも可能だが、バインドするときにはキーシーケンスとして指定しなければならない。可能ではあるが難しいことであり、通常はそんなことをしようとは思わないだろう。たとえばemacsやviのコマンドでもマルチバイト文字は使われていない。
+
+%% Once a key sequence finally resolves to an editing command,
+%% readline updates the terminal display to reflect the
+%% results.
+%% This happens regardless of whether the command
+%% results in characters being inserted into the buffer, the editing
+%% position being moved, or the line being partially or completely
+%% replaced.
+%% Some bindable editing commands, such as those that modify
+%% the history file, do not cause any change to the contents of the
+%% editing buffer.
+キーシーケンスが最終的に編集コマンドに解決されたら、readlineはターミナルの表示を更新して結果を反映させる。コマンドの結果が文字をバッファに文字を入れるものであったとしても編集位置を移動させるものであったとしても、あるいは行の一部あるいは全体を書き換えるものであったとしても、これは同様に発生する。バインド可能な編集コマンドの中には、履歴ファイルの編集などのように編集バッファには何も変更を加えないものもある。
+
+%% Updating the terminal display, while seemingly simple, is quite
+%% involved.  Readline has to keep track of three things: the current
+%% contents of the buffer of characters displayed on the screen, the
+%% updated contents of that display buffer, and the actual characters
+%% displayed.  In the presence of multibyte characters, the characters
+%% displayed do not exactly match the buffer, and the redisplay engine
+%% must take that into account.  When redisplaying, readline must compare
+%% the current display buffer's contents with the updated buffer, figure
+%% out the differences, and decide how to most efficiently modify the
+%% display to reflect the updated buffer.  This problem has been the
+%% subject of considerable research through the years (the
+%% \emph{string-to-string correction problem}).  Readline's approach is to
+%% identify the beginning and end of the portion of the buffer that
+%% differs, compute the cost of updating just that portion, including
+%% moving the cursor backward and forward (e.g., will it take more effort
+%% to issue terminal commands to delete characters and then insert new
+%% ones than to simply overwrite the current screen contents?), perform
+%% the lowest-cost update, then clean up by removing any characters
+%% remaining at the end of the line if necessary and position the cursor
+%% in the correct spot.
+ターミナルの表示内容の更新は、一見シンプルなようだが実はかなり複雑だ。Readlineは三つの内容を気にかけねばならない。画面に表示されている文字バッファの現在の状態、表示バッファの更新後の内容、そして実際に表示されている文字だ。マルチバイト文字があるため、表示されている文字はバッファの内容と正確に一致するとは限らず、再表示エンジンはそのことを考慮しなければならない。再表示するときにreadlineは、現在の表示バッファの内容と更新されたバッファを比較して差分を算出し、更新後のバッファを表示に反映させるのに最適な方法を決めなければならない。この問題には長年悩まされてきた(\emph{文字列から文字列への修正問題})。Readlineは次のようにしている。まずバッファの異なる部分の最初と最後の位置を見つけ、その部分だけを更新してカーソルを前後に移動させるコストを算出し(例: ターミナルのコマンドを発行して文字を消してから新しい文字を追加するのと、単に現在の画面表示を上書きしてしまうのとどちらが効率的か?)、もっともコストの低い方法で更新し、必要に応じて最終行の残りの文字を削除してカーソルを正しい位置に移動させる。
+
+%% The redisplay engine is without question the one piece of readline
+%% that has been modified most heavily.  Most of the changes have been to
+%% add functionality---most significantly, the ability to have
+%% non-displaying characters in the prompt (to change colors, for instance)
+%% and to cope with characters
+%% that take up more than a single byte.
+再表示エンジンは、readlineの中で間違いなく最も頻繁に変更が入っている部分であろう。変更の大半は機能追加である---最も重大なのは、プロンプト内で非表示文字(色の変更など)を扱える機能やマルチバイト文字の対応だ。
+
+%% Readline returns the contents of the editing buffer to the calling
+%% application, which is then responsible for saving the
+%% possibly-modified results in the history list.
+Readlineは編集バッファの中身を呼び出し元のアプリケーションに返す。そしてアプリケーションが、おそらく変更されているであろう結果を履歴リストに保存する。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Applications Extending Readline}
+\begin{aosasect3}{アプリケーション側からのReadlineの拡張}
+
+%% Just as readline offers users a variety of ways to customize and
+%% extend readline's default behavior, it provides a number of mechanisms
+%% for applications to extend its default feature set.  First, bindable
+%% readline functions accept a standard set of arguments and return a
+%% specified set of results, making it easy for applications to extend
+%% readline with application-specific functions.  Bash, for instance,
+%% adds more than thirty bindable commands, from bash-specific word
+%% completions to interfaces to shell built-in commands.
+Readlineがユーザーに対してその振る舞いをカスタマイズするさまざまな手段を提供しているのと同様に、アプリケーションに対してもその機能群を拡張する仕組みをいくつか用意している。まず、バインド可能なreadlineの関数は標準の引数を受け取ることができ、指定した結果を返すことができる。これを使えば、アプリケーション側でreadlineを拡張してそのアプリケーションに合わせた関数を作りやすくなる。たとえばbashでは30以上のバインドコマンドを追加しており、bash固有の単語補完からシェルの組み込みコマンドへのインターフェイスまでさまざまなものを用意している。
+
+%% The second way readline allows applications to modify its behavior is
+%% through the pervasive use of pointers to hook functions with
+%% well-known names and calling interfaces.  Applications can replace
+%% some portions of readline's internals, interpose functionality in
+%% front of readline, and perform application-specific
+%% transformations.
+アプリケーションからreadlineの振る舞いを変更する二番目の方法は、フック関数へのポインタに既知の名前と呼び出しインターフェイスを使うことだ。アプリケーションがreadlineの内部動作の一部を置き換え、readlineの前に割り込み、アプリケーション固有の変換をさせることができる。
+
+\end{aosasect3}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Non-interactive Input Processing}
+\begin{aosasect2}{非インタラクティブな入力の処理}
+
+%% When the shell is not using readline, it uses either \code{stdio} or its own
+%% buffered input routines to obtain input.  The bash buffered input
+%% package is preferable to \code{stdio} when the shell is not interactive
+%% because of the somewhat peculiar restrictions Posix imposes on input
+%% consumption: the shell must consume only the input necessary to parse
+%% a command and leave the rest for executed programs.  This is
+%% particularly important when the shell is reading a script from the
+%% standard input.  The shell is allowed to buffer input as much as it
+%% wants, as long as it is able to roll the file offset back to just
+%% after the last character the parser consumes.  As a practical matter,
+%% this means that the shell must read scripts a character at a time when
+%% reading from non-seekable devices such as pipes, but may buffer as
+%% many characters as it likes when reading from files.
+シェルがreadlineを使っていない場合は、\code{stdio}あるいは自前のバッファ入力ルーチンを使って入力を取得する。シェルが対話モードでない場合は、\code{stdio}よりもbashのバッファ入力パッケージを使うことをお勧めする。なぜなら、Posixは入力の取り込みに奇妙な制約を課すからである。シェルが取り込むのはコマンドのパースに必要な部分だけで、残りはそのまま実行プログラムに渡さなければならない。これは、シェルがスクリプトを標準入力から読み込んでいるときに特に重要となる。シェルは、入力をバッファリングすることを許されている。ただし、ファイルのオフセットをパーサが処理済みの最後の文字の直後にまで戻せる場合に限る。現実的な意味合いで言うと、これはつまり次のような意味である。パイプなどのシーク不能なデバイスからスクリプトを読み込む場合は一文字ずつ読み込まなければならず、ファイルなどから読み込む場合は好きなだけバッファリングできるということだ。
+
+%% These idiosyncrasies aside, the output of the non-interactive input
+%% portion of shell processing is the same as readline: a buffer of
+%% characters terminated by a newline.
+これらの特殊な点を別として、非インタラクティブな入力のシェルでの処理はreadlineと同様である。つまり、改行文字で区切られる文字列のバッファとして扱う。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Multibyte Characters}
+\begin{aosasect2}{マルチバイト文字}
+
+%% Multibyte character processing was added to the shell a long time
+%% after its initial implementation, and it was done in a way designed to
+%% minimize its impact on the existing code.  When in a locale that
+%% supports multibyte characters, the shell stores its input in a buffer
+%% of bytes (C \code{char}s), but treats these bytes as potentially
+%% multibyte characters.  Readline understands how to display multibyte
+%% characters (the key is knowing how many screen positions a multibyte
+%% character occupies, and how many bytes to consume from a buffer when
+%% displaying a character on the screen), how to move forward and
+%% backward in the line a character at a time, as opposed to a byte at a
+%% time, and so on.  Other than that, multibyte characters don't have
+%% much effect on shell input processing.  Other parts of the shell,
+%% described later, need to be aware of multibyte characters and take
+%% them into account when processing their input.
+マルチバイト文字の処理がシェルに追加されたのは、最初に実装が始まってからかなりの時間がたった後のことだった。この機能は、既存のコードに与える影響を最小限にするように設計された。マルチバイトをサポートしたロケールにいるときは、シェルへの入力はバイト(Cの\code{char})のバッファとして格納するが、その中身がマルチバイト文字である可能性も考慮するようになる。Readlineは、マルチバイト文字の表示方法を知っている(鍵となるのは、マルチバイト文字が画面上で一文字あたりどの程度の場所をとるかということと、画面に表示するときにバッファから何バイト取り出すべきかということだ)し、前後に移動するときにもバイト単位ではなく文字単位になることなども知っている。それ以外に、マルチバイト文字がシェルの入力処理に影響を及ぼすことはない。シェルのその他の部分については後ほど説明するが、マルチバイト文字を考慮にいれた処理が必要となる。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Parsing}
+\begin{aosasect1}{パース}
+
+%% The initial job of the parsing engine is lexical analysis: to separate
+%% the stream of characters into words and apply meaning to the result.
+%% The word is the basic unit on which the parser operates.  Words are
+%% sequences of characters separated by metacharacters, which include
+%% simple separators like spaces and tabs, or characters that are special
+%% to the shell language, like semicolons and ampersands.
+パースエンジンが最初にする仕事は字句解析、つまり文字のストリームを単語に区切ってそれに意味を与えるということだ。単語は、パーサが何らかの操作をするときの基本単位となる。単語とはメタ文字で区切られた文字列のことである。メタ文字には、スペースやタブといったシンプルな区切り文字のほかにシェル言語で特殊な意味を持つ文字(セミコロンやアンパサンドなど)がある。
+
+%% One historical problem with the shell, as Tom Duff said in his paper
+%% about \code{rc}, the Plan 9 shell, is that nobody really knows what
+%% the Bourne shell grammar is.  The Posix shell committee deserves
+%% significant credit for finally publishing a definitive grammar for a
+%% Unix shell, albeit one that has plenty of context dependencies.  That
+%% grammar isn't without its problems---it disallows some constructs that
+%% historical Bourne shell parsers have accepted without error---but it's
+%% the best we have.
+シェルについての歴史的な問題は、Tom Duffが\code{rc}(Plan 9のシェル)に関するペーパーで述べたとおり、Bourne shellの文法を完全に理解している人が誰もいないということである。Posixシェル委員会はUnixシェルの完全な文法を公開するというすばらしい業績を残した。しかしこの文法には、コンテキストに依存する部分が大量にある。この文法に問題がないわけではない---過去のBourne shellがエラーなしで許容していた構文のいくつかは許可されていない---が、我々が知る限り最善のものだ。
+
+%% The bash parser is derived from an early version of the Posix grammar,
+%% and is, as far as I know, the only Bourne-style shell parser
+%% implemented using Yacc or Bison.  This has presented its own set of
+%% difficulties---the shell grammar isn't really well-suited to
+%% yacc-style parsing and requires some complicated lexical analysis and
+%% a lot of cooperation between the parser and the lexical analyzer.
+bashのパーサはPosixの文法の初期版に由来するもので、私の知る限りで唯一の、YaccあるいはBisonで実装されたBourneシェルパーサである。それ故の困難も存在する---シェルの文法はyacc形式のパースとはあまり相性がよくなくて、複雑な字句解析を必要とするしパーサと字句解析器との連携も多くなる。
+
+%% In any event, the lexical analyzer takes lines of input from readline
+%% or another source, breaks them into tokens at metacharacters,
+%% identifies the tokens based on context, and passes them on to the
+%% parser to be assembled into statements and commands.  There is a lot
+%% of context involved---for instance, the word \code{for} can be a
+%% reserved word, an identifier, part of an assignment statement, or
+%% other word, and the following is a perfectly valid command:
+いずれにせよ、字句解析器は入力をreadlineあるいはその他のソースから受け取り、メタ文字でトークンに切り分け、コンテキストにあわせてトークンを識別し、それをパーサに渡して文やコマンドとして組み立てることになる。多くの部分はコンテキストに依存する---たとえば\code{for}という単語は、予約後かもしれないし識別子かもしれない。あるいは代入文や他の単語の一部かもしれない。次の例はコマンドとしてまったく問題のないものである。
+
+\begin{verbatim}
+for for in for; do for=for; done; echo $for
+\end{verbatim}
+
+%% \noindent that displays \code{for}.
+\noindent これは\code{for}と表示する。
+
+%% At this point, a short digression about aliasing is in order.  Bash
+%% allows the first word of a simple command to be replaced with
+%% arbitrary text using aliases.  Since they're completely lexical,
+%% aliases can even be used (or abused) to change the shell grammar: it's
+%% possible to write an alias that implements a compound command that
+%% bash doesn't provide.  The bash parser implements aliasing completely
+%% in the lexical phase, though the parser has to inform the analyzer
+%% when alias expansion is permitted.
+ここで、余談としてエイリアスについて説明しよう。Bashでは、シンプルなコマンドの先頭の単語をエイリアスで任意のテキストに置き換えられる。エイリアスは完全に単語なので、エイリアスを使えば(あるいは悪用すれば)シェルの文法を変えてしまうこともできる。たとえば、bashが提供していない複合コマンドをエイリアスで実装することもできる。bashのパーサはエイリアスを完全に解析フェーズで実装しているので、パーサは解析器に対してエイリアスの展開が許可されたことを通知しなければならない。
+
+%% Like many programming languages, the shell allows characters to be
+%% escaped to remove their special meaning, so that metacharacters such as
+%% \code{\&} can appear in commands.  There are three types of quoting,
+%% each of which is slightly different and permits slightly different
+%% interpretations of the quoted text: the backslash, which escapes the
+%% next character; single quotes, which prevent interpretation of all
+%% enclosed characters; and double quotes, which prevent some
+%% interpretation but allow certain word expansions (and treats
+%% backslashes differently).  The lexical analyzer interprets quoted
+%% characters and strings and prevents them from being recognized by the
+%% parser as reserved words or metacharacters.  There are also two
+%% special cases, \code{\$'...'} and \code{\$"..."}, that expand
+%% backslash-escaped characters in the same fashion as ANSI C strings and
+%% allow characters to be translated using standard internationalization
+%% functions, respectively.  The former is widely used; the latter,
+%% perhaps because there are few good examples or use cases, less so.
+他の多くのプログラミング言語と同様に、シェルでも文字をエスケープして特殊な意味を取り除くことができる。エスケープすれば、\code{\&}のようなメタ文字をコマンド内で使えるようになる。クォートには三種類の方法があり、クォートしたテキストの扱いがそれぞれ少しずつ異なる。バックスラッシュは、それに続く一文字をエスケープする。シングルクォートは、囲まれた文字をすべてそのまま扱う。ダブルクォートもほぼ同様だが、特定の単語の展開は行う(そしてバックスラッシュの扱いが異なる)。字句解析器は、クォートされた文字や文字列をパーサ側で予約語やメタ文字として扱われないようにする。それ以外に特殊な扱いをするのが\code{\$'...'}と\code{\$"..."}だ。前者はバックスラッシュでエスケープされた文字をANSI Cの文字列と同じように展開し、後者は標準の国際化関数を使って文字を翻訳する。前者は幅広く使われているが、後者はあまり使われていない。実際の使いどころがほとんどないからであろう。
+
+%% The rest of the interface between the parser and lexical analyzer is
+%% straightforward.  The parser encodes a certain amount of state and
+%% shares it with the analyzer to allow the sort of context-dependent
+%% analysis the grammar requires.  For example, the lexical analyzer
+%% categorizes words according to the token type: reserved word (in the
+%% appropriate context), word, assignment statement, and so on.  In order
+%% to do this, the parser has to tell it something about how far it has
+%% progressed parsing a command, whether it is processing a
+%% multiline string (sometimes called a ``here-document''),
+%% whether it's in a case statement or a conditional
+%% command, or whether it is processing an extended shell pattern or compound
+%% assignment statement.
+パーサと字句解析器の残りのインターフェイスはそれほど難しいものではない。パーサはある程度の量の状態を符号化して解析器と共有し、文法上必要となるコンテキスト依存の解析を行う。たとえば、字句解析器はトークンの型に応じて単語を分類している。(適切なコンテキストにおける)予約語、通常の単語、代入文などである。これを実現するために、パーサは字句解析器に次のようなことを伝えなければならない。コマンドのパースがどこまで進んだか、複数行の文字列(``ヒアドキュメント''と呼ばれることもある)を処理しているところかどうか、条件分岐の中にいるかどうか、シェルパターンを展開したものを処理しているのか複合代入文を処理しているのかなどである。
+
+%% Much of the work to recognize the end of the command substitution
+%% during the parsing stage is encapsulated into a single function
+%% (\code{parse\_comsub}), which knows an uncomfortable amount of shell
+%% syntax and duplicates rather more of the token-reading code than is
+%% optimal.  This function has to know about here documents, shell
+%% comments, metacharacters and word boundaries, quoting, and when
+%% reserved words are acceptable (so it knows when it's in a \code{case}
+%% statement); it took a while to get that right.
+パース段階でのコマンドの置換が終わったことを判断する作業のほとんどは、ひとつの関数(\code{parse\_comsub})にまとめられている。この関数は恐ろしいほどの量になるシェルの構文を知っており、トークン読み込みのコード以上に重複がある。最適化されているとはとても言えない。この関数はヒアドキュメントやシェルのコメントについて知っていなければならないし、それだけでなくメタ文字や単語の区切り、クォート処理、予約語が使えるかどうか(つまり、今\code{case}文の中にいるのかどうか)なども知っていなければならない。これらを正しく処理できるようになるまでには時間がかかった。
+
+%% When expanding a
+%% command substitution during word expansion, bash uses the parser to
+%% find the correct end of the construct.  This is similar to turning a
+%% string into a command for \code{eval}, but in this
+%% case the command isn't terminated by the end of the string.  In order
+%% to make this work, the parser must recognize a right parenthesis as a
+%% valid command terminator, which leads to special cases in a number of
+%% grammar productions and requires the lexical analyzer to flag a right
+%% parenthesis (in the appropriate context) as denoting EOF\@.  The parser
+%% also has to save and restore parser state before recursively invoking
+%% \code{yyparse}, since a command substitution can be parsed and
+%% executed as part of expanding a prompt string in the middle of reading
+%% a command.  Since the input functions implement read-ahead, this
+%% function must finally take care of rewinding the bash input pointer to
+%% the right spot, whether bash is reading input from a string, a file,
+%% or the terminal using readline.  This is important not only so that
+%% input is not lost, but so the command substitution expansion functions
+%% construct the correct string for execution.
+単語の展開の際にコマンド置換を展開するときには、bashはパーサを使って言語構造の終了位置を見つける。文字列を\code{eval}用のコマンドに変換するのに似ているが、この場合は文字列の最後でコマンドが終わるわけではない。これを正しく動作させるには、パーサが右かっこをコマンドの終端を認識しなければならない。これは多くの文法導出に例外条件を追加することにつながり、字句解析器は(適切なコンテキストにおける)右かっこにEOFを表すフラグを立てなければならなくなる。パーサはまた、\code{yyparse}を再帰的に起動する前にパーサの状態を保存しておかなければならない。コマンドの置換は、コマンドを読み込む際のプロンプト文字列の展開の一部として発生することもあるからである。入力関数は先読みを実装しているので、この関数は最終的にbashの入力ポインタを正しい位置まで巻き戻さないといけない。入力を文字列やファイルから読み込んでいるときでもターミナルからreadlineで読み込んでいるときでも同じだ。これが重要なのは、単に入力を読み落とさないようにするためというだけではない。コマンド置換の展開関数が実行用の正しい文字列を組み立てられるようにするためでもある。
+
+%% Similar problems are posed by programmable word completion, which allows
+%% arbitrary commands to be executed while parsing another command,
+%% and solved by saving and restoring parser state around invocations.
+同様の問題が、プログラマブルな単語補完でも発生する。これは、あるコマンドのパース中に別の任意のコマンドを実行できるようにするものだ。この問題を解決するために、起動の館にパーサの状態を保存して後で復元している。
+
+%% Quoting is also a source of incompatibility and debate.  Twenty years
+%% after the publication of the first Posix shell standard, members of
+%% the standards working group are still debating the proper behavior of
+%% obscure quoting.  As before, the Bourne shell is no help other than as
+%% a reference implementation to observe behavior.
+クォート処理もまた、非互換性や論争の元となるものだ。Posixシェルの標準規格が最初に発表されてから20年がたつが、標準化ワーキンググループのメンバーはいまだにクォート処理の適切な振る舞いについて議論を続けている。先に述べたように、Bourneシェルがその振る舞いの参考にしているのはリファレンス実装だけである。
+
+%% The parser returns a single C structure representing a command (which,
+%% in the case of compound commands like loops, may include other
+%% commands in turn) and passes it to the next stage of the shell's
+%% operation: word expansion.  The command structure is composed of
+%% command objects and lists of words.  Most of the word lists are
+%% subject to various transformations, depending on their context, as
+%% explained in the following sections.
+パーサが返すのはコマンドを表すCの構造体(ループのような合成コマンドの場合は、その中にさらに別のコマンドが含まれる場合もある)で、それがシェル操作の次のステージ、つまり単語の展開処理に渡される。コマンド構造体は、コマンドオブジェクトおよび単語のリストで構成されている。単語のリストの大半は、コンテキストによってさまざまに変換される。その詳細は次のセクションで説明する。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Word Expansions}
+\begin{aosasect1}{単語の展開}
+
+%% After parsing, but before execution, many of the words produced by the
+%% parsing stage are subjected to one or more word expansions, so that
+%% (for example) \code{\$OSTYPE} is replaced with the string
+%% \code{"linux-gnu"}.
+パースが終わったら、実行の前に、パース段階で生成された単語の多くを展開することになる。つまり、(たとえば)\code{\$OSTYPE}を文字列\code{"linux-gnu"}に置き換えたりするような処理だ。
+
+%% \begin{aosasect2}{Parameter and Variable Expansions}
+\begin{aosasect2}{パラメータおよび変数の展開}
+
+%% Variable expansions are the ones users find most familiar.  Shell
+%% variables are barely typed, and, with few exceptions, are treated as
+%% strings.  The expansions expand and transform these strings into new
+%% words and word lists.
+変数の展開は、ユーザーにとってもっともなじみ深いものだ。シェルの変数にはほとんど型付けがなく、わずかな例外を除いて文字列として扱われる。この展開では、パラメータおよび変数の文字列を新たな単語や単語リストに変換する。
+
+%% There are expansions that act on the variable's value itself.
+%% Programmers can use these to produce substrings of a variable's
+%% value, the value's length, remove portions that match a specified
+%% pattern from the beginning or end, replace portions of the value
+%% matching a specified pattern with a new string, or modify the case of
+%% alphabetic characters in a variable's value.
+展開は、変数の値そのものに対して行われる。プログラマーは、これらを使って変数の値の部分文字列を生成したり値の長さを取得したり、指定したパターンにマッチする部分を先頭あるいは末尾から削除したり、値が指定したパターンにマッチする部分を新しい文字で置き換えたり、アルファベットの大文字小文字を変更したりする。
+
+%% In addition, there are expansions that depend on the state of a
+%% variable: different expansions or assignments happen based on whether
+%% or not the variable is set.  For instance,
+%% \code{\$\{parameter:-word\}} will expand to \code{parameter} if it's
+%% set, and \code{word} if it's not set or set to the empty string.
+さらに、変数の状態に依存する展開処理もある。変数に値が設定されているか否かによって、展開や代入の内容が異なってくる。たとえば\code{\$\{parameter:-word\}}は、もし設定されていれば\code{parameter}と展開されるが、設定されていなかったり空の文字列が設定されている場合は\code{word}と展開される。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{And Many More}
+\begin{aosasect2}{その他いろいろ}
+
+%% Bash does many other kinds of expansion, each of which has its own
+%% quirky rules.  The first in processing order is brace expansion, which
+%% turns:
+Bashはそれ以外にもさまざまな展開を行い、それぞれについて独自の変な規則に従っている。最初に処理されるのはブレースの展開で、これは
+
+\begin{verbatim}
+pre{one,two,three}post
+\end{verbatim}
+
+%% \noindent into:
+\noindent のような文字列を次のように展開する。
+
+\begin{verbatim}
+preonepost pretwopost prethreepost
+\end{verbatim}
+
+%% There is also command substitution, which is a nice marriage of the
+%% shell's ability to run commands and manipulate variables.  The shell
+%% runs a command, collects the output, and uses that output as the value
+%% of the expansion.
+コマンドの置換も行われる。これは、シェルの機能であるコマンドの実行と変数の操作をうまく組み合わせたものだ。シェルがコマンドを実行してその結果を収集し、その出力を使って値の展開をする。
+
+%% One of the problems with command substitution is that it runs the
+%% enclosed command immediately and waits for it to complete: there's
+%% no easy way for the shell to send input to it.  Bash uses a feature
+%% named process substitution, a sort of combination of command
+%% substitution and shell pipelines, to compensate for these
+%% shortcomings.  Like command substitution, bash runs a command, but
+%% lets it run in the background and doesn't wait for it to complete.
+%% The key is that bash opens a pipe to the command for reading or
+%% writing and exposes it as a filename, which becomes the result of the
+%% expansion.
+コマンド置換の問題のひとつは、コマンドを直接実行してその処理が完了するまで待ち続けるということだ。シェルからコマンドに対して入力を送る簡単な方法はない。Bashでは、プロセス置換という機能を使うことができる。これはコマンド置換とシェルのパイプラインを組み合わせたような機能で、コマンド置換のこれらの欠点を埋め合わせるために使える。コマンド置換と同様にbashがコマンドを実行するが、そのコマンドはバックグラウンドプロセスで動作し、処理が完了するまで待つことはない。この機能の鍵となるのは、bashがコマンドへのパイプを開いて読み書きをしたり、ファイルとして公開して展開の結果を記録したりするという点だ。
+
+%% Next is tilde expansion.  Originally intended to turn
+%% \code{{\textasciitilde}alan} into a
+%% reference to Alan's home directory, it has grown over the years into a
+%% way to refer to a large number of different directories.
+次に行われるのはチルダの展開である。当初の意図は、たとえば\code{{\textasciitilde}alan}をAlanのホームディレクトリに変換するというものであった。しかし年月を経てこの機能は成長し、今ではさまざまなディレクトリを指すようになっている。
+
+%% Finally, there is arithmetic expansion.  \code{\$((expression))}
+%% causes \code{expression} to be evaluated according to the same rules
+%% as C language expressions.  The result of the expression becomes the
+%% result of the expansion.
+最後に行われるのが算術式の展開である。\code{\$((expression))}とすると、\code{expression}の部分をC言語の式と同じルールで評価し、その評価結果を使って展開する。
+
+%% Variable expansion is where the difference between single and double
+%% quotes becomes most apparent.  Single quotes inhibit all
+%% expansions---the characters enclosed by the quotes pass through the
+%% expansions unscathed---whereas double quotes permit some expansions
+%% and inhibit others.  The word expansions and command, arithmetic, and
+%% process substitution take place---the double quotes only affect how
+%% the result is handled---but brace and tilde expansion do not.
+変数の展開は、シングルクォートとダブルクォートの違いが最も明確にあらわれる処理だ。シングルクォートは一切の展開を禁止する---囲まれた部分は何も変更されずにそのまま展開処理を通過する---が、ダブルクォートの場合はいくつかの展開は許可した上でそれ以外の展開を禁止する。単語の展開やコマンド、算術式、プロセスの置換は行われる---ダブルクォートは、その結果の扱い方にだけ影響を及ぼす---が、ブレースやチルダの展開は行われない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Word Splitting}
+\begin{aosasect2}{単語の分割}
+
+%% The results of the word expansions are split using the characters in
+%% the value of the shell variable \code{IFS} as delimiters.  This is how
+%% the shell transforms a single word into more than one.  Each time one
+%% of the characters in \code{\$IFS}\footnote{In most cases, a sequence of one
+%% of the characters.} appears in the result, bash splits the word into
+%% two.  Single and double quotes both inhibit word splitting.
+単語を展開した結果は、シェル変数\code{IFS}内の文字を区切りとして分割される。これを用いて、シェルはひとつの単語を複数の単語に変換する。\code{\$IFS}内のいずれかの文字\footnote{たいていの場合は、いずれかの文字の列となる。}が結果の中に登場するたびに、bashはそこで単語をふたつに分割する。シングルクォートあるいはダブルクォートで囲まれている場合は、この分割は行われない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Globbing}
+\begin{aosasect2}{グロブ}
+
+%% After the results are split, the shell interprets each word resulting
+%% from the previous expansions as a potential pattern and tries to match
+%% it against an existing filename, including any leading directory path.
+結果を分割した後でシェルは、展開された単語をパターンとして解釈し、ファイル名(ディレクトリパスも含む)とのマッチを試みる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Implementation}
+\begin{aosasect2}{実装}
+
+%% If the basic architecture of the shell parallels a pipeline, the word
+%% expansions are a small pipeline unto themselves.  Each stage of word
+%% expansion takes a word and, after possibly transforming it, passes it
+%% to the next expansion stage.  After all the word expansions have been
+%% performed, the command is executed.
+シェルの基本構造がパイプラインにそったものなら、単語の展開は自分自身に向けた小さなパイプラインとなる。単語の展開における各ステージは、単語を受け取って何らかの変換を施し、それを次の展開ステージに渡す。すべての単語展開が終わったら、コマンドを実行する。
+
+%% The bash implementation of word expansions builds on the basic data
+%% structures already described.  The words output by the parser are
+%% expanded individually, resulting in one or more words for each input
+%% word.  The \code{WORD\_DESC} data structure has proved versatile
+%% enough to hold all the information required to encapsulate the
+%% expansion of a single word. The flags are used to encode information
+%% for use within the word expansion stage and to pass information from
+%% one stage to the next. For instance, the parser uses a flag to tell
+%% the expansion and command execution stages that a particular word is a
+%% shell assignment statement, and the word expansion code uses flags
+%% internally to inhibit word splitting or note the presence of a quoted
+%% null string (\code{"\$x"}, where \code{\$x} is unset or has a null
+%% value).  Using a single character string for each word being expanded,
+%% with some kind of character encoding to represent additional
+%% information, would have proved much more difficult.
+bashの単語展開の実装は、既に説明済みの基本的なデータ構造をもとにしている。パーサが出力した単語群は個別に展開され、その結果の単語が入力となる。\code{WORD\_DESC}構造体には、単一の単語展開をカプセル化するために必要な情報をすべて保持できる。flagsを使って単語展開ステージに必要な情報を符号化し、情報を次のステージに引き継ぐ。たとえば、展開ステージとコマンド実行ステージでは、パーサがフラグを使って特定の単語がシェルの代入文であることを伝える。また、単語展開のコードでは、このフラグを内部的に使って、単語の分割を禁止したりクォートしたnull文字列(\code{"\$x"}。ただし\code{\$x}は未設定あるいはnull値が設定されている)の存在を示したりする。展開される各単語に対して文字列を用意し、何らかの文字符号化で追加情報を表すようになどしていたら、もっと難しくなっていたことだろう。
+
+%% As with the parser, the word expansion code handles characters whose
+%% representation requires more than a single byte.  For example, the
+%% variable length expansion (\code{\${\#variable}}) counts the length in
+%% characters, rather than bytes, and the code can correctly identify the
+%% end of expansions or characters special to expansions in the presence
+%% of multibyte characters.
+パーサと同様、単語展開のコードもマルチバイト文字を正しく扱うことができる。たとえば、変数の長さの展開(\code{\${\#variable}})は、バイト数ではなく文字数を数える。展開のコードは、展開の終わりやマルチバイト文字列で特別な意味を持つ文字を正しく識別する。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Command Execution}
+\begin{aosasect1}{コマンドの実行}
+
+%% The command execution stage of the internal bash pipeline is where the
+%% real action happens.  Most of the time, the set of expanded words is
+%% decomposed into a command name and set of arguments, and passed to the
+%% operating system as a file to be read and executed with the remaining
+%% words passed as the rest of the elements of \code{argv}.
+bashの内部パイプラインにおけるコマンド実行ステージは、実際のアクションが発生する場所である。ほとんどの場合、展開された単語群はコマンド名と引数群に分けられる。OSに渡すときには、コマンド名の部分が読み込んで実行するファイルとなり、残りの単語は\code{argv}の残りの要素となる。
+
+%% The description thus far has deliberately concentrated on what Posix
+%% calls simple commands---those with a command name and a set of
+%% arguments.  This is the most common type of command, but bash provides
+%% much more.
+ここまでの説明は意図的に、Posixが単純なコマンド---コマンド名と引数セットからなるコマンド---を呼ぶ場合に重点を置いている。この手のコマンドが最も一般的であるからそうしたのだが、bashにはそれ以外のコマンドもある。
+
+%% The input to the command execution stage is the command structure
+%% built by the parser and a set of possibly-expanded words.  This is
+%% where the real bash programming language comes into play.  The
+%% programming language uses the variables and expansions discussed
+%% previously, and implements the constructs one would expect in a
+%% high-level language: looping, conditionals, alternation, grouping,
+%% selection, conditional execution based on pattern matching, expression
+%% evaluation, and several higher-level constructs specific to the shell.
+コマンド実行ステージへの入力は、パーサが組み立てたコマンド構造と、展開された単語群のセットとなる。ここからが、真のbashプログラミング言語の出番だ。このプログラミング言語は先ほど説明したような変数や展開を使うし、高級言語と聞いて一般に思い浮かべるような言語構造を実装している。ループや条件分岐、グルーピング、選択、パターンマッチングによる条件付きの実行、式の評価、そしてシェル特有のいくつかの言語構造などだ。
+
+%% \begin{aosasect2}{Redirection}
+\begin{aosasect2}{リダイレクト}
+
+%% One reflection of the shell's role as an interface to the operating
+%% system is the ability to redirect input and output to and from the
+%% commands it invokes.  The redirection syntax is one of the things that
+%% reveals the sophistication of the shell's early users: until very
+%% recently, it required users to keep track of the file descriptors they
+%% were using, and explicitly specify by number any other than standard
+%% input, output, and error.
+OSとのインターフェイスとしてのシェルの役割のひとつを反映しているのが、起動したコマンドの入出力に対するリダイレクト機能である。リダイレクトの構文は、初期のシェル利用者の洗練度を表すものだった。つい最近まで、リダイレクトを使う場合は自分が使っているファイルディスクリプタをきちんと把握しておく必要があったのだ。標準入出力と標準エラー出力だけでなく、それ以外のファイルディスクリプタも番号で明示しなければならなかった。
+
+%% A recent addition to the redirection syntax allows users to direct the
+%% shell to choose a suitable file descriptor and assign it to a
+%% specified variable, instead of having the user choose one.  This
+%% reduces the programmer's burden of keeping track of file descriptors,
+%% but adds extra processing: the shell has to duplicate file descriptors
+%% in the right place, and make sure they are assigned to the specified
+%% variable.  This is another example of how information is passed from
+%% the lexical analyzer to the parser through to command execution: the
+%% analyzer classifies the word as a redirection containing a variable
+%% assignment; the parser, in the appropriate grammar production, creates
+%% the redirection object with a flag indicating assignment is required;
+%% and the redirection code interprets the flag and ensures that the file
+%% descriptor number is assigned to the correct variable.
+最近追加されたリダイレクト構文によって、シェルに適切なファイルディスクリプタを選ばせてそれを指定した変数に代入できるようになり、ユーザーがファイルディスクリプタを指定する必要はなくなった。そのおかげでプログラマがファイルディスクリプタを意識する面倒は減らせたが、新たな処理が増えた。シェルがファイルディスクリプタを正しい場所に複製し、指定した変数にそれを代入しなければならなくなった。これは、字句解析器からパーサを通してコマンド実行まで情報を渡していく方法を示すもうひとつの例となる。解析器が変数代入を含むリダイレクトとして単語を識別し、パーサは構文の構築時にリダイレクトオブジェクトを作る。このオブジェクトには代入を要するという意味のフラグを立てる。そして、リダイレクトのコードがそのフラグを読み取り、ファイルディスクリプタの番号を正しい変数に代入する。
+
+%% The hardest part of implementing redirection is remembering how to
+%% undo redirections.  The shell deliberately blurs the distinction
+%% between commands executed from the filesystem that cause the creation
+%% of a new process and commands the shell executes itself (builtins),
+%% but, no matter how the command is implemented, the effects of
+%% redirections should not persist beyond the command's completion\footnote{The
+%% \code{exec} builtin is an exception to this rule.}. The shell therefore has
+%% to keep track of how to undo the effects of each redirection,
+%% otherwise redirecting the output of a shell builtin would change the
+%% shell's standard output.  Bash knows how to undo each type of
+%% redirection, either by closing a file descriptor that it allocated, or
+%% by saving file descriptor being duplicated to and restoring it later
+%% using \code{dup2}.  These use the same redirection objects as those
+%% created by the parser and are processed using the same functions.
+リダイレクトの実装で最も難しい部分は、リダイレクトを取り消す方法を覚えておくことだ。シェルは、ファイルシステムから実行して新しいプロセスを立ち上げるコマンドとシェル自身が実行する(組み込みの)コマンドの区別を意図的に曖昧にしている。しかし、コマンドの実装がどうであろうと、リダイレクトの効果をそのコマンドが完了した後までひきずってはいけない\footnote{組み込みコマンド\code{exec}はこのルールの例外だ。}。したがって、シェルはリダイレクトの効力を取り消す方法を覚えておかなければならない。さもないと、シェルの組み込みコマンドの出力をリダイレクトしたときにシェルの標準出力が変わってしまう。Bashは、リダイレクトの形式ごとにその取り消し方法を知っている。割り当てられたファイルディスクリプタをクローズするか、あるいは複製されたファイルディスクリプタを保存してあとで\code{dup2}を使って復元するかのいずれかだ。これらはいずれもパーサが作った同じリダイレクトオブジェクトを使い、同じ関数で処理される。
+
+%% Since multiple redirections are implemented as simple lists of
+%% objects, the redirections used to undo are kept in a separate list.
+%% That list is processed when a command completes, but the shell has to
+%% take care when it does so, since redirections attached to a shell
+%% function or the ``\code{.}'' builtin must stay in effect until that
+%% function or builtin completes.  When it doesn't invoke a command, the
+%% \code{exec} builtin causes the undo list to simply be discarded,
+%% because redirections associated with \code{exec} persist in the shell
+%% environment.
+複数のリダイレクトを単純にオブジェクトのリストで実装しているので、取り消しに使うリダイレクトは別のリストとして保持する。このリストはコマンドが完了したときに処理されるが、シェルはそれがいつ処理されるのかを気にかけねばならない。シェルの関数や組み込みコマンド``\code{.}''に関連づけられたリダイレクトは関数や組み込みコマンドが完了するまで有効にしておかなければならないからである。コマンドを起動しないときは、組み込みコマンド\code{exec}は取り消し用のリストを破棄する。\code{exec}に関連づけられたリダイレクトはシェルの環境に残り続けるからだ。
+
+%% The other complication is one bash brought on itself.  Historical
+%% versions of the Bourne shell allowed the user to manipulate only file
+%% descriptors 0-9, reserving descriptors 10 and above for the shell's
+%% internal use.  Bash relaxed this restriction, allowing a user to
+%% manipulate any descriptor up to the process's open file limit.  This
+%% means that bash has to keep track of its own internal file
+%% descriptors, including those opened by external libraries and not
+%% directly by the shell, and be prepared to move them around on demand.
+%% This requires a lot of bookkeeping, some heuristics involving the
+%% close-on-exec flag, and yet another list of redirections to be
+%% maintained for the duration of a command and then either processed or
+%% discarded.
+他にもやっかいなことがあるが、それはbashのせいではない。過去のバージョンのBourneシェルでは、ユーザーが操作できるファイルディスクリプタが0から9までだけだった。10以上は、シェルが内部的に使うために予約されていたのだ。Bashではこの制限を緩め、プロセスのファイルオープンの上限に達するまで任意のディスクリプタを操作できるようにした。つまり、bashは自身が保持する内部のファイルディスクリプタ(直接シェルからではなく、外部のライブラリからオープンしたディスクリプタも含む)を覚えておいて必要に応じて移動できるようにしなければならないということになる。管理しなければならないことが増えるし、close-on-execフラグのような仕組みも必要になる。さらに新たなリダイレクトのリストを用意して、コマンドの実行期間や処理済みか破棄されたかなどを管理しなければならない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Builtin Commands}
+\begin{aosasect2}{組み込みコマンド}
+
+%% Bash makes a number of commands part of the shell itself.  These
+%% commands are executed by the shell, without creating a new process.
+Bashには、多数のコマンドがシェル自身の一部として組み込まれている。これらのコマンドはシェルから実行されるもので、新たなプロセスは立ち上げない。
+
+%% The most common reason to make a command a builtin is to maintain or
+%% modify the shell's internal state.  \code{cd} is a good example; one
+%% of the classic exercises for introduction to Unix classes is to
+%% explain why \code{cd} can't be implemented as an external command.
+コマンドを組み込みで用意する主な理由は、シェルの内部状態を保ったり変更したりするためだ。\code{cd}がよい例である。Unixの授業で最初に行う典型的な課題は、なぜ\code{cd}が外部コマンドとして実装できないのかを説明させることだ。
+
+%% Bash builtins use the same internal primitives as the rest of the
+%% shell.  Each builtin is implemented using a C language function that
+%% takes a list of words as arguments.  The words are those output by the
+%% word expansion stage; the builtins treat them as command names and
+%% arguments.  For the most part, the builtins use the same standard
+%% expansion rules as any other command, with a couple of exceptions: the
+%% bash builtins that accept assignment statements as arguments (e.g.,
+%% \code{declare} and \code{export}) use the same expansion rules for the
+%% assignment arguments as those the shell uses for variable assignments.
+%% This is one place where the \code{flags} member of the
+%% \code{WORD\_DESC} structure is used to pass information between one
+%% stage of the shell's internal pipeline and another.
+Bashの組み込みコマンドは、シェルのその他の部分と同じ内部プリミティブを使う。組み込みコマンドはC言語の関数を使って実装されており、この関数は単語のリストを引数として受け取る。単語リストは単語展開ステージの出力する結果であり、組み込みコマンド側ではそれをコマンド名とその引数として解釈する。組み込みコマンドが使う展開ルールはほとんどが他のコマンドと同じ標準的なものだが、いくつか例外がある。bashの組み込みコマンドの中で代入文を引数として受け取れるもの(\code{declare}や\code{export}など)は、代入の引数を展開するときにはシェルの変数代入のときと同じルールを使う。ここでも\code{WORD\_DESC}構造体の\code{flags}を使い、シェルの内部パイプライン上でステージからステージへと情報を渡す。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Simple Command Execution}
+\begin{aosasect2}{単純なコマンドの実行}
+
+%% Simple commands are the ones most commonly encountered.  The search
+%% for and execution of commands read from the filesystem, and
+%% collection of their exit status, covers many of the shell's remaining
+%% features.
+単純なコマンドは、最もよく見かける形式のコマンドである。ファイルシステムからのコマンドの読み込みやその実行、そして終了ステータスの取得について説明すれば、ここまで説明してこなかったシェルの機能の多くをカバーすることになる。
+
+%% Shell variable assignments (i.e., words of the form \code{var=value}) are a
+%% kind of simple command themselves.  Assignment statements can either
+%% precede a command name or stand alone on a command line.  If they
+%% precede a command, the variables are passed to the executed command in
+%% its environment (if they precede a built-in command or shell function,
+%% they persist, with a few exceptions, only as long as the builtin or
+%% function executes).  If they're not followed by a command name, the
+%% assignment statements modify the shell's state.
+シェルの変数への代入(つまり、\code{var=value}形式の単語)は、それ自身が単純なコマンドの一種である。代入文はコマンド名の前に書くこともできるし、コマンドラインでそれ単体で使うこともできる。コマンドの前に書いた場合は、その変数が後に続くコマンドの実行環境内で渡される(組み込みコマンドやシェル関数の前に書いた場合は、いくつかの例外を除いて、その変数が有効なのは組み込みコマンドあるいは関数の実行中だけとなる)。もし代入文のあとにコマンド名を続けなければ、その代入文はシェルの状態を変更する。
+
+%% When presented a command name that is not the name of a shell function
+%% or builtin, bash searches the filesystem for an executable file with
+%% that name.  The value of the \code{PATH} variable is used as a
+%% colon-separated list of directories in which to search.  Command names
+%% containing slashes (or other directory separators) are not looked up,
+%% but are executed directly.
+指定したコマンド名がシェルの関数や組み込みコマンドにないものであった場合、bashはファイルシステムから、その名前の実行可能なファイルを探す。環境変数\code{PATH}の値は、このときの検索先を表すディレクトリをコロン区切りでつなげたリストである。スラッシュ(あるいはそのあのディレクトリ区切り文字)を含むコマンド名は検索対象外となるが、直接実行することはできる。
+
+%% When a command is found using a \code{PATH} search, bash saves the
+%% command name and the corresponding full pathname in a hash table,
+%% which it consults before conducting subsequent \code{PATH} searches.
+%% If the command is not found, bash executes a specially-named function,
+%% if it's defined, with the command name and arguments as arguments to
+%% the function.  Some Linux distributions use this facility to offer to
+%% install missing commands.
+\code{PATH}の検索でコマンドが見つかれば、bashはそのコマンド名とフルパス名をハッシュテーブルに保存する。ハッシュテーブルの内容は、その後に\code{PATH}の検索が発生したときに検索の前に参照される。コマンドが見つからない場合、もし特別な名前の関数が定義されていればbashはその関数を実行する。コマンド名と引数を、この関数への引数として渡す。Linuxのディストリビューションの中には、この機能を使って存在しないコマンドをインストールさせようとするものもある。
+
+%% If bash finds a file to execute, it forks and creates a new execution
+%% environment, and executes the program in this new environment.  The
+%% execution environment is an exact duplicate of the shell environment,
+%% with minor modifications to things like signal disposition and files
+%% opened and closed by redirections.
+実行するファイルが見つかれば、bashはそれをフォークして新しい実行環境を作り、この新しい環境でプログラムを実行する。実行用の環境はシェルの環境を完全に複製したもので、シグナルの処理やリダイレクトでオープンしたりクローズしたりしたファイルなどのちょっとした修正が入っている。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Job Control}
+\begin{aosasect2}{ジョブ制御}
+
+%% The shell can execute commands in the foreground, in which it waits
+%% for the command to finish and collects its exit status, or the
+%% background, where the shell immediately reads the next command.  Job
+%% control is the ability to move processes (commands being executed)
+%% between the foreground and background, and to suspend and resume their
+%% execution.  To implement this, bash introduces the concept of a job,
+%% which is essentially a command being executed by one or more
+%% processes. A pipeline, for instance, uses one process for each of its elements.
+%% The process group is a way to join separate processes
+%% together into a single job.  The terminal has a process group ID
+%% associated with it, so the foreground process group is the one whose
+%% process group ID is the same as the terminal's.
+シェルによるコマンドの実行には二通りの方法がある。まずはフォアグラウンドでの実行で、これはコマンドが終了するまで待ってその終了ステータスを受け取る。もうひとつはバックグラウンドでの実行で、シェルはすぐに次のコマンドを読み込むことができる。ジョブ制御とは、プロセス(実行されたコマンド)をフォアグラウンドとバックグラウンドの間で移動したり実行の一時停止や再開をしたりする機能のことである。この機能を実装するためにbashはジョブという概念を導入した。ジョブとは、基本的にはひとつあるいは複数のプロセスから実行されたコマンドのことである。たとえばパイプラインでは、構成する各要素に対してひとつずつプロセスを使う。プロセスグループを使い、個々のプロセスをひとつにまとめて単一のジョブとする。ターミナルは自身に関連付けられたプロセスグループのIDを持っている。つまり、フォアグラウンドプロセスグループとは、ターミナルと同じプロセスグループIDを持つプロセスグループのことである。
+
+%% The shell uses a few simple data structures in its job control
+%% implementation.  There is a structure to represent a child process,
+%% including its process ID, its state, and the status it returned when
+%% it terminated.  A pipeline is just a simple linked list of these
+%% process structures.  A job is quite similar: there is a list of
+%% processes, some job state (running, suspended, exited, etc.), and the
+%% job's process group ID\@.  The process list usually consists of a single
+%% process; only pipelines result in more than one process being
+%% associated with a job.  Each job has a unique process group ID, and
+%% the process in the job whose process ID is the same as the job's
+%% process group ID is called the process group leader.  The current set
+%% of jobs is kept in an array, conceptually very similar to how it's
+%% presented to the user.  The job's state and exit status are assembled
+%% by aggregating the state and exit statuses of the constituent
+%% processes.
+シェルは、いくつかのシンプルなデータ構造を使ってジョブ制御を実装している。子プロセスを表す構造体には、そのプロセスIDや状態、終了時に返すステータスなどが含まれている。パイプラインは、単にこのプロセス構造体をシンプルな連結リストにしただけのものだ。ジョブもまったく同様で、プロセスのリストとジョブの状態(実行中、停止中、終了など)、そしてジョブのプロセスグループIDで管理されている。プロセスのリストは、通常は単一のプロセスだけで構成されている。パイプラインの場合だけ、複数のプロセスがジョブに関連付けられる。各ジョブはそれぞれ一意なプロセスグループIDを持っており、ジョブ内のプロセスの中でプロセスグループIDと同じプロセスIDを持つものがプロセスグループリーダーと呼ばれる。現在のジョブセットは配列に保持されていおり、この考え方ははユーザーに対する見せ方と非常に似ている。ジョブの状態や終了ステータスは、そのジョブを構成するプロセスの状態や終了ステータスを集約した結果となる。
+
+%% Like several other things in the shell, the complex part about
+%% implementing job control is bookkeeping.  The shell must take care to
+%% assign processes to the correct process groups, make sure that child
+%% process creation and process group assignment are synchronized, and
+%% that the terminal's process group is set appropriately, since the
+%% terminal's process group determines the foreground job (and, if it's
+%% not set back to the shell's process group, the shell itself won't be
+%% able to read terminal input).  Since it's so process-oriented, it's
+%% not straightforward to implement compound commands such as
+%% \code{while} and \code{for} loops so an entire loop can be stopped and
+%% started as a unit, and few shells have done so.
+シェルの他の部分と同様、ジョブ制御を実装するときに複雑になる部分は帳簿管理である。シェルはプロセスを正しいプロセスグループに割り当てねばならないし、子プロセスの作成とプロセスグループへの割り当てを同期させなければならない。またターミナルのプロセスグループも適切に設定しなければならない。ターミナルのプロセスグループがフォアグラウンドジョブを決める(そして、もしシェルのプロセスグループが設定されていなければ、シェル自身がターミナルからの入力を読み込めない)からである。これはとてもプロセス指向な考え方なので、\code{while}や\code{for}ループのような複合コマンドを実装してループ全体をひとまとめで開始・停止できるようにするのは難しい。実際、それを実現しているシェルはほとんどない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Compound Commands}
+\begin{aosasect2}{複合コマンド}
+
+%% Compound commands consist of lists of one or more simple commands and
+%% are introduced by a keyword such as \code{if} or \code{while}.  This
+%% is where the programming power of the shell is most visible and
+%% effective.
+複合コマンドは単純なコマンドのリストで構成されており、\code{if}や\code{while}といったキーワードから始まる。複合コマンドのおかげで、シェルのプログラミングの威力を発揮できるようになる。
+
+%% The implementation is fairly unsurprising.  The parser constructs
+%% objects corresponding to the various compound commands, and interprets
+%% them by traversing the object.  Each compound command is implemented
+%% by a corresponding C function that is responsible for performing the
+%% appropriate expansions, executing commands as specified, and altering
+%% the execution flow based on the command's return status.  The function
+%% that implements the \code{for} command is illustrative.  It must first
+%% expand the list of words following the \code{in} reserved word.  The
+%% function must then iterate through the expanded words, assigning each
+%% word to the appropriate variable, then executing the list of commands
+%% in the \code{for} command's body.  The for command doesn't have to
+%% alter execution based on the return status of the command, but it does
+%% have to pay attention to the effects of the \code{break} and
+%% \code{continue} builtins.  Once all the words in the list have been
+%% used, the \code{for} command returns.  As this shows, for the most
+%% part, the implementation follows the description very closely.
+その実装方法は、特に驚くようなものではない。パーサが複合コマンドに対応するオブジェクトを組み立て、コマンドを解釈するときにはそのオブジェクトを走査していくという方法だ。個々の複合コマンドはそれに対応するCの関数として実装されている。この関数が、適切な展開処理や指定したコマンドの実行、そしてコマンドの返り値に応じた実行フローの切り替えなどを行う。\code{for}コマンドを実装する関数を例にして説明しよう。この関数は、まず最初に、予約語\code{in}に続く単語のリストを展開しなければならない。それから、展開された単語を順にとりあげて適切な変数に代入し、\code{for}コマンドの本体にあるコマンドのリストを実行することになる。\code{for}コマンドはコマンドの終了ステータスによって実行を切り替える必要はない。しかし、組み込みコマンド\code{break}や\code{continue}の影響には注意する必要がある。リストにあるすべての単語の処理を終えると、\code{for}コマンドは処理を返す。これでわかるように、実装の大半はそのコマンドの説明と密接につながっている。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Lessons Learned}
+\begin{aosasect1}{学んだこと}
+
+%% \begin{aosasect2}{What I Have Found Is Important}
+\begin{aosasect2}{大切だとわかったこと}
+
+%% I have spent over twenty years working on bash, and I'd like to think
+%% I have discovered a few things.
+%% The most important---one that I can't stress enough---is that it's
+%% vital to have detailed change logs.  It's good when you can go back to
+%% your change logs and remind yourself about why a particular change was
+%% made. It's even better when you can tie that change to a particular
+%% bug report, complete with a reproducible test case, or a suggestion.
+私はこれまで20年以上bashにかかわってきて、いくつかのことに気付いた。最も重要なこと---いくら強調してもしすぎではないだろう---は、ChangeLogを詳しく書いておくべきだということだ。あとでChangeLogを読みなおせば、そのときなぜそんな変更をしたのかを思い出せる。さらに、その変更を特定のバグレポートやそれを再現させるテストケースと結び付けられればすばらしい。
+
+%% If it's appropriate, extensive regression testing is something I would
+%% recommend building into a project from the beginning.  Bash has
+%% thousands of test cases covering virtually all of its non-interactive
+%% features. I have considered building tests for interactive
+%% features---Posix has them in its conformance test suite---but did not
+%% want to have to distribute the framework I judged it would need.
+もし可能であれば、回帰テストをプロジェクトの立ち上げ時から組み込んでおくことをお勧めする。Bashには数千のテストケースがあり、非インタラクティブな機能のほぼすべてをカバーしている。インタラクティブな機能についてのテストを組み込むことも検討した---Posixには独自の適合性テストスイートが存在する---が、それに必要なフレームワークを配布することになるのは避けたかった。
+
+%% Standards are important.  Bash has benefited from being an
+%% implementation of a standard.  It's important to participate in the
+%% standardization of the software you're implementing.  In addition to
+%% discussions about features and their behavior, having a standard to
+%% refer to as the arbiter can work well.  Of course, it can also work poorly---it
+%% depends on the standard.
+標準規格は重要だ。Bashは、標準に従った実装をすることで恩恵を受けている。また、自分が実装しているソフトウェアの標準化作業にかかわることも重要だ。さまざまな機能やその振る舞いについて議論できるだけでなく、規格化するときの参考にする標準を持っていればうまくいく。もちろん、それはうまく動かないかもしれない---規格の内容による。
+
+%% External standards are important, but it's good to have
+%% internal standards as well.  I was lucky enough to fall into the GNU
+%% Project's set of standards, which provide plenty of good, practical
+%% advice about design and implementation.
+外部の標準も重要だが、内部的な標準を持つこともまた大切だ。私は幸運なことにGNU Projectの標準規格に組み込まれ、設計や実装に関する現実的で優れたアドバイスを得ることができた。
+
+%% Good documentation is another essential.  If you expect a program to
+%% be used by others, it's worth having comprehensive, clear
+%% documentation.  If software is successful, there will end up being
+%% lots of documentation for it, and it's important that the developer
+%% writes the authoritative version.
+よくできたドキュメントも不可欠だ。もし自作のプログラムを他の人に使わせるつもりなら、包括的で明確なドキュメントを作るだけの価値はある。そのソフトウェアが成功して広まると、いろいろなところで大量のドキュメントが作られることになる。そのときには、開発者自身が書いた正式なバージョンがあることが重要となる。
+
+%% There's a lot of good software out there.  Use what you can: for
+%% instance, gnulib has a lot of convenient library functions (once you
+%% can unravel them from the gnulib framework).  So do the BSDs and Mac
+%% OS X\@.  Picasso said "Great artists steal" for a reason.
+世の中には、よいソフトウェアが豊富にある。使えるものならどんどん使っていこう。たとえばgnulibには、(gnulibフレームワークから取り出せれば)便利なライブラリ関数が大量に用意されている。BSDやMac OS Xでも同様だ。ピカソも言っていたように「偉大な芸術家は盗む」のだ。
+
+%% Engage the user community, but be prepared for occasional criticism,
+%% some that will be head-scratching.  An active user community can be a
+%% tremendous benefit, but one consequence is that people will become
+%% very passionate.  Don't take it personally.
+ユーザーコミュニティは大切にしよう。しかし、ときには批判的な声に悩まされることになるかもしれないことに注意。アクティブなユーザーコミュニティからは非常に多くのメリットを得られるが、その結果として人々が熱くなりすぎることもある。個人的に責められているとは思わないことだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{What I Would Have Done Differently}
+\begin{aosasect2}{私がそれ以外にやったこと}
+
+%% Bash has millions of users.  I've been educated about the importance
+%% of backwards compatibility.  In some sense, backwards compatibility
+%% means never having to say you're sorry.  The world, however, isn't
+%% quite that simple.  I've had to make incompatible changes from time to
+%% time, nearly all of which generated some number of user complaints,
+%% though I always had what I considered to be a valid reason, whether
+%% that was to correct a bad decision, to fix a design misfeature, or to
+%% correct incompatibilities between parts of the shell.  I would have
+%% introduced something like formal bash compatibility levels
+%% earlier.
+Bashには何百万人ものユーザーがおり、後方互換性の重要性を思い知らされている。ある意味では、後方互換性を保てば決して「ごめんなさい」と言わずに済むともいえる。しかし、世の中はそんなに単純ではない。これまでに、互換性を崩す変更をせざるを得なくなることが何度かあった。そしてそのたびに一部のユーザーから苦情を受けた。しかしそれらの変更は、すべて妥当な理由のあるものだった。間違った決定を正すものだったり、設計時の機能漏れを修正するものだったり、シェルの各パーツ間での非互換性を直すものだったりといった変更だ。初期のうちに、公式なbash互換性レベル的な何かを出しておけばよかったのだろう。
+
+%% Bash's development has never been particularly open.  I have become
+%% comfortable with the idea of milestone releases (e.g., bash-4.2) and
+%% individually-released patches.  There are reasons for doing this: I
+%% accommodate vendors with longer release timelines than the free
+%% software and open source worlds, and I've had trouble in the past with
+%% beta software becoming more widespread than I'd like.  If I had to
+%% start over again, though, I would have considered more frequent
+%% releases, using some kind of public repository.
+Bashの開発は、これまでオープンになったことがなかった。私は、マイルストーンリリース(bash-4.2など)および個別にリリースされるパッチという考え方に満足している。このようにする理由は次の通りだ。私は、フリーソフトウェアやオープンソースの世界よりは長めのリリース間隔を保つベンダーを相手にしている。そして過去に、ベータ版のソフトウェアが思いのほか広まりすぎてトラブルになることがあった。しかし、もし最初からやり直せるのなら、もう少しこまめにリリースしたり何らかの公開リポジトリを用意したりすることも検討するだろう。
+
+%% No such list would be complete without an implementation
+%% consideration.  One thing I've considered multiple times, but never
+%% done, is rewriting the bash parser using straight recursive-descent
+%% rather than using \code{bison}.  I once thought I'd have to do this in
+%% order to make command substitution conform to Posix, but I was able to
+%% resolve that issue without changes that extensive.  Were I starting
+%% bash from scratch, I probably would have written a parser by hand.  It
+%% certainly would have made some things easier.
+そんなことを挙げていったところで、実現性を考慮しなければ完成しない。今までに何度か検討したけれどもできなかったことがひとつある。それは、bashのパーサを再帰下降で書きなおし、\code{bison}を使わないようにすることだ。そうしないとコマンド置換をPosix準拠にできないのではないかと考えたのだが、最終的にはそんな大規模な変更をしなくても問題を解決できた。もしbashをスクラッチで書きなおすことになったら、おそらくパーサは自分で書くだろう。そのほうがいろいろ楽になるのは明らかだから。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Conclusions}
+\begin{aosasect1}{結論}
+
+%% Bash is a good example of a large, complex piece of free software.  It
+%% has had the benefit of more than twenty years of development, and is
+%% mature and powerful.  It runs nearly everywhere, and is used by
+%% millions of people every day, many of whom don't realize it.
+Bashは、大規模で複雑なフリーソフトウェアのよい例と言える。20年を超える開発期間を経て成熟し、かつ強力だ。あらゆる場所で動いており、何百万もの人々が毎日使っている。その多くはbashを使っているということを意識していないだろう。
+
+%% Bash has been influenced by many sources, dating back to the original
+%% 7th Edition Unix shell, written by Stephen Bourne.  The most
+%% significant influence is the Posix standard, which dictates a
+%% significant portion of its behavior.  This combination of backwards
+%% compatibility and standards compliance has brought its own challenges.
+Bashは多くのソースの影響を受けており、古くはVersion 7 Unixのシェル(Stephen Bourneが書いたもの)にまでさかのぼる。最も多くの影響を受けたのはPosix標準規格で、bashの仕様の大部分はPosixに由来するものだ。過去との互換性を保ちつつ標準に準拠するのは困難なことだった。
+
+%% Bash has profited by being part of the GNU Project, which has provided
+%% a movement and a framework in which bash exists.  Without GNU, there
+%% would be no bash.  Bash has also benefited from its active, vibrant
+%% user community.  Their feedback has helped to make bash what it is
+%% today---a testament to the benefits of free software.
+GNU Projectの一員であることで、Bashは多くの恩恵を受けている。GNUがbashの存在価値を与えてくれたのだ。GNUがなければbashも存在しなかっただろう。また、bashにはアクティブで活気のあるコミュニティがついている。コミュニティのフィードバックがあったからこそ今日のbashがある---まさにフリーソフトウェアのメリットを体現しているというわけだ。
+
+\end{aosasect1}
+
+\end{aosachapter}

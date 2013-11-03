@@ -1,0 +1,1092 @@
+\begin{aosachapter}{Graphite}{s:graphite}{Chris Davis}
+%% Based on EN-Revision r229
+
+%% Graphite\footnote{\url{http://launchpad.net/graphite}} performs two
+%% pretty simple tasks: storing numbers that change over time and
+%% graphing them. There has been a lot of software written over the years
+%% to do these same tasks.  What makes Graphite unique is that it
+%% provides this functionality as a network service that is both easy to
+%% use and highly scalable.  The protocol for feeding data into Graphite
+%% is simple enough that you could learn to do it by hand in a few
+%% minutes (not that you'd actually want to, but it's a decent litmus
+%% test for simplicity).  Rendering graphs and retrieving data points are
+%% as easy as fetching a URL\@.  This makes it very natural to integrate
+%% Graphite with other software and enables users to build powerful
+%% applications on top of Graphite.  One of the most common uses of
+%% Graphite is building web-based dashboards for monitoring and analysis.
+%% Graphite was born in a high-volume e-commerce environment and its
+%% design reflects this.  Scalability and real-time access to data are
+%% key goals.
+Graphite\footnote{\url{http://launchpad.net/graphite}}
+が行うのはたった二つのとてもシンプルな作業だけ。
+刻々と変わる値を記録することと、それをグラフ化することだ。
+同じようなことをするソフトウェアは、これまでにも数多く存在した。
+Graphiteがそれらと一線を画すのは、その機能をネットワークサービスとして
+提供しているという点だ。そのおかげで、使いやすいだけでなく
+とてもスケーラブルになる。データをGraphiteに渡すときのプロトコルは
+非常にシンプルで、ほんの数分もあれば手でも書けるようになるだろう
+(実際に手で書こうとは思わないだろうが、それくらいシンプルだということだ)。
+グラフをレンダリングしたりデータポイントを取得したりといった操作は
+URLにアクセスするのと同じくらい簡単である。そのおかげで、
+Graphiteを他のソフトウェアと組み合わせて使うのも簡単だし、
+Graphiteを裏で使った強力なアプリケーションを作ることもできる。
+Graphiteの最もよくある利用例は、ウェブベースのダッシュボードを作ってデータの監視や分析のために使うというものだ。
+Graphiteは大規模なeコマース環境で使うために作られたものであり、それを反映した設計となっている。
+スケーラビリティがあること、そしてリアルタイムにデータにアクセスできること。
+これが最大の目標だ。
+
+%% The components that allow Graphite to achieve these goals include a
+%% specialized database library and its storage format, a caching
+%% mechanism for optimizing I/O operations, and a simple yet effective
+%% method of clustering Graphite servers. Rather than simply
+%% describing how Graphite works today, I will explain how Graphite was
+%% initially implemented (quite naively), what problems I ran into, and
+%% how I devised solutions to them.
+そのためにGraphiteが用意したのが、
+特化型のデータベースライブラリとそれ用のストレージフォーマット、
+入出力操作の最適化のためのキャッシュ機構、
+シンプルながらも効率的な方法でのGraphiteサーバーのクラスタリングといったコンポーネントである。
+本章では、単に現時点でのGraphiteの動きを解説するだけでなく、
+Graphiteを最初に書いたときの様子(どれだけ世間知らずだったか)や
+どんな問題に遭遇したか、そしてそれをどうやって解決したかなどについても説明する。
+
+%% \begin{aosasect1}{The Database Library: Storing Time-Series Data}
+\begin{aosasect1}{データベースライブラリ: 時系列データの格納}
+
+%% Graphite is written entirely in Python and consists of three major
+%% components: a database library named \code{whisper}, a back-end daemon named
+%% \code{carbon}, and a front-end webapp that renders graphs and provides a
+%% basic UI\@. While \code{whisper} was written specifically for Graphite, it can
+%% also be used independently. It is very similar in design to the
+%% round-robin-database used by RRDtool, and only stores time-series
+%% numeric data.  Usually we think of databases as server processes that
+%% client applications talk to over sockets. However, \code{whisper}, much like
+%% RRDtool, is a database library used by applications to manipulate and
+%% retrieve data stored in specially formatted files. The most basic
+%% \code{whisper} operations are \code{create} to make a new \code{whisper} file,
+%% \code{update} to write new data points into a file, and \code{fetch}
+%% to retrieve data points.
+GraphiteはすべてPythonで書かれており、三つの主要なコンポーネントで構成されている。
+データベースライブラリの\code{whisper}、バックエンドデーモンの\code{carbon}、
+そしてフロントエンドのウェブアプリケーション。
+フロントエンドは、グラフのレンダリングをして基本的なUIを提供する。
+\code{whisper}はGraphite用に書かれたものではあるが、それ単体で独立して使うこともできる。
+その構造はRRDtoolが使うラウンドロビンデータベースと似ており、
+時系列の数値データだけを格納する。通常はデータベースをサーバープロセスと考え、
+クライアントアプリケーションはそれに対してソケット越しにやりとりする。
+しかし\code{whisper}は、RRDtoolと同様にアプリケーションが利用するデータベースライブラリであり、
+特別なフォーマットのファイルに保存されたデータを扱うものだ。
+\code{whisper}の基本操作には、
+新たな\code{whisper}ファイルを作る\code{create}や
+新しいデータポイントをファイルに書き込む\code{update}、
+そしてデータポイントを取得する\code{fetch}がある。
+
+%% \aosafigure[300pt]{../images/graphite/whisper-file.eps}{Basic Anatomy of a \code{whisper} File}{fig.gra.whis}
+\aosafigure[300pt]{../images/graphite/whisper-file.eps}{\code{whisper}ファイルの基本構造}{fig.gra.whis}
+
+%% As shown in \aosafigref{fig.gra.whis}, \code{whisper} files consist of a
+%% header section containing various metadata, followed by one or more
+%% archive sections . Each archive is a sequence of consecutive data
+%% points which are \code{(timestamp, value)} pairs. When an
+%% \code{update} or \code{fetch} operation is performed, \code{whisper}
+%% determines the offset in the file where data should be written to or
+%% read from, based on the timestamp and the archive configuration.
+\aosafigref{fig.gra.whis}に示すとおり、
+\code{whisper}ファイルにはヘッダセクションがあってそこにさまざまなメタデータが格納される。
+そしてヘッダセクションの後にはいくつかのアーカイブセクションが続く。
+各アーカイブは一連のデータポイント群で構成されており、
+データポイントは\code{(timestamp, value)}のペアとなる。
+\code{update}あるいは\code{fetch}を実行すると、
+\code{whisper}はまずデータの読み書きをするファイル内のオフセットを調べる。
+このときに利用するのは、タイムスタンプとアーカイブ構成だ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Back End: A Simple Storage Service}
+\begin{aosasect1}{バックエンド: シンプルなストレージサービス}
+
+%% Graphite's back end is a daemon process called \code{carbon-cache}, usually
+%% simply referred to as \code{carbon}.  It is built on Twisted, a highly
+%% scalable event-driven I/O framework for Python. Twisted enables \code{carbon}
+%% to efficiently talk to a large number of clients and handle a large
+%% amount of traffic with low overhead.  \aosafigref{fig.gra.carbon}
+%% shows the data flow among \code{carbon}, \code{whisper} and the webapp: Client
+%% applications collect data and send it to the Graphite back end, \code{carbon},
+%% which stores the data using \code{whisper}. This data can then be used by the
+%% Graphite webapp to generate graphs.
+Graphiteのバックエンドは\code{carbon-cache}という名前のデーモンプロセスで、
+通常は\code{carbon}と呼ばれている。このバックエンドはTwistedを使って作られている。
+Twistedとは、Python用に書かれた高度にスケーラブルなイベント駆動のI/Oフレームワークである。
+Twistedのおかげで、\code{carbon}は大量のクライアントとのやりとりをこなせ、
+大量のトラフィックをさばいてもオーバーヘッドは少なくて済む。
+\aosafigref{fig.gra.carbon}は、\code{carbon}と\code{whisper}
+そしてウェブアプリケーションの間でのデータの流れを表したものである。
+クライアントアプリケーションが収集したデータをGraphiteのバックエンドである
+\code{carbon}に送信し、そのデータは\code{whisper}を使って格納する。
+このデータをGraphiteウェブアプリケーションが活用して、グラフを生成する。
+
+%% \aosafigure[250pt]{../images/graphite/dataflow.eps}{Data Flow}{fig.gra.carbon}
+\aosafigure[250pt]{../images/graphite/dataflow.eps}{データの流れ}{fig.gra.carbon}
+
+%% The primary function of \code{carbon} is to store data points for metrics
+%% provided by clients. In Graphite terminology, a metric is any
+%% measurable quantity that can vary over time (like the CPU utilization
+%% of a server or the number of sales of a product). A data point is
+%% simply a \code{(timestamp, value)} pair corresponding to the measured
+%% value of a particular metric at a point in time. Metrics are uniquely
+%% identified by their name, and the name of each metric as well as its
+%% data points are provided by client applications. A common type of
+%% client application is a monitoring agent that collects system or
+%% application metrics, and sends its collected values to \code{carbon} for easy
+%% storage and visualization.  Metrics in Graphite have simple
+%% hierarchical names, similar to filesystem paths except that a dot is
+%% used to delimit the hierarchy rather than a slash or backslash.
+%% \code{carbon} will respect any legal name and creates a \code{whisper} file for each
+%% metric to store its data points. The \code{whisper} files are stored within
+%% \code{carbon}'s data directory in a filesystem hierarchy that mirrors the
+%% dot-delimited hierarchy in each metric's name, so that (for example)
+%% \code{servers.www01.cpuUsage} maps to
+%% \code{.../servers/www01/cpuUsage.wsp}.
+\code{carbon}の主機能は、クライアントから渡されたメトリクスを
+データポイントとして格納することである。
+Graphiteにおける「メトリクス」とは、計測可能な量であって
+時間とともに変化するもの(サーバーのCPU使用率や
+商品の売上数量など)を意味する。
+データポイントとは単なる\code{(timestamp, value)}のペアであり、
+ある時点での特定のメトリクスの計測値に対応する。
+メトリクスには一意な名前がついており、
+メトリクスの名前とそのデータポイントがクライアントから送られてくる。
+クライアントアプリケーションとしてよくある形式は、
+何らかのシステムやアプリケーションのメトリクスを監視するエージェントとして働くものである。
+収集した値を\code{carbon}に送り、データの格納と可視化をお手軽に行う。
+Graphiteのメトリクスにはシンプルな階層型の名前がついている。
+ファイルシステムのパスと似たものだが、
+階層の区切りにはスラッシュやバックスラッシュではなくドットを使う。
+\code{carbon}は正当な名前ならすべて受け入れ、
+\code{whisper}ファイルをメトリクスごとに作って
+そこにデータポイントを格納する。
+\code{whisper}ファイル群は\code{carbon}のデータディレクトリに
+格納される。そのディレクトリ構成は、メトリクスの名前をドットで区切った
+階層を反映したものとなる。つまり、たとえば\code{servers.www01.cpuUsage}
+なら\code{.../servers/www01/cpuUsage.wsp}に格納されることになる。
+
+%% When a client application wishes to send data points to Graphite it
+%% must establish a TCP connection to \code{carbon}, usually on port
+%% 2003\footnote{There is another port over which serialized objects can
+%% be sent, which is more efficient than the plain-text format. This is
+%% only needed for very high levels of traffic.}.  The client does all
+%% the talking; \code{carbon} does not send anything over the connection. The
+%% client sends data points in a simple plain-text format while the
+%% connection may be left open and re-used as needed. The format is one
+%% line of text per data point where each line contains the dotted metric
+%% name, value, and a Unix epoch timestamp separated by spaces.  For
+%% example, a client might send:
+クライアントアプリケーションからデータポイントをGraphite
+に送信するには、まず\code{carbon}とのTCPコネクションを確立する必要がある。
+通常は、ポート2003を利用する
+\footnote{もうひとつ別のポートもあって、シリアライズしたオブジェクトを
+送れるようにもなっている。そのほうが、プレーンテキスト形式で送るよりも
+効率的になる。ただ、これが必要となるのはトラフィックが非常に激しい場合だけである。}。
+話しかけるのはクライアント側だけで、
+\code{carbon}がネットワーク越しに何かを送信することはない。
+クライアントはデータポイントをシンプルなプレーンテキスト形式で送信し、
+コネクションは開いたままにしておいて必要に応じて再利用する。
+そのフォーマットはデータポイントごとに1行のテキストにまとめたものであり、
+各行にはドット区切りのメトリクス名とその値、
+そしてUnixタイムスタンプがスペース区切りで書かれている。
+たとえば、クライアントから送るデータの形式はこのようになる。
+
+\begin{verbatim}
+servers.www01.cpuUsage 42 1286269200
+products.snake-oil.salesPerMinute 123 1286269200
+[one minute passes]
+servers.www01.cpuUsageUser 44 1286269260
+products.snake-oil.salesPerMinute 119 1286269260
+\end{verbatim}
+
+%% On a high level, all \code{carbon} does is listen for data in this format and
+%% try to store it on disk as quickly as possible using \code{whisper}. Later on
+%% we will discuss the details of some tricks used to ensure scalability
+%% and get the best performance we can out of a typical hard drive.
+上位レベルでとらえた\code{carbon}の仕事は、
+この形式のデータを待ち受けて、受け取ったデータを即時に
+\code{whisper}でディスクに書き込むというのがすべてだ。
+本章では後ほど、スケーラビリティを確保しつつ
+一般のハードディスクドライブで最高のパフォーマンスを引き出す
+ための小技についても紹介する。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{The Front End: Graphs On-Demand}
+\begin{aosasect1}{フロントエンド: グラフオンデマンド}
+
+%% The Graphite webapp allows users to request custom graphs with a
+%% simple URL-based API\@. Graphing parameters are specified in the
+%% query-string of an HTTP GET request, and a PNG image is returned in
+%% response. For example, the URL:
+Graphiteのウェブアプリケーションを使えば、
+シンプルなURLベースのAPIを使ってカスタムグラフを作らせることができる。
+グラフの各種パラメータの指定にはHTTP GETリクエストのクエリ文字列を使い、
+レスポンスとしてPNG画像が戻ってくる。たとえば、次の例を考えよう。
+
+\begin{verbatim}
+http://graphite.example.com/render?target=servers.www01.cpuUsage&
+width=500&height=300&from=-24h
+\end{verbatim}
+
+%% \noindent requests a $500{\times}300$ graph for the metric
+%% \code{servers.www01.cpuUsage} and the past 24 hours of data. Actually,
+%% only the target parameter is required; all the others are optional and
+%% use your default values if omitted.
+\noindent
+このURLへのリクエスト結果は$500{\times}300$のグラフとなる。
+メトリクス\code{servers.www01.cpuUsage}の、過去24時間のデータを描画したものだ。
+実際のところ、必須パラメータはtargetだけであり、
+それ以外はすべて任意指定だ。省略した場合はデフォルト値を利用する。
+
+%% Graphite supports a wide variety of display options as well as data
+%% manipulation functions that follow a simple functional syntax. For
+%% example, we could graph a 10-point moving average of the metric in our
+%% previous example like this:
+Graphiteはさまざまな表示オプションに対応しており、
+シンプルな関数型の構文によるデータ操作関数も用意されている。
+たとえば、先ほどの例において10ポイント間の移動平均をグラフにしたければ
+次のようにすればよい。
+
+\begin{verbatim}
+target=movingAverage(servers.www01.cpuUsage,10)
+\end{verbatim}
+
+%% \noindent
+%% Functions can be nested, allowing for complex expressions and
+%% calculations.
+\noindent
+関数はネストできるので、複雑な表現や計算も可能である。
+
+\pagebreak
+
+%% Here is another example that gives the running total of sales for the
+%% day using per-product metrics of sales-per-minute:
+もうひとつ別の例を示す。これは、その日の現時点までの売上合計を、
+商品ごとの毎分売上数量を使って算出している。
+
+\begin{verbatim}
+target=integral(sumSeries(products.*.salesPerMinute))\&from=midnight
+\end{verbatim}
+
+%% \noindent
+%% The \code{sumSeries} function computes a time-series that is the sum
+%% of each metric matching the pattern
+%% \code{products.*.salesPerMinute}. Then \code{integral} computes a
+%% running total rather than a per-minute count. From here it isn't too
+%% hard to imagine how one might build a web UI for viewing and
+%% manipulating graphs. Graphite comes with its own Composer UI, shown in
+%% \aosafigref{fig.gra.ui}, that does this using Javascript to modify the
+%% graph's URL parameters as the user clicks through menus of the
+%% available features.
+\noindent
+\code{sumSeries}関数は、パターン\code{products.*.salesPerMinute}
+にマッチする各メトリクスの合計について時系列データを計算する。
+そして\code{integral}が、毎分のカウントではなくそこまでの合計を計算する。
+ここまでくれば、グラフを表示したり操作したりする
+ウェブUIを作るのもそれほど難しくはなさそうだと思えるだろう。
+Graphiteには自前のComposer UIが組み込まれている。\aosafigref{fig.gra.ui}
+のようなもので、ユーザーがメニューから何かの機能をクリックすると
+JavaScriptを使ってグラフのURLパラメータを変更する。
+
+%% \aosafigure{../images/graphite/composer-ui.eps}{Graphite's Composer Interface}{fig.gra.ui}
+\aosafigure{../images/graphite/composer-ui.eps}{GraphiteのComposer Interface}{fig.gra.ui}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Dashboards}
+\begin{aosasect1}{ダッシュボード}
+
+%% Since its inception Graphite has been used as a tool for creating
+%% web-based dashboards. The URL API makes this a natural use
+%% case. Making a dashboard is as simple as making an HTML page full of
+%% tags like this:
+その黎明期から、Graphiteはウェブベースのダッシュボードを作るためのツールとして
+使い続けられてきた。URL形式のAPIがあるので、これはごく自然な使い方である。
+ダッシュボードの作り方はとても単純で、単にこんな感じのタグを使った
+HTMLページを作るとの同じ程度の話だ。
+
+\begin{verbatim}
+<img src="http://graphite.example.com/render?parameters-for-my-awesome-graph">
+\end{verbatim}
+
+%% However, not everyone likes crafting URLs by hand, so Graphite's Composer UI
+%% provides a point-and-click method to create a graph from which you can
+%% simply copy and paste the URL\@. When coupled with another tool that
+%% allows rapid creation of web pages (like a wiki) this becomes easy
+%% enough that non-technical users can build their own dashboards pretty
+%% easily.
+しかし、URLを手で組み立てるのが気に入らない人もいるだろう。
+そこで、GraphiteのComposer UIではマウスのクリックだけでグラフを作れる
+仕組みを用意した。グラフができあがれば、あとはそのURLをコピーして使うだけで済む。
+ウェブページを作成するためのさまざまなツール(Wikiなど)と組み合わせれば、
+技術に詳しくないユーザーでも自分用のダッシュボードが簡単に作れるようになる。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{An Obvious Bottleneck}
+\begin{aosasect1}{明らかなボトルネック}
+
+%% Once my users started building dashboards, Graphite quickly began to
+%% have performance issues. I investigated the web server logs to see
+%% what requests were bogging it down. It was pretty obvious that the
+%% problem was the sheer number of graphing requests. The webapp was
+%% CPU-bound, rendering graphs constantly. I noticed that there were a
+%% lot of identical requests, and the dashboards were to blame.
+あるユーザーがダッシュボードを作り始めたとき、
+Graphiteがあっという間にパフォーマンスを落としてしまった。
+私はウェブサーバーのログを調べ、いったいどんなリクエストが原因なのかを確かめた。
+その結果わかったのは、グラフ描画のリクエストが大量に発生しているのが原因だということだった。
+絶え間なくグラフのレンダリングをしていたので、
+CPUがウェブアプリケーションのボトルネックとなっていたのだ。
+まったく同じリクエストが大量に発生していることに気付き、
+ダッシュボードに原因があることがわかった。
+
+%% Imagine you have a dashboard with 10 graphs in it and the page
+%% refreshes once a minute. Each time a user opens the dashboard in
+%% their browser, Graphite has to handle 10 more requests per
+%% minute. This quickly becomes expensive.
+ダッシュボードに10個のグラフが表示されており、それが1分おきに再読み込みされる様子を想像してみよう。
+ユーザーがダッシュボードをブラウザで開くたびに、
+Graphiteは毎分10リクエストを余分に処理しなければいけなくなる。
+あっという間に負荷は上がってしまう。
+
+%% A simple solution is to render each graph only once and then serve a
+%% copy of it to each user. The Django web framework (which Graphite is
+%% built on) provides an excellent caching mechanism that can use various
+%% back ends such as memcached. Memcached\footnote{\url{http://memcached.org}}
+%% is essentially a hash table
+%% provided as a network service. Client applications can get and set
+%% key-value pairs just like an ordinary hash table. The main benefit of
+%% using memcached is that the result of an expensive request (like
+%% rendering a graph) can be stored very quickly and retrieved later to
+%% handle subsequent requests. To avoid returning the same stale graphs
+%% forever, memcached can be configured to expire the cached graphs after
+%% a short period. Even if this is only a few seconds, the burden it
+%% takes off Graphite is tremendous because duplicate requests are so
+%% common.
+シンプルな解決策は、それぞれのグラフのレンダリングを一度だけにして、
+各ユーザーにはそのコピーを返すようにするという方法だ。
+Graphiteが利用しているウェブフレームワークのDjangoには
+すばらしいキャッシュ機構が組み込まれており、memcached
+などのさまざまなバックエンドを使うようにできる。
+memcached\footnote{\url{http://memcached.org}}は、
+本質的にはハッシュテーブルをネットワークサービスとして提供する仕組みである。
+クライアントアプリケーションからキー・バリューのペアを取得したり設定したりなど、
+ふつうのハッシュテーブルと同じことができる。
+memcachedを使う最大の利点は、重たいリクエスト(グラフのレンダリングなど)
+の結果を手早く保存してそれ以降のリクエストで流用できることだ。
+最新状態を反映していないグラフをいつまでも返し続けることを避けるために、
+キャッシュしたグラフの有効期限をmemcachedの設定で短めにしておくことができる。
+友好期限をほんの数秒にしておいたとしても、Graphiteへの負荷は大きく下がる。
+リクエストの重複があまりにも頻発しているからだ。
+
+%% Another common case that creates lots of rendering requests is when a
+%% user is tweaking the display options and applying functions in the
+%% Composer UI\@. Each time the user changes something, Graphite must
+%% redraw the graph. The same data is involved in each request so it
+%% makes sense to put the underlying data in the memcache as well.  This
+%% keeps the UI responsive to the user because the step of retrieving
+%% data is skipped.
+レンダリングのリクエストが大量に発生する場面がもうひとつ存在する。
+Composer UI上で、表示オプションをいじったり関数を適用したりするときだ。
+ユーザーが何かを変更するたびにGraphiteはグラフを再描画しなければいけない。
+個々のリクエストは同じデータに関するものなので、もとになるデータを
+memcacheに入れておくと効率がよい。こうしておけば、
+ユーザーに反応を返すのが遅れずに済む。データの取得処理を飛ばせるからだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Optimizing I/O}
+\begin{aosasect1}{入出力の最適化}
+
+%% Imagine that you have 60,000 metrics that you send to your Graphite
+%% server, and each of these metrics has one data point per
+%% minute. Remember that each metric has its own \code{whisper} file on the
+%% filesystem. This means \code{carbon} must do one write operation to 60,000
+%% different files each minute.  As long as \code{carbon} can write to one file
+%% each millisecond, it should be able to keep up. This isn't too far
+%% fetched, but let's say you have 600,000 metrics updating each minute,
+%% or your metrics are updating every second, or perhaps you simply
+%% cannot afford fast enough storage. Whatever the case, assume the rate
+%% of incoming data points exceeds the rate of write operations that your
+%% storage can keep up with. How should this situation be handled?
+60,000件のメトリクスをGraphiteサーバーに送信し、
+そのそれぞれが1分ごとにデータポイントを作るという場面を考えてみる。
+各メトリクスにに対応する\code{whisper}ファイルが
+ファイルシステム上に用意されていたことを思い出そう。
+つまり、\code{carbon}は60,000の異なるファイルに
+毎分1回の書き込みをする必要があるということだ。
+\code{carbon}が1ファイルへの書き込みを1ミリ秒で行えるのなら、
+十分に対応できる。これくらいならそんなに無茶な話ではない。
+でも、毎分更新するメトリクスが600,000件あったとしたらどうだろう?
+あるいは更新頻度が1秒ごとだったら?高速なストレージを導入する余裕がなかったとしたら?
+まあなんでもいい。入力のデータポイントの分量が、
+ストレージ側の書き込み速度の限界に達してしまったとしよう。
+そんな場合はどうすればいいだろうか?
+
+%% Most hard drives these days have slow seek time\footnote{Solid-state
+%% drives generally have extremely fast seek times compared to
+%% conventional hard drives.}, that is, the delay between doing I/O
+%% operations at two different locations, compared to writing a
+%% contiguous sequence of data. This means the more contiguous writing we
+%% do, the more throughput we get. But if we have thousands of files that
+%% need to be written to frequently, and each write is very small (one
+%% \code{whisper} data point is only 12 bytes) then our disks are definitely
+%% going to spend most of their time seeking.
+最近のハードディスクドライブは、シークタイムが遅いものが多い
+\footnote{SSDなら、一般的にハードディスクドライブよりもずっとシークタイムが高速になる。}。
+そのため、別々の場所への書き込みのほうがシーケンシャルな書き込みよりも遅延が大きくなる。
+つまり、連続書き込みを増やせば増やすほど、スループットを稼げるというわけだ。
+しかし、数千ものファイルに頻繁に書き込む必要があって
+個々の書き込みの分量が非常に小さい場合
+(\code{whisper}のデータポイントは1件あたりたったの12バイトだ)
+は、結局のところは大半の時間をシークに費やすことになる。
+
+%% Working under the assumption that the rate of write operations has a
+%% relatively low ceiling, the only way to increase our data point
+%% throughput beyond that rate is to write multiple data points in a
+%% single write operation. This is feasible because \code{whisper} arranges
+%% consecutive data points contiguously on disk. So I added an
+%% \code{update\_many} function to \code{whisper}, which takes a list of data
+%% points for a single metric and compacts contiguous data points into a
+%% single write operation.  Even though this made each write larger, the
+%% difference in time it takes to write ten data points (120 bytes)
+%% versus one data point (12 bytes) is negligible. It takes quite a few
+%% more data points before the size of each write starts to noticeably
+%% affect the latency.
+書き込み操作の比率が比較的早めに限界に達するという前提で考えると、
+その限界を超えるスループットをたたきだすための唯一の方法は、
+複数のデータポイントの書き込みを一度の書き込み操作で済ませることだ。
+これは実現可能である。なぜなら\code{whisper}は、
+連続したデータポイントをディスク上でも連続した領域に配置するからだ。
+というわけで、私は\code{whisper}に\code{update\_many}関数を追加した。
+この関数は、ひとつのメトリクスに関するデータポイントのリストを受け取り、
+連続したデータポイントを単一の書き込み操作に圧縮する。
+一回の書き込みのデータ量は大きくなってしまうが、10件のデータポイント
+(120バイト)の書き込みと1件のデータポイント(12バイト)の書き込み
+に要する時間の差は無視できる程度のものである。
+よっぽど大量のデータポイントをひとまとめにしない限り、
+サイズの差がレイテンシに影響を及ぼすことはないだろう。
+
+%% Next I implemented a buffering mechanism in \code{carbon}. Each incoming data
+%% point gets mapped to a queue based on its metric name and is then
+%% appended to that queue.  Another thread repeatedly iterates through
+%% all of the queues and for each one it pulls all of the data points out
+%% and writes them to the appropriate \code{whisper} file with
+%% \code{update\_many}. Going back to our example, if we have 600,000
+%% metrics updating every minute and our storage can only keep up with 1
+%% write per millisecond, then the queues will end up holding about 10
+%% data points each on average. The only resource this costs us is
+%% memory, which is relatively plentiful since each data point is only a
+%% few bytes.
+次に私は、\code{carbon}にバッファリングの機能を実装した。
+入力のデータポイントをメトリクス名に基づくキューにマップし、
+対応するキューにデータポイントを追加していったのだ。
+別スレッドから繰り返し全キューを走査し、すべてのデータポイントを取得する。
+そして、適切な\code{whisper}ファイルに\code{update\_many}で書き込んでいった。
+先ほどの例に戻ろう。600,000件のメトリクスを1分ごとに更新するときに、
+ストレージ側では1回の書き込みに1ミリ秒かってしまうとする。
+そんな場合なら、平均して10件程度のデータポイントを各キューに持たせることになる。
+このとき使用量が増える唯一のリソースはメモリであり、
+メモリは比較的潤沢に使える。というのも各データポイントはたかだか数バイトにしかならないからだ。
+
+%% This strategy dynamically buffers as many datapoints as necessary to sustain
+%% a rate of incoming datapoints that may exceed the rate of I/O operations your
+%% storage can keep up with. A nice advantage of this approach is that it adds a degree of
+%% resiliency to handle temporary I/O slowdowns. If the system needs to
+%% do other I/O work outside of Graphite then it is likely that the rate
+%% of write operations will decrease, in which case \code{carbon}'s queues will
+%% simply grow. The larger the queues, the larger the writes. Since the
+%% overall throughput of data points is equal to the rate of write
+%% operations times the average size of each write, \code{carbon} is able to
+%% keep up as long as there is enough memory for the queues.  \code{carbon}'s
+%% queueing mechanism is depicted in \aosafigref{fig.gra.queue}.
+この方式では、必要に応じてデータポイントを動的にバッファリングし、
+ストレージ側のI/Oが持ちこたえられる程度に
+入力データポイントのスピードを抑えることになる。
+この方式のよいところは、一時的にI/Oがスローダウンしたときなどに
+弾力的な扱いができるところだ。
+Graphite以外の他の場所でI/Oを伴う作業が発生するなら、
+書き込み操作を減らせばよい。その場合は単に\code{carbon}
+のキューが大きくなるだけのことだ。
+キューが大きくなればなるほど、書き込みの量も大きくなる。
+データポイントの全体的なスループットは
+書き込み操作の回数と各書き込みの平均サイズを掛け合わせたものになるので、
+キュー用に確保できるメモリが十分にある限りは\code{carbon}
+を持ちこたえさせることができる。
+\code{carbon}のキューの仕組みは\aosafigref{fig.gra.queue}
+のようになる。
+
+%% \aosafigure[250pt]{../images/graphite/carbon-queues.eps}{Carbon's Queueing Mechanism}{fig.gra.queue}
+\aosafigure[250pt]{../images/graphite/carbon-queues.eps}{Carbonのキューのしくみ}{fig.gra.queue}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Keeping It Real-Time}
+\begin{aosasect1}{リアルタイム性の維持}
+
+%% Buffering data points was a nice way to optimize \code{carbon}'s I/O but it
+%% didn't take long for my users to notice a rather troubling side
+%% effect.  Revisiting our example again, we've got 600,000 metrics that
+%% update every minute and we're assuming our storage can only keep up
+%% with 60,000 write operations per minute. This means we will have
+%% approximately 10 minutes worth of data sitting in \code{carbon}'s queues at
+%% any given time.  To a user this means that the graphs they request
+%% from the Graphite webapp will be missing the most recent 10 minutes of
+%% data: Not good!
+データポイントをバッファリングするというのは
+\code{carbon}のI/Oの最適化という面ではよい方法だ。
+しかしすぐに、それ以外の副作用も見つかってしまった。
+ここでもう一度、先ほどの例に戻ってみよう。600,000件のメトリクスを
+1分ごとに更新したいけれど、ストレージの性能的には1分間に60,000回の
+書き込み操作が限界である、という状況だ。
+これはつまり、どの時点を見ても\code{carbon}
+のキューにはほぼ10分ぶんのデータが溜まっているということになる。
+ユーザーの視点で考えると、Graphiteのウェブアプリケーションから
+リクエストを送っても最新の10分のデータは表示されないということだ。
+これはひどい!
+
+%% Fortunately the solution is pretty straight-forward. I simply added a
+%% socket listener to \code{carbon} that provides a query interface for
+%% accessing the buffered data points and then modifies the Graphite
+%% webapp to use this interface each time it needs to retrieve data.  The
+%% webapp then combines the data points it retrieves from \code{carbon} with the
+%% data points it retrieved from disk and voila, the graphs are
+%% real-time. Granted, in our example the data points are updated to the
+%% minute and thus not exactly ``real-time'', but the fact that each data
+%% point is instantly accessible in a graph once it is received by \code{carbon}
+%% is real-time.
+幸いなことに、この問題は簡単に解決できる。
+私は\code{carbon}にソケットリスナーを追加して、
+バッファリングされたデータポイントにアクセスするための
+問い合わせインターフェイスを作った。そしてGraphiteの
+ウェブアプリケーションを修正し、データを取得するときには
+このインターフェイスを使うようにしたのだ。
+このインターフェイスで\code{carbon}から取得したデータポイントと
+ディスクから取得したデータポイントを組み合わせれば、ほらできあがり。
+これでリアルタイムのグラフを表示できるようになった。
+確かに、先ほどの例は1分ごとの更新だったし厳密には「リアルタイム」
+だとは言えないかもしれない。しかし実際のところ、\code{carbon}
+が受け取ったデータポイントが即時にグラフに反映されるという意味では
+リアルタイムだと言えるだろう。
+
+\end{aosasect1}
+
+\vspace{-0.1cm} % shrink this space so no orphan at top of next page
+
+%% \begin{aosasect1}{Kernels, Caches, and Catastrophic Failures}
+\begin{aosasect1}{カーネル、キャッシュ、壊滅的な障害}
+
+\vspace{-0.1cm} % shrink this space so no orphan at top of next page
+
+%% As is probably obvious by now, a key characteristic of system
+%% performance that Graphite's own performance depends on is I/O latency.
+%% So far we've assumed our system has consistently low I/O latency
+%% averaging around 1 millisecond per write, but this is a big assumption
+%% that requires a little deeper analysis. Most hard drives simply aren't
+%% that fast; even with dozens of disks in a RAID array there is very
+%% likely to be more than 1 millisecond latency for random access. Yet if
+%% you were to try and test how quickly even an old laptop could write a
+%% whole kilobyte to disk you would find that the write system call
+%% returns in far less than 1 millisecond. Why?
+そろそろお気づきだろうが、Graphiteのパフォーマンスに大きな影響を及ぼすのは
+I/Oのレイテンシーである。ここまでは、I/Oのレイテンシーが書き込みあたり1ミリ秒
+という比較的低めの環境を想定してきた。しかしこれはおおざっぱな見込みにすぎず、
+もう少し深く分析する必要がある。大半のハードディスクドライブは、
+そんなに速度が出ない。10台以上のディスクでRAIDアレイを組んだとしても、
+ランダムアクセスのレイテンシーはきっと1ミリ秒を超えることだろう。
+しかし、たとえば旧型のラップトップで1キロバイトのデータをディスクに
+書き込んだ場合、writeシステムコールは1ミリ秒よりずっと速く結果を返すはずだ。
+いったいなぜだろう?
+
+%% Whenever software has inconsistent or unexpected performance
+%% characteristics, usually either buffering or caching is to blame. In
+%% this case, we're dealing with both. The write system call doesn't
+%% technically write your data to disk, it simply puts it in a buffer
+%% which the kernel then writes to disk later on. This is why the write
+%% call usually returns so quickly. Even after the buffer has been
+%% written to disk, it often remains cached for subsequent reads. Both of
+%% these behaviors, buffering and caching, require memory of
+%% course.
+あるソフトウェアが一見してつじつまの合わない予想外のパフォーマンスを見せた場合、
+たいていはバッファリングあるいはキャッシュがからんでいる。この場合は、その両方だ。
+writeシステムコールはデータを実際にディスクに書き込むわけではなく
+単にバッファに入れるだけであり、後でディスクに書き込むのはカーネルの役割となる。
+だからこそ、writeが予想外に速く処理を終えるのだ。
+バッファをディスクに書き込んでからも、それ以降のreadに備えて
+キャッシュしたままにしておくことが多い。こういったバッファリングやキャッシュを
+行うには、当然ながらメモリが必要になる。
+
+%% Kernel developers, being the smart folks that they are, decided it
+%% would be a good idea to use whatever user-space memory is currently
+%% free instead of allocating memory outright. This turns out to be a
+%% tremendously useful performance booster and it also explains why no
+%% matter how much memory you add to a system it will usually end up
+%% having almost zero ``free'' memory after doing a modest amount of
+%% I/O\@. If your user-space applications aren't using that memory then
+%% your kernel probably is. The downside of this approach is that this
+%% ``free'' memory can be taken away from the kernel the moment a
+%% user-space application decides it needs to allocate more memory for
+%% itself. The kernel has no choice but to relinquish it, losing whatever
+%% buffers may have been there.
+賢いカーネル開発者たちは、ユーザーメモリ空間で余っているメモリを使うほうが
+きっちりメモリを確保しておくよりもよさげだと判断した。
+そのおかげでパフォーマンスを大きく確保できたわけだ。
+システムのメモリをいくら増やしてもI/Oを繰り返すうちに
+いつの間にか``空き''メモリがゼロになっている、という現象もこれで説明がつく。
+ユーザー空間のアプリケーションでそんなにメモリを使っているわけでもないのになあ…
+というときは、おそらくカーネルがメモリを使っているのだろう。
+この手法には弱点もある。ユーザー空間のアプリケーション側で必要なメモリが増えると
+カーネルが使える``空き''メモリがなくなってしまうということだ。
+そんな場合はカーネル側でメモリを使うのをあきらめざるを得ず、
+それまで保持していたバッファの中身を失ってしまう。
+
+%% So what does all of this mean for Graphite? We just highlighted
+%% \code{carbon}'s reliance on consistently low I/O latency and we also know
+%% that the write system call only returns quickly because the data is
+%% merely being copied into a buffer. What happens when there is not
+%% enough memory for the kernel to continue buffering writes? The writes
+%% become synchronous and thus terribly slow! This causes a dramatic drop
+%% in the rate of \code{carbon}'s write operations, which causes \code{carbon}'s queues
+%% to grow, which eats up even more memory, starving the kernel even
+%% further. In the end, this kind of situation usually results in \code{carbon}
+%% running out of memory or being killed by an angry sysadmin.
+そんなこと、Graphiteに何の関係があるんだって?
+先ほど強調したように、\code{carbon}はI/Oのレイテンシが一貫して低いことを前提としている。
+また、writeシステムコールが高速に動作するのは単にデータをバッファにコピーしているだけだからだということも知っている。
+カーネルが使えるメモリが少なくなって、バッファへの書き込みが続行不能になったら、いったいどうなるだろう?
+同期書き込みしかできなくなるわけで、これは恐ろしく遅い!
+これは\code{carbon}の書き込み操作にも深刻な影響を与え、
+その結果\code{carbon}のキューが肥大化する。
+その結果としてメモリの使用量が増え、カーネルが使えるメモリはさらに減って……。
+最終的にどうなるか。\code{carbon}がメモリを食いつぶしてしまうか、
+いらついたシステム管理者に強制終了させられてしまうだろう。
+
+%% To avoid this kind of catastrophe, I added several features to \code{carbon}
+%% including configurable limits on how many data points can be queued
+%% and rate-limits on how quickly various \code{whisper} operations can be
+%% performed.  These features can protect \code{carbon} from spiraling out of
+%% control and instead impose less harsh effects like dropping some data
+%% points or refusing to accept more data points. However, proper values
+%% for those settings are system-specific and require a fair amount of
+%% testing to tune. They are useful but they do not fundamentally solve
+%% the problem.  For that, we'll need more hardware.
+こんな悲惨な結果を避けるために、私は\code{carbon}にちょっとした機能を追加した。
+キューに格納できるデータポイント数や
+\code{whisper}の各種操作の頻度を、設定で制限できるようにしたのだ。
+これらの機能を使えば、\code{carbon}が制御不能なスパイラルに陥ることを防げる。
+そのかわりにいくつかのデータポイントを取りこぼしたり
+データポイントをさばききれなくなったりといった影響も出るが、
+そうしないときの悪影響に比べればまだ我慢できる。
+しかし、これらの適切な設定値はシステムによって異なり、
+何度もテストしないと適切な値にチューニングできないだろう。
+便利な機能ではあるが、問題を根本的に解決するというものではない。
+根本的に解決するには、ハードウェアを増強するしかない。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Clustering}
+\begin{aosasect1}{クラスタリング}
+
+%% Making multiple Graphite servers appear to be a single system from
+%% a user perspective isn't terribly difficult, at least for a na\"{\i}ve
+%% implementation.  The webapp's user interaction primarily consists of
+%% two operations: finding metrics and fetching data points (usually in
+%% the form of a graph). The find and fetch operations of the webapp are
+%% tucked away in a library that abstracts their implementation from the
+%% rest of the codebase, and they are also exposed through HTTP request
+%% handlers for easy remote calls.
+複数のGraphiteサーバーを立てつつ、ユーザー側からは単一のシステムに見えるようにする。
+そんなことも、対して難しくはない。少なくとも、馬鹿正直な実装である限りは。
+Graphiteウェブアプリケーションのユーザーインターフェイスは、主に二種類の操作で成り立っている。
+メトリクスの選択(find)と、(通常はグラフ形式での)データポイントの取得(fetch)だ。
+これらの操作はライブラリとして切り出されており、その実装が他のコードベースとは
+切り離されて抽象化されている。また、HTTPリクエストハンドラも公開しており、
+リモートからの呼び出しにも対応できる。
+
+%% The \code{find} operation searches the local filesystem of \code{whisper}
+%% data for things matching a user-specified pattern, just as a filesystem
+%% glob like \code{*.txt} matches files with that extension.
+%% Being a tree structure, the result returned by \code{find} is a
+%% collection of \code{Node} objects, each deriving from either the \code{Branch} or
+%% \code{Leaf} sub-classes of \code{Node}. Directories correspond to branch nodes and
+%% \code{whisper} files correspond to leaf nodes.  This layer of abstraction
+%% makes it easy to support different types of underlying storage
+%% including RRD files\footnote{RRD files are actually branch nodes
+%% because they can contain multiple data sources; an RRD data source
+%% is a leaf node.} and gzipped \code{whisper} files.
+\code{find}操作は、ローカルファイルシステム上の\code{whisper}データを検索して、
+ユーザーが指定したパターンに一致するものを見つける。ちょうど、ファイルシステム上で
+\code{*.txt}などとして特定の拡張子のファイルを探すのと同じようなことだ。
+\code{find}が返す結果はツリー構造で\code{Node}オブジェクトのコレクションとなり、
+\code{Node}のサブクラスである\code{Branch}あるいは\code{Leaf}
+のいずれかで表される。ディレクトリがブランチノードに、
+そして\code{whisper}ファイルがリーフノードにそれぞれ対応する。
+この抽象化レイヤーのおかげで、ベースとなるストレージを
+さまざまな形式に対応させるのも簡単になった。たとえばRRDファイル
+\footnote{実は、RRDファイルはブランチノードである。
+というのも、ひとつのファイルに複数のデータソースを含めることができるからだ。
+RRDのデータソースがリーフノードとなる。}
+やgzipした\code{whisper}ファイルにも対応している。
+
+%% The \code{Leaf} interface defines a \code{fetch} method whose
+%% implementation depends on the type of leaf node. In the case of
+%% \code{whisper} files it is simply a thin wrapper around the \code{whisper} library's
+%% own fetch function.  When clustering support was added, the
+%% \code{find} function was extended to be able to make remote find calls
+%% via HTTP to other Graphite servers specified in the webapp's
+%% configuration. The node data contained in the results of these HTTP
+%% calls gets wrapped as \code{RemoteNode} objects which conform to the usual
+%% \code{Node}, \code{Branch}, and \code{Leaf} interfaces. This makes the clustering
+%% transparent to the rest of the webapp's codebase. The \code{fetch}
+%% method for a remote leaf node is implemented as another HTTP call to
+%% retrieve the data points from the node's Graphite server.
+\code{Leaf}インターフェイスには\code{fetch}メソッドが定義されており、
+その実装はリーフノードの形式によって異なる。
+\code{whisper}ファイルの場合は、単に
+\code{whisper}ライブラリ自体のfetch関数を薄くラップしているだけである。
+クラスタリングに対応し始めたときに\code{find}関数は拡張され、
+HTTP経由でリモートのfind関数を呼べるようになった。呼び出す先のGraphite
+サーバーは、ウェブアプリケーションの設定項目として指定する。
+ノードのデータには、これらのHTTPコールの結果を\code{RemoteNode}
+オブジェクトでラップしたものが含まれるようになる。このオブジェクトは、通常の
+\code{Node}や\code{Branch}そして\code{Leaf}といったインターフェイスに対応している。
+このおかげで、クラスタリング環境をウェブアプリケーションで透過的に扱えるようになった。
+リモートリーフノードの\code{fetch}メソッドは別のHTTPコールとして実装されており、
+データポイントをそのノードのGraphiteサーバーから取得するようになっている。
+
+%% All of these calls are made between the webapps the same way a client
+%% would call them, except with one additional parameter specifying that
+%% the operation should only be performed locally and not be
+%% redistributed throughout the cluster.  When the webapp is asked to
+%% render a graph, it performs the \code{find} operation to locate the
+%% requested metrics and calls \code{fetch} on each to retrieve their
+%% data points. This works whether the data is on the local server,
+%% remote servers, or both. If a server goes down, the remote calls
+%% timeout fairly quickly and the server is marked as being out of
+%% service for a short period during which no further calls to it will be
+%% made. From a user standpoint, whatever data was on the lost server
+%% will be missing from their graphs unless that data is duplicated on
+%% another server in the cluster.
+ウェブアプリケーション間でのこれらの呼び出しは、
+すべてクライアントからの呼び出しと同じように行っている。
+ただ、追加のパラメータがひとつあって、
+その操作をローカルだけで行いクラスタには伝搬させないという指定もできる。
+グラフを描画するよう指示を受けたウェブアプリケーションは、
+まず\code{find}を使って対象のメトリクスを探し、
+そして\code{fetch}を呼んでそのデータポイントを取得する。
+データがローカルサーバーにあろうがリモートサーバーにあろうが、
+あるいはその両方に分かれていようがこの動きは変わらない。
+サーバーがダウンしている場合、リモート呼び出しがタイムアウトすると
+すぐにそのサーバーをサービス不能状態と認識し、
+一定の期間はそのサーバーへの呼び出しが発生しないようになる。
+ユーザー側から見れば、ダウン中のサーバーにあったデータは
+グラフから抜けた状態になる。
+ただし、クラスタ内の他のサーバーにデータのコピーがある場合はその限りではない。
+
+%% \begin{aosasect2}{A Brief Analysis of Clustering Efficiency}
+\begin{aosasect2}{クラスタリングの効率についてのちょっとした分析}
+
+%% The most expensive part of a graphing request is rendering the graph.
+%% Each rendering is performed by a single server so adding more servers
+%% does effectively increase capacity for rendering graphs. However, the
+%% fact that many requests end up distributing \code{find} calls to every
+%% other server in the cluster means that our clustering scheme is
+%% sharing much of the front-end load rather than dispersing it.  What we
+%% have achieved at this point, however, is an effective way to
+%% distribute back-end load, as each \code{carbon} instance operates
+%% independently.  This is a good first step since most of the time the
+%% back end is a bottleneck far before the front end is, but clearly the
+%% front end will not scale horizontally with this approach.
+グラフを表示するリクエストの中で最もコストのかかる部分は、
+グラフのレンダリングである。レンダリングは単一のサーバーで行われるので、
+サーバーを増やせばグラフのレンダリング能力が向上する。
+しかし、リクエストの結果として発生する\code{find}の呼び出しが
+クラスタ内のあらゆるサーバーに向かうので、
+フロントエンドにかかる負荷の多くを各サーバーで共有することになってしまう。
+しかし、既に我々はバックエンドの負荷をうまく分散させる方法を手に入れている。
+個々の\code{carbon}インスタンスを独立して動かすことである。
+これは、はじめの一歩としてはよい方法だ。というのも、
+ほとんどの場合はフロントエンドよりバックエンドのほうが先にボトルネックになるからである。
+しかし、当然ながら、この方式ではフロントエンドをスケールアウトさせることができない。
+
+%% In order to make the front end scale more effectively, the number of
+%% remote \code{find} calls made by the webapp must be reduced. Again,
+%% the easiest solution is caching. Just as memcached is already used to
+%% cache data points and rendered graphs, it can also be used to cache
+%% the results of \code{find} requests.  Since the location of metrics is
+%% much less likely to change frequently, this should typically be cached
+%% for longer. The trade-off of setting the cache timeout for \code{find}
+%% results too long, though, is that new metrics that have been added to
+%% the hierarchy may not appear as quickly to the user.
+フロントエンドをもっとうまくスケールさせるには、
+ウェブアプリケーションから発行するリモートへの
+\code{find}の呼び出しを減らす必要がある。
+一番簡単な解決法は、毎度おなじみのキャッシュだ。
+既にmemcachedを導入してデータポイントやレンダリング済みグラフを
+キャッシュしているが、さらに\code{find}の結果もここにキャッシュしておける。
+各メトリクスの場所はそんなに頻繁には変わらないので、
+これは少し長めにキャッシュしておける。
+しかし、\code{find}の結果のキャッシュ期間を長めに設定するトレードオフとして、
+新しく追加されたメトリクスはしばらく待たないとユーザーに見えなくなってしまう。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Distributing Metrics in a Cluster}
+\begin{aosasect2}{クラスタ内での分散メトリクス}
+
+%% The Graphite webapp is rather homogeneous throughout a cluster, in
+%% that it performs the exact same job on each server. \code{carbon}'s role,
+%% however, can vary from server to server depending on what data you
+%% choose to send to each instance. Often there are many different
+%% clients sending data to \code{carbon}, so it would be quite annoying to
+%% couple each client's configuration with your Graphite cluster's
+%% layout. Application metrics may go to one \code{carbon} server, while
+%% business metrics may get sent to multiple \code{carbon} servers for
+%% redundancy.
+Graphiteウェブアプリケーションはクラスタ内のいたるところで均質であり、
+どのサーバー上でもまったく同じ処理をこなせる。しかし、
+\code{carbon}の役割はサーバーによって異なり、
+どのデータをどのサーバーに送信するかによって大きく変わってくる。
+たくさんの異なるクライアントから\code{carbon}にデータが送られてくることが多いので、
+個々のクライアントの設定をGraphiteクラスタ上の配置を関連付けるのはとても面倒な作業だ。
+アプリケーションのメトリクスは単一の\code{carbon}サーバーにまとめ、
+業務メトリクスは複数の\code{carbon}サーバーに送って冗長性を確保するなどということになる。
+
+%% To simplify the management of scenarios like this, Graphite comes with
+%% an additional tool called \code{carbon-relay}. Its job is quite simple;
+%% it receives metric data from clients exactly like the standard \code{carbon}
+%% daemon (which is actually named \code{carbon-cache}) but instead of storing
+%% the data, it applies a set of rules to the metric names to determine
+%% which \code{carbon-cache} servers to relay the data to. Each rule consists of
+%% a regular expression and a list of destination servers. For each data
+%% point received, the rules are evaluated in order and the first rule
+%% whose regular expression matches the metric name is used. This way all
+%% the clients need to do is send their data to the \code{carbon-relay} and it
+%% will end up on the right servers.
+そういった場合の管理をシンプルにするために、
+Graphiteには\code{carbon-relay}というツールも用意されている。
+このツールの役割は極めてシンプルだ。クライアントからのメトリクスのデータを
+標準の\code{carbon}デーモン(実際の名前は\code{carbon-cache})と
+まったく同じ方法で受け取るが、そのデータをただ格納するのではなく、
+メトリクス名に対していくつかのルールを適用して、
+データをどの\code{carbon-cache}サーバーに転送するかを判断する。
+このときのルールは、正規表現と対象サーバーリストで構成されている。
+データポイントを受信するたびにルールを順に評価し、
+正規表現にマッチした最初のルールを利用する。
+クライアント側で必要なことは、データを\code{carbon-relay}
+に送信するだけだ。その先は、自動的に正しいサーバーに送られるようになる。
+
+%% In a sense \code{carbon-relay} provides replication functionality, though it
+%% would more accurately be called input duplication since it does not
+%% deal with synchronization issues. If a server goes down temporarily,
+%% it will be missing the data points for the time period in which it was
+%% down but otherwise function normally. There are administrative scripts
+%% that leave control of the re-synchronization process in the hands of
+%% the system administrator.
+ある意味では\code{carbon-relay}がレプリケーション機能を提供しているとも言えるが、
+より正確には入力の複製機能とでも言うべきだろう。というのも、同期機能は持っていないからだ。
+あるサーバーが一時的にダウンしたとすると、その期間のデータポイントは失われるが、
+それ以外の機能は正常に動作する。
+また、システム管理者が再同期処理をコントロールするための管理スクリプトも用意されている。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Design Reflections}
+\begin{aosasect1}{設計に関する重い}
+
+%% My experience in working on Graphite has reaffirmed a belief of mine
+%% that scalability has very little to do with low-level performance but
+%% instead is a product of overall design. I have run into many
+%% bottlenecks along the way but each time I look for improvements in
+%% design rather than speed-ups in performance. I have been asked many
+%% times why I wrote Graphite in Python rather than Java or C++, and my
+%% response is always that I have yet to come across a true need for the
+%% performance that another language could offer. In
+%% \cite{bib:knuth:goto}, Donald Knuth famously said that premature
+%% optimization is the root of all evil.  As long as we assume that our
+%% code will continue to evolve in non-trivial ways then all
+%% optimization\footnote{Knuth specifically meant low-level code
+%% optimization, not macroscopic optimization such as design
+%% improvements.} is in some sense premature.
+これまでGraphiteに関わってきて、私の認識が正しいことを再確認した。
+スケーラビリティを確保するには、低レベルのパフォーマンスをいくら改善してもほとんど効果はなく、
+結局は全体的な設計が重要であるということだ。
+これまでにいろんなボトルネックが見つかったが、そのたびに考えたのは、
+パフォーマンスを確保するために速度を上げるということではなく設計を改善させるということだった。
+「なんでまた、GraphiteをPythonで書いてしまったんだろう。JavaとかC++にすればよかったんじゃない?」
+と自問することも多かったが、結論はいつも同じ。
+「JavaやC++じゃないとどうしようもないほどのパフォーマンスを要求される場面なんかいままでになかったんだし、
+それならPythonの使いやすさをとったほうがいいんじゃない?」
+かのドナルド・クヌースが\cite{bib:knuth:goto}で言うとおり、早まった最適化は諸悪の根源である。
+自分のコードが今後も大きく成長し続けるという前提で考える限り、あらゆる最適化
+\footnote{クヌースが言及していたのは低レベルのコードの最適化についてであり、
+設計の改善などの巨視的な最適化を否定しているわけではない。}
+はある意味「早まった」ものだと言える。
+
+%% One of Graphite's greatest strengths and greatest weaknesses is the
+%% fact that very little of it was actually ``designed'' in the
+%% traditional sense.  By and large Graphite evolved gradually, hurdle by
+%% hurdle, as problems arose. Many times the hurdles were foreseeable and
+%% various pre-emptive solutions seemed natural. However it can be useful
+%% to avoid solving problems you do not actually have yet, even if it
+%% seems likely that you soon will. The reason is that you can learn much
+%% more from closely studying actual failures than from theorizing about
+%% superior strategies.  Problem solving is driven by both the empirical
+%% data we have at hand and our own knowledge and intuition. I've found
+%% that doubting your own wisdom sufficiently can force you to look at
+%% your empirical data more thoroughly.
+Graphiteの最大の強みであり、かつ最大の弱みでもあるのが、
+一般に言われているような意味での``設計''を実はほとんどしていないという事実である。
+Graphiteは徐々に成長してきた。何か問題が発生するたびに、
+そのハードルをひとつひとつ克服していったという感じだ。
+数々のハードルの中には事前に予測できるものもたくさんあったし、
+あらかじめそれらに手を打っておくというのもごく自然に思える。
+しかし、まだ実際に遭遇していない問題に対応するというのは避けたかった。
+たとえいずれは対処せざるを得ない問題だったとしても。
+その理由は、実際に問題に遭遇してから対応するほうが
+事前に理屈で考えた対応方法よりもうまくいくだろうと考えたからである。
+問題を解決するときに使ったのは、手元にある検証データと
+我々の知識や直感だった。自分の知識を疑い続け、
+実際の検証データをより活用するようにした。
+
+%% For example, when I first wrote \code{whisper} I was convinced that it would
+%% have to be rewritten in C for speed and that my Python implementation
+%% would only serve as a prototype. If I weren't under a time-crunch I
+%% very well may have skipped the Python implementation entirely. It
+%% turns out however that I/O is a bottleneck so much earlier than CPU
+%% that the lesser efficiency of Python hardly matters at all in
+%% practice.
+最初に\code{whisper}を書いたころは、
+スピードを考慮すると最終的にはCで書きなおすことになるだろうと信じ切っていた。
+いま書いているPython版はあくまでもプロトタイプに過ぎないと考えていたのだ。
+時間に迫られていなければ、Pythonでのプロトタイプを作ろうなどとは思わなかっただろう。
+しかし、I/OのボトルネックのほうがCPUよりもずっと早期に顕在化するということが
+わかった今では、Pythonを使い続けても事実上問題ないであろうと言える。
+
+%% As I said, though, the evolutionary approach is also a great weakness
+%% of Graphite. Interfaces, it turns out, do not lend themselves well to
+%% gradual evolution. A good interface is consistent and employs
+%% conventions to maximize predictability. By this measure, Graphite's
+%% URL API is currently a sub-par interface in my opinion. Options and
+%% functions have been tacked on over time, sometimes forming small
+%% islands of consistency, but overall lacking a global sense of
+%% consistency. The only way to solve such a problem is through
+%% versioning of interfaces, but this too has drawbacks. Once a new
+%% interface is designed, the old one is still hard to get rid of,
+%% lingering around as evolutionary baggage like the human appendix. It
+%% may seem harmless enough until one day your code gets appendicitis
+%% (i.e. a bug tied to the old interface) and you're forced to
+%% operate. If I were to change one thing about Graphite early on, it
+%% would have been to take much greater care in designing the external
+%% APIs, thinking ahead instead of evolving them bit by bit.
+しかし、先ほども言ったとおり、この漸進的な手法はGraphiteの弱点でもある。
+インターフェイスは、徐々に成長させていくということができなかった。
+よいインターフェイスは一貫性があるものであり、
+予想に反する動きを抑えてできるだけ期待通りに動くような規約を使うものである。
+この基準に照らし合わせると、GraphiteのURL APIのインターフェイスは
+現状では及第点に達していないと思う。
+オプションや関数がたびたび追加されたため、部分的には一貫しているところもあるけれども
+全体的に見ればまったく一貫性に欠けるものとなってしまった。
+この問題を解決するにはインターフェイスをバージョン管理していくしかないが、
+そうしたとしても問題は残る。
+新たなインターフェイスを設計したとしても古いものもまだ捨てきれず、
+どんどん荷物が増え続けてしまう。まるで盲腸のようなものだ。
+最初のうちはそんなに気にならないかもしれない。しかし、そのうちいつか、
+コードの虫垂炎(古いインターフェイスに起因するバグ)
+を手術するときがやってくる。
+過去にさかのぼってGraphiteを一か所だけ変更できるなら、
+外部向けAPIの設計をもっと念入りにやり直したい。
+その場しのぎで対応するのではなく、事前にきちんと考えておくべきだった。
+
+%% Another aspect of Graphite that causes some frustration is the limited
+%% flexibility of the hierarchical metric naming model. While it is quite
+%% simple and very convenient for most use cases, it makes some
+%% sophisticated queries very difficult, even impossible, to
+%% express. When I first thought of creating Graphite I knew from the
+%% very beginning that I wanted a human-editable URL API for creating
+%% graphs\footnote{This forces the graphs themselves to be open
+%% source. Anyone can simply look at a graph's URL to understand it or
+%% modify it.}. While I'm still glad that Graphite provides this today,
+%% I'm afraid this requirement has burdened the API with excessively
+%% simple syntax that makes complex expressions unwieldy.  A hierarchy
+%% makes the problem of determining the ``primary key'' for a metric
+%% quite simple because a path is essentially a primary key for a node in
+%% the tree. The downside is that all of the descriptive data (i.e.
+%% column data) must be embedded directly in the path. A potential
+%% solution is to maintain the hierarchical model and add a separate
+%% metadata database to enable more advanced selection of metrics with a
+%% special syntax.
+Graphiteでちょっと気になるところがもうひとつある。
+メトリクスの命名規則が階層型であるせいで、柔軟性に欠けるという点だ。
+極めてシンプルだしたいていの場合は便利に使えるのだが、
+込み入ったクエリの表現が非常に難しくなったり、時には不可能になったりしてしまう。
+Graphiteを作ろうと考え始めたころからずっと思っていたのだが、
+私が欲しいのは、人間が手で編集できる形式のURLを使ったAPIによる
+グラフの作成機能だった
+\footnote{そのため、グラフ自体はオープンソースにせざるを得なかった。
+グラフのURLを見れば何をやっているかは丸わかりだし、手で書き換えるのも簡単だ。}。
+今のGraphiteはその当時の私の思った通りの機能を提供できている。
+だが、そのせいでAPIをシンプルにせざるを得ず、
+複雑な表現をしようとすると手に負えなくなっているのではないかという恐れもある。
+階層型にしたおかげで、メトリクスの``主キー''を極めてシンプルに考えられるようになった。
+パス自体が、本質的にそのツリー内でのノードの主キーとなるからである。
+問題は、説明用のデータ(カラムのデータなど)すべてを
+直接パスに埋め込む必要があるという点だ。
+考えられる解決策としては、階層型のモデルとは別にメタデータのデータベースを用意して、
+より込み入った選択をするための特別な構文を作ることだろう。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Becoming Open Source}
+\begin{aosasect1}{そしてオープンソースへ…}
+
+%% Looking back at the evolution of Graphite, I am still surprised both by
+%% how far it has come as a project and by how far it has taken me as a
+%% programmer. It started as a pet project that was only a few hundred
+%% lines of code. The rendering engine started as an experiment, simply
+%% to see if I could write one. \code{whisper} was written over the course of a
+%% weekend out of desperation to solve a show-stopper problem before a
+%% critical launch date. \code{carbon} has been rewritten more times than I care
+%% to remember. Once I was allowed to release Graphite under an open
+%% source license in 2008 I never really expected much response. After a
+%% few months it was mentioned in a CNET article that got picked up by
+%% Slashdot and the project suddenly took off and has been active ever
+%% since.  Today there are dozens of large and mid-sized companies using
+%% Graphite. The community is quite active and
+%% continues to grow. Far from being a finished product, there is a lot
+%% of cool experimental work being done, which keeps it fun to work on
+%% and full of potential.
+Graphiteのこれまでを振り返ると、
+プロジェクトとしてここまで成長したことにも驚かされるし、
+私自身がプログラマーとしてどれだけ成長したかにも驚かされる。
+もともとは個人的に始めたちょっとしたプロジェクトで、
+最初のころはたかだか数百行のコードでしかなかったんだ。
+レンダリングエンジンだって、自分にそんなものが書けるのかを確かめるための
+ちょっとした実験程度のものだった。
+\code{whisper}を書いているときは、公開予定日の直前になって発生した
+重大な問題に対応するため、週末に泣きながら作業を進めたこともあった。
+\code{carbon}は何度となくゼロから書き直すことになった。
+もはや数え切れないくらいの書き直しをしている。
+Graphiteをオープンソースライセンスで公開する許可を得たのは2008年だったが、
+当時はそんなに反応があるわけがないと思っていた。
+それから数カ月の間に、CNETの記事で取り上げられたり
+Slashdotで話題になったりして、
+いまだかつてないほど活発に動き出した。
+今や、大企業や中小企業も含めて何十社もがGraphiteを使っている。
+そのコミュニティはとても活発であり、今も成長し続けている。
+もはや終わってしまったプロダクトとは違って
+今でも実験的な機能をどんどん取り入れたりしているので、
+このプロジェクトでの作業は楽しみと可能性に満ちている。
+
+\end{aosasect1}
+
+\end{aosachapter}

@@ -1,0 +1,44 @@
+- Warp is a high-performance HTTP engine library in Haskell.
+
+- Both Yesod, a web application framework, and Mighttpd, an HTTP server,
+  are implemented over Warp.
+
+- This article explains the architecture of Warp and techniques to achieve
+  its high performance.
+
+- It is said that event-driven network programming is necessary to
+  implement high-performance server. But event-driven programming is
+  prone to be a mess of callback functions.
+
+- GHC (Glasgow Haskell Compiler) successfully provides user threads
+  (not native threads) over an event-driven IO manager.
+
+- Haskell user threads achieve high-performance while keeping server
+  code simple and concise by allowing traditional thread programming.
+
+- Warp consists of an HTTP request parser and an HTTP response generator.
+
+- Implement efficient parsing of the requests. Bypassing parser
+  generators and writing the parsers by hand has given us significant
+  performance boosts, and the low-level ByteString functions have
+  allowed us to avoid redundant checks.
+
+- Avoiding multiple buffer copies. It's worth mentioning that we
+  transitioned from straight ByteStrings, to blaze-builder, and now
+  use our even more optimized buffer builder code for certain parts
+  of response generation.
+
+- Since issuing a system call gives CPU time to the kernel, all Haskell
+  user threads stop. To implement high-performace server, we need to
+  avoid issuing system calls as much as possible.
+
+   - Cache results of system calls: open, close, stat, gettimeofday
+   - Use better system calls: accept4 instead of accept,
+                              sento + MSG_MORE instead of writev
+
+- We need to avoid re-calculation, of course.
+   - Cache formatted date
+   - Pre-prepare pieces of HTTP response header (e.g "200")
+
+ - With these ideas, we can implement fast servers even with a
+   high-level programming language like Haskell.

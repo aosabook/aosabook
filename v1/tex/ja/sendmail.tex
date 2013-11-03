@@ -1,0 +1,1617 @@
+\begin{aosachapter}{Sendmail}{s:sendmail}{Eric Allman}
+%% Based on EN-Revision r229
+
+%% Most people think of electronic mail as the program that they interact
+%% with---their mail client, technically known as a Mail User Agent
+%% (MUA).  But another important part of electronic mail is the software
+%% that actually transfers the mail from the sender to the
+%% recipient---the Mail Transfer Agent (MTA).  The first MTA on the
+%% Internet, and still the most prevalent, was sendmail.
+電子メールのプログラムと聞いて、たいていの人が思い浮かべるのはメールクライアントだろう。厳密には、Mail User Agent (MUA)と呼ばれているものだ。しかし、電子メールを扱うソフトウェアには、もうひとつ重要なものがある。それが、実際に送信者から受信者にメールを配送するソフトウェア---Mail Transfer Agent (MTA)である。インターネット上で最初に登場したMTAであり、現在でも幅広く使われているものがsendmailだ。
+
+%% Sendmail was first created before the Internet officially existed. It
+%% has been extraordinarily successful, having grown from 1981, when it
+%% wasn't at all obvious that the Internet was going to be more than an
+%% academic experiment with only a few hundred hosts, to today, with over
+%% 800 million Internet hosts as of January
+%% 2011\footnote{\url{http://ftp.isc.org/www/survey/reports/2011/01/}}.
+%% Sendmail remains among the most used implementations of SMTP on the Internet.
+Sendmailが最初に作られたのは、まだインターネットが公式には存在しなかったころである。そして、それから大成功を収めた。1981年に最初に作られたころ、インターネットはまだ学術的な実験段階で、接続されているホストはたかだか数百台に過ぎなかった。それが今や、2011年1月の時点でインターネットに接続されているホストは8億を超える\footnote{\url{http://ftp.isc.org/www/survey/reports/2011/01/}}。当時、今のこの状況を想像できた人はあまりいなかっただろう。Sendmailは、インターネット上のSMTPの実装として、今でも最も使われているものである。
+
+%% \begin{aosasect1}{Once Upon a Time\ldots}
+\begin{aosasect1}{むかしむかし\ldots}
+
+%% The first versions of the program that would become known as sendmail
+%% were written in 1980. It started as a quick hack to forward messages
+%% between different networks.  The Internet was being developed but was
+%% not functional at that time.  In fact, many different networks had been
+%% proposed with no obvious consensus emerging.  The Arpanet was in use
+%% in the United States and the Internet was being designed as an
+%% upgrade, but Europe had thrown its weight behind the OSI (Open Systems
+%% Interconnect) effort, and for a while it appeared that OSI might
+%% triumph. Both of these used leased lines from the phone companies; in
+%% the US that speed was 56 Kbps.
+後にsendmailとして知られることになるプログラムの最初のバージョンが書かれたのは1980年のことだった。もともとは、メッセージを別のネットワークに転送するためのちょっとしたハックだった。インターネットは構築されていたが、当時はまだそれほど機能的ではなかった。実際のところ、当時はさまざまなネットワークがコンセンサスを得ないままに提案されていた。アメリカではArpanetが使われており、インターネットはその上位版として設計された。しかしヨーロッパではOSI (Open Systems Interconnect)の取り組みを支持しており、おそらくOSIのほうが勝ちを収めるだろうとみられていたこともあった。どちらも電話会社から借りた専用線を使っており、米国での速度は56 Kbpsだった。
+
+%% Probably the most successful network of the time,
+%% in terms of numbers of computers
+%% and people connected, was the UUCP network, which was unusual in that
+%% it had absolutely no central authority. It was, in some sense, the
+%% original peer-to-peer network, which ran over dialup phone lines: 9600
+%% bps was about the fastest available for some time. The fastest network
+%% (at 3 Mbps) was based on the Ethernet from Xerox, which ran a protocol
+%% called XNS (Xerox Network Systems)---but it didn't work outside of a
+%% local installation.
+おそらく、(接続するマシンやユーザーの数で考えると)当時最も成功していたネットワークはUUCPネットワークだろう。このネットワークの特徴は、中央管理型の権限がどこにもなかったことだ。ある意味では、ピアツーピアのネットワークの元祖と言えるだろう。このネットワークは電話回線でのダイアルアップで動いており、最大で9600 bpsの速度しか出なかった。その当時の最速のネットワーク(3 Mbps)はXeroxのEthernetをベースとしたもので、これはXNS (Xerox Network Systems)というプロトコルで動いていた---しかし、ローカルにインストールした環境以外では動作しなかった。
+
+%% The environment of the time was rather different than what exists
+%% today.  Computers were highly heterogeneous, to the extent that there
+%% wasn't even complete agreement to use 8-bit bytes.
+%% For example, other machines included the PDP-10 (36 bit words, 9 bit bytes),
+%% the PDP-11 (16 bit words, 8 bit bytes),
+%% the CDC 6000 series (60 bit words, 6 bit characters),
+%% the IBM 360 (32 bit words, 8 bit bytes),
+%% the XDS 940, the ICL 470, and the Sigma 7.
+%% One of the up-and-coming platforms was Unix,
+%% which at that time came from Bell Laboratories.
+%% Most Unix-based
+%% machines had 16-bit addresses spaces: at that time the PDP-11 was the
+%% major Unix machine, with the Data General 8/32 and the VAX-11/780 just
+%% appearing.  Threads didn't exist---in fact, the concept of dynamic
+%% processes was still fairly new (Unix had them, but ``serious'' systems
+%% such as IBM's OS/360 did not). File locking was not supported in the
+%% Unix kernel (but tricks were possible using filesystem links).
+当時の環境は、今とは異なっていた。コンピュータはそれぞれ異質なものであり、そもそも1バイトを8ビットにするかどうかさえ完全には合意されていなかった。たとえばPDP-10(1ワードが36ビット、1バイトが9ビット)、PDP-11(1ワードが16ビット、1バイトが8ビット)、CDC 6000シリーズ(1ワードが60ビット、1文字が6ビット)、IBM 360(1ワードが32ビット、1バイトが8ビット)、そしてXDS 940やICL 470、Sigma 7などがあった。そのころ赤丸急上昇中だったプラットフォームのひとつがUnixで、これはベル研究所が発表したものだった。Unixベースのマシンの大半は16ビットアドレス空間を保持していた。当時のUnixマシンの主流はPDP-11で、Data General 8/32やVAX-11/780が登場してきたころだった。スレッドはまだ存在しなかった---実際のところ、ダイナミックプロセスという概念自体がまだまだ出たてのものだったのだ(Unixにはスレッドがあったが、IBMのOS/360みたいな``本物の''システムにはまだ実装されていなかった)。ファイルのロックはまだUnixカーネルではサポートされていなかった(ファイルシステムのリンクを使うという裏技はあった)。
+
+%% To the extent they existed at all, networks were generally low speed
+%% (many based on 9600-baud TTY lines; the truly rich might have had
+%% Ethernet available, but for local use only). The venerable socket
+%% interface wasn't going to be invented for many years. Public key
+%% encryption hadn't been invented either, so most network security as we
+%% know it today wasn't feasible.
+とりあえずあるにはあったものの、ネットワークは一般的に低速だった(その多くは9600ボーのTTY回線を使っていた。お金持ちの中にはEthernetを使っているところもあったが、それでもローカルネットワークだけの話だった)。あの由緒あるソケットインターフェイスが発明されるのは、それから何年か後のことである。公開鍵による暗号化の仕組みもまだ発明されていなかったので、ネットワークセキュリティに関して我々の知る仕組みのほとんどは実現不可能だった。
+
+%% Network email already existed on Unix, but it was created using
+%% hacks.  The primary user agent at the time was the \code{/bin/mail}
+%% command (today sometimes referred to as \code{binmail} or
+%% \code{v7mail}), but some sites had other user agents such as
+%% \code{Mail} from Berkeley, which actually understood how to
+%% treat messages as individual items rather than being a glorified
+%% \code{cat} program.  Every user agent read (and usually wrote!)
+%% \code{/usr/spool/mail} directly; there was no abstraction for how the
+%% messages were actually stored.
+ネットワーク上を流れる電子メールはUnixで既に実現されていたが、そのためにはちょっとしたハックを要した。当時のユーザーエージェントとして一番よく使われていたのが\code{/bin/mail}コマンド(現在では\code{binmail}や\code{v7mail}と呼ばれることもある)だが、それ以外のユーザーエージェントを使っているところもあった。たとえばバークレーの\code{Mail}は、メッセージを個別のアイテムとして扱う方法を知っていた。単に\code{cat}プログラムに任せるだけではなかった。どのユーザーエージェントも、\code{/usr/spool/mail}ディレクトリを直接読んだり(そして直接書き込んだり!)していた。実際に格納されるメッセージを抽象化することなどなかったのだ。
+
+%% The logic to route a message to the network versus local e-mail was nothing
+%% more than seeing if the address contained an exclamation point (UUCP)
+%% or a colon (BerkNET). People with Arpanet access had to use a
+%% completely separate mail program, which would not interoperate with
+%% other networks, and which even stored local mail in a different place
+%% and in a different format.
+メッセージをネットワークに送るかローカルの電子メールに送るかの振り分けロジックは、単にアドレスを見て中に感嘆符(UUTPの場合)あるいはコロン(BerkNETの場合)が含まれているかどうかを見るだけのことでしかなかった。Arpanetにアクセスする人たちは、完全に個別のメールプログラムを使う必要があった。これは他のネットワークとの相互運用ができず、ローカルメールも別の場所に異なる書式で保存していた。
+
+%% To make things even more interesting, there was virtually no
+%% standardization on the format of the messages themselves.  There was
+%% general agreement that there would be a block of header fields at the
+%% top of the message, that each header field would be on a new line, and
+%% that header field names and values would be separated by a
+%% colon. Beyond that, there was very little standardization in either the
+%% selection of header field names or the syntaxes of individual
+%% fields. For example, some systems used \code{Subj:} instead of
+%% \code{Subject:}, \code{Date:} fields were different syntaxes, and some
+%% systems didn't understand full names in a \code{From:} field. On top
+%% of all of this, what was documented was often ambiguous or not quite
+%% what was actually in use. In particular, RFC~733 (which purported to
+%% describe the format of Arpanet messages) was different from what was
+%% actually used in subtle but sometimes important ways, and the method
+%% of actually transmitting messages was not officially documented at all
+%% (although several RFCs made reference to the mechanism, none defined
+%% it). The result was that there was somewhat of a priesthood around
+%% messaging systems.
+さらにおもしろいのが、この時点ではまだ、メッセージ自体の書式についても事実上標準化されていなかったということだ。大まかに決まっていたのは、メッセージの先頭にヘッダフィールドを置き、各ヘッダフィールドの後には改行を置いて、フィールド名とその値はコロンで区切るということくらいだった。それ以外のこと、たとえばどんなヘッダフィールド名を使うかや個々のフィールドの構文などについてはほとんど標準化されていなかった。たとえば\code{Subject:}の代わりに\code{Subj:}を使うシステムもあったし\code{Date:}フィールドの構文もそれぞればらばらだったし、システムによっては\code{From:}フィールドのフルネームを解釈できないものもあった。さらに、ドキュメントもあいまいなものばかりだったし、ドキュメントが実際の内容と食い違っていることもあった。特にRFC~733(Arpanetメッセージについての説明)は実際に使われている内容と微妙に異なっていた(しかし重要な違いであることもあった)。そして、実際のメッセージ送信の仕組みは実際のところ公式には文書化されていなかった(その仕組みを扱うRFCはいくつかあったが、きちんとした定義はどこにもなかった)。メッセージングシステムまわりはこんなひどい状況だった。
+
+%% In 1979, the INGRES Relational Database Management Project
+%% (a.k.a. my day job)
+%% got a DARPA grant, and with it a 9600bps Arpanet connection
+%% to our PDP-11.
+%% At the time it was the only Arpanet connection available in
+%% the Computer Science Division,
+%% so everyone wanted access to our machine so they could get to the Arpanet.
+%% However, that machine was already maxed out,
+%% and so we could only make two login ports available for everyone in the
+%% department to share.
+%% This caused substantial contention and frequent conflicts.
+%% However, I noticed that what people wanted most of all was not
+%% remote login or file transfer, but e-mail.
+1979年、INGRES Relational Database Management Project(私の昼間の業務だった)はDARPAの資金援助を受け、9600bpsのArpanet接続を我々のPDP-11につなげることになった。その当時、コンピュータサービス部門でArpanetに接続しているマシンはそれだけだったので、誰もが我々のマシンを使ってArpanetを使いたがった。しかし、そのマシンはすでに最大限に使い切っており、使えるログインポートはあとふたつしか残っていなかった。そこで、そのふたつを部門内で共有した。そのため、頻繁に争いが発生した。しかし、私は気づいた。我々の大半はリモートログインやファイル転送を求めているのではなく、単に電子メールが使いたいだけだったのだ。
+
+%% Into this, sendmail (initially called delivermail) emerged as an
+%% attempt to unify the chaos into one place. Every MUA (mail user agent,
+%% or mail client) would just call delivermail to deliver email rather than
+%% figuring out how to do it on an ad hoc (and often incompatible) basis.
+%% Delivermail/sendmail made no attempt to dictate how local mail should be stored or
+%% delivered; it did absolutely nothing except shuffle mail between other
+%% programs. (This changed when SMTP was added, as we'll see shortly.)
+%% In some sense it was just glue to hold the various mail systems
+%% together rather than being a mail system in its own right.
+そんなところに、sendmail(当初はdelivermailという名前だった)が登場した。このカオスを何とか統一しようという試みだ。すべてのMUA(Mail User Agent、あるいはメールクライアント)は、単にdelivermailを呼び出すだけでメールを配送することができた。いちいち調査をしてアドホックな(そして、たいてい互換性のない)対応をする必要もない。Delivermail/sendmailは、ローカルメールの保存方法や配送方法に関しては一切関知しなかった。つまり、単に他のプログラムとの間でメールを入れ替える以外のことは何もしなかったのだ(これは、後にSMTPが追加されたことで変わった。詳しくは後ほど)。ある意味では、自分自身がメールシステムであるというよりは、さまざまなメールシステムの間をつなぐ糊に過ぎなかったのだ。
+
+\pagebreak
+
+%% During the development of sendmail the Arpanet was transformed into
+%% the Internet. The changes were extensive, from the low level packets
+%% on the wire up through application protocols, and did not happen
+%% instantly.  Sendmail was literally developed concurrently with the
+%% standards, and in some cases influenced them. It's also notable that
+%% sendmail has survived and even thrived as ``the network'' (as we think
+%% of it today) scaled from a few hundred hosts to hundreds of millions
+%% of hosts.
+Sendmailの開発を進めるうちに、Arpanetはインターネットに姿を変えた。その変更点は幅広く、ローレベルのパケットからその上にのるアプリケーションプロトコルまですべて変化した。そして、その変化は一斉に起こったわけではなかった。Sendmailの開発は標準規格の策定とまさに文字通り並行して進んでおり、Sendmailが標準規格に影響を及ぼすこともあった。もうひとつ特筆すべき点は、いま我々が思い浮かべる``ネットワーク''がまだ数百台規模だったころから何億台規模に成長するまでの間、sendmailがずっと生き残って成長を続けたという事実である。
+
+%% \begin{aosabox}{Another Network}
+\begin{aosabox}{もうひとつのネットワーク}
+
+%% It's worth mentioning that another completely separate
+%% mail standard was proposed at the
+%% time called X.400, which was a part of ISO/OSI (International
+%% Standards Organization/Open Systems Interconnect).  X.400 was a binary
+%% protocol, with the message encoded using ASN.1 (Abstract Syntax
+%% Notation 1), which is still in use in some Internet protocols today
+%% such as LDAP\@. LDAP was in turn a simplification of X.500, which was
+%% the directory service used by X.400.  Sendmail made no attempt
+%% whatsoever to be directly compatible with X.400, although there were
+%% some gateway services extant at the time. Although X.400 was initially
+%% adopted by many of the commercial vendors at the time, Internet mail
+%% and SMTP
+%% ended up winning in the marketplace.
+ちなみに、当時まったく別のメール標準規格も提案されていた。それはX.400と呼ばれ、ISO/OSI (International Standards Organization/Open Systems Interconnect)の一部だった。X.400はバイナリプロトコルで、メッセージはASN.1(Abstract Syntax Notation 1)で符号化する。この仕組みは、今でもLDAPなどの一部のインターネットプロトコルで使われている。LDAPはX.500を単純化したものであり、X.500はX.400が使っているディレクトリサービスだ。SendmailはX.400との直接の互換性に関しては一切考慮していない。しかし、両者の橋渡しをするゲートウェイが存在する。X.400は当初から多くの商用ベンダーに採用されていたが、最終的に市場を制したのはインターネットメールとSMTPだった。
+
+\end{aosabox}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Design Principles}
+\begin{aosasect1}{設計の原則}
+
+%% While developing sendmail, I adhered to several design principles. All
+%% of these in some sense came down to one thing: do as little as
+%% possible.  This is in sharp contrast to some of the other efforts of
+%% the time that had much broader goals and required much larger
+%% implementations.
+Sendmailの開発中にこだわっている設計指針をいくつか紹介する。これらは結局ひとことでまとめることができて、要するに「無駄なことはしない」ということだ。これは、その当時の流れに反するものだった。当時は、より幅広い目標を達成するために実装をどんどん膨らませる方向に進んでいる人が多かった。
+
+%% \begin{aosasect2}{Accept that One Programmer Is Finite}
+\begin{aosasect2}{プログラマには限界があることを受け入れる}
+
+%% I wrote sendmail as a part-time, unpaid project. It was intended to be
+%% a quick way of making Arpanet mail more accessible to people at
+%% U.C. Berkeley. The key was to forward mail between existing networks,
+%% all of which were implemented as standalone programs that were unaware
+%% that more than one network even existed. Modifying more than a tiny
+%% amount of the existing software was infeasible with only one part-time
+%% programmer.  The design had to minimize the amount of existing code
+%% that needed to be modified as well as the amount of new code that
+%% needed to be written.  This constraint drove most of the rest of the
+%% design principles. As it turned out, in most cases they would have
+%% been the right thing to do even if there had been a larger team
+%% available.
+もともとsendmailは、業務としてではなく空き時間を使って書いたものだ。Arpanetメールをカリフォルニア大学バークレー校の人たちがより使いやすくするための手っ取り早い手段として作られた。その肝となるのが既存のネットワーク間でのメールの転送だった。すべての処理はスタンドアロンのプログラムとして実装されており、複数のネットワークが存在することを想定していなかった。既存のソフトウェアにそれなりに手を入れるというのは、一人のプログラマーが空き時間だけでこなすには不可能な作業である。既存のコードをできるだけ変更せずに済み、かつ新しいコードもできるだけ書かずに済むような設計を目指す必要があった。後述する指針の大半も、この考えに基づいている。仮に大規模なチームがいたとしても、この指針は間違いではなかっただろう。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Don't Redesign User Agents}
+\begin{aosasect2}{ユーザーエージェントの再設計はしない}
+
+%% A Mail User Agent (MUA) is what most end users think of as the ``mail
+%% system''---it's the program that they use to read, write, and answer
+%% mail. It is quite distinct from the Mail Transfer Agent (MTA), which
+%% routes email from the sender to the receiver. At the time sendmail was
+%% written, many implementations at least partly combined these two
+%% functions, so they were often developed in tandem. Trying to work on
+%% both at the same time would have been too much, so Sendmail completely
+%% punted on the user interface problem: the only changes to MUAs were to
+%% have them invoke sendmail instead of doing their own routing. In
+%% particular, there were already several user agents, and people were
+%% often quite emotional about how they interacted with mail.
+%% Trying to work on both at the same time would have been too much.
+%% This
+%% separation of the MUA from the MTA is accepted wisdom now, but was far
+%% from standard practice at the time.
+Mail User Agent (MUA)とは、エンドユーザーの多くが``メールソフト''と聞いて真っ先に思い浮かべるもの---メールの読み書きや返信のために使うプログラムである。Mail Transfer Agent (MTA)はそれとはまったく別で、電子メールを送信者から受信者に向けて配送する役割を果たす。Sendmailが書かれた当時、多くの実装はこれらふたつの機能を組み合わせたものであり、協力して開発を進めていた。両方同時に作業を進めるのはキツかったので、Sendmailではユーザーインターフェイスの問題を完全に投げ捨てた。MUAに対して行った唯一の変更は、自前のルーティング処理の代わりにsendmailを起動させるようにする変更だった。実際、ユーザーエージェントは既にいろいろなものがあったし、実際にメールを操作する部分なのでユーザーの好みも人それぞれだ。MUAをMTAから切り離すという判断は今でこそ受け入れられるだろうが、当時の常識からは完全にかけ離れていた。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Don't Redesign the Local Mail Store}
+\begin{aosasect2}{ローカルメールストアの再設計はしない}
+
+%% The local mail store (where messages would be saved until the
+%% recipient came along to read them) was not formally standardized. Some sites
+%% liked to store them in a centralized place, such as \code{/usr/mail},
+%% \code{/var/mail}, or \code{/var/spool/mail}. Other sites liked to
+%% store them in the recipient's home directory (e.g., as a file called
+%% \code{.mail}). Most sites started each message with a line beginning
+%% ``From'' followed by a space character (an extraordinarily bad
+%% decision, but that was the convention at the time), but sites that
+%% were Arpanet-focused usually stored messages separated by a line
+%% containing four control-A characters. Some sites attempted to lock the
+%% mailbox to prevent collisions, but they used different locking
+%% conventions (file locking primitives were not yet available). In
+%% short, the only reasonable thing to do was treat local mail storage as
+%% a black box.
+ローカルメールストア(受信者がメールを読むまでの受信メールの保存場所)は、正式には標準化されていなかった。\code{/usr/mail}や\code{/var/mail}あるいは\code{/var/spool/mail}のような場所で中央管理する方式をとっているところもあれば、受信者のホームディレクトリに(\code{.mail}などといった名前のファイルで)保存しているところもあった。大半のサイトでは``From''で始まってその後スペースが続く行があればそこからメッセージが始まるものとしていた(あまりにも筋が悪すぎるが、当時はそういう決まりだった)が、Arpanetに注力していたサイトでは、control-Aが4文字続く行でメッセージを区切って保管していた。一部のサイトではメールボックスをロックして衝突を回避していたが、サイトによってロックの規約が異なっていた(ファイルロックのプリミティブは当時まだなかった)。要するに、やれることがあるとすれば、ローカルのメールストレージは完全にブラックボックスとして扱うことくらいだった。
+
+%% On nearly all sites, the actual mechanism for doing local mailbox
+%% storage was embodied in the \code{/bin/mail} program. This had a
+%% (quite primitive) user interface, routing, and storage built into one
+%% program. To incorporate sendmail, the routing portion was pulled out
+%% and replaced with a call to sendmail.  A \code{-d} flag was added to
+%% force final delivery, i.e., it prevented \code{/bin/mail} from calling
+%% sendmail to do the routing. In later years the code used to deliver a
+%% message to a physical mailbox was extracted into another program
+%% called \code{mail.local}. The \code{/bin/mail} program exists today
+%% only to include a lowest common denominator for scripts to send
+%% mail.
+ほぼすべてのサイトで、実際にローカルメールボックスのストレージを扱う処理は\code{/bin/mail}に埋め込まれていた。このプログラムは、(極めて原始的な)ユーザーインターフェイスとルーティング、そしてストレージ操作の処理をひとつにまとめたものである。sendmailと組み合わせるために、ルーティング部分は外に切り出してsendmailを呼び出す処理に切り替えた。最終的な配送を強制するための\code{-d}フラグが追加された。つまり、\code{/bin/mail}がsendmailを呼び出してルーティングするのをやめさせるということだ。後になって、物理的なメールボックスにメッセージを配送するコードが切り出され、\code{mail.local}という別のプログラムになった。現在の\code{/bin/mail}は、メールを送信するための最小限の共通処理だけを残したものになっている。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Make Sendmail Adapt to the World, Not the Other Way Around}
+\begin{aosasect2}{Sendmailが世界に合わせるのであって、世界をSendmailに合わせるのではない}
+
+%% Protocols such as UUCP and BerkNET were already implemented as
+%% separate programs that had their own, sometimes quirky, command line
+%% structure. In some cases they were being actively developed at the
+%% same time as sendmail. It was clear that reimplementing them (for
+%% example, to convert them to standard calling conventions) was going to
+%% be painful. This led directly to the principle that sendmail should
+%% adapt to the rest of the world rather than trying to make the rest of
+%% the world adapt to sendmail.
+UUCPやBerkNETといったプロトコルが既に個別のプログラムとして実装されており、それぞれ自前の(時にちょっと奇妙な)コマンドライン構造をもっていた。時には、それらのプログラムもsendmailと同時に活発な開発が進むこともあった。sendmailで再実装してしまう(たとえば、標準の呼び出し規約に変換する)のは、どう見てもつらいだろう。ここから、次の原則が得られる。つまり、sendmailのほうが他の世界に合わせるのであって、他の世界のほうをsendmailの流儀に合わせようとしてはいけないということだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Change as Little as Possible}
+\begin{aosasect2}{変更はできる限り少なく}
+
+%% To the fullest extent possible, during the development of sendmail I
+%% didn't touch anything I didn't absolutely have to touch. Besides just
+%% not having enough time to do it, there was a culture at Berkeley at
+%% the time that eschewed most formal code ownership in favor of a policy
+%% of ``the last person who touched the code is the go-to person for that
+%% program'' (or more simply, ``you touch it, you own it''). Although
+%% that sounds chaotic by most modern-day standards, it worked quite well
+%% in a world where no one at Berkeley was assigned full time to work on
+%% Unix; individuals worked on parts of the system that they were
+%% interested in and committed to and didn't touch the rest of the code
+%% base except in dire circumstances.
+最大限の注意を払い、sendmailの開発中には、触る必要のないものには一切触らないようにした。単に時間がないというだけの理由ではない。当時のバークレーには、コードの所有者を厳密に定めるのではなく``最後にコードを触った人が、そのプログラムの担当になる''(簡単に言うと``触ったら、責任を持て'')という文化があったのだ。今どきの常識で考えるとあり得ない話だが、これでうまく回っていた。当時のバークレーにはフルタイムでUnixに関わっている人はいなかったのだ。各人が、それぞれ自分が興味を持った部分の作業をしてコミットし、それ以外の部分についてはよっぽどの緊急事態でない限り手を触れなかった。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Think About Reliability Early}
+\begin{aosasect2}{信頼性をまず考える}
+
+%% The mail system prior to sendmail (including most of the transport
+%% systems) wasn't terribly concerned about reliability. For example,
+%% versions of Unix prior to 4.2BSD did not have native file locking,
+%% although it could be simulated by creating a temporary file and then
+%% linking it to a lock file (if the lock file already existed the link
+%% call would fail). However, sometimes different programs writing the
+%% same data file wouldn't agree on how the locking should be done (for
+%% example, they might use a different lock file name or even make no attempt
+%% to do locking at all), and so it wasn't
+%% that uncommon to lose mail.  Sendmail took the approach that losing
+%% mail wasn't an option (possibly a result of my background as a
+%% database guy, where losing data is a mortal sin).
+sendmail以前のメールシステム(大半のメール配送システムも含む)は、信頼性についてあまりにも無神経すぎた。たとえば、4.2BSDよりも前のバージョンのUnixにはネイティブなファイルロックの仕組みがなかった。その代わりの手段として、テンポラリファイルを使ってファイルロックをシミュレートしていた。つまり、テンポラリファイルを作成してそれをロックファイルにリンクさせたのだ(もしロックファイルが既に存在すれば、リンクのコールが失敗する)。しかし、時には別のプログラムが、ロックファイルとしての扱い方を知らないまま同じファイルに書き込みをしてしまうこともあり(たとえばロックファイル名が違ったり、そもそもロックを考慮していなかったりなど)、メールを失う可能性もあり得るようになってしまう。sendmailでは、メールを失うことなどあり得ないような手法を採用した(これは、もともと私がデータベース屋だったことも関係するかもしれない。データを失うなんてとんでもないという考えだった)。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{What Was Left Out}
+\begin{aosasect2}{その他}
+
+%% There were many things that were not done in the early versions.
+%% I did not try to re-architect the mail system
+%% or build a completely general solution:
+%% functionality could be added as the need arose.
+%% Very early versions were not even intended to be completely configurable
+%% without access to the source code and a compiler
+%% (although this changed fairly early on).
+%% In general, the modus operandi for sendmail
+%% was to get something working quickly
+%% and then enhance working code as needed
+%% and as the problem was better understood.
+初期のバージョンでは、まだできていないことがたくさんあった。私はメールシステムを一から作り直そうとはしなかったし、完璧なソリューションを構築しようとも思わなかった。単に、必要になったときにその機能を追加するようにしたのだ。最初期のバージョンでは、設定を変更したければソースコードをいじってコンパイルし直せといった具合だった(さすがにそれはすぐになくなったが)。sendmailのやり方は、だいたいこんな感じだ。まず、何か動くものを手早く作る。そして、必要に応じて機能拡張し、問題があれば対応する。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Development Phases}
+\begin{aosasect1}{開発フェーズ}
+
+%% Like most long-lived software, sendmail was developed in phases, each
+%% with its own basic theme and feeling.
+古くからあるソフトウェアはだいたいそうだが、sendmailの開発もいくつかのフェーズに分けることができ、個々のフェーズについて基本テーマや考えがある。
+
+%% \begin{aosasect2}{Wave 1: delivermail}
+\begin{aosasect2}{第一波: delivermail}
+
+%% The first instantiation of sendmail was known as delivermail. It was
+%% extremely simple, if not simplistic. Its sole job was to forward mail
+%% from one program to another; in particular, it had no SMTP support,
+%% and so never made any direct network connections. No queuing
+%% was necessary because each network already had its own queue, so the
+%% program was really just a crossbar switch. Since delivermail had no
+%% direct network protocol support, there was no reason for it to run as
+%% a daemon---it would be invoked to route each message as it was
+%% submitted, pass it to the appropriate program that would implement the
+%% next hop, and terminate.  Also, there was no attempt to rewrite
+%% headers to match the network to which a message was being
+%% delivered. This commonly resulted in messages being forwarded that
+%% could not be replied to. The situation was so bad that an entire book
+%% was written about addressing mail (called, fittingly,
+%% \emph{!\%\@:: A Directory of Electronic Mail Addressing \& Networks}
+%% \cite{bib:adams:email}).
+sendmailが最初に登場したときには、delivermailと呼ばれていた。単純化しすぎとは言わないまでも、シンプル極まりないものだった。唯一の機能は、あるプログラムから別のプログラムにメールを転送することだった。実際のところSMTPすらサポートしておらず、直接のネットワーク接続も一切行わなかった。キューなんか不要だった。だって、それぞれのネットワークが自分でキューを持っているんだから。プログラムは、単にクロスバースイッチになればよいだけのことだ。delivermailはネットワークプロトコルを直接にはサポートしていなかったので、デーモンとして動かす理由などなかった。メッセージが投稿されるたびに起動してメッセージを仕分け、次のホップを実装する適切なプログラムにそれを渡し、あとは終了するだけでよい。また、ヘッダを書き換えてメッセージの配送先のネットワークにマッチさせるということもしなかった。そのせいで、転送したメッセージに返信することができないということになりがちだった。さすがにそれはまずかったので、メールの処理だけを扱う本が書かれたりした(\emph{!\%\@:: A Directory of Electronic Mail Addressing \& Networks} \cite{bib:adams:email} という、ぴったりな名前がついている)。
+
+%% All configuration in delivermail was compiled in and was based only on
+%% special characters in each address.  The characters had
+%% precedence. For example, a host configuration might search for an
+%% ``@'' sign and, if one was found, send the entire address to a
+%% designated Arpanet relay host. Otherwise, it might search for a colon,
+%% and send the message to BerkNET with the designated host and user if
+%% it found one, then could check for an exclamation point (``!'')
+%% signalling that the message should be forwarded to a designated UUCP
+%% relay.  Otherwise it would attempt local delivery. This configuration
+%% might result in the following:
+delivermailはすべてコンパイルされる。また、すべてアドレス内に埋め込まれた特殊文字を利用していた。特殊文字には優先順位があった。たとえば、ホストの設定に関しては``@''記号を探し、もし見つかれば、そのアドレス全体を割り当てられたArpanetリレーホストに送信する。見つからなければ次にコロンを探し、割り当てられたホストとユーザー(見つかれば)にBerkNETでメッセージを送る。そして次に感嘆符(``!'')を探す。これは、そのメッセージをUUCPリレーに転送することを表す。見つからなければ、ローカルへの配送を試みる。この設定をまとめると、次のようになる。
+
+\begin{table}[h!]\centering
+\begin{tabular}{|ll|}
+\hline
+%% Input & Sent To {net, host, user} \\
+入力 & 送信先 {ネットワーク、ホスト、ユーザー} \\
+\hline
+foo@bar & \{Arpanet, bar, foo\} \\
+foo:bar & \{Berknet, foo, bar\} \\
+foo!bar!baz & \{Uucp, foo, bar!baz\} \\
+foo!bar@baz & \{Arpanet, baz, foo!bar\} \\
+\hline
+\end{tabular}
+\end{table}
+
+%% \noindent
+%% Note that address delimiters differed in their associativity,
+%% resulting in ambiguities that could only be resolved using heuristics.
+%% For example, the last example might reasonably be parsed as
+%% \{Uucp, foo, bar@baz\} 
+%% at another site.
+\noindent
+アドレスの区切り文字はその組み合わせによって異なり、結果的に曖昧な状態になってしまって経験則でしか解決できなくなることもある。たとえば最後の例は、別のサイトなら\{Uucp, foo, bar@baz\}と解釈されることもあり得るだろう。
+
+%% The configuration was compiled in for several reasons: first, with a
+%% 16 bit address space and limited memory, parsing a runtime
+%% configuration was too expensive. Second, the systems of the time had
+%% been so highly customized that recompiling was a good idea, just to
+%% make sure you had the local versions of the libraries (shared
+%% libraries did not exist with Unix 6th Edition).
+設定をコンパイルする理由はいくつかある。まず、アドレス空間が16ビットでメモリも限られているので、実行時に設定をパースするのはコストがかかりすぎだった。次に、当時のシステムは個々のサイトで非常にカスタマイズされていたので、再コンパイルをするのも理にかなっていた。ローカルに、必要なバージョンのライブラリがあることを確実にするためにである(共有ライブラリは、Unix 6th Editionの時点ではまだなかった)。
+
+%% Delivermail was distributed with 4.0 and 4.1 BSD and was more
+%% successful than expected; Berkeley was far from the only site with
+%% hybrid network architectures.  It became clear that more work was
+%% required.
+Delivermailは4.0 BSDおよび4.1 BSDに同梱され、予想以上の好評を得た。ハイブリッドなネットワークアーキテクチャを採用しているのはバークレーだけではなかったというわけだ。その証拠に、いろいろな要求が出てきた。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Wave 2: sendmail 3, 4, and 5}
+\begin{aosasect2}{第二波: sendmail 3、4、そして5}
+
+%% Versions 1 and 2 were distributed under the delivermail name. In March
+%% 1981 work began on version 3, which would be distributed under the
+%% sendmail name. At this point the 16-bit PDP-11 was still in common use
+%% but the 32-bit VAX-11 was becoming popular, so many of the original
+%% constraints associated with small address spaces were starting to be
+%% relaxed.
+バージョン1とバージョン2は、delivermailという名前で公開された。1981年3月にバージョン3の開発が始まる。このバージョンからは、sendmailという名前で公開されるようになった。この時点ではまだ16ビットのPDP-11が一般的に使われていたが、32ビットのVAX-11もポピュラーになりつつあった。当初の制約の中でもアドレス空間による制約については、これで和らぎはじめた。
+
+%% The initial goals of sendmail were to convert to runtime
+%% configuration, allow message modification to provide compatibility
+%% across networks for forwarded mail, and have a richer language on
+%% which to make routing decisions. The technique used was essentially
+%% textual rewriting of addresses (based on tokens rather than
+%% character strings),
+%% a mechanism used in some expert systems at the time. There was ad hoc
+%% code to extract and save any comment strings (in parentheses) as well
+%% as to re-insert them after the programmatic rewriting completed. It
+%% was also important to be able to add or augment header fields (e.g.,
+%% adding a \code{Date} header field or including the full name of the
+%% sender in the \code{From} header if it was known).
+sendmailの初期の目標は、実行時の設定に変換して別のネットワークへのメッセージの転送をできるよう容易することだった。また、ルーティングを設定するためのリッチな言語を提供することだった。利用していたテクニックは基本的にテキストレベルでのアクセスの書き換え(文字ではなくトークンにもとづいたもの)で、当時の大規模システムでも一般的に使われていたものだ。アドホックなコードを使い、コメント文字列(括弧で囲まれたもの)を切り出して保存した後でプログラムによる書き換えを終えてからもう一度挿入する。ヘッダフィールドを追加したり拡張したり(たとえば\code{Date}ヘッダフィールドを追加したり、送信者のフルネームがわかっている場合は\code{From}ヘッダにそれを含めるなど)できるようにしておくことも大切だ。
+
+%% SMTP development started in November 1981.
+%% The Computer Science Research Group (CSRG) at U.C. Berkeley had gotten
+%% the DARPA contract to produce a Unix-based platform to support DARPA
+%% funded research, with the intent of making sharing between projects
+%% easier.  The initial work on the TCP/IP stack was done by that time,
+%% although the details of the socket interface were still changing.
+%% Basic application protocols such as Telnet and FTP were done, but SMTP
+%% had yet to be implemented. In fact, the SMTP protocol wasn't even
+%% finalized at that point; there had been a huge debate about how mail
+%% should be sent using a protocol to be creatively named Mail Transfer
+%% Protocol (MTP). As the debate raged, MTP got more and more complex
+%% until in frustration SMTP (Simple Mail Transfer Protocol) was drafted
+%% more-or-less by fiat (but not officially published until August 1982).
+%% Officially, I was working on the INGRES Relational Database Management
+%% System, but since I knew more about the mail system than anyone else
+%% around Berkeley at the time, I got talked into implementing SMTP.
+SMTPの開発が始まったのは1981年11月のことだった。カリフォルニア大学バークレー校のThe Computer Science Research Group (CSRG)がDARPAと契約を結び、Unixベースのプラットフォーム作ってDARPAが出資する研究をサポートした。その意図は、プロジェクト間の共有をしやすくすることだった。TCP/IPスタックを初めて手がけたのがちょうどこの頃だが、ソケットのインターフェイスの詳細はまだ確定していなかった。TelnetやFTPといった基本的なアプリケーションプロトコルはできていたが、SMTPはまだ実装されていなかったのだ。実際、その時点ではまだSMTPプロトコルの策定に決着がついていなかった。メールをどのように送信すべきかの議論は収束しておらず、プロトコルの名前はMail Transfer Protocol (MTP)と呼ばれていた。議論は白熱し、MTPはどんどん複雑になっていった。結局、業を煮やしてSMTP (Simple Mail Transfer Protocol)の提案が出された。多かれ少なかれ、恣意が入っていた(公式に公開されるのは1982年8月のことだ)。公式には、私がかかわっているのはINGRES Relational Database Management Systemだった。しかし、当時のバークレーの中で私以上にメールシステムを知っている人はいなかったので、SMTPの実装にもかかわることになった。
+
+%% My initial thought was to create a separate SMTP mailer that would
+%% have its own queueing and daemon; that subsystem would attach to
+%% sendmail to do the routing. However, several features of SMTP made
+%% this problematic. For example, the \code{EXPN} and \code{VRFY} commands required
+%% access to the parsing, aliasing, and local address verification
+%% modules. Also, at the time I thought it was important that the \code{RCPT}
+%% command return immediately if the address was unknown, rather than
+%% accepting the message and then having to send a delivery failure
+%% message later. This turns out to have been a prescient
+%% decision. Ironically, later MTAs often got this wrong, exacerbating
+%% the spam backscatter problem. These issues drove the decision to
+%% include SMTP as part of sendmail itself.
+私が最初に考えたのは、SMTPを話すメーラーを別に作って自前のキューを持たせ、デーモンとして動かすことだった。このサブシステムをsendmailにアタッチして、ルーティングを任せる。しかし、SMTPの機能のいくつかのせいで、この案は困難になった。たとえば、\code{EXPN}コマンドや\code{VRFY}コマンドは、パース処理やエイリアス処理そしてローカルアドレスの検証モジュールにアクセスできなければならない。また、当時の私が重視していたのが、\code{RCPT}コマンドは未知のアドレスを受け取ったときにすぐに結果を返すということだった。いったんメッセージを受け付けてから後で配送失敗のメッセージを返すのではいけないと考えたのだ。これは後に、先見の明があったと判明する。皮肉なことに、後のMTAの多くはここを誤り、spamの氾濫を招いてしまっている。これらの問題があったので、SMTPはsendmail本体に含めることに決めた。
+
+%% Sendmail 3 was distributed with 4.1a and 4.1c BSD (beta versions),
+%% sendmail 4 was distributed with 4.2 BSD, and sendmail 5 was
+%% distributed with 4.3 BSD.
+Sendmail 3は4.1a BSDおよび4.1c BSD (ベータ版)に同梱され、sendmail 4は4.2 BSDに含まれた。そしてsendmail 5は4.3 BSDに含まれることになった。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Wave 3: The Chaos Years}
+\begin{aosasect2}{第三波: カオスな日々}
+
+%% After I left Berkeley and went to a startup company, my time available
+%% to work on sendmail rapidly decreased. But the Internet was starting
+%% to seriously explode and sendmail was being used in a variety of new
+%% (and larger) environments. Most of the Unix system vendors (Sun, DEC,
+%% and IBM in particular) created their own versions of sendmail, all of
+%% which were mutually incompatible. There were also attempts to build
+%% open source versions, notably IDA sendmail and KJS.
+バークレーを去ってスタートアップ企業に転職してから、私がsendmailに割ける時間は大幅に減少した。しかし、インターネットの世界はどんどん拡大し続け、sendmailもさまざまな新しい(そして巨大な)環境で使われるようになった。主要Unixベンダーのほとんど(Sun、DEC、そしてIBMなど)は自前のsendmailを用意しており、お互いに互換性がなくなっていた。オープンソースのsendmailを作ろうという試みもあった。特筆すべきはIDA sendmailとKJSだ。
+
+%% IDA sendmail came from Link\"{o}ping University.  IDA included extensions
+%% to make it easier to install and manage in larger environments and a
+%% completely new configuration system. One of the major new features was
+%% the inclusion of dbm(3) database maps to support highly dynamic
+%% sites. These were available using a new syntax in the configuration
+%% file and were used for many functions including mapping of addresses
+%% to and from external syntax (for example, sending out mail as
+%% john\_doe@example.com instead of johnd@example.com) and routing.
+IDA sendmailは、リンシェーピン大学によるものだ。IDAが含めた拡張は、大規模な環境やまったく新しい構成のシステムへのインストールや管理を容易にするものだった。主な新機能のひとつはdbm(3)データベースを含めたことで、これで活発なサイトもサポートできるようになった。設定ファイルに新しい構文を導入しており、外部のシステムでのアドレスの構文とのマッピング(たとえばjohnd@example.comのかわりにjohn\_doe@example.com宛てにメールを送るなど)やルーティングなどができるようになった。
+
+%% King James Sendmail (KJS, produced by Paul Vixie) was an attempt to
+%% unify all the various versions of sendmail that had sprung
+%% up. Unfortunately, it never really got enough traction to have the
+%% desired effect.  This era was also driven by a plethora of new
+%% technologies that were reflected in the mail system. For example,
+%% Sun's creation of diskless clusters added the YP (later NIS) directory
+%% services and NFS, the Network File System.  In particular, YP had to be
+%% visible to sendmail,
+%% since aliases were stored in YP rather than in local files.
+King James Sendmail (略してKJS。ポール・ヴィクシーが作ったもの)は、そこら中にわき出したさまざまなバージョンのsendmailを統一しようとした試みである。残念ながら、期待していたほどの影響を及ぼすにはとうてい及ばなかった。新しい技術をメールシステムに取り込もうとしすぎて失敗したのだ。たとえば、Sunが作ったディスクレスクラスタに、YP(後のNIS)ディレクトリサービスやNFS(Network File System)を追加したりした。特に、YPはsendmailに見えなければならない。エイリアスをローカルファイルではなくYPに保存していたからである。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Wave 4: sendmail 8}
+\begin{aosasect2}{第四波: sendmail 8}
+
+%% After several years, I returned to Berkeley as a staff member. My job
+%% was to manage a group installing and supporting shared infrastructure
+%% for research around the Computer Science department. For that to
+%% succeed, the largely ad hoc environments of individual research groups
+%% had to be unified in some rational way. Much like the early days of
+%% the Internet, different research groups were running on radically
+%% different platforms, some of which were quite old. In general, every
+%% research group ran its own systems, and although some of them were
+%% well managed, most of them suffered from ``deferred maintenance.''
+数年を経て、私はふたたびスタッフとしてバークレーに戻ってきた。当時の業務は、計算機科学部の研究用共有基盤のインストールやサポートを管理することだった。そのためには、個々の研究グループでアドホックに構築した大規模な環境を何らかのきちんとした方法で統合する必要があった。インターネットの黎明期と同様、研究グループごとにまったく違うプラットフォームを使っており、中には古すぎるものもあった。一般に、すべての研究グループは独自のシステムを持っていた。しかしほとんどはうまく管理されておらず、大半が``繰越維持費''に悩まされていた。
+
+%% In most cases email was similarly fractured. Each person's email
+%% address was ``\path{person@host.berkeley.edu}'', where \code{host} was
+%% the name of the workstation in their office or the shared server they
+%% used (the campus didn't even have internal subdomains) with the
+%% exception of a few special people who had \code{@berkeley.edu} addresses. The
+%% goal was to switch to internal subdomains (so all individual hosts
+%% would be in the \code{cs.berkeley.edu} subdomain) and have a unified
+%% mail system (so each person would have an \code{@cs.berkeley.edu}
+%% address). This goal was most easily realized by creating a new version
+%% of sendmail that could be used throughout the department.
+たいていの場合、電子メールはみな整っていない。各個人の電子メールアドレスは``\path{person@host.berkeley.edu}''のようになっており、\code{host}はオフィスのワークステーション名あるいは共有サーバー名(キャンパス内では内部サブドメインは使っていなかった)だった。例外として、一部の人は\code{@berkeley.edu}アドレスを持っていた。目標は、内部サブドメインを使うようにする(つまり、すべてのホストを\code{cs.berkeley.edu}サブドメインに置く)ことと、統一されたメールシステムを使う(つまり、すべての人が\code{@cs.berkeley.edu}なアドレスを持つ)ことだった。この目標を実現するための最も簡単な方法は、新しいバージョンのsendmailを学部全体で使わせることだった。
+
+%% I began by studying many of the variants of sendmail that had become
+%% popular.  My intent was not to start from a different code base but
+%% rather to understand the functionality that others had found useful.
+%% Many of those ideas found their way into sendmail 8, often with
+%% modifications to merge related ideas or make them more generic. For
+%% example, several versions of sendmail had the ability to access
+%% external databases such as dbm(3) or NIS; sendmail 8 merged these into
+%% one ``map'' mechanism that could handle multiple types of databases
+%% (and even arbitrary non-database transformations).  Similarly, the
+%% ``generics'' database (internal to external name mapping)
+%% from IDA sendmail was incorporated.
+まずは、多数出回っているsendmailの類似品の中でもよく使われているものについて調べることにした。違いを探すというよりはむしろ、他の類似品にはない便利な機能について理解することを心がけた。その過程で見つかったアイデアを元にしてsendmail 8を作っていった。関連するアイデアをひとまとめにしたり、より汎用的にしたりなどの変更を加えることもよくあった。たとえば、sendmailの類似品の中にはdbm(3)やNISのような外部のデータベースにアクセスできる機能を持つものもあった。sendmail 8では、これらをひとまとめにした``マップ''という仕組みを導入し、複数の形式のデータベース(データベース以外にもどんな変換方式も使える)を処理できるようにしている。同様に、``汎用''データベース(外部の名前マッピングを利用する)機能は、IDAのsendmailから導入した。
+
+%% Sendmail 8 also included a new configuration package using the m4(1)
+%% macro processor.
+%% This was
+%% intended to be more declarative than the sendmail 5 configuration
+%% package, which had been largely procedural. That is, the sendmail 5
+%% configuration package required the administrator to essentially lay
+%% out the entire configuration file by hand, really only using the
+%% ``include'' facility from m4 as shorthand. The sendmail 8
+%% configuration file allowed the administrator to just declare what
+%% features, mailers, and so on were required, and m4 laid out the final
+%% configuration file.
+Sendmail 8には新たな設定パッケージも導入された。これはm4(1)マクロプロセッサを利用したものだ。sendmail 5の設定パッケージよりもさらに宣言的に記述できるよう心がけ、大部分は手続き型で書けるようになっている。sendmail 5の場合は、管理者が設定ファイルをすべて手で書き換える必要があった。単にm4からのショートカットとして``include''を使うだけであってもだ。sendmail 8の設定ファイルの場合、管理者が宣言できるのは、必要な機能やメーラーなどだけで、最終的な設定ファイルはm4が作成する。
+
+%% Much of \aosasecref{sec.sendmail.evo} discusses the enhancements in
+%% sendmail 8.
+\aosasecref{sec.sendmail.evo}で、sendmail 8での機能追加について解説する。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Wave 5: The Commercial Years}
+\begin{aosasect2}{第五波: ビジネスの日々}
+
+%% As the Internet grew and the number of sendmail sites expanded,
+%% support for the ever larger user base became more problematic.  For a
+%% while I was able to continue support by setting up a group of
+%% volunteers (informally called the ``Sendmail Consortium'',
+%% a.k.a.\ sendmail.org) who provided free support via e-mail and
+%% newsgroup.  But by the late 1990s, the installed base had grown to such
+%% an extent that it was nearly impossible to support it on a volunteer
+%% basis.  Together with a more business-savvy friend I founded Sendmail,
+%% Inc.\footnote{\url{http://www.sendmail.com}},
+%% with the expectation of getting new resources to bear on the
+%% code.
+インターネットが成長するにつれてsendmailを使うサイトも増加し、大量のユーザーをサポートするのが徐々につらくなってきた。しばらくの間は、ボランティアの集まり(非公式にだが、``Sendmail Consortium''あるいはsendmail.orgと呼ばれていた)のおかげで無料サポートを続けることができていた。サポートには電子メールやニューズグループを使っていた。しかし1990年代後半には、インストール数が増えすぎて、もはやボランティアベースでのサポートを続けるのはほぼ無理な状態になっていた。そこで、よりビジネスよりな友人とともにSendmail, Inc.\footnote{\url{http://www.sendmail.com}}を設立し、コードの面倒を見る新たな人材を確保しようとした。
+
+%% Although the commercial product was originally based largely on
+%% configuration and management tools, many new features were added to
+%% the open-source MTA to support the needs of the commercial world.
+%% Notably, the company added support for TLS (connection encryption),
+%% SMTP Authentication, site security enhancements such as Denial of
+%% Service protection, and most importantly mail filtering plugins (the
+%% Milter interface discussed below).
+そこで扱っていた商品は、設立当初は設定管理ツールが主だった。しかし、オープンソースのMTAにも、ビジネスの世界の要望に対応するためにさまざまな新機能が追加された。特筆すべき点としては、TLS (connection encryption)やSMTP Authenticationのサポート、Denial of Service対策などサイトのセキュリティ対策の向上、そして最も重要なものとしてはメールのフィルタリング用プラグイン(後述するMilterインターフェイス)などがある。
+
+%% At of this writing the commercial product has expanded to include a large
+%% suite of e-mail based applications, nearly all of which are constructed
+%% on the extensions added to sendmail during the first few years of the
+%% company.
+本章の執筆時点では、扱う商品はさらに幅広くなり、電子メールベースの大規模なアプリケーションスイートも含まれるようになっている。そのほぼすべてはsendmailの拡張機能として作られており、創業当初の数年間で作られたものだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Whatever Happened to sendmail 6 and 7?}
+\begin{aosasect2}{sendmail 6や7はどこに行ったの?}
+
+%% Sendmail 6 was essentially the beta for sendmail 8. It was never
+%% officially released, but was distributed fairly widely. Sendmail 7
+%% never existed at all; sendmail jumped directly to version 8 because
+%% all the other source files for the BSD distribution were bumped to
+%% version 8 when 4.4 BSD was released in June 1993.
+Sendmail 6は、本質的にはsendmail 8のベータ版だった。公式にはリリースされなかったが、かなり広範囲に広まった。Sendmail 7が存在することはなかった。バージョン6からバージョン8に一気に上げたのだ。というのも、1993年6月に4.4 BSDがリリースされたことにあわせて、BSDディストリビューションのファイルをすべてそれにあわせたからである。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Design Decisions}
+\begin{aosasect1}{設計に関する決定}
+
+%% Some design decisions were right. Some started out right and became
+%% wrong as the world changed. Some were dubious and haven't become any
+%% less so.
+正しい判断ができたこともあった。当時は正しい判断だったが、その後状況が変わってまずい判断になったものもあった。そして、どちらとも言えない曖昧なものもあった。
+
+%% \begin{aosasect2}{The Syntax of the Configuration File}
+\begin{aosasect2}{設定ファイルの構文}
+
+%% The syntax of the configuration file was driven by a couple of issues.
+%% First, the entire application had to fit into a 16-bit address space,
+%% so the parser had to be small. Second, early configurations were quite
+%% short (under one page), so while the syntax was obscure, the file was
+%% still comprehensible.  However, as time passed, more operational
+%% decisions moved out of the C code into the configuration file, and the
+%% file started to grow. The configuration file acquired a reputation for
+%% being arcane. One particular frustration for many people was the
+%% choice of the tab character as an active syntax item. This was a
+%% mistake that was copied from other systems of the time, notably
+%% \code{make}. That particular problem became more acute as window
+%% systems (and hence cut-and-paste, which usually did not preserve the
+%% tabs) became available.
+設定ファイルの構文は、次のふたつの要因によって決まった。ひとつは、アプリケーション全体を16ビットアドレス空間におさめるために、パーサを小さくする必要があるということ。もうひとつは、初期の設定はごく少なかった(1ページにおさまる程度)ので、多少構文をあいまいにしても、ファイルがそんなに読みにくくはならなかったということ。しかし、時を経て、より多くの判断がCのコードから設定ファイルに追い出されるようになり、設定ファイルが肥大化し始めた。そして、設定ファイルは「難解なもの」という悪評が広まった。多くの人にとってフラストレーションの元となったのが、タブ文字を構文的に意味のある要素とした判断だ。これは、当時他のツール(\code{make}など)で使われていた構文をそのまま使っただけだが、間違いだった。この問題が深刻化したのは、ウィンドウシステムが登場したころ(つまり、カットアンドペーストが多用されるようになったころ。カットアンドペーストではタブ文字の情報が残らない)からである。
+
+%% In retrospect, as the file got larger and 32-bit machines took over,
+%% it would have made sense to reconsider the syntax. There was a time
+%% when I thought about doing this but decided against it because I
+%% didn't want to break the ``large'' installed base (which at that point
+%% was probably a few hundred machines). In retrospect this was a
+%% mistake; I had simply not appreciated how large the install base would
+%% grow and how many hours it would save me had I changed the syntax
+%% early.  Also, when the standards stabilized a fair amount of the
+%% generality could have been pushed back into the C code base, thus
+%% simplifying the configurations.
+今思えば、設定ファイルが巨大化して世の中が32ビットマシンに取って代わられた頃に、設定ファイルの構文を検討しなおしてもよかった。そのように考えた時期もあったのだが、結局そうしなかった。当時すでに``大量に''インストールされていたsendmail環境を壊してしまいたくなかったからである(実際のところ、その時点で実際にインストールされていたマシンは、おそらく数百台程度だっただろう)。この判断は間違っていた。当時の私は、その後インストール数がどれほど伸びるかを想像できなかったし、早めに構文を変更しておくことで今後どれだけの時間を節約できるのかにも思いが及ばなかったのだ。また、標準規格がある程度安定してきた時点で、一般的な項目はもう一度Cのコード側に戻せば、設定ファイルはもう少しシンプルにできただろう。
+
+%% Of particular interest was how more functionality got moved into the
+%% configuration file. I was developing sendmail at the same time as the
+%% SMTP standard was evolving. By moving operational decisions into the
+%% configuration file I was able to respond rapidly to design
+%% changes---usually in under 24 hours. I believe that this improved the
+%% SMTP standard, since it was possible to get operational experience
+%% with a proposed design change quite quickly, but only at the cost of
+%% making the configuration file difficult to understand.
+当時特に気にしていたのは、どれだけの機能を設定ファイルに追い出せるかということだった。私がsendmailの開発を進めていたのは、ちょうどSMTPの標準規格を定めようとしつつある頃だった。SMTP側で設計の変更があれば、すぐに---通常は24時間以内に---それを設定ファイルに追い出すようにしていた。これは、SMTPの策定にも貢献したと思っている。何か設計の変更が提案されればそれをすぐに実際に試すことができたし、試すためには(難解な)設定ファイルを書くだけで済んだからだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Rewriting Rules}
+\begin{aosasect2}{ルールの書き換え}
+
+%% One of the difficult decisions when writing sendmail was how to do the
+%% necessary rewriting to allow forwarding between networks without
+%% violating the standards of the receiving network. The transformations
+%% required changing metacharacters (for example, BerkNET used colon as a
+%% separator, which was not legal in SMTP addresses), rearranging address
+%% components, adding or deleting components, etc. For example, the
+%% following rewrites would be needed under certain circumstances:
+sendmailを書く際に決めづらかったのが、ネットワーク越しの転送を許可するために必要な書き換えを、受信側のネットワークの規約に違反しない方法で行うためにどうすればよいかということだった。ネットワーク越しの通信では、メタ文字の変更(たとえばBerkNETではコロンを区切り文字に使っていたが、コロンはSMTPのアドレスには使えない)やアドレスコンポーネントの並べ替え、そしてコンポーネントの追加や削除などが必要となる。たとえば、状況に応じてこのような書き換えが必要となった。
+
+\begin{table}[h!]\centering
+\begin{tabular}{|ll|}
+\hline
+From & To \\
+\hline
+a:foo & a.foo@berkeley.edu \\
+a!b!c & b!c@a.uucp \\
+{\textless}@a.net,@b.org:user@c.com{\textgreater} & {\textless}@b.org:user@c.com{\textgreater} \\
+\hline
+\end{tabular}
+\end{table}
+
+%% Regular expressions were not a good choice because they didn't have
+%% good support for word boundaries, quoting, etc. It quickly became
+%% obvious that it would be nearly impossible to write regular
+%% expressions that were accurate, much less intelligible. In particular,
+%% regular expressions reserve a number of metacharacters, including
+%% ``.'', ``*'', ``+'', ``{[}'', and ``{]}'', all of which can appear in
+%% e-mail addresses. These could have been escaped in configuration files,
+%% but I deemed that to be complicated, confusing, and a bit
+%% ugly. (This was tried by UPAS from Bell Laboratories, the mailer for
+%% Unix Eighth Edition, but it never caught
+%% on\footnote{\url{http://doc.cat-v.org/bell_labs/upas_mail_system/upas.pdf}}.)
+%% Instead, a scanning phase was necessary to produce tokens that could
+%% then be manipulated much like characters in regular expressions. A
+%% single parameter describing ``operator characters'', which were
+%% themselves both tokens and token separators, was sufficient. Blank
+%% spaces separated tokens but were not tokens themselves. The rewriting
+%% rules were just pattern match/replace pairs organized into what were
+%% essentially subroutines.
+正規表現はあまり良い選択ではなかった。というのも、正規表現ではワードの区切りやクォートなどにうまく対応できなかったからである。すぐに明らかになったことだが、これに対応する正規表現を書くのは事実上ほぼ不可能で、とてもわかりにくいものになってしまった。正規表現では、いくつかのメタ文字を予約語として使っている。たとえば``.''や``*''、``+''、``{[}''そして``{]}''がそれにあたるのだが、これらはみな電子メールアドレスの中に登場しうる文字である。設定ファイルでこれらの文字をエスケープしてしまってもよかったのだが、それは複雑で混乱の元になるし、ちょっと見苦しいと思った(ベル研のUPASがこの方式を採用していた。これはUnix Eighth Editionのメーラーとして採用されたが、まったくヒットしなかった\footnote{\url{http://doc.cat-v.org/bell_labs/upas_mail_system/upas.pdf}})。そのかわりにスキャンフェイズが必要となり、そこでトークンを切り出して正規表現のように文字を操作することにした。``オペレータ文字''を表すひとつのパラメータをトークンやトークンの区切りとみなせば十分だった。空白文字はトークンを区切るが、それ自身はトークンにはならない。書き換えルールは単なるパターンマッチと置換の組み合わせであり、原則的にサブルーチンとして組み込まれた。
+
+%% Instead of a large number of metacharacters that had to be escaped to
+%% lose their ``magic'' properties (as used in regular expressions), I
+%% used a single ``escape'' character that combined with ordinary
+%% characters to represent wildcard patterns (to match an arbitrary word,
+%% for example).  The traditional Unix approach would be to use
+%% backslash, but backslash was already used as a quote character in some
+%% address syntaxes. As it turned out, ``\$'' was one of the few
+%% characters that had not already been used as a punctuation character
+%% in some email syntax.
+大量のメタ文字をエスケープしてそれらの``特殊''機能(正規表現で使われているもの)を消し去るかわりに、私は単一の``エスケープ''文字を使うことにした。これを通常の文字と組み合わせて、ワイルドカードパターン(任意の単語にマッチする、など)を表すのだ。伝統的なUnixのアプローチなら、ここでバックスラッシュを使うところだろう。しかし、バックスラッシュは既に一部のアドレス構文でクォート文字として使われていた。いろいろ調べた結果見つかった数少ない候補のひとつが``\$''で、これなら電子メールの構文で特殊文字としては使われていなかった。
+
+%% One of the original bad decisions was, ironically, just a matter of how white
+%% space was used. A space character was a separator, just as in most
+%% scanned input, and so could have been used freely between tokens in
+%% patterns. However, the original configuration files distributed did
+%% not include spaces, resulting in patterns that were far harder to
+%% understand than necessary. Consider the difference between the
+%% following two (semantically identical) patterns:
+当初の方針の中で間違っていたと思えるのは、皮肉にも、空白の使い方だった。空白は区切り文字で、これはスキャン対象の入力の大半と同様だった。そこで、パターン内のトークンの間で自由に空白を使うことができた。しかし、元々配布されていた設定ファイルには空白は含まれておらず、結果としてパターンが必要以上に読みづらいものとなってしまった。次のふたつのパターンを比較してみよう(文法的にはどちらも同じ意味だ)。
+
+\begin{verbatim}
+$+ + $* @ $+ . $={mydomain}
+$++$*@$+.$={mydomain}
+\end{verbatim}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Using Rewriting for Parsing}
+\begin{aosasect2}{書き換えを使ったパース}
+
+%% Some have suggested that sendmail should have used conventional
+%% grammar-based parsing techniques to parse addresses rather than
+%% rewriting rules and leave the rewriting rules for address modification.
+%% On the surface this would seem to make sense, given
+%% that the standards define addresses using a grammar.  The main reason
+%% for reusing rewriting rules is that in some cases it was necessary to
+%% parse header field addresses (e.g., in order to extract the sender
+%% envelope from a header when receiving mail from a network that didn't
+%% have a formal envelope). Such addresses aren't easy to parse using
+%% (say) an LALR(1) parser such as YACC and a traditional scanner because
+%% of the amount of lookahead required. For example, parsing the address:
+%% \code{allman@foo.bar.baz.com
+%%   {\textless}eric@example.com{\textgreater}} requires lookahead by
+%% either the scanner or the parser; you can't know that the initial
+%% ``allman@\ldots'' is not an address until you see the
+%% ``{\textless}''.
+%% Since LALR(1) parsers only have one token of lookahead
+%% this would have had to be done in the scanner,
+%% which would have complicated it substantially.
+%% Since the rewriting rules already had arbitrary backtracking
+%% (i.e., they could look ahead arbitrarily far),
+%% they were sufficient.
+sendmailでは文法学にもとづいてアドレスをパースすべきであり、書き換えルールを使うべきではないという提案もあった。書き換えルールを使うのはあくまでもアドレスの書き換えだけにすべきだ、と。聞く限りでは理にかなっているように見える。ただし標準規格でのアドレスの定義が文法学に乗っ取っていればの話だが。書き換えルールを使い回している主な理由は、場合によってはヘッダフィールドのアドレスをパースする必要があるということだ(正式なエンベロープを持たないネットワークから受信したメールで、ヘッダから送信者エンベロープを取り出す場合など)。この手のアドレスのパースは、YACCのようなLALR(1)パーサや伝統的なスキャナでは困難である。というのも、相当な先読みを要求されるからだ。たとえば、\code{allman@foo.bar.baz.com   {\textless}eric@example.com{\textgreater}}のようなアドレスをパースすることを考えると、スキャナあるいはパーサで先読みが必要となる。つまり、最初の``allman@\ldots''がアドレスではないということは、少なくとも``{\textless}''まで読まなければわからない。LALR(1)パーサには先読みトークンがひとつしかないので、これはスキャナで行う必要がある。相当複雑な作業だ。書き換えルールには既にいくらでも後戻りできる(つまり、いくらでも先読みできる)ので、こちらのほうが適している。
+
+%% A secondary reason was that it was relatively easy to make the
+%% patterns recognize and fix broken input. Finally, rewriting was more
+%% than powerful enough to do the job, and reusing any code was wise. 
+第二の理由は、パターンの認識がしやすいうえに壊れた入力も修正しやすかったということだ。最後の理由は、やりたいことをこなすには書き換えでも十分すぎるくらい高機能だったからである。それに、コードを再利用できるならそうするほうが賢いというものだ。
+
+%% One unusual point about the rewriting rules: when doing the pattern
+%% matching, it is useful for both the input and the pattern to be
+%% tokenized. Hence, the same scanner is used for both the input
+%% addresses and the patterns themselves. This requires that the scanner
+%% be called with different character type tables for differing input.
+書き換えルールに関して特筆すべき点がひとつある。パターンマッチを行うときには入力とパターンをともにトークンに分割したほうが有用だ。そうすれば、入力アドレスとパターンそのものに対して同じスキャナを使える。そのためには、スキャナを呼び出す際に、入力ごとに文字タイプテーブルを切り替えられるようにしなければならない。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Embedding SMTP and Queueing in sendmail}
+\begin{aosasect2}{SMTPやキューのsendmailへの埋め込み}
+
+%% An ``obvious'' way to implement outgoing (client) SMTP would have been
+%% to build it as an external mailer, similarly to UUCP,  But this would
+%% raise a number of other questions. For example, would queueing be done
+%% in sendmail or in the SMTP client module? If it was done in sendmail
+%% then either separate copies of messages would have to be sent to each
+%% recipient (i.e., no ``piggybacking'', wherein a single connection can
+%% be opened and then multiple \code{RCPT} commands can be sent) or a much
+%% richer communication back-path would be necessary to convey the
+%% necessary per-recipient status than was possible using simple Unix
+%% exit codes. If queueing was done in the client module then there was a
+%% potential for large amounts of replication; in particular, at the time
+%% other networks such as XNS were still possible
+%% contenders. Additionally, including the queue into sendmail itself
+%% provided a more elegant way of dealing with certain kinds of failures,
+%% notably transient problems such as resource exhaustion.
+SMTPの送出側(クライアント側)の実装として``自明な''方法は、UUTPと同様に外部のメーラーとして実装することだ。しかしこの場合、いくつか疑問が出てくる。たとえば、キューイングはsendmailでするのだろうか?それともSMTPクライアントモジュールで行うのだろうか?sendmailで行うのなら、メッセージのコピーを各受信者に送信する(つまり、``piggybacking''はせず、そこで一つの接続を開き、複数の\code{RCPT}コマンドを送る)か、あるいはずっとリッチな逆方向のコミュニケーション手段が必要になる。受信者ごとの状況を知るには、単純にUnixの終了コードを使うだけでは不十分だからである。クライアントモジュール側で行うのなら、大量の複製が発生する可能性が出てくる。特に、当時はXNSなど他のネットワークもまだ候補にあった。さらに、キューをsendmail側に含めれば、よりエレガントな方法で障害に対応できるようになる。特に、リソースの枯渇などの一時的な問題に対応しやすい。
+
+%% Incoming (server) SMTP involved a different set of decisions. At the
+%% time, I felt it was important to implement the \code{VRFY} and
+%% \code{EXPN} SMTP commands faithfully, which required access to the
+%% alias mechanism.  This would once again require a much richer protocol
+%% exchange between the server SMTP module and sendmail than was possible
+%% using command lines and exit codes---in fact, a protocol akin to SMTP
+%% itself.
+受け入れ側(サーバー側)のSMTPについては、難しい決断があった。当時の私は、\code{VRFY}や\code{EXPN}といったSMTPコマンドも忠実に実装することを重視していた。これらのコマンドは、エイリアスの仕組みにアクセスできなければならない。これを実現するには、SMTPサーバーモジュールとsendmailとの間でよりリッチなプロトコルの交換が必要となる。これは、単にコマンドラインと終了コードだけで実現できるものではない---実際のところ、SMTP自体はそのようなプロトコルだったのだが。
+
+%% I would be much more inclined today to leave queueing in the core
+%% sendmail but move both sides of the SMTP implementation into other
+%% processes. One reason is to gain security: once the server side has an
+%% open instance of port 25 it no longer needs access to root
+%% permissions. Modern extensions such as TLS and DKIM signing complicate
+%% the client side (since the private keys should not be accessible to
+%% unprivileged users), but strictly speaking root access is still not
+%% necessary. Although the security issue is still an issue here, if the
+%% client SMTP is running as a non-root user who can read the private
+%% keys, that user by definition has special privileges, and hence should
+%% not be communicating directly with other sites. All of these issues
+%% can be finessed with a bit of work.
+今なら、キューイングはsendmailのコアに残すだろうがSMTPのクライアント側、サーバー側の実装はそれぞれ別のプロセスに切り出してしまいたいところだ。その理由のひとつはセキュリティの向上である。サーバー側でいったん25番ポートを開いたインスタンスを持てば、もはやroot権限は不要になる。TLSやDKIM署名のようなモダンな拡張のせいでクライアント側は複雑になるが(権限を持たないユーザーに秘密鍵へのアクセスを許してはいけないから)、厳密に言えばこちらもroot権限は不要だ。しかし、セキュリティの問題は依然問題として残る。クライアント側のSMTPが非rootユーザーで稼働していたとしても、秘密鍵を読めるということは特別な権限を持っていることになる。つまり、他のサイトと直接通信すべきではないということだ。これらの問題はすべて、多少の手間でなんとかできる。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{The Implementation of the Queue}
+\begin{aosasect2}{キューの実装}
+
+%% Sendmail followed the conventions of the time for storing queue files.
+%% In fact, the format used is extremely similar to the lpr subsystem of
+%% the time.  Each job had two files, one with the control information
+%% and one with the data. The control file was a flat text file with the
+%% first character of each line representing the meaning of that line.
+sendmailは、当時の規約に従ってキューファイルを格納していた。実際のところ、採用したフォーマットは当時のlprサブシステムと極めて似たものだった。各ジョブに対してふたつのファイルがあり、ひとつが制御情報でもうひとつが実際のデータとなっていた。制御ファイルはフラットなテキストファイルで、各行の最初の文字がその行の意味を表していた。
+
+%% When sendmail wanted to process the queue it had to read all of the
+%% control files, storing the relevant information in memory, and then
+%% sort the list. That worked fine with a relatively small number of
+%% messages in the queue, but started to break down at around 10,000
+%% queued messages. Specifically, when the directory got large enough to
+%% require indirect blocks in the filesystem, there was a serious
+%% performance knee that could reduce performance by as much as an order
+%% of magnitude. It was possible to ameliorate this problem by having
+%% sendmail understand multiple queue directories, but that was at best a
+%% hack.
+sendmailがキューを処理するときは、制御ファイルをすべて読んだ上で関連する情報をメモリ内に格納し、そしてリストをソートしなければならない。キュー内のメッセージ数が比較的少ないうちは、これはうまく機能した。しかしキュー内のメッセージが10,000前後になった時点から不調になり始めた。特に、ディレクトリが肥大化してファイルシステム内の間接ブロックを要するようになると、そこがパフォーマンスに深刻な影響を及ぼす。大幅にパフォーマンスが落ちてしまうこともあり得る。この問題を改善する手段としてsendmailで複数のキューディレクトリを扱えるようにすることもできた。しかしそうしたところで、せいぜいちょっとしたハック程度の効果しか得られないだろう。
+
+%% An alternative implementation might be to store all the control files
+%% in one database file. This wasn't done because when sendmail coding
+%% began there was no generally available database package, and when
+%% dbm(3) became available it had several flaws, including the inability
+%% to reclaim space, a requirement that all keys that hashed together fit
+%% on one (512 byte) page, and a lack of locking. Robust database
+%% packages didn't appear for many years.
+別の実装としては、すべての制御ファイルをひとつのデータベースファイルにまとめることもできただろう。そうしなかった理由は、sendmailを書き始めた頃にはまだ汎用的に使えるデータベースパッケージが存在しなかったことだ。後に登場したdbm(3)にはいくつかの問題があった。たとえば、領域の再配置(すべてのキーを512バイトの単一ページにまとめるために必要)ができないことやロックの仕組みがないことだ。堅牢なデータベースパッケージは、なかなか登場しなかった。
+
+%% Another alternative implementation would have been to have a separate
+%% daemon that would keep the state of the queue in memory, probably
+%% writing a log to allow recovery. Given the relatively low email
+%% traffic volumes of the time, the lack of memory on most machines,
+%% the relatively high cost of background processes,
+%% and the complexity of implementing such a process,
+%% this didn't seem
+%% like a good tradeoff at the time.
+それ以外にも、別のデーモンを用意してキューの状態をメモリ上に保持させるという方法もあっただろう。そのデーモンがログを書いておけば、リカバリも可能だ。当時はまだ電子メールのトラフィックがそれほど多くなかったこと、そしてメモリを潤沢に搭載したマシンが少なかったこと、バックグラウンドプロセスのコストが比較的高いこと、プロセスの実装が複雑になることなどを考慮すると、当時としてはこの選択肢は割に合わなかった。
+
+%% Another design decision was to store the message header in the queue
+%% control file rather than the data file. The rationale was that most
+%% headers needed considerable rewriting that varied from destination to
+%% destination (and since messages could have more than one destination,
+%% they would have to be customized multiple times), and the cost of
+%% parsing the headers seemed high, so storing them in a pre-parsed
+%% format seemed like a savings. In retrospect this was not a good decision,
+%% as was storing the message body in Unix-standard format (with newline
+%% endings) rather than in the format in which it was received (which
+%% could use newlines, carriage-return/line-feed, bare carriage-return,
+%% or line-feed/carriage-return). As the e-mail world evolved and
+%% standards were adopted, the need for rewriting diminished, and even
+%% seemingly innocuous rewriting has the risk of error.
+もうひとつの設計上の判断として、メッセージヘッダをキューのデータファイルではなく制御ファイル側に格納するようにした。その根拠は、ほとんどのヘッダはそれなりの書き換えを要し、書き換え方法も配送先によってさまざまに変わるということ(そしてメッセージの配送先が複数になることもあり、複数回のカスタマイズが必要になる)。そしてヘッダのパースのコストが高そうだったことだ。そこで、パース済みの形式でヘッダを格納しておけばコストを抑えられるだろうと考えた。今思えば、これはあまりよい判断ではなかった。ちょうどメッセージ本文の格納にUnix標準フォーマット(行末がnewline)を使い、受信したメッセージのフォーマット(行末はnewlineかもしれないしcarriage-return/line-feedかもしれない。単にcarriage-returnだけかもしれないしline-feed/carriage-returnかもしれない)を使わなかったように。電子メールの世界が成長して標準が定まっていくにつれて、書き換えの必要性は少なくなった。さらに、どうってことないように見える書き換えであってもエラーのリスクがある。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Accepting and Fixing Bogus Input}
+\begin{aosasect2}{誤入力の受け入れと修正}
+
+%% Since sendmail was created in a world of multiple protocols and
+%% disturbingly few written standards, I decided to clean up malformed
+%% messages wherever possible.
+%% This matches the ``Robustness Principle'' (a.k.a. Postel's Law)
+%% articulated in RFC~793\footnote{``Be conservative in what you do,
+%% be liberal in what you accept from others''}.
+%% Some of these changes were obvious and even required:
+%% when sending a
+%% UUCP message to the Arpanet, the UUCP addresses needed to be converted
+%% to Arpanet addresses, if only to allow ``reply'' commands to work
+%% correctly,
+%% line terminations needed to be converted between the conventions used
+%% by various platforms, and so on.
+%% Some were less obvious: if a message was received that did
+%% not include a \code{From:} header field required in the Internet
+%% specifications, should you add a \code{From:} header field, pass the
+%% message on without the \code{From:} header field, or reject the message?  At
+%% the time, my prime consideration was interoperability, so sendmail
+%% patched the message, e.g., by adding the \code{From:} header
+%% field. However, this is claimed to have allowed other broken mail
+%% systems to be perpetuated long past the time when they should have
+%% been fixed or killed off.
+sendmailが作られた当時の世界にはさまざまなプロトコルが乱立しており、標準規格もほとんど定まっていなかった。そのため、不正な形式のメッセージはできる限りきれいにしようと決めた。これは、RFC~793に明記された``ロバストネス原則'' (またの名をポステルの法則)\footnote{``自分には保守的であれ。他者はリベラルに受け入れよ。''}にもマッチしている。これらの変更の中には、明白であり必須なものもある。UUCPメッセージをArpanetに送信するときには、UUCPアドレスをArpanetアドレスに変換しないと単なる``reply''コマンドすら正常に動作しない。また、行末文字をさまざまなプラットフォームの決まりにあわせて変換したりなどといった作業も必要だ。中には自明だとまでは言えないものもある。受信したメッセージに\code{From:}ヘッダーフィールドがない場合はどうすればいいだろう?このフィールドはInternetの仕様では必須のものだが、ここで\code{From:}ヘッダーフィールドを追加してしまうべきだろうか?それとも\code{From:}ヘッダーフィールドを追加せずにそのまま通してしまうべきだろうか?あるいはそのメッセージを拒否すべきだろうか?当時の私が最重要視していたのは相互運用性だった。そこでsendmailでは、メッセージにパッチをあてて\code{From:}ヘッダーフィールドを追加するなどしていた。しかしそのせいで、壊れている他のメールシステムがそのままの状態で長く生き続けることになってしまった。本来なら、ずっと前に修正されるなりこの世から消えてしまうなりすべきだったはずなのに。
+
+%% I believe my decision was correct for the time, but is problematic
+%% today. A high degree of interoperability was important to let mail
+%% flow unimpeded. Had I rejected malformed messages, most messages at
+%% the time would have been rejected. Had I passed them through unfixed,
+%% recipients would have received messages that they couldn't reply to
+%% and in some cases couldn't even determine who sent the message---that
+%% or the message would have been rejected by another mailer.
+私の判断は、その当時は正しかったと確信している。しかし今となっては問題もある。高度な相互運用性を維持することは、メールの流れを妨げないためにも重要だった。もし不正なメッセージを拒否していたら、当時のメッセージの大半は拒否されてしまっていただろう。もし何も手を入れずに素通ししていたら、受け取ったメッセージに返信できなくなってしまう。というか、そもそも誰がそのメッセージを送ったのかさえわからなくなる---あるいはそのメッセージが別のメーラーに拒否されたのかどうかもわからない。
+
+%% Today the standards are written, and for the most part those standards
+%% are accurate and complete. It is no longer the case that most messages
+%% would be rejected, and yet there is still mail software out there that
+%% send out mangled messages. This unnecessarily creates numerous
+%% problems for other software on the Internet.
+現在は標準規格がきちんと定まっており、そのほとんどの部分は正確で完全になっている。もはや、大半のメッセージが拒否されてしまうという状況ではなくなった。しかし今もなお、不正な形式のメッセージを送るメールソフトが残っている。そのせいで、インターネット上の他のソフトウェアの間でも無駄に多くの問題が発生している。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Configuration and the Use of M4}
+\begin{aosasect2}{設定ファイルでのM4の使用}
+
+%% For a period I was both making regular changes to the sendmail
+%% configuration files and personally supporting many machines. Since a
+%% large amount of the configuration file was the same between different
+%% machines, the use of a tool to build the configuration files was
+%% desirable. The m4 macro processor was included with Unix. It was
+%% designed as a front end for programming languages (notably
+%% ratfor). Most importantly, it had ``include'' capabilities, like
+%% ``\#include'' in the C language.
+%% The original configuration files used little
+%% more than this capability and some minor macro expansions.
+ある時期、sendmailの設定ファイルに頻繁に変更を加えて個人的にさまざまなマシンに対応させようとしていたことがあった。設定ファイルの大半はマシンが異なっても同じだったため、できれば何かツールを使って設定ファイルを作れたらいいなと考えていた。m4マクロプロセッサはUnixに含まれるツールである。もともとは、プログラミング言語(特にRATFOR)のフロントエンドとして設計された。最も重要なのは、m4が``include''機能に対応していたことだ。これはC言語における``\#include''と同様の機能である。最初の設定ファイルはこの機能に毛が生えた程度で、ちょっとしたマクロによる拡張をしただけのものであった。
+
+%% IDA sendmail also used m4, but in a dramatically different way. In
+%% retrospect I should have probably studied these prototypes in more
+%% detail. They contained many clever ideas, in particular the way they
+%% handled quoting.
+IDA sendmailもm4を使っていたが、その使い方はまったく異なっていた。今思えば、当時の私はこれらのプロトタイプをもっと調査するべきだったのだろう。彼らはいろいろうまい使い方をしており、特にクォートの処理方法がすばらしかった。
+
+%% Starting with sendmail 6, the m4 configuration files were completely
+%% rewritten to be in a more declarative style and much smaller. This
+%% used considerably more of the power of the m4 processor, which was
+%% problematic when the introduction of GNU m4 changed some of
+%% the semantics in subtle ways.
+sendmail 6以降、m4設定ファイルは新たに書き直され、より宣言的なスタイルで分量も少なくなった。この設定ファイルはm4プロセッサのパワーをさらに利用するものとなったが、そのために、GNU m4がその構文を微妙に変更しただけでも問題になることがあった。
+
+%% The original plan was that the m4
+%% configurations would follow the 80/20 rule: they would be simple
+%% (hence 20\% of the work), and would cover 80\% of the cases. This broke
+%% down fairly quickly, for two reasons.
+%% The minor reason was that it turned out to be relatively easy to
+%% handle the vast majority of the cases, at least in the beginning. It
+%% became much harder as sendmail and the world evolved, notably with the
+%% inclusion of features such as TLS encryption and SMTP Authentication,
+%% but those didn't come until quite a bit later.
+最初に考えていたのは、m4の設定は80/20ルールに従って使おうということだった。つまり、m4を使うのは作業全体の20\%だけにしておけばファイルがシンプルになるし、その20\%が問題の80\%をカバーしてくれるということだ。この計画はすぐに頓挫した。その理由はふたつ。まずは些細な理由のほうから話す。少なくとも最初のうちはこの計画はうまくいき、問題の大半は比較的楽に処理できていた。しかしsendmailやそれを取り巻く世界が拡大するにつれて、徐々に難しくなってきた。TLS暗号化やSMTP認証などの機能が組み込まれても、それに対応するのに時間がかかるようになったのだ。
+
+%% The important reason was that it was becoming clear that the raw
+%% configuration file was just too difficult for most people to
+%% manage. In essence, the \code{.cf} (raw) format had become assembly
+%% code---editable in principle, but in reality quite opaque. The
+%% ``source code'' was an m4 script stored in the \code{.mc} file.
+もうひとつの重要な理由は、生の設定ファイルを直接さわるのがもはやほとんどの人にとって難しくなりつつあったということだ。要するに、生の\code{.cf}フォーマットはアセンブラのコードに等しい状態になった。細心の注意を払えば編集できるが、現実的な話ではない。そこで、m4スクリプトで書かれたその``ソースコード''が\code{.mc}ファイルとして格納されることになった。
+
+%% Another important distinction is that the raw format configuration
+%% file was really a programming language. It had procedural code
+%% (rulesets), subroutine calls, parameter expansion, and loops (but no
+%% gotos). The syntax was obscure, but in many ways resembled
+%% the \code{sed} and \code{awk} commands, at
+%% least conceptually. The m4 format was declarative: although it was
+%% possible to drop into the low-level raw language, in practice these
+%% details were hidden from the user.
+もうひとつの重要な特徴は、生の設定ファイルは実際のところプログラミング言語だったということだ。手続き型のコード(ルールセット)やサブルーチンの呼び出し、パラメータの展開、そしてループなどの機能があった(しかしgotoは使えない)。その文法は曖昧なものものだったが、おおまかには\code{sed}や\code{awk}と似ていた。少なくとも概念的には。m4フォーマットは宣言型だった。低レベルの言語機能を使うこともできたが、現実的にはこれらの詳細はユーザーからは隠されていた。
+
+%% It isn't clear that this decision was correct or incorrect.
+%% I felt at the time (and still feel) that with complex systems
+%% it can be useful to implement what amounts to a Domain Specific Language (DSL)
+%% for building certain portions of that system.
+%% However, exposing that DSL to end users as a configuration methodology
+%% essentially converts all attempts to configure a system
+%% into a programming problem.
+%% Great power results from this, but at a non-trivial cost.
+m4を使うという判断が正しかったのかどうかはよくわからない。当時の私が考えていた(そして今もそう思っている)のは、複雑なシステムを便利に使うためには、何らかのDSL(ドメイン特化言語)を実装してシステムを構築できるようにするとよいということだ。しかし、このDSLを設定項目としてエンドユーザーに公開すると、システムの設定がプログラミングの問題になってしまう。DSLは強力なものだが、それを使うためのコストも無視できない。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Other Considerations}
+\begin{aosasect1}{その他の検討事項}
+
+%% Several other architectural and development points deserve to be
+%% mentioned.
+それ以外にも、アーキテクチャや開発に関して話しておくべきポイントがある。
+
+%% \begin{aosasect2}{A Word About Optimizing Internet Scale Systems}
+\begin{aosasect2}{インターネット全体に広がるシステムの最適化}
+
+%% In most network-based systems there is a tension between the client
+%% and the server. A good strategy for the client may be the
+%% wrong thing for the server and vice versa. For example, when possible
+%% the server would like to minimize its processing costs by pushing as
+%% much as possible back to the client, and of course the client feels
+%% the same way but in the opposite direction. For example, a server
+%% might want to keep a connection open while doing spam processing since
+%% that lowers the cost of rejecting a message (which these days is the
+%% common case), but the client wants to move on as quickly as
+%% possible. Looking at the entire system, that is, the Internet as a
+%% whole, the optimum solution may be to balance these two needs.
+ネットワークベースのシステムのほとんどには、クライアント側とサーバー側の対立がある。クライアント側にとって都合のいい戦略はサーバー側にとってはあまりよろしくないものであることもあるし、その逆もまたあり得る。たとえば、サーバー側での処理コストを最小限に抑えようとすれば、できる限りの情報をクライアント側にプッシュすることになる。一方クライアント側でも同じように考えたとすると、やることは同じだがその方向が正反対になる。たとえば、サーバー側ではspam処理の間も接続を維持したままにしておきたいだろう。そうすればメッセージの配送を拒否する際のコストが下がるからである(最近は、配送を拒否することが一般的になった)。しかし、クライアント側としてはできるだけ早く次に進みたいはずだ。システム全体を見て、インターネット全体のことを考えれば、クライアント側とサーバー側のニーズに対してうまくバランスをとるのが最適なソリューションとなる。
+
+%% There have been cases of MTAs that have used strategies that
+%% explicitly favor either the client or the server. They can do this
+%% only because they have a relatively small installed base.  When your
+%% system is used on a significant portion of the Internet you have to
+%% design it in order to balance the load between both sides in an
+%% attempt to optimize the Internet as a whole. This is complicated by
+%% the fact that there will always be MTAs completely skewed in one
+%% direction or the other---for example, mass mailing systems only care
+%% about optimizing the outgoing side.
+クライアント側あるいはサーバー側のいずれか一方を明示的に重視した戦略をとるMTAもいくつかあった。そんなことができたのは、それらのMTAがあまり広まっていなかったからというだけの理由にすぎない。自分のシステムがインターネット上の大部分で使われるようになると、両者にかかる負荷のバランスを考慮した設計が必要となる。インターネット全体を最適化するためだ。これは複雑で込み入った作業となる。なぜなら、MTAというものは常にどちらか一方向に完全に傾いてしまっているものだからである。たとえば大量メール配信システムはメールの送出側の最適化しか気にしない。
+
+%% When designing a system that incorporates both sides of the
+%% connection, it is important to avoid playing favorites. Note that this
+%% is in stark contrast to the usual asymmetry of clients and
+%% services---for example, web servers and web clients are generally not
+%% developed by the same groups.
+接続の両サイドにかかわるシステムを設計する際には、どちらか一方に注意を向けすぎないようにすることが大切だ。これは、よくあるクライアントとサーバーの不調和とはまったく対照的な話であることに注意しよう---たとえばウェブサーバーとそのクライアントは、通常は別々のグループが開発しているものだ。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Milter}
+\begin{aosasect2}{Milter}
+
+%% One of the most important additions to sendmail was the milter
+%% (\emph{m}ail f\emph{ilter}) interface.  Milter allows for the use of
+%% offboard plugins (i.e., they run in a separate process) for mail
+%% processing. These were originally designed for anti-spam
+%% processing. The milter protocol runs synchronously with the server
+%% SMTP protocol. As each new SMTP command is received from the client,
+%% sendmail calls the milters with the information from that command. The
+%% milter has the opportunity to accept the command or send a rejection,
+%% which rejects the phase of the protocol appropriate for the SMTP
+%% command. Milters are modeled as callbacks, so as an SMTP command comes
+%% in, the appropriate milter subroutine is called. Milters are threaded,
+%% with a per-connection context pointer handed in to each routine to
+%% allow passing state.
+sendmailへの機能追加のうち最も重要なもののひとつがmilter (\emph{m}ail f\emph{ilter})インターフェイスだ。milterはオフボードのプラグインとして(つまり、別プロセスで実行させて)メールの処理に使える。もともとはスパム対策のために作られたものだった。milterのプロトコルは、サーバーのSMTPプロトコルと同期して動作する。新たなSMTPコマンドをクライアントから受信するたびに、sendmailはmilterを呼び出してそのコマンドからの情報を渡す。milterは、その内容にあわせてコマンドを受け入れたり拒否したりする。拒否した場合はSMTPプロトコルでのそのコマンドの実行が却下される。milterはコールバックとして設計されており、SMTPコマンドを受け取ると適切なサブルーチンが呼び出される。milterはスレッド化されている。接続単位のコンテキストポインタを保持しており、各ルーチンに状態を渡すことができる。
+
+%% In theory milters could work as loadable modules in the sendmail
+%% address space. We declined to do this for three reasons.  First, the
+%% security issues were too significant: even if sendmail were running as
+%% a unique non-root user id, that user would have access to all of the
+%% state of other messages.  Similarly, it was inevitable that some milter
+%% authors would try to access internal sendmail state.
+理屈上は、milterはsendmailのアドレス空間内にロードできるモジュールとしても動かせる。しかしそうしなかった。理由は次の三点である。まず第一に、セキュリティの問題が重大だった。仮にsendmail専用にroot権限のないアカウントを作って運用していたとしても、そのユーザーはすべてのメッセージの状態にアクセスできるようになる。同様に、milterの作者がsendmailの内部状態にアクセスしようとすることも避けられない。
+
+%% Second, we wanted to create a firewall between sendmail and the
+%% milters: if a milter crashed, we wanted it to be clear who was at
+%% fault, and for mail to (potentially) continue to flow. Third, it was
+%% much easier for a milter author to debug a standalone process than
+%% sendmail as a whole.
+第二に、我々はsendmailとmilterの間にファイアウォールを作りたかった。仮にmilterがクラッシュしたとしてもそこで被害を食い止め、メールの流れは妨げられないようにしたかった。第三に、milterの作者にとっては、スタンドアロンのプロセスをデバッグするほうがsendmail全体を相手にするよりもずっと楽だった。
+
+%% It quickly became clear that the milter was useful for more than
+%% anti-spam processing. In fact, the milter.org\footnote{\url{http://milter.org}}
+%% web site lists milters
+%% for anti-spam, anti-virus, archiving, content monitoring, logging,
+%% traffic shaping, and many other categories, produced by commercial
+%% companies and open source projects. The postfix
+%% mailer\footnote{\url{http://postfix.org}}
+%% has added
+%% support for milters using the same interface. Milters have proven to
+%% be one of sendmail's great successes.
+milterがスパム対策以外にも有用であることに、間もなく気づきだした。実際、milter.org\footnote{\url{http://milter.org}}のサイトにはさまざまなmilterが掲載されている。スパム対策以外にもウィルス対策やアーカイブ、コンテンツ監視、ログ出力、トラフィックの削減などさまざまなカテゴリがあり、商用製品もあればオープンソースのプロジェクトも存在する。postfix\footnote{\url{http://postfix.org}}も、同じインターフェイスでmilterをサポートするようになった。milterは、sendmailの大成功を示す一例と言える。
+\end{aosasect2}
+
+%% \begin{aosasect2}{Release Schedules}
+\begin{aosasect2}{リリーススケジュール}
+
+%% There is a popular debate between ``release early and often'' and
+%% ``release stable systems'' schools of thought. Sendmail has used both
+%% of these at various times. During times of considerable change I was
+%% sometimes doing more than one release a day. My general philosophy was
+%% to make a release after each change. This is similar to providing
+%% public access to the source management system tree. I personally
+%% prefer doing releases over providing public source trees, at least in
+%% part because I use source management in what is now considered an
+%% unapproved way: for large changes, I will check in non-functioning
+%% snapshots while I am writing the code. If the tree is shared I will
+%% use branches for these snapshots, but in any case they are available
+%% for the world to see and can create considerable confusion. Also,
+%% creating a release means putting a number on it, which makes it easier
+%% to track the changes when going through a bug report.
+%% Of course, this requires that releases be easy to generate,
+%% which is not always true.
+よく議論になるのが、``早めに、そして頻繁にリリース''派と``安定したシステムをリリース''派の対立である。sendmailは、このどちらの手法も繰り返し使ってきた。かなり大量の変更をするときには、一日に何度もリリースすることもあった。基本的な考えは、何か変更するたびにリリースするというものだった。これは、ソース管理システムのツリーを一般向けに公開するのと同じようなことだ。私は個人的に、頻繁にリリースするほうがソースツリーを公開するよりも好きだ。少なくともその理由の一部になっているのは、私のソース管理システムの使い方があまり一般的ではないということだ。大規模な変更をするときなど、コードを書いている途中できちんと動作しない状態のスナップショットをチェックインすることもある。もしツリーを公開することになったら私はブランチを切ってスナップショットを扱うことになるだろう。しかし、いずれにしてもそれが全世界に晒されてしまうわけで、かなり戸惑わせてしまうことになる。また、リリースをするということはそれに番号を振るということであり、番号をつけておけばバグレポートに対して変更を追いかけやすくなる。もちろんこのやりかたで進めるにはリリース作業が簡単でなければならないが、常にそうだとは限らない。
+
+%% As sendmail became used in ever more critical production environments
+%% this started to become problematic. It wasn't always easy for others
+%% to tell the difference between changes that I wanted out there for
+%% people to test versus changes that were really intended to be used in
+%% the wild. Labeling releases as ``alpha'' or ``beta'' alleviates but
+%% does not fix the problem. The result was that as sendmail matured it
+%% moved toward less frequent but larger releases. This became especially
+%% acute when sendmail got folded into a commercial company which had
+%% customers who wanted both the latest and greatest but also only stable
+%% versions, and wouldn't accept that the two are incompatible.
+sendmailがクリティカルな本番環境で使われるようになり始めると、この方式では問題が出てきた。私が行った変更が「みんなにちょっと試してもらいたいもの」なのか「本番環境に適用して欲しいもの」なのか、それが通じないことが出てきたのだ。リリースするときに``alpha''とか``beta''とか名付けておけばいくらかましになるが、それでも問題は解決しない。その結果どうなったかというと、sendmailが成熟するにつれてリリースの頻度が下がってリリースあたりの変更が大きくなった。これが特に問題となったのは、sendmailが営利企業に組み込まれたときだった。顧客は最新のイケてるバージョンを望むが、同時に安定版も望む。そして、その二つが両立しないという事実を認めようとしないのだ。
+
+%% This tension between open source developer needs and commercial
+%% product needs will never go away. There are many advantages to
+%% releasing early and often, notably the potentially huge audience of
+%% brave (and sometimes foolish) testers who stress the system in ways
+%% that you could almost never expect to reproduce in a standard
+%% development system. But as a project becomes successful it tends to
+%% turn into a product (even if that product is open source and free),
+%% and products have different needs than projects.
+この手のオープンソース開発者のニーズと商用製品のニーズとの対立は、決してなくならない。早めに頻繁にリリースすることには多くのメリットがある。特に、勇気のある(時に無謀な)テスターを多く獲得できるのが大きい。彼らによるテストは、標準的な開発環境では決して再現できないだろう。しかし、プロジェクトがうまく進むとそれは徐々に製品に姿を変える傾向がある(オープンソースであろうとフリーであろうと関係ない)。そして製品になってしまうとそのニーズはプロジェクトのニーズとは変わってくる。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Security}
+\begin{aosasect1}{セキュリティ}
+
+%% Sendmail has had a tumultuous life, security-wise. Some of this is
+%% well deserved, but some not, as our concept of ``security'' changed
+%% beneath us. The Internet started out with a user base of a few
+%% thousand people, mostly in academic and research settings. It was, in
+%% many ways, a kinder, gentler Internet than we know today. The network
+%% was designed to encourage sharing, not to build firewalls (another
+%% concept that did not exist in the early days). The net is now a
+%% dangerous, hostile place, filled with spammers and crackers.
+%% Increasingly it is being described as a war zone, and in war zones
+%% there are civilian casualties.
+sendmailのこれまでの生き様は、セキュリティの面では波乱に満ちたものだった。さまざまな波乱の中には、起きてしかるべきものもあればそうでないものもあった。そして我々が考える``セキュリティ''の概念も変わってきた。インターネットが始まった頃のユーザー数はたかだか数千人程度で、その大半は学術研究に関わる人たちだった。古き良き時代。いろんな意味で、今のインターネットよりも親切で紳士的だった。ネットワークの設計は情報の共有を推奨する作りになっていたし、ファイヤウォールを構築するなどという考えはなかった(そんな概念は、そもそも初期のインターネットには存在しなかった)。今やネット上には危険がいっぱい。悪意に満ちた場所となり、スパマーやクラッカーがそこらじゅうにあふれている。インターネットが紛争地帯にたとえられることも増えてきた。紛争地帯には、民間人の犠牲者もつきものだ。
+
+%% It's hard to write network servers securely, especially when the
+%% protocol is anything beyond the most simple. Nearly all programs have
+%% had at least minor problems; even common TCP/IP implementations have
+%% been successfully attacked. Higher-level implementation languages have
+%% proved no panacea, and have even created vulnerabilities of their
+%% own. The necessary watch phrase is ``distrust all input,'' no matter
+%% where it comes from. Distrusting input includes secondary input, for
+%% example, from DNS servers and milters. Like most early network
+%% software, sendmail was far too trusting in its early versions.
+ネットワークサーバーをセキュアに書くのはとても難しい。プロトコルがほんの少しでも複雑になってくると、なおさらだ。どんなプログラムだって、少なくとも些細な問題は抱えている。一般的なTCP/IPの実装でさえ、外部からのアタックを受けてしまった。より上位レベルの実装言語になると、万能薬は存在しない。そしてその言語自身が脆弱性を作ることもある。必ずといっていいほど見るフレーズが、どこから来たものかにかかわらず``すべての入力は疑ってかかれ''というものだ。疑うべき入力には、二次的な入力も含まれる。たとえばDNSサーバーやmilterからの入力もそうだ。初期のネットワークソフトウェアの大半がそうだったのだが、sendmailの初期のバージョンでは入力を信頼しすぎていた。
+
+%% But the biggest problem with sendmail was that early versions ran with
+%% root permissions. Root permission is needed in order to open the SMTP
+%% listening socket, to read individual users' forwarding information,
+%% and to deliver to individual users' mailboxes and home
+%% directories. However, on most systems today the concept of a mailbox
+%% name has been divorced from the concept of a system user, which
+%% effectively eliminates the need for root access except to open the
+%% SMTP listening socket. Today sendmail has the ability to give up root
+%% permissions before it processes a connection, eliminating this concern
+%% for environments that can support it. It's worth noting that on those
+%% systems that do not deliver directly to users' mailboxes, sendmail can
+%% also run in a chrooted environment, allowing further permission
+%% isolation.
+しかし、sendmailで最大の問題だったのは、初期のバージョンがroot権限で動作していたという点だ。root権限を要した理由は、SMTPをリスンするソケットを開いたり各ユーザーの転送する情報を読んだり、各ユーザーのメールボックスやホームディレクトリにメッセージを配送したりするためだった。しかし、今どきのシステムの大半では、メールボックスの名前とシステム上のユーザーの概念とが切り離されている。そのため、SMTPをリスンするソケットを開く以外の操作ではroot権限は事実上不要となった。現在のsendmailでは、接続を処理する前にroot権限を放棄できるようになっている。これをサポートしている環境なら、root権限に関する問題は気にしなくてもよくなった。さらに、ユーザーのメールボックスへの直接の配送をしないシステム上では、sendmailをchroot環境で動かすこともできる。そうすれば、さらに権限を隔離できる。
+
+%% Unfortunately, as sendmail gained a reputation for poor security, it
+%% started to be blamed for problems that had nothing to do with
+%% sendmail.  For example, one system administrator made his \code{/etc}
+%% directory world writable and then blamed sendmail when someone
+%% replaced the \code{/etc/passwd} file. It was incidents like this that
+%% caused us to tighten security substantially, including explicitly
+%% checking the ownerships and modes on files and directories that
+%% sendmail accesses. These were so draconian that we were obliged to
+%% include the \code{DontBlameSendmail} option to (selectively) turn off
+%% these checks.
+不幸にも、sendmailのセキュリティが貧弱だという評判が広まるにつれて、まったく関係のない問題までもsendmailのせいにされることが出てきた。たとえば、あるシステム管理者は、自分が\code{/etc}ディレクトリに書き込み権限を与えておきながら、誰かが\code{/etc/passwd}ファイルを書き換えたときにそれをsendmailのせいにしたりした。そうした事件を経て、我々もセキュリティについてより真剣に考えるようになった。そして、sendmailがアクセスするファイルやディレクトリの所有者やモードを、明示的にチェックするようにした。このチェックは非常に厳しいものだったので、\code{DontBlameSendmail}オプションを用意してこのチェックを無効化できるようにもした。
+
+%% There are other aspects of security that are not related to protecting
+%% the address space of the program itself. For example, the rise of spam
+%% also caused a rise in address harvesting. The \code{VRFY} and \code{EXPN} commands
+%% in SMTP were designed specifically to validate individual addresses
+%% and expand the contents of mailing lists respectively. These have been
+%% so badly abused by spammers that most sites now turn them off
+%% entirely. This is unfortunate, at least with \code{VRFY}, as this command was
+%% sometimes used by some anti-spam agents to validate the purported
+%% sending address.
+それ以外の観点からのセキュリティ問題もあった。プログラム自身のアドレス空間を守るのとは直接関係しないものだ。たとえば、spamが増加するにつれて出てきた、メールアドレス収集に関する問題がこれにあたる。SMTPの\code{VRFY}コマンドや\code{EXPN}コマンドはそれぞれ、個別のアドレスを検証したりメーリングリストのメンバーを展開したりするために用意されたコマンドである。スパマーたちに悪用されることがあまりにも多発したので、ほとんどのサイトでは今やこのコマンドは無効化されている。少なくとも\code{VRFY}に関しては、これは残念なことだ。このコマンドは、アンチスパムエージェントが送信者のアドレスを検証するときに使うこともあるからである。
+
+%% Similarly, anti-virus protection was once seen as a desktop problem,
+%% but rose in importance to the point where any commercial-grade MTA had
+%% to have anti-virus checking available.
+%% Other security-related requirements in modern settings
+%% include mandatory encryption of sensitive data,
+%% data loss protection,
+%% and enforcement of regulatory requirements,
+%% for example, for HIPPA.
+同様に、ウィルス対策の保護もかつてはデスクトップ側の問題とみられていた。しかし、その重要性が増すにつれて、商用レベルのMTAではウィルス対策のチェックをできることが当然になってきた。その他、最近の設定でセキュリティ関連の必須要件となったものとしては、重要なデータを強制的に暗号化させることやデータの喪失に対する保護、HIPPAなどの法的規制への対応などがある。
+
+%% One of the principles that sendmail took to heart early on was
+%% reliability---every message should either be delivered or reported
+%% back to the sender. But the problem of joe-jobs (attackers forging
+%% the return address on a message, viewed by many as a security issue)
+%% has caused many sites to turn off the
+%% creation of bounce messages. If a failure can be determined while
+%% the SMTP connection is still open, the server can report the problem
+%% by failing the command, but after the SMTP connection is closed an
+%% incorrectly addressed message will silently disappear. To be fair,
+%% most legitimate mail today is single hop, so problems will be
+%% reported, but at least in principle the world has decided that
+%% security wins over reliability.
+初期のsendmailが最重要視していたのは信頼性だった。つまり、あらゆるメッセージをきちんと配送する(あるいは送信者に差し戻す)ということだ。しかしジョージョブ問題(発信元アドレスを偽装したメールによる攻撃。多くの人はセキュリティの問題ととらえている)のせいで、多くのサイトがバウンスメッセージの作成を無効にしてしまった。もしSMTP接続が開いている間に失敗を検出できれば、サーバー側でSMTPコマンドを失敗させることで何か問題が起こったことを伝えられる。しかし、SMTP接続が閉じてしまった後だと、アドレスが間違っていたメッセージはただ黙って消えてしまうだけになってしまう。最近のメールの大半は1ホップで届くので、何か問題があればわかるだろう。しかし、少なくとも理屈上は、この世界では信頼性よりセキュリティを重視するようになったということだ。
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Evolution of Sendmail}
+\begin{aosasect1}{Sendmailの進化}
+\label{sec.sendmail.evo}
+
+%% Software doesn't survive in a rapidly changing environment without
+%% evolving to fit the changing environment. New hardware technologies
+%% appear, which push changes in the operating system, which push changes
+%% in libraries and frameworks, which push changes in applications. If an
+%% application succeeds, it gets used in ever more problematic
+%% environments.  Change is inevitable; to succeed you have to accept and
+%% embrace change.  This section describes some of the more important
+%% changes that have occurred as sendmail evolved.
+激動の環境でソフトウェアが生き残り続けるには、環境の変化にあわせて自らを進化させなければならない。新たなハードウェア技術が登場すればそれにあわせてOSも変化するし、OSが変わればライブラリやフレームワークも変わる。つまりそれはアプリケーションにも変化を促すことになる。アプリケーションが存続すればするほど、問題のある環境で使われることも多くなる。変更は避けられない。生き延びるためには変更を受け入れてそれを取り込まねばならない。このセクションでは、これまでsendmailに起こった変化の中で重要なものをいくつか取り上げる。
+
+%% \begin{aosasect2}{Configuration Became More Verbose}
+\begin{aosasect2}{設定はより冗長に}
+
+%% The original configuration of sendmail was quite terse. For example,
+%% the names of options and macros were all single characters. There were
+%% three reasons for this. First, it made parsing very simple (important in
+%% a 16-bit environment). Second, there weren't very many options, so it
+%% wasn't hard to come up with mnemonic names.
+%% Third,
+%% the single character convention was already established
+%% with command-line flags.
+当初のsendmailの設定は、極めて簡潔だった。たとえば、オプションやマクロの名前はすべて一文字だった。その理由は次の三つである。まず第一に、そうすればパース処理をシンプルにできるということ(16ビット環境ではこれが重要だった)。第二に、オプションの数がそれほど多くなかったこと。一文字のオプションを考えるのにそれほど苦労しなかった。第三に、単一文字の規約が既にコマンドラインのフラグで確立されていたこと。
+
+%% Similarly, rewriting rulesets were originally numbered instead of
+%% named. This was perhaps tolerable with a small number of rulesets, but
+%% as their number grew it became important that they have more mnemonic
+%% names.
+同様に、書き換えルールセットも、当初は名前ではなく番号で指定していた。ルールセットの数が少ないうちは、これでもまだ耐えられた。しかし、その数が増えてくると、よりわかりやすい名前をつけることが大切になった。
+
+%% As the environment in which sendmail operated became more complex, and
+%% as the 16-bit environment faded away, the need for a richer
+%% configuration language became evident. Fortunately, it was possible to
+%% make these changes in a backward compatible way. These changes
+%% dramatically improved the understandability of the configuration file.
+sendmailの稼働環境が複雑になるにつれ、また同時に16ビット環境が去りゆくにつれ、よりリッチな設定方法の必要性が明らかになってきた。幸いにも、後方互換性を維持したままでの変更が可能だった。この変更によって、設定ファイルのわかりやすさが劇的に向上した。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{More Connections with Other Subsystems: Greater Integration}
+\begin{aosasect2}{他のサブシステムとの接続: さらなる統合}
+
+%% When sendmail was written the mail system was largely isolated from
+%% the rest of the operating system.  There were a few services that
+%% required integration, e.g., the \code{/etc/passwd} and
+%% \code{/etc/hosts} files.  Service switches had not been invented,
+%% directory services were nonexistent, and configuration was small and
+%% hand-maintained.
+sendmailが書かれたころは、メールシステムといえば大抵はOSの他の部分から隔離されているものだった。統合を要するサービスはごく一部で、たとえば\code{/etc/passwd}や\code{/etc/hosts}といったファイルくらいだった。サービスを斬り合える機能はまだ発明されていなかったし、ディレクトリサービスも存在しなかった。そして設定ファイルはまだ小さく、手で書けるレベルだった。
+
+%% That quickly changed. One of the first additions was DNS\@. Although the
+%% system host lookup abstraction (\code{gethostbyname}) worked for
+%% looking up IP addresses, email had to use other queries such as
+%% MX\@. Later, IDA sendmail included an external database lookup
+%% functionality using dbm(3) files.  Sendmail 8 updated that to a
+%% general mapping service that allowed other database types, including
+%% external databases and internal transformations that could not be done
+%% using rewriting (e.g., dequoting an address).
+状況はすぐに変わった。最初に追加した中のひとつがDNSだ。システムが持つホストルックアップの抽象化機能(\code{gethostbyname})は、IPアドレスを探すには充分だったが、メールでは、それ以外にもMXなどを問い合わせる必要があったのだ。後に、IDA sendmailでは外部データベースを使ったルックアップ機能を組み込んだ。このデータベースにはdbm(3)ファイルを使った。sendmail 8ではそれをさらに拡張し、汎用的なマッピングサービスを用意して他の形式のデータベースも使えるようにした。外部のデータベースも使えるし、内部での変換も使える。内部での変換は、書き換え機能(アドレスのクォート解除など)なしには実現できなかっただろう。
+
+%% Today, the email system relies on many external services that are, in
+%% general, not designed specifically for the exclusive use of email.
+%% This has moved sendmail toward more abstractions in the code. It has
+%% also made maintaining the mail system more difficult as more ``moving
+%% parts'' are added.
+今やメールシステムは多数の外部サービスに依存しており、一般的に、電子メール専用として設計されることはなくなった。そのため、sendmailのコードもより抽象化する方向に進んだ。そのおかげで、メールシステムの開発や保守はより難しいものとなった。``可動部品''がいろいろ増えたからである。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Adaptation to a Hostile World}
+\begin{aosasect2}{ギスギスした世界}
+
+%% Sendmail was developed in a world that seems completely foreign by
+%% today's standards. The user population on the early network were
+%% mostly researchers who were relatively benign, despite the sometimes
+%% vicious academic politics.  Sendmail reflected the world in which it
+%% was created, putting a lot of emphasis on getting the mail through as
+%% reliably as possible, even in the face of user errors.
+sendmailの開発が始まったころの世界は、現在の常識からするとまったく異質の世界に見えることだろう。初期のネットワークにかかわっていた人の大半は研究者で、比較的温和な人が多かった。学術思想についての争いでたちの悪い振る舞いが起こることもあったが、すぐに収まった。sendmailは当時の世情を反映して作られており、メール配送の信頼性を上げることを最重要視していた。たとえユーザー側で間違いがあったとしても、可能な限りメールを配送できるように心がけた。
+
+%% Today's world is much more hostile. The vast majority of email is
+%% malicious. The goal of an MTA has transitioned from getting the mail
+%% through to keeping the bad mail out. Filtering is probably the first
+%% priority for any MTA today.  This required a number of changes in
+%% sendmail.
+今の世の中は、当時に比べてはるかにギスギスしている。飛び交う電子メールの大半は、悪意のあるものだ。MTAが目指すゴールは、メールをきちんと配送することから悪意のあるメールを排除することに変わった。いまどきのMTAで最重要視されるのは、きっとフィルタリング機能だろう。それに対応するため、sendmailにも数多くの変更が必要となった。
+
+%% For example, many rulesets have been added to allow checking of
+%% parameters on incoming SMTP commands in order to catch problems as
+%% early as possible. It is much cheaper to reject a message when reading
+%% the envelope than after you have committed to reading the entire
+%% message, and even more expensive after you have accepted the message
+%% for delivery. In the early days filtering was generally done by
+%% accepting the message, passing it to a filter program, and then
+%% sending it to another instance of sendmail if the message passed (the
+%% so-called ``sandwich'' configuration). This is just far too expensive
+%% in today's world.
+一例として、数多くのルールセットが追加された。これらを使ってSMTPコマンドのパラメータをチェックし、問題を早期に発見できるようになった。エンベロープを読んだ段階でメッセージを拒否するほうが、メッセージ全体を読んでから拒否するよりもはるかにコストが低くなる。ましてや、メッセージの配送を受け入れた後で拒否するようにするとずっと高くついてしまう。初期のフィルタリングは、メッセージをいったん受け入れた後でフィルタプログラムに渡し、フィルタを通過したものだけを別のsendmailインスタンスに送るという仕組みだった(いわゆる``サンドウィッチ''構成である)。いま同じようなことをすれば、非常にコストがかかることだろう。
+
+%% Similarly, sendmail has gone from being a quite vanilla consumer of
+%% TCP/IP connections to being much more sophisticated, doing things like
+%% ``peeking'' at network input to see if the sender is transmitting
+%% commands before the previous command has been acknowledged. This
+%% breaks down some of the previous abstractions that were designed to
+%% make sendmail adaptable to multiple network types.  Today, it would
+%% involve considerable work to connect sendmail to an XNS or DECnet
+%% network, for example, since the knowledge of TCP/IP has been built
+%% into so much of the code.
+また、sendmailでのTCP/IP接続の使い方も変わった。もともとはごく標準的に使っているだけだったが、最近はより洗練されている。ネットワーク入力を``のぞき見''して、前のコマンドが受理されていないのに送信者が次のコマンドを送信していないかどうかを調べたりもする。このため、sendmailが複数のネットワークを扱えるように作られた抽象化の中にはうまく動かないものも出てきた。今でも、sendmailがたとえばXNSやDECnetのネットワークにも接続できるようにかなりの作業をしている。しかし、TCP/IPに固有の知見が多くのコードに取り込まれてしまっている。
+
+%% Many configuration features were added to address the hostile world,
+%% such as support for access tables, Realtime Blackhole Lists, address
+%% harvesting mitigation, denial-of-service protection, and spam
+%% filtering.  This has dramatically complicated the task of configuring
+%% a mail system, but was absolutely necessary to adapt to today's world.
+ギスギスした世界に立ち向かうために、さまざまな設定項目が追加された。アクセステーブルへの対応やリアルタイムブラックリストへの対応、アドレス収集対策、DoS対策、そしてspamのフィルタリングなどだ。そのおかげでメールシステムの設定はかなり複雑な作業になってしまったが、今の世の中で生きていくためにはそうするしかなかった。
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Incorporation of New Technologies}
+\begin{aosasect2}{新技術の採用}
+
+%% Many new standards have come along over the years that required
+%% significant changes to sendmail. For example, the addition of TLS
+%% (encryption) required significant changes through much of the
+%% code. SMTP pipelining required peering into the low-level TCP/IP
+%% stream to avoid deadlocks. The addition of the submission port (587)
+%% required the ability to listen to multiple incoming ports, including
+%% having different behaviors depending on the arrival port.
+新たな標準規格が続々と誕生し、それらもまたsendmailに大きく手を加える要因となった。たとえばTLS(暗号化)を追加するときには、大半のコードを変更しなければならなかった。SMTPのパイプラインを実現するには、ローレベルのTCP/IPストリームを注視してデッドロックを回避する必要があった。サブミッションポート(587)をサポートするには、複数の入力ポートを待ち受ける機能が必要となった。そして、ポートによって挙動を変えなければならなかった。
+
+%% Other pressures were forced by circumstances rather than standards.
+%% For example, the addition of the milter interface was a direct
+%% response to spam. Although milter was not a published standard, it was
+%% a major new technology.
+それ以外にも、標準規格ではなくその場の状況に押されて追加した機能もある。たとえば、milterインターフェイスを追加したのはspamに耐えられなくなったからだ。milterは標準規格として確立されたものではなかったが、大きな新技術だった。
+
+%% In all cases, these changes enhanced the mail system in some way, be
+%% it increased security, better performance, or new
+%% functionality. However, they all came with costs, in nearly all cases
+%% complicating both the code base and the configuration file.
+どの場合についても、これらの変更によって何らかの面でメールシステムは強化された。セキュリティの向上やパフォーマンスの向上、あるいは新機能の追加などによってである。しかし、どの場合についてもそれなりのコストがかかっており、ほぼすべての変更がコードや設定ファイルを複雑化させている。
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{What If I Did It Today?}
+\begin{aosasect1}{もし今やりなおせるとしたら?}
+
+%% Hindsight is 20/20. There are many things I would do differently
+%% today.  Some were unforeseeable at the time (e.g., how spam would
+%% change our perception of e-mail, what modern toolsets would look like,
+%% etc.), and some were eminently predictable. Some were just that in the
+%% process of writing sendmail I learned a lot about e-mail, about TCP/IP,
+%% and about programming itself---everyone grows as they code.
+後からなら何とでも言える。というわけで、今だったら違うやりかたにしただろうということもたくさんある。当時としては予測不能だったこと(spamのせいでメールに対する視点がどれほど変わるかや、最新のツール軍がどんなものになるかなど)もあれば、どう見ても予測できたはずだろうということもある。また、sendmailを書いている間に私自身さまざまなことを学んだ。電子メールのことやTCP/IPのこと、そしてプログラミング自体のことなど。誰もがコードとともに成長するということだ。
+
+%% But there are also many things I would do the same, some in
+%% contradiction to the standard wisdom.
+しかし、今でも同じようにするだろうということもたくさんあって、その中には一般的な常識に反するものもある。
+
+%% \begin{aosasect2}{Things I Would Do Differently}
+\begin{aosasect2}{違うやりかたにしたいところ}
+
+%% Perhaps my biggest mistake with sendmail was to not recognize early
+%% enough how important it was going to be. I had several opportunities
+%% to nudge the world in the correct direction but didn't take them; in
+%% fact, in some cases I did damage, e.g., by not making sendmail
+%% stricter about bad input when it became appropriate to do
+%% so. Similarly, I recognized that the configuration file syntax needed
+%% to be improved fairly early on, when there were perhaps a few hundred
+%% sendmail instances deployed, but decided not to change things because
+%% I didn't want to cause the installed user base undue pain. In
+%% retrospect it would have been better to improve things early and
+%% cause temporary pain in order to produce a better long-term result.
+おそらくsendmail史上最大の過ちは、後に自身がどれだけ重要な存在になるのかを早期に気付けなかったことだろう。世界が正しい方向に向かうようにほんの少し突っつける機会が何度かあったはずなのに、そうしなかった。実際、たとえばsendmailの入力チェックを厳しくして不正な入力を拒否するようにもできたはずだが、そうすべきときに実際は何もしなかった。同じく、設定ファイルの構文に改善の余地があることもわかっていた。まだ世界中で数百インスタンス程度しかsendmailが動いていなかったころの話だ。わかってはいたのだが、結局そのときは変更しなかった。その時点での既存ユーザーに負担を強いることになるからである。今思えば、何かを改善するなら早めにしておくべきだった。一時的につらいこともあるが、長い目で見ればよりよい結果になっただろう。
+
+%% \begin{aosasect3}{Version 7 Mailbox Syntax}
+\begin{aosasect3}{バージョン7のMailboxの構文}
+
+%% One example of this was the way version 7 mailboxes separated
+%% messages.  They used a line beginning ``From\textvisiblespace'' (where
+%% ``\textvisiblespace'' represents the ASCII space character, 0x20) to separate
+%% messages. If a message came in containing the word ``From\textvisiblespace''
+%% at the
+%% beginning of the line, local mailbox software converted it to
+%% ``{\textgreater}From\textvisiblespace''.
+%% One refinement on some but not all systems was
+%% to require a preceding blank line, but this could not be relied
+%% upon. To this day, ``{\textgreater}From'' appears in extremely
+%% unexpected places that aren't obviously related to email (but clearly
+%% were processed by email at one time or another). In retrospect I
+%% probably could have converted the BSD mail system to use a new syntax.
+%% I would have been roundly cursed at the time, but I would have saved
+%% the world a heap of trouble.
+その一例が、バージョン7のメールボックスでのメッセージの分割方法である。当時は``From\textvisiblespace'' (``\textvisiblespace''はASCIIの空白文字、つまり0x20)で始まる行でメッセージを分割していた。もしメッセージ本文の中に``From\textvisiblespace''で始まる行があれば、ローカルのメールボックスソフトウェアはそれを``{\textgreater}From\textvisiblespace''に変換していた。いくつかのシステムでは「その前に空行を含むこと」を要件とできたが、すべてではなかったのでそれに依存はできなかった。今日に至るまで、``{\textgreater}From''はありとあらゆる箇所で予期せず登場している。それはメールとは直接関係のない(しかし、いつだったかそれがメールで処理されたことがあった)場面も含む。今思えば、BSDメールシステムから別の形式の構文に変換したほうがよかった。変更した直後には多くの人から恨まれるだろうが、そうしておけばさまざまな問題からこの世界を救えたはずだ。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Syntax and Contents of Configuration File}
+\begin{aosasect3}{設定ファイルの構文とその中身}
+
+%% Perhaps my biggest mistake in the syntax of the configuration file was
+%% the use of tab (HT, 0x09) in rewriting rules
+%% to separate the pattern from the
+%% replacement.  At the time I was emulating make, only to learn years
+%% later that Stuart Feldman, the author of make, thought that was one of
+%% his biggest mistakes. Besides being non-obvious when looking at the
+%% configuration on a screen, the tab character doesn't survive
+%% cut-and-paste in most window systems.
+おそらく、設定ファイルの構文における最大のミスは、書き換えルールの記述でパターンと置換内容の区切りにタブ(HT, 0x09)を採用したことだろう。その当時は、makeの流儀をまねたのだった。しかしその数年後にmakeの作者であるStuart Feldmanに聞いた話によると、彼もまたタブを採用したことをいちばん後悔しているとのことだった。設定ファイルを画面上で見たときにタブがあるかどうかがわかりにくいというだけでなく、大半のウィンドウシステムではカットアンドペーストでタブが消えてしまうという問題もあった。
+
+%% Although I believe that rewriting rules were the correct idea (see
+%% below), I would change the general structure of the configuration
+%% file.  For example, I did not anticipate the need for hierarchies in
+%% the configuration (e.g., options that would be set differently for
+%% different SMTP listener ports). At the time the configuration file was
+%% designed there were no ``standard'' formats. Today, I would be inclined
+%% to use an Apache-style configuration---it's clean, neat, and has
+%% adequate expressive power---or perhaps even embed a language such as Lua.
+書き換えルールという考え方自体は間違っていなかったと思っている(以下を参照)。しかし、設定ファイルの全体構造はもう少しなんとかできただろう。たとえば、設定ファイルで階層構造が必要になることを想定できていなかった(SMTPリスナーのポートごとに異なるオプションを設定したりなど)。当時、設定ファイルを設計するにあたっては、``標準''フォーマットなど存在しなかった。今ならApache形式の設定構文を採用するだろう。すっきりしているし、充分な表現力もある。あるいは、Luaなどの組み込み言語を使ったかもしれない。
+
+%% When sendmail was developed the address spaces were small and the
+%% protocols were still in flux. Putting as much as possible into the
+%% configuration file seemed like a good idea. Today, that looks like a
+%% mistake: we have plenty of address space (for an MTA) and the
+%% standards are fairly static.
+%% Furthermore, part of the ``configuration file'' is really code
+%% that needs to be updated in new releases.
+%% The \code{.mc} configuration file fixes that,
+%% but having to rebuild your configuration every time you update the software
+%% is a pain.
+%% A simple solution to this would simply be
+%% to have two configuration files that sendmail would read, one hidden
+%% and installed with each new software release and the other exposed and
+%% used for local configuration.
+sendmailの開発が進んでいたころは、アドレス空間も小さいしプロトコルもまだ流動的だった。可能な限り設定ファイル側に押し出しておくのが無難だったのだ。今の状況では、これは間違いだろう。今やMTAは広大なアドレス空間を使えるし、標準規格もきちんと固まっている。さらに、``設定ファイル''の一部は実際のところプログラムのコードのようになってしまっており、新しいリリースが出るたびに更新が必要になるほどだ。\code{.mc}設定ファイルを使えばこの問題は解決できるが、ソフトウェアを更新するたびに設定ファイルをビルドしなおす必要があるというのもつらいことだ。この問題に対するシンプルな対策は、sendmailが読む設定ファイルを二つに分割することだろう。一方は利用者から見えないようにしてソフトウェアの更新時に自動的にインストールされるようにし、もう一方を公開してローカル設定用に使わせるという方法だ。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Use of Tools}
+\begin{aosasect3}{ツールの活用}
+
+%% There are many new tools available today---for example, for
+%% configuring and building the software. Tools can be good leverage if
+%% you need them, but they can also be overkill, making it harder than
+%% necessary to understand the system. For example, you should never use
+%% a yacc(1) grammar when all you need is strtok(3). But reinventing the
+%% wheel isn't a good idea either.  In particular, despite some
+%% reservations I would almost certainly use autoconf today.
+今ではさまざまな新しいツールが登場している。たとえばソフトウェアの構成やビルドひとつとってもそうである。必要に応じてツールを活用すればその力を生かせるだろうが、時にやり過ぎてしまうこともある。そうなれば、システムを理解するのが必要以上に困難になってしまう。たとえば、単にstrtok(3)があれば充分なときにわざわざyacc(1)の構文を使うのはばかげている。しかし、車輪の再発明をするのもあまりよい考えではない。例を挙げると、私はよっぽどの場合を除いてautoconfを使うようにしている。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Backward Compatibility}
+\begin{aosasect3}{後方互換性}
+
+%% With the benefit of hindsight, and knowing how ubiquitous sendmail
+%% became, I would not worry so much about breaking existing
+%% installations in the early days of development.  When existing
+%% practice is seriously broken it should be fixed, not accommodated
+%% for. That said, I would still not do strict checking of all message
+%% formats; some problems can be easily and safely ignored or
+%% patched. For example, I would probably still insert a \code{Message-Id:}
+%% header field into messages that did not have one, but I would be more
+%% inclined to reject messages without a \code{From:} header field rather than
+%% try to create one from the information in the envelope.
+もし将来の姿が見えていて、sendmailがいかに普及するかがわかっていたなら、開発初期の段階で既存の環境との互換性を崩してしまうことを躊躇しなかっただろう。もし既存の習慣がうまくいかなくなってしまうのならそれを修正すべきであって、なんとか対応させるというのではいけない。とはいえ、私はまだメッセージフォーマットの厳格なチェックをしていない。単に無視できたり簡単に手直しできたりするような問題もあるからである。たとえば、\code{Message-Id:}ヘッダーがないメッセージには今でもきっとヘッダーを追加するだろう。しかし、\code{From:}ヘッダーがないメッセージについては、わざわざエンベロープの情報からヘッダーを作るよりもそのメッセージを拒否してしまいたい。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Internal Abstractions}
+\begin{aosasect3}{内部的な抽象化}
+
+%% There are certain internal abstractions that I would not attempt
+%% again, and others that I would add. For example, I would not use
+%% null-terminated strings, opting instead for a length/value pair,
+%% despite the fact that this means that much of the Standard C Library
+%% becomes difficult to use. The security implications of this alone make
+%% it worthwhile. Conversely, I would not attempt to build exception
+%% handling in C, but I would create a consistent status code system that
+%% would be used throughout the code rather than having routines return
+%% \code{null}, \code{false}, or negative numbers to represent errors.
+内部的な抽象化の中には、今ならそんなことはしないだろうというものもある。また、当時はそうしなかったが、今なら抽象化するだろうというものもある。たとえば、null終端文字列を長さ/値のペアのかわりに使うことはしないだろう。そうしたほうが標準Cライブラリで使いやすくなることはわかっていても、である。セキュリティに関する問題ひとつとっても、null終端文字列を使わない意味がある。逆に言うと、例外処理をCで書こうとは思わない。しかし、一貫性のあるステータスコード体系は作って、それを使うようにするだろう。ルーチンの返り値が\code{null}や\code{false}あるいは負の数だったらエラーを意味するなどということはしない。
+
+%% I would certainly abstract the concept of mailbox names from Unix user
+%% ids. At the time I wrote sendmail the model was that you only sent
+%% messages to Unix users. Today, that is almost never the case; even on
+%% systems that do use that model, there are system accounts that should
+%% never receive e-mail.
+メールボックスの名前をUnixのユーザーidから切り離すという抽象化は、今ならきっと行うだろう。sendmailを書いていた当時は、Unixのユーザーにメールを送ることしか想定していなかった。今やそんな前提は成立しない。仮にUnixのユーザー管理と同じモデルのシステムであっても、決してメールを受け取ることのないシステムアカウントが存在する。
+
+\end{aosasect3}
+
+\end{aosasect2}
+
+%% \begin{aosasect2}{Things I Would Do The Same}
+\begin{aosasect2}{同じようにしたいところ}
+
+%% Of course, some things \emph{did} work well\ldots
+もちろん、\emph{うまくいってた}ことだってあったんだよ\ldots
+
+%% \begin{aosasect3}{Syslog}
+\begin{aosasect3}{Syslog}
+
+%% One of the successful side projects from sendmail was syslog. At the
+%% time sendmail was written, programs that needed to log had a specific
+%% file that they would write. These were scattered around the
+%% filesystem.  Syslog was difficult to write at the time (UDP didn't
+%% exist yet, so I used something called mpx files), but well worth
+%% it. However, I would make one specific change: I would pay more
+%% attention to making the syntax
+%% of logged messages
+%% machine parseable---essentially, I
+%% failed to predict the existence of log monitoring.
+sendmailの派生プロジェクトの中でも成功したうちのひとつが、syslogである。sendmailが書かれた当時は、プログラムからログを出力しようとすれば、何かファイルを作ってそこに書き込むしかなかった。その手のログファイルがファイルシステム上に散乱していたのだ。当時はsyslogに書き込むのはなかなか難しかった(まだUDPは存在しなかったので、mpxファイルとかいうものを使っていた)が、よくやってくれた。しかし、一カ所だけ変更したいところがある。ログに記録されるメッセージの構文にもっと注意を払い、機械可読性を向上させたい。当時の私には、ログ監視ツールの登場を予見できなかったのだ。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Rewriting Rules}
+\begin{aosasect3}{書き換えルール}
+
+%% Rewriting rules have been much maligned, but I would use them again
+%% (although probably not for as many things as they are used for now).
+%% Using the tab character was a clear mistake, but given the limitations
+%% of ASCII and the syntax of e-mail addresses, some escape character is
+%% probably required\footnote{Somehow I suspect that using Unicode for
+%% configuration would not prove popular.}. In general, the concept of
+%% using a pattern-replace paradigm worked well and was very flexible.
+書き換えルールにはいろいろ問題もあるが、今でもきっと採用するだろう(今使われているほど多くはならないだろうが)。タブ文字を使ったことは大きな間違いだった。しかし、ASCIIの制約やメールアドレスの構文を考慮すると、何らかのエスケープ文字は必要となる\footnote{設定ファイルでUnicodeを使うことはあまり広まらないだろうと思っている。}。一般に、パターン置換のパラダイムはうまく機能するし、非常に柔軟である。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Avoid Unnecessary Tools}
+\begin{aosasect3}{ツールに頼りすぎない}
+
+%% Despite my comment above that I would use more existing tools, I am
+%% reluctant to use many of the run-time libraries available today. In my
+%% opinion far too many of them are so bloated as to be dangerous.
+%% Libraries should be chosen with care, balancing the merits of reuse
+%% against the problems of using an overly powerful tool to solve a
+%% simple problem. One particular tool I would avoid is XML, at least as
+%% a configuration language. I believe that the syntax is too baroque for
+%% much of what it is used for. XML has its place, but it is overused
+%% today.
+先ほどは「もっと既存のツールを活用する」と書いたが、いまどきのランタイムライブラリの多くは、あまり使いたいとは思わない。私見だが、多くのライブラリは肥大化しすぎて危険になっているように感じる。ライブラリの選択は慎重に行うべきだ。再利用することにメリットと、必要以上に高機能なツールを使うことによる問題とのトレードオフになる。これだけは避けようと思っているツールのひとつがXMLで、少なくとも設定ファイルをXMLにしようとは思わない。XMLファイルの構文は、設定の記述に使うにはごてごてしすぎている。もちろんXMLが役立つ場面もあるのだろうが、現状は必要以上に使われすぎている。
+
+\end{aosasect3}
+
+%% \begin{aosasect3}{Code in C}
+\begin{aosasect3}{コードはCで書く}
+
+%% Some people have suggested that a more natural implementation language
+%% would be Java or C++. Despite the well-known problems with C, I would
+%% still use it as my implementation language. In part this is personal:
+%% I know C much better than I know Java or C++. But I'm also
+%% disappointed by the cavalier attitude that most object-oriented
+%% languages take toward memory allocation. Allocating memory has many
+%% performance concerns that can be difficult to characterize.  Sendmail
+%% uses object-oriented concepts internally where appropriate (for
+%% example, the implementation of map classes), but in my opinion going
+%% completely object-oriented is wasteful and overly restrictive.
+もっと自然に書ける言語、たとえばJavaとかC++を使えばいいのではないかと助言してくれる人もいる。C言語にはいろいろ問題もあるが、それでも私は実装言語にCを使うだろう。まあ個人的な理由もある。Cのほうが、JavaやC++よりもよく知っているからだ。しかしそれだけではない。いまどきのオブジェクト指向言語にはがっかりさせられているのだ。その多くはメモリ管理に無頓着すぎて、無尽蔵にメモリを使いすぎている。メモリを確保するときにはパフォーマンス上の問題もいろいろ考慮しなければならないのだが、それはここでは書ききれない。sendmailは、内部的にはオブジェクト指向の概念を採用しているところもある(たとえば、マップクラスなど)が、個人的な意見としては、すべてオブジェクト指向化してしまうのは無駄が多く、制約をかけすぎだと思っている。
+
+\end{aosasect3}
+
+\end{aosasect2}
+
+\end{aosasect1}
+
+%% \begin{aosasect1}{Conclusions}
+\begin{aosasect1}{まとめ}
+
+%% The sendmail MTA was born into a world of immense upheaval, a sort of
+%% ``wild west'' that existed when e-mail was ad hoc and the current mail
+%% standards were not yet formulated.  In the intervening 31 years the
+%% ``e-mail problem'' has changed from just working reliably to working
+%% with large messages and heavy load to protecting sites from spam and
+%% viruses and finally today to being used as a platform for a plethora
+%% of e-mail-based applications.  Sendmail has evolved into a work-horse
+%% that is embraced by even the most risk-averse corporations, even as
+%% e-mail has evolved from pure text person-to-person communications into
+%% a multimedia-based mission-critical part of the infrastructure.
+sendmail MTAが誕生したころの世界は、限りなく混乱していた。まるで``西部開拓時代''のようなものだ。電子メールはアドホックな仕組みとしてしか存在しなかったし、今のような標準規格もまだ正式には定まっていなかった。この31年の間に``電子メールの問題''の種類も変わった。昔は単に、巨大なメッセージを高負荷な環境でいかにきちんと配送するかというのが問題だったのだが、徐々にspam対策やウィルス対策のほうが大切になってきた。今や、電子メールの活躍の場はさらに広がっている。電子メールベースのアプリケーションのプラットフォームとして使われることおある。sendmailはこの世界の主力製品に成長した。リスク管理にうるさい企業でさえも、今や電子メールを受け入れている。電子メールは、単なるテキストベースでの一対一のコミュニケーションツールではなく、ミッションクリティカルな部分を担うマルチメディアベースのツールに成長したのだ。
+
+%% The reasons for this success are not always obvious.  Building a
+%% program that survives and even thrives in a rapidly changing world
+%% with only a handful of part-time developers can't be done using
+%% conventional software development methodologies.  I hope I've provided
+%% some insights into how sendmail succeeded.
+なぜここまで成功できたのか、よくわからない面もある。激動の世界で生き残り続け、かつ成長していくプログラムを、ごく少数のパートタイムの開発者で作り上げるということ。これは、きちんとまとまったソフトウェア開発の方法論があってこそ実現できたことだ。sendmailの成功の要因について、少しでもみなさんに伝わっただろうか。
+
+\end{aosasect1}
+
+\end{aosachapter}
