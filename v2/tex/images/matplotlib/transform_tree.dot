@@ -1,0 +1,16 @@
+digraph G  {
+        rankdir=RL;
+        node[shape=box];
+        "log x" -> axes1;
+        "linear y" -> axes1;
+        "linear x" -> axes2;
+        "linear y" -> axes2;
+        blended1 -> "log x";
+        blended1 -> "linear y";
+        blended2 -> "linear y";
+        blended2 -> "linear x";
+        data1 -> blended1;
+        data2 -> blended2;
+        axes1 -> figure -> display;
+        axes2 -> figure;
+}
