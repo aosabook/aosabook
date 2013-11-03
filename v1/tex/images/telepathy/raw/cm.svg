@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="84cm" height="16cm" viewBox="46 51 1670 302" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g>
+    <rect style="fill: #ffffff" x="67" y="209" width="216.9" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="67" y="209" width="216.9" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="175.45" y="228">MyConnectionManager</text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="47" y="129" width="256.25" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="47" y="129" width="256.25" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="175.125" y="148">TpBaseConnectionManager</text>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="175.45,190.764 175.45,183 175.125,183 175.125,157 "/>
+    <polygon style="fill: #ffffff" points="167.45,190.764 175.45,206.764 183.45,190.764 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="167.45,190.764 175.45,206.764 183.45,190.764 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="380" y="120" width="177.15" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="380" y="120" width="177.15" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="468.575" y="139">TpBaseConnection</text>
+    <rect style="fill: #ffffff" x="380" y="148" width="177.15" height="20"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="380" y="148" width="177.15" height="20"/>
+    <text style="fill: #000000;text-anchor:start;font-size:12.8;font-family:monospace;font-style:normal;font-weight:normal" x="383" y="162"> channel-managers</text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="400" y="217" width="137.8" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="400" y="217" width="137.8" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="468.9" y="236">MyConnection</text>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="468.9,198.764 468.9,192.5 468.575,192.5 468.575,168 "/>
+    <polygon style="fill: #ffffff" points="460.9,198.764 468.9,214.764 476.9,198.764 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="460.9,198.764 468.9,214.764 476.9,198.764 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="596" y="219" width="274.45" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="596" y="219" width="274.45" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="733.225" y="238">Connection.Interface.Avatars</text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="537.8" y1="231" x2="596" y2="233"/>
+    <ellipse style="fill: #ffffff" cx="589.004" cy="232.76" rx="7" ry="7"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="589.004" cy="232.76" rx="7" ry="7"/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="596.1" y="259.1" width="277.55" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="596.1" y="259.1" width="277.55" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="734.875" y="278.1">Connection.Interface.Aliasing</text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="537.8" y1="231" x2="596.1" y2="273.1"/>
+    <ellipse style="fill: #ffffff" cx="590.425" cy="269.002" rx="7" ry="7"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="590.425" cy="269.002" rx="7" ry="7"/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="389" y="320" width="160.2" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="389" y="320" width="160.2" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="469.1" y="339">TpContactsMixin</text>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="468.9,270.172 468.9,282.5 469.1,282.5 469.1,320 "/>
+    <polygon style="fill: #ffffff" points="468.9,245 473.7,259 468.9,273 464.1,259 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="468.9,245 473.7,259 468.9,273 464.1,259 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="595.1" y="310.1" width="284.75" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="595.1" y="310.1" width="284.75" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="737.475" y="329.1">Connection.Interface.Contacts</text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="549.2" y1="334" x2="595.1" y2="324.1"/>
+    <ellipse style="fill: #ffffff" cx="588.257" cy="325.576" rx="7" ry="7"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="588.257" cy="325.576" rx="7" ry="7"/>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="303.25,143 351.625,143 351.625,231 400,231 "/>
+    <polygon style="fill: #000000" points="355.625,187 355.625,179 363.625,183 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="899.25" y="118" width="226.15" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="899.25" y="118" width="226.15" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1012.33" y="137">MyTextChannelManager</text>
+    <rect style="fill: #ffffff" x="899.25" y="146" width="226.15" height="20"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="899.25" y="146" width="226.15" height="20"/>
+    <text style="fill: #000000;text-anchor:start;font-size:12.8;font-family:monospace;font-style:normal;font-weight:normal" x="902.25" y="160"> channels</text>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="557.15,158 728.2,158 728.2,132 899.25,132 "/>
+    <polygon style="fill: #000000" points="732.2,145 732.2,137 740.2,141 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="920.25" y="52" width="184.55" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="920.25" y="52" width="184.55" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1012.52" y="71">TpChannelManager</text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="1012.33" y1="118" x2="1012.52" y2="80"/>
+    <ellipse style="fill: #ffffff" cx="1012.49" cy="86.9999" rx="7" ry="7"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="1012.49" cy="86.9999" rx="7" ry="7"/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1217.5" y="151" width="147.05" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1217.5" y="151" width="147.05" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1291.02" y="170">MyTextChannel</text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1195.6" y="63.1" width="148.8" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1195.6" y="63.1" width="148.8" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1270" y="82.1">TpBaseChannel</text>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1291.02,132.764 1291.02,121.05 1270,121.05 1270,91.1 "/>
+    <polygon style="fill: #ffffff" points="1283.02,132.764 1291.02,148.764 1299.03,132.764 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1283.02,132.764 1291.02,148.764 1299.03,132.764 "/>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1125.4,156 1171.45,156 1171.45,165 1217.5,165 "/>
+    <polygon style="fill: #000000" points="1175.45,160.5 1175.45,152.5 1183.45,156.5 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1206.75" y="241" width="169.3" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1206.75" y="241" width="169.3" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1291.4" y="260">TpMessagesMixin</text>
+  </g>
+  <g>
+    <polyline style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1291.02,204.172 1291.02,210 1291.4,210 1291.4,241 "/>
+    <polygon style="fill: #ffffff" points="1291.02,179 1295.82,193 1291.02,207 1286.22,193 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" points="1291.02,179 1295.82,193 1291.02,207 1286.22,193 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1438" y="146" width="276.7" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1438" y="146" width="276.7" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1576.35" y="165">Channel.Interface.ChatStates</text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="1364.55" y1="165" x2="1438" y2="160"/>
+    <ellipse style="fill: #ffffff" cx="1431.02" cy="160.475" rx="7" ry="7"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="1431.02" cy="160.475" rx="7" ry="7"/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="1433.8" y="106.1" width="174.65" height="28"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="1433.8" y="106.1" width="174.65" height="28"/>
+    <text style="fill: #000000;text-anchor:middle;font-size:16;font-family:sanserif;font-style:normal;font-weight:700" x="1521.13" y="125.1">Channel.Type.Text</text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x1="1364.55" y1="165" x2="1433.8" y2="120.1"/>
+    <ellipse style="fill: #ffffff" cx="1427.93" cy="123.908" rx="7" ry="7"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="1427.93" cy="123.908" rx="7" ry="7"/>
+  </g>
+</svg>
