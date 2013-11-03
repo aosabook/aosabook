@@ -114,7 +114,7 @@ for example, build monitoring may include monitoring of the build
 process itself and aspects of system health (CPU load, I/O load,
 memory usage, etc.)
 
-\aosafigureTop{../images/integration/ci-internal.eps}{Internals of a Continuous Integration System}{fig.integration.internal}
+\aosafigureTop{../images/integration/ci-internal.png}{Internals of a Continuous Integration System}{fig.integration.internal}
 
 But this simplicity is deceptive. Real-world CI systems usually
 do much more. In addition to initiating or receiving the results of
@@ -246,7 +246,7 @@ implement given the choice of architecture.
 
 \begin{aosasect2}{Implementation Model: Buildbot}
 
-\aosafigure{../images/integration/buildbot.eps}{Buildbot Architecture}{fig.integration.buildbot}
+\aosafigure{../images/integration/buildbot.png}{Buildbot Architecture}{fig.integration.buildbot}
 
 Buildbot uses a master/slave architecture, with a single central
 server and multiple build slaves. Remote execution is entirely
@@ -315,7 +315,7 @@ communicated directly to the buildmaster.
 
 \begin{aosasect2}{Implementation Model: CDash}
 
-\aosafigure[300pt]{../images/integration/cdash.eps}{CDash Architecture}{fig.integration.cdash}
+\aosafigure[300pt]{../images/integration/cdash.png}{CDash Architecture}{fig.integration.cdash}
 
 In contrast to Buildbot, CDash implements a reporting server model. In
 this model, the CDash server acts as a central repository for
@@ -403,7 +403,7 @@ as of January 2011 it is not yet fully developed.
 
 \begin{aosasect2}{Implementation Model: Pony-Build}
 
-\aosafigure{../images/integration/webhooks.eps}{Pony-Build Architecture}{fig.integration.pb}
+\aosafigure{../images/integration/webhooks.png}{Pony-Build Architecture}{fig.integration.pb}
 
 Pony-Build is a proof-of-concept decentralized CI system written in
 Python. It is composed of three core components, which are illustrated

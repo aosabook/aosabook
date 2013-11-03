@@ -41,7 +41,7 @@ retrieve data stored in specially formatted files. The most basic
 \code{update} to write new data points into a file, and \code{fetch}
 to retrieve data points.
 
-\aosafigure[300pt]{../images/graphite/whisper-file.eps}{Basic Anatomy of a \code{whisper} File}{fig.gra.whis}
+\aosafigure[300pt]{../images/graphite/whisper-file.png}{Basic Anatomy of a \code{whisper} File}{fig.gra.whis}
 
 As shown in \aosafigref{fig.gra.whis}, \code{whisper} files consist of a
 header section containing various metadata, followed by one or more
@@ -65,7 +65,7 @@ applications collect data and send it to the Graphite back end, \code{carbon},
 which stores the data using \code{whisper}. This data can then be used by the
 Graphite webapp to generate graphs.
 
-\aosafigure[250pt]{../images/graphite/dataflow.eps}{Data Flow}{fig.gra.carbon}
+\aosafigure[250pt]{../images/graphite/dataflow.png}{Data Flow}{fig.gra.carbon}
 
 The primary function of \code{carbon} is to store data points for metrics
 provided by clients. In Graphite terminology, a metric is any
@@ -163,7 +163,7 @@ manipulating graphs. Graphite comes with its own Composer UI, shown in
 graph's URL parameters as the user clicks through menus of the
 available features.
 
-\aosafigure{../images/graphite/composer-ui.eps}{Graphite's Composer Interface}{fig.gra.ui}
+\aosafigure{../images/graphite/composer-ui.png}{Graphite's Composer Interface}{fig.gra.ui}
 
 \end{aosasect1}
 
@@ -287,7 +287,7 @@ operations times the average size of each write, \code{carbon} is able to
 keep up as long as there is enough memory for the queues.  \code{carbon}'s
 queueing mechanism is depicted in \aosafigref{fig.gra.queue}.
 
-\aosafigure[250pt]{../images/graphite/carbon-queues.eps}{Carbon's Queueing Mechanism}{fig.gra.queue}
+\aosafigure[250pt]{../images/graphite/carbon-queues.png}{Carbon's Queueing Mechanism}{fig.gra.queue}
 
 \end{aosasect1}
 

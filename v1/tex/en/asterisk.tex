@@ -46,7 +46,7 @@ exists as an instance of the \code{ast\_channel} data structure.  This
 call scenario could be a caller interacting with voicemail, for
 example.
 
-\aosafigure[225pt]{../images/asterisk/singleChannel.eps}{A Single Call Leg, Represented by a Single Channel}{fig.asterisk.simpleCall}
+\aosafigure[225pt]{../images/asterisk/singleChannel.png}{A Single Call Leg, Represented by a Single Channel}{fig.asterisk.simpleCall}
 
 \end{aosasect2}
 
@@ -58,7 +58,7 @@ B\@. In this call scenario, there are two telephony endpoints connected
 to the Asterisk system, so two channels exist for this call
 (\aosafigref{fig.asterisk.twoChannels}).
 
-\aosafigure[400pt]{../images/asterisk/twoChannels.eps}{Two Call Legs Represented by Two Channels}{fig.asterisk.twoChannels}
+\aosafigure[400pt]{../images/asterisk/twoChannels.png}{Two Call Legs Represented by Two Channels}{fig.asterisk.twoChannels}
 
 When Asterisk channels are connected like this, it is referred to as a
 channel bridge. Channel bridging is the act of connecting channels
@@ -111,7 +111,7 @@ bridge function for a channel is discussed in more detail in
 \aosafigref{fig.asterisk.nativeBridge} illustrates an example of a
 native bridge.
 
-\aosafigure{../images/asterisk/nativeBridge.eps}{Example of a Native Bridge}{fig.asterisk.nativeBridge}
+\aosafigure{../images/asterisk/nativeBridge.png}{Example of a Native Bridge}{fig.asterisk.nativeBridge}
 
 \end{aosasect2}
 
@@ -226,7 +226,7 @@ two channels in Asterisk. \aosafigref{fig.asterisk.channelLayers}
 expands on this to show two bridged channels and how the channel
 technology implementations fit into the picture.
 
-\aosafigure{../images/asterisk/channelLayers.eps}{Channel Technology and Abstract Channel Layers}{fig.asterisk.channelLayers}
+\aosafigure{../images/asterisk/channelLayers.png}{Channel Technology and Abstract Channel Layers}{fig.asterisk.channelLayers}
 
 The most important methods in \code{ast\_channel\_tech} are:
 
@@ -573,7 +573,7 @@ object (\code{ast\_channel}) and create a channel thread. The channel
 thread has the primary responsibility for handling the rest of the
 call (\aosafigref{fig.asterisk.callSetupSequence}).
 
-\aosafigureTop[300pt]{../images/asterisk/callSetupSequence.eps}{Call Setup Sequence Diagram}{fig.asterisk.callSetupSequence}
+\aosafigureTop[300pt]{../images/asterisk/callSetupSequence.png}{Call Setup Sequence Diagram}{fig.asterisk.callSetupSequence}
 
 The main loop of the channel thread handles dialplan execution. It
 goes to the rules defined for the dialed extension and executes the
@@ -623,7 +623,7 @@ communication between the Asterisk system and the caller. If it must
 transcode the audio, it will build a translation path of one or more
 codec translators to get from the source to the destination format.
 
-\aosafigure{../images/asterisk/voicemail.eps}{A Call to \code{VoicemailMain}}{fig.asterisk.blockDiagramVoicemail}
+\aosafigure{../images/asterisk/voicemail.png}{A Call to \code{VoicemailMain}}{fig.asterisk.blockDiagramVoicemail}
 
 At some point, the caller will be done interacting with the Voicemail
 system and hang up. The channel driver will detect that this has
@@ -681,7 +681,7 @@ the system until the outbound call was answered.  Once both channels
 are answered, the bridging of the channels begins
 (\aosafigref{fig.asterisk.genericBridge}).
 
-\aosafigure{../images/asterisk/bridgedCall.eps}{Block Diagram of a Bridged Call in a Generic Bridge}{fig.asterisk.genericBridge}
+\aosafigure{../images/asterisk/bridgedCall.png}{Block Diagram of a Bridged Call in a Generic Bridge}{fig.asterisk.genericBridge}
 
 During a channel bridge, audio and signalling events from one channel
 are passed to the other until some event occurs that causes the bridge
@@ -690,7 +690,7 @@ in \aosafigref{fig.asterisk.frameProcessSequence} demonstrates the key
 operations that are performed for an audio frame during a bridged
 call.
 
-\aosafigure[375pt]{../images/asterisk/bridgeFrameProcessSequence.eps}{Sequence Diagram for Audio Frame Processing During a Bridge}{fig.asterisk.frameProcessSequence}
+\aosafigure[375pt]{../images/asterisk/bridgeFrameProcessSequence.png}{Sequence Diagram for Audio Frame Processing During a Bridge}{fig.asterisk.frameProcessSequence}
 
 Once the call is done, the hangup process is very similar to the
 previous example. The major difference here is that there are two

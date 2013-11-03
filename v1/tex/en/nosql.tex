@@ -749,7 +749,7 @@ technique, and it appears in Cassandra, Voldemort, and Riak.
 
 \begin{aosasect3}{Hash Rings by Example}
 
-\aosafigureTop[150pt]{../images/nosql/hashring.eps}{A Distributed Hash Table Ring}{fig.nosql.hashring}
+\aosafigureTop[150pt]{../images/nosql/hashring.png}{A Distributed Hash Table Ring}{fig.nosql.hashring}
 
 Consistent hash rings work as follows.  Say we have a hash function
 \code{H} that maps keys to uniformly distributed large integer values.  We
@@ -859,7 +859,7 @@ split in two.  A master server analyzes tablet size,
 load, and tablet server availability.  The master adjusts which tablet
 server serves which tablets at any time.
 
-\aosafigure[300pt]{../images/nosql/bigtable.eps}{BigTable-based Range Partitioning}{fig.nosql.bigtable}
+\aosafigure[300pt]{../images/nosql/bigtable.png}{BigTable-based Range Partitioning}{fig.nosql.bigtable}
 
 The master server maintains the tablet assignment in a metadata table.
 Because this metadata can get large, the metadata table is also

@@ -518,9 +518,9 @@ the ability to execute arbitrary chunks of Javascript in the context
 of the current page. A successful cast of a WebDriver instance to that
 interface indicates that you can expect the methods on it to work.
 
-\aosafigure[235pt]{../images/selenium/role-based-interfaces-one-interface.eps}{Accountant and Stockist Depend on Shop}{fig.sel.int1}
+\aosafigure[235pt]{../images/selenium/role-based-interfaces-one-interface.png}{Accountant and Stockist Depend on Shop}{fig.sel.int1}
 
-\aosafigure[235pt]{../images/selenium/role-based-interfaces-two-interfaces.eps}{Shop Implements HasBalance and Stockable}{fig.sel.int2}
+\aosafigure[235pt]{../images/selenium/role-based-interfaces-two-interfaces.png}{Shop Implements HasBalance and Stockable}{fig.sel.int2}
 
 \end{aosasect2}
 
@@ -651,7 +651,7 @@ browser automation, and so are called Browser Automation Atoms or
 atoms. Finally, there are adapter layers that compose atoms in order
 to meet the API contracts of both WebDriver and Core.
 
-\aosafigure[150pt]{../images/selenium/atoms.eps}{Layers of Selenium Javascript Library}{fig.sel.atoms}
+\aosafigure[150pt]{../images/selenium/atoms.png}{Layers of Selenium Javascript Library}{fig.sel.atoms}
 
 The Closure Library was chosen for several reasons. The main one was
 that the Closure Compiler understands the modularization technique the
@@ -994,7 +994,7 @@ returns the same result.}, the correct HTTP method to use is a
 GET\@. We delegate down to a Java library that can handle HTTP (the
 Apache HTTP Client) to call the server.
 
-\aosafigure{../images/selenium/firefox-driver-overall-architecture.eps}{Overview of the Firefox Driver Architecture}{fig.sel.ffdr}
+\aosafigure{../images/selenium/firefox-driver-overall-architecture.png}{Overview of the Firefox Driver Architecture}{fig.sel.ffdr}
 
 The Firefox driver is implemented as a Firefox extension, the basic
 design of which is shown in~\aosafigref{fig.sel.ffdr}.
@@ -1221,7 +1221,7 @@ an equivalent C\# project.
 The initial design of the IE driver is shown in
 \aosafigref{fig.sel.sie}.
 
-\aosafigure{../images/selenium/simple-ie-stack.eps}{Original IE Driver}{fig.sel.sie}
+\aosafigure{../images/selenium/simple-ie-stack.png}{Original IE Driver}{fig.sel.sie}
 
 Starting from the bottom of that stack, you can see that we're using
 IE's COM Automation interfaces.  In order to make these easier to deal
@@ -1282,7 +1282,7 @@ public String getAttribute(String name) {
 
 \noindent This lead to the design shown in \aosafigref{fig.sel.ient}.
 
-\aosafigure{../images/selenium/ie-stack-no-threads.eps}{Modified IE Driver}{fig.sel.ient}
+\aosafigure{../images/selenium/ie-stack-no-threads.png}{Modified IE Driver}{fig.sel.ient}
 
 While all the tests were running on the local machine, this worked out
 well, but once we started using the IE driver in the remote WebDriver
@@ -1307,7 +1307,7 @@ Win32 API to communicate across the thread boundary. Thus, at the time
 of writing, the design of the IE driver looks like
 \aosafigref{fig.sel.fullie}.
 
-\aosafigure{../images/selenium/full-ie-stack.eps}{IE Driver as of Selenium 2.0 alpha 7}{fig.sel.fullie}
+\aosafigure{../images/selenium/full-ie-stack.png}{IE Driver as of Selenium 2.0 alpha 7}{fig.sel.fullie}
 
 This isn't the sort of design that I would have chosen voluntarily,
 but it has the advantage of working and surviving the horrors that our
@@ -1369,7 +1369,7 @@ control as the original Selenium RC.
 Conceptually, the design used is pretty simple, as you can see in
 \aosafigref{fig.sel.arch}.
 
-\aosafigureTop[250pt]{../images/selenium/selenium-rc.eps}{Outline of Selenium RC's Architecture}{fig.sel.arch}
+\aosafigureTop[250pt]{../images/selenium/selenium-rc.png}{Outline of Selenium RC's Architecture}{fig.sel.arch}
 
 As you can see, there are three moving pieces here: the client code,
 the intermediate server and the Javascript code of Selenium Core

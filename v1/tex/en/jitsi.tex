@@ -107,7 +107,7 @@ gives bundles a way to connect to the OSGi environment. This way they
 can discover whatever OSGi service they need to use, or register one
 themselves (\aosafigref{fig.jit.osgi}).
 
-\aosafigure{../images/jitsi/OSGI.eps}{OSGi Bundle Activation}{fig.jit.osgi}
+\aosafigure{../images/jitsi/OSGI.png}{OSGi Bundle Activation}{fig.jit.osgi}
 
 So let's see how this actually works.  Imagine a service that
 persistently stores and retrieves properties. In Jitsi this is what we
@@ -218,7 +218,7 @@ preferences, configuration forms interact with the
 for a feature. However, none of the other bundles ever need to
 interact with them in any way (\aosafigref{fig.jit.pkgs}).
 
-\aosafigure[250pt]{../images/jitsi/PKGs.eps}{Service Structure}{fig.jit.pkgs}
+\aosafigure[250pt]{../images/jitsi/PKGs.png}{Service Structure}{fig.jit.pkgs}
 
 \end{aosasect1}
 
@@ -395,7 +395,7 @@ across a protocol that only allows sending messages without receiving
 any, which is why things like sending and receiving messages can be 
 safely combined.
 
-\aosafigureTop{../images/jitsi/OperationSets.eps}{Operation Sets}{fig.jit.ops}
+\aosafigureTop{../images/jitsi/OperationSets.png}{Operation Sets}{fig.jit.ops}
 
 \end{aosasect2}
 
@@ -493,7 +493,7 @@ MediaType. This means that in the case of an audio/video call Jitsi
 has to create two separate media streams and then connect each to the
 corresponding audio or video MediaDevice.
 
-\aosafigureTop{../images/jitsi/Media.eps}{Media Streams For Different Devices}{fig.jit.media}
+\aosafigureTop{../images/jitsi/Media.png}{Media Streams For Different Devices}{fig.jit.media}
 
 \end{aosasect2}
 

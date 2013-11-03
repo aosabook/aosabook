@@ -252,7 +252,7 @@ describes the content of his project through options passed to a
 function, and uses that file for all his packaging tasks. The file is
 also used by installers to install the project on a target system.
 
-\aosafigure[300pt]{../images/packaging/setup-py.eps}{Setup}{fig.packaging.setup}
+\aosafigure[300pt]{../images/packaging/setup-py.png}{Setup}{fig.packaging.setup}
 
 Having a single Python module used for packaging, releasing,
 \emph{and} installing a project is one of \code{Distutils}' main
@@ -321,7 +321,7 @@ the \code{Metadata} file and sends it to PyPI, allowing people and
 tools---like installers---to browse them via web pages or via web
 services.
 
-\aosafigure[400pt]{../images/packaging/pypi.eps}{The PyPI Repository}{fig.packaging.pypi}
+\aosafigure[400pt]{../images/packaging/pypi.png}{The PyPI Repository}{fig.packaging.pypi}
 
 You can browse projects by \code{Classifiers}, and get the author name
 and project URL\@.  Meanwhile, \code{Requires} can be used to define
@@ -382,7 +382,7 @@ that it is platform-specific.
 
 \begin{aosasect2}{Architecture of PyPI}
 
-\aosafigure[250pt]{../images/packaging/pypi-workflow.eps}{PyPI Workflow}{fig.packaging.workflow}
+\aosafigure[250pt]{../images/packaging/pypi-workflow.png}{PyPI Workflow}{fig.packaging.workflow}
 
 As indicated earlier, PyPI is a central index of Python projects where
 people can browse existing projects by category or register their own
@@ -1029,7 +1029,7 @@ config/mopy.cfg {confdir}/{distribution.name}
 system's configuration directory, and \code{{distribution.name}}
 contains the name of the Python project as found in the metadata.
 
-\aosafigure[300pt]{../images/packaging/find-file.eps}{Finding a File}{fig.packaging.findfile}
+\aosafigure[300pt]{../images/packaging/find-file.png}{Finding a File}{fig.packaging.findfile}
 
 As long as this \code{RESOURCES} metadata file is created at
 installation time, the API will find the location of \code{mopy.cfg}
@@ -1066,7 +1066,7 @@ Eventually, they will generate the \code{RESOURCES} file mentioned
 earlier in the installed metadata so \code{pkgutil} can find back the
 files.
 
-\aosafigure[300pt]{../images/packaging/installer.eps}{Installer}{fig.packaging.installer}
+\aosafigure[300pt]{../images/packaging/installer.png}{Installer}{fig.packaging.installer}
 
 \end{aosasect3}
 
@@ -1080,7 +1080,7 @@ protocol so that users can fall back to alternative servers when PyPI
 is down. The goal is to allow members of the community to run mirrors
 around the world.
 
-\aosafigure[250pt]{../images/packaging/mirroring.eps}{Mirroring}{fig.packaging.mirroring}
+\aosafigure[250pt]{../images/packaging/mirroring.png}{Mirroring}{fig.packaging.mirroring}
 
 The mirror list is provided as a list of host names of the form
 \code{X.pypi.python.org}, where \code{X} is in the sequence

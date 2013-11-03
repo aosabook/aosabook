@@ -16,7 +16,7 @@ situations. For example, the Decorator design pattern is introduced
 with a Swing \code{JScrollPane}, in the hope that this example is more
 memorable than the canonical Java streams example.
 
-\aosafigure[250pt]{../images/violet/object-sample.eps}{A Violet Object Diagram}{fig.vio.diagram}
+\aosafigure[250pt]{../images/violet/object-sample.png}{A Violet Object Diagram}{fig.vio.diagram}
 
 I needed a light subset of UML for the book: class diagrams, sequence
 diagrams, and a variant of object diagrams that shows Java object
@@ -97,7 +97,7 @@ diagrams), and so on, and edges for the various edge shapes in UML
 diagrams. Another instance of the graph framework might display
 entity-relationship diagrams or railroad diagrams.
 
-\aosafigure{../images/violet/Ch8-06.eps}{A Simple Instance of the Editor Framework}{fig.vio.editor}
+\aosafigure{../images/violet/Ch8-06.png}{A Simple Instance of the Editor Framework}{fig.vio.editor}
 
 In order to illustrate the framework, let us consider an editor for
 very simple graphs, with black and white circular nodes and straight
@@ -155,7 +155,7 @@ key methods:
 
 \end{aosaitemize}
 
-\aosafigure[200pt]{../images/violet/Ch8-07.eps}{Finding a Connection Point on the Boundary of the Node Shape}{fig.vio.connection}
+\aosafigure[200pt]{../images/violet/Ch8-07.png}{Finding a Connection Point on the Boundary of the Node Shape}{fig.vio.connection}
 
 Convenience classes \code{AbstractNode} and \code{AbstractEdge}
 implement a number of these methods, and classes
@@ -231,7 +231,7 @@ public class LineEdge extends AbstractEdge
 }
 \end{verbatim}
 
-\aosafigure{../images/violet/SimpleGraph-in-Violet.eps}{Class Diagram for a Simple Graph}{fig.vio.classdiag}
+\aosafigure{../images/violet/SimpleGraph-in-Violet.png}{Class Diagram for a Simple Graph}{fig.vio.classdiag}
 
 In summary, Violet provides a simple framework for producing graph
 editors.  To obtain an editor instance, define node and edge classes
@@ -274,7 +274,7 @@ public Color getColor()
 \noindent No further work is necessary. The graph editor can now edit node
 colors of circle nodes (\aosafigref{fig.vio.circlecolors}).
 
-\aosafigure{../images/violet/Ch8-11.eps}{Editing Circle Colors with the default JavaBeans Color Editor}{fig.vio.circlecolors}
+\aosafigure{../images/violet/Ch8-11.png}{Editing Circle Colors with the default JavaBeans Color Editor}{fig.vio.circlecolors}
 
 \end{aosasect1}
 
@@ -646,7 +646,7 @@ Each of these operations has an obvious undo. For example the undo of
 adding a node is the node's removal. The undo of moving a node is to
 move it by the opposite vector.
 
-\aosafigure{../images/violet/undo.eps}{An Undo Operation Must Undo Structural Changes in the Model}{fig.vio.undo}
+\aosafigure{../images/violet/undo.png}{An Undo Operation Must Undo Structural Changes in the Model}{fig.vio.undo}
 
 Note that these atomic operations are \emph{not} the same as the
 actions in the user interface or the methods of the \code{Graph}

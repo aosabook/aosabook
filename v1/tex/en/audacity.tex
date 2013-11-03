@@ -96,7 +96,7 @@ Audacity, but we have not yet had the time to make that change.}
 We have instead implemented scripting with a single plugin module and a
 pipe, which we will cover later.
 
-\aosafigure[350pt]{../images/audacity/Layers.eps}{Layers in Audacity}{fig.aud.1}
+\aosafigure[350pt]{../images/audacity/Layers.png}{Layers in Audacity}{fig.aud.1}
 
 \aosafigref{fig.aud.1} shows some layers and modules in Audacity.  The
 diagram highlights three important classes within wxWidgets, each of
@@ -269,9 +269,9 @@ S.EndStatic();
 \end{verbatim}
 \end{minipage}
 \begin{minipage}[b]{7cm}
-% \aosafigure[200pt]{../images/audacity/SomeDialog.eps}{Example Dialog}{fig.aud.2}
+% \aosafigure[200pt]{../images/audacity/SomeDialog.png}{Example Dialog}{fig.aud.2}
 \centering
-\includegraphics[width={150pt}]{../images/audacity/SomeDialog.eps}
+\includegraphics[width={150pt}]{../images/audacity/SomeDialog.png}
 \end{minipage}
 \caption{Example Dialog}
 \label{fig.aud.2}
@@ -314,7 +314,7 @@ use of our own re-implementation of an editable text box rather than
 using the built-in text box.  You might think these panels tracks and
 rulers should each be a wxWidgets component, but they are not.
 
-\aosafigure{../images/audacity/MainPanelAnnotated.eps}{Audacity Interface with Track Panel Elements Labelled}{fig.aud.3}
+\aosafigure{../images/audacity/MainPanelAnnotated.png}{Audacity Interface with Track Panel Elements Labelled}{fig.aud.3}
 
 The screenshot shown in \aosafigref{fig.aud.3} shows the Audacity user
 interface.  All the components that have been labelled are custom for
@@ -405,7 +405,7 @@ the APIs we're given.  Whilst we would like each of our processes to
 look similar, for example to have each running from a wxThread, we
 don't have that luxury (\aosafigref{fig.aud.4}).
 
-\aosafigureTop[325pt]{../images/audacity/Buffers.eps}{Threads and Buffers in Playback and Recording}{fig.aud.4}
+\aosafigureTop[325pt]{../images/audacity/Buffers.png}{Threads and Buffers in Playback and Recording}{fig.aud.4}
 
 One audio thread is started by PortAudio code and interacts directly
 with the audio device.  This is what drives recording or playback.
@@ -515,7 +515,7 @@ data management systems, from B-trees to Google's BigTable tablets to
 the management of unrolled linked lists.  \aosafigref{fig.aud.5} shows
 what happens in Audacity when removing a span of audio near the start.
 
-\aosafigure[200pt]{../images/audacity/BlocksCombined.eps}{Before deletion, \code{.aup} file and BlockFiles hold the sequence ABCDEFGHIJKLMNO. After deletion of FGHI, two BlockFiles are merged.}{fig.aud.5}
+\aosafigure[200pt]{../images/audacity/BlocksCombined.png}{Before deletion, \code{.aup} file and BlockFiles hold the sequence ABCDEFGHIJKLMNO. After deletion of FGHI, two BlockFiles are merged.}{fig.aud.5}
 
 BlockFiles aren't just used for the audio itself.  There are also
 BlockFiles that cache summary information.  If Audacity is asked to
@@ -570,7 +570,7 @@ and read text from a named pipe, the scripting language can drive
 Audacity.  Audio and other high-volume data does not need to travel on
 the pipe (\aosafigref{fig.aud.7}).
 
-\aosafigure[75pt]{../images/audacity/Scripting.eps}{Scripting Plugin Provides Scripting Over a Named Pipe}{fig.aud.7}
+\aosafigure[75pt]{../images/audacity/Scripting.png}{Scripting Plugin Provides Scripting Over a Named Pipe}{fig.aud.7}
 
 The plugin itself knows nothing about the content of the text traffic
 that it carries. It is only responsible for conveying it. The plugin

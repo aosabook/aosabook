@@ -81,11 +81,11 @@ time:
 
 \end{aosaitemize}
 
-\aosafigure[300pt]{../images/socialcalc/wikicalc-screenshot.eps}{WikiCalc 1.0 Interface}{fig.soc.screenshot}
+\aosafigure[300pt]{../images/socialcalc/wikicalc-screenshot.png}{WikiCalc 1.0 Interface}{fig.soc.screenshot}
 
-\aosafigure[250pt]{../images/socialcalc/wikicalc-components.eps}{WikiCalc Components}{fig.soc.comp}
+\aosafigure[250pt]{../images/socialcalc/wikicalc-components.png}{WikiCalc Components}{fig.soc.comp}
 
-\aosafigure[300pt]{../images/socialcalc/wikicalc-flow.eps}{WikiCalc Flow}{fig.soc.flow}
+\aosafigure[300pt]{../images/socialcalc/wikicalc-flow.png}{WikiCalc Flow}{fig.soc.flow}
 
 WikiCalc 1.0's internal architecture (\aosafigref{fig.soc.comp}) and
 information flow (\aosafigref{fig.soc.flow}) were deliberately simple,
@@ -118,7 +118,7 @@ updating a cell and seeing its new contents as shown in
 interactively editing formulas by tweaking the input and expecting to
 see results in real time.
 
-\aosafigure[250pt]{../images/socialcalc/wikicalc-loading.eps}{Loading Message}{fig.soc.load}
+\aosafigure[250pt]{../images/socialcalc/wikicalc-loading.png}{Loading Message}{fig.soc.load}
 
 Moreover, because the \code{{\textless}table{\textgreater}} element
 had the same dimensions as the spreadsheet, a $100{\times}100$ grid
@@ -163,7 +163,7 @@ system.
 
 \begin{aosasect1}{SocialCalc}
 
-\aosafigure[225pt]{../images/socialcalc/socialcalc-screenshot.eps}{SocialCalc Interface}{fig.soc.action}
+\aosafigure[225pt]{../images/socialcalc/socialcalc-screenshot.png}{SocialCalc Interface}{fig.soc.action}
 
 \aosafigref{fig.soc.action} and \aosafigref{fig.soc.class} show
 SocialCalc's interface and classes respectively.  Compared to
@@ -173,7 +173,7 @@ spreadsheets serialized in the save format; once the browser receives
 the data, all calculations, change tracking and user interaction are
 now implemented in Javascript.
 
-\aosafigure[325pt]{../images/socialcalc/socialcalc-class-diagram.eps}{SocialCalc Class Diagram}{fig.soc.class}
+\aosafigure[325pt]{../images/socialcalc/socialcalc-class-diagram.png}{SocialCalc Class Diagram}{fig.soc.class}
 
 The Javascript components were designed with a layered MVC
 (Model/View/Controller) style, with each class focusing on a single
@@ -282,7 +282,7 @@ DOM updates in the background, so the user can keep making changes to
 several cells while the engine catches up on earlier changes in the
 command queue.
 
-\aosafigure[300pt]{../images/socialcalc/socialcalc-command-runloop.eps}{SocialCalc Command Run-loop}{fig.soc.loop}
+\aosafigure[300pt]{../images/socialcalc/socialcalc-command-runloop.png}{SocialCalc Command Run-loop}{fig.soc.loop}
 
 When a command is running, the \code{TableEditor} object sets its
 \code{busy} flag to true; subsequent commands are then pushed into the
@@ -344,7 +344,7 @@ coordinates of its \code{RenderContext}, and manages
 horizontal/vertical scroll bars through two \code{TableControl}
 instances.
 
-\aosafigure[225pt]{../images/socialcalc/socialcalc-parts.eps}{TableControl Instances Manage Scroll Bars}{fig.soc.parts}
+\aosafigure[225pt]{../images/socialcalc/socialcalc-parts.png}{TableControl Instances Manage Scroll Bars}{fig.soc.parts}
 
 The view layer, handled by the \code{RenderContext} class, also
 differs from WikiCalc's design.  Instead of mapping each cell to a
@@ -369,14 +369,14 @@ implements the radial fill/move/slide menu attached to the
 bottom-right corner to the current editable cell, known as the ECell,
 shown in \aosafigref{fig.soc.ecell}.
 
-\aosafigure[180pt]{../images/socialcalc/socialcalc-cell-handles.eps}{Current Editable Cell, Known as the ECell}{fig.soc.ecell}
+\aosafigure[180pt]{../images/socialcalc/socialcalc-cell-handles.png}{Current Editable Cell, Known as the ECell}{fig.soc.ecell}
 
 The input box is managed by two classes: \code{InputBox} and
 \code{InputEcho}.  The former manages the above-the-grid edit row,
 while the latter shows an updated-as-you-type preview layer,
 overlaying the ECell's content (\aosafigref{fig.soc.input}).
 
-\aosafigure[200pt]{../images/socialcalc/socialcalc-input.eps}{The Input Box is Managed by Two Classes}{fig.soc.input}
+\aosafigure[200pt]{../images/socialcalc/socialcalc-input.png}{The Input Box is Managed by Two Classes}{fig.soc.input}
 
 Usually, the SocialCalc engine only needs to communicate to the server
 when opening a spreadsheet for edit, and when saving it back to
@@ -422,7 +422,7 @@ cells, with \code{1874} in A1 as the ECell, the formula \code{2\^{}2*43}
 in A2, and the formula \code{SUM(Foo)} in A3 rendered in bold,
 referring to the named range \code{Foo} over \code{A1:A2}.
 
-\aosafigure[180pt]{../images/socialcalc/socialcalc-2046.eps}{A Spreadsheet with Three Cells}{fig.soc.save}
+\aosafigure[180pt]{../images/socialcalc/socialcalc-2046.png}{A Spreadsheet with Three Cells}{fig.soc.save}
 
 The serialized save format for the spreadsheet looks like this:
 
@@ -483,7 +483,7 @@ The first example we'll look at is enhancing SocialCalc's text cells
 with wiki markup to display its rich-text rendering right in the
 table editor (\aosafigref{fig.soc.rt}).
 
-\aosafigure[200pt]{../images/socialcalc/richtext-screenshot.eps}{Rich Text Rendering in the Table Editor}{fig.soc.rt}
+\aosafigure[200pt]{../images/socialcalc/richtext-screenshot.png}{Rich Text Rendering in the Table Editor}{fig.soc.rt}
 
 We added this feature to SocialCalc right after its 1.0 release, to
 address the popular request of inserting images, links and text
@@ -516,7 +516,7 @@ However, if the cell's \code{textvalueformat} or
 default format is looked up from its \code{valuetype}, as shown in
 \aosafigref{fig.soc.vformat}.
 
-\aosafigure[300pt]{../images/socialcalc/richtext-formats.eps}{Value Types}{fig.soc.vformat}
+\aosafigure[300pt]{../images/socialcalc/richtext-formats.png}{Value Types}{fig.soc.vformat}
 
 % \pagebreak
 
@@ -577,7 +577,7 @@ spreadsheet.ExecuteCommand('set sheet defaulttextvalueformat text-wiki');
 \noindent Taken together, the Render step now works as shown in
 \aosafigref{fig.soc.render}.
 
-\aosafigure[349pt]{../images/socialcalc/richtext-flow.eps}{Render Step}{fig.soc.render}
+\aosafigure[349pt]{../images/socialcalc/richtext-flow.png}{Render Step}{fig.soc.render}
 
 That's all!  The enhanced SocialCalc now supports a rich set of wiki
 markup syntax:
@@ -594,7 +594,7 @@ markup syntax:
 \noindent Try entering \code{*bold* \_italic\_ `monospace`} in A1, and you'll
 see it rendered as rich text (\aosafigref{fig.soc.rtext}).
 
-\aosafigure[150pt]{../images/socialcalc/richtext-example.eps}{Wikywyg Example}{fig.soc.rtext}
+\aosafigure[150pt]{../images/socialcalc/richtext-example.png}{Wikywyg Example}{fig.soc.rtext}
 
 \end{aosasect2}
 
@@ -636,7 +636,7 @@ in 2009, the \code{broadcast} function was built with XPCOM calls into
 D-Bus/Telepathy, the standard transport for OLPC/Sugar networks (see
 \aosafigref{fig.soc.olpc}).
 
-\aosafigure[280pt]{../images/socialcalc/collab-olpc.eps}{OLPC Implementation}{fig.soc.olpc}
+\aosafigure[280pt]{../images/socialcalc/collab-olpc.png}{OLPC Implementation}{fig.soc.olpc}
 
 That worked reasonably well, enabling XO instances in the same Sugar
 network to collaborate on a common SocialCalc spreadsheet.  However,
@@ -658,7 +658,7 @@ WebSocket support, we use the
 project's Flash emulation of WebSocket, which is often faster and more reliable
 than MXHR.  The operation flow is shown in \aosafigref{fig.soc.collab}.
 
-\aosafigure{../images/socialcalc/collab-flow.eps}{Cross-Browser Flow}{fig.soc.collab}
+\aosafigure{../images/socialcalc/collab-flow.png}{Cross-Browser Flow}{fig.soc.collab}
 
 \pagebreak
 
@@ -694,12 +694,12 @@ same cells, then receive and execute commands broadcast from the other
 user, they will end up in different states, as shown in
 \aosafigref{fig.soc.conflict}.
 
-\aosafigure{../images/socialcalc/collab-conflict.eps}{Race Condition Conflict}{fig.soc.conflict}
+\aosafigure{../images/socialcalc/collab-conflict.png}{Race Condition Conflict}{fig.soc.conflict}
 
 We can resolve this with SocialCalc's built-in undo/redo mechanism, as
 shown in \aosafigref{fig.soc.resolve}.
 
-\aosafigure{../images/socialcalc/collab-resolution.eps}{Race Condition Conflict Resolution}{fig.soc.resolve}
+\aosafigure{../images/socialcalc/collab-resolution.png}{Race Condition Conflict Resolution}{fig.soc.resolve}
 
 The process used to resolve the conflict is as follows.  When a client
 broadcasts a command, it adds the command to a Pending queue.  When a client
@@ -762,7 +762,7 @@ box-shadow: inset 0 0 0 4px red, inset 0 0 0 2px green;
 \aosafigref{fig.soc.borders} shows how the screen would look with four
 people editing on the same spreadsheet.
 
-\aosafigure[150pt]{../images/socialcalc/collab-borders.eps}{Four Users Editing One Spreadsheet}{fig.soc.borders}
+\aosafigure[150pt]{../images/socialcalc/collab-borders.png}{Four Users Editing One Spreadsheet}{fig.soc.borders}
 
 \end{aosasect2}
 

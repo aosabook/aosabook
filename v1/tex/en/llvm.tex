@@ -57,7 +57,7 @@ it for errors, and builds a language-specific Abstract Syntax Tree
 a new representation for optimization, and the optimizer and back end
 are run on the code.
 
-\aosafigure{../images/llvm/SimpleCompiler.eps}{Three Major Components of a Three-Phase Compiler}{fig.llvm.com}
+\aosafigure{../images/llvm/SimpleCompiler.png}{Three Major Components of a Three-Phase Compiler}{fig.llvm.com}
 
 The optimizer is responsible for doing a broad variety of
 transformations to try to improve the code's running time, such as
@@ -84,7 +84,7 @@ its optimizer, then a front end can be written for any language that
 can compile to it, and a back end can be written for any target that
 can compile from it, as shown in \aosafigref{fig.llvm.rtc}.
 
-\aosafigure{../images/llvm/RetargetableCompiler.eps}{Retargetablity}{fig.llvm.rtc}
+\aosafigure{../images/llvm/RetargetableCompiler.png}{Retargetablity}{fig.llvm.rtc}
 
 With this design, porting the compiler to support a new source
 language (e.g.,  Algol or BASIC) requires implementing a new front end,
@@ -391,7 +391,7 @@ straightforward implementation of the three-phase design, but this
 simple description glosses over some of the power and flexibility
 that the LLVM architecture derives from LLVM IR.
 
-\aosafigure{../images/llvm/LLVMCompiler1.eps}{LLVM's Implementation of the Three-Phase Design}{fig.llvm.lcom}
+\aosafigure{../images/llvm/LLVMCompiler1.png}{LLVM's Implementation of the Three-Phase Design}{fig.llvm.lcom}
 
 \begin{aosasect2}{LLVM IR is a Complete Code Representation}
 
@@ -512,7 +512,7 @@ language-specific optimization opportunities.
 \aosafigref{fig.llvn.pass} shows a simple example for our hypothetical
 XYZ image processing system:
 
-\aosafigure[300pt]{../images/llvm/PassLinkage.eps}{Hypothetical XYZ System using LLVM}{fig.llvn.pass}
+\aosafigure[300pt]{../images/llvm/PassLinkage.png}{Hypothetical XYZ System using LLVM}{fig.llvn.pass}
 
 Once the set of optimizations is chosen (and similar decisions are
 made for the code generator) the image processing compiler is built
@@ -594,7 +594,7 @@ a declarative domain-specific language (a set of \code{.td} files)
 processed by the tblgen tool.  The (simplified) build process for the
 x86 target is shown in \aosafigref{fig.llvm.x86}.
 
-\aosafigure{../images/llvm/X86Target.eps}{Simplified x86 Target Definition}{fig.llvm.x86}
+\aosafigure{../images/llvm/X86Target.png}{Simplified x86 Target Definition}{fig.llvm.x86}
 
 The different subsystems supported by the \code{.td} files allow
 target authors to build up the different pieces of their target. For
@@ -700,7 +700,7 @@ This option instructs the compiler to emit LLVM bitcode to the
 \code{.o}file instead of writing out a native object file, and delays
 code generation to link time, shown in \aosafigref{fig.llvm.lto}.
 
-\aosafigure{../images/llvm/LTO.eps}{Link-Time Optimization}{fig.llvm.lto}
+\aosafigure{../images/llvm/LTO.png}{Link-Time Optimization}{fig.llvm.lto}
 
 Details differ depending on which operating system you're on, but the
 important bit is that the linker detects that it has LLVM bitcode in
@@ -727,7 +727,7 @@ instruction choice, scheduling, and other aspects of code generation,
 you can pick the best answers for the specific hardware an application
 ends up running on.
 
-\aosafigure{../images/llvm/InstallTime.eps}{Install-Time Optimization}{fig.llvm.ito}
+\aosafigure{../images/llvm/InstallTime.png}{Install-Time Optimization}{fig.llvm.ito}
 
 \end{aosasect2}
 

@@ -106,7 +106,7 @@ Within the current implementation of Telepathy, the Account Manager
 and the Channel Dispatcher are both provided by a single process known
 as Mission Control.
 
-\aosafigureTop[250pt]{../images/telepathy/telepathy-components.eps}{Example Telepathy Components}{fig.telepathy.components}
+\aosafigureTop[250pt]{../images/telepathy/telepathy-components.png}{Example Telepathy Components}{fig.telepathy.components}
 
 This modular design was based on Doug McIlroy's philosophy, ``Write
 programs that do one thing and do it well,'' and has several important
@@ -175,7 +175,7 @@ interfaces. Again strictly namespaced, these have forms like
 Each interface provides methods, signals and properties that you can
 call, listen to, or request.
 
-\aosafigure{../images/telepathy/bus-hierarchy-conceptual.eps}{Conceptual Representation of Objects Published by a D-Bus Service}{fig.telepathy.conceptual}
+\aosafigure{../images/telepathy/bus-hierarchy-conceptual.png}{Conceptual Representation of Objects Published by a D-Bus Service}{fig.telepathy.conceptual}
 
 \begin{aosabox}{Publishing D-Bus Objects}
 
@@ -296,7 +296,7 @@ order to simulate object inheritance for D-Bus objects.
 
 \end{aosabox}
 
-\aosafigure[250pt]{../images/telepathy/telepathy-types-unpacked.eps}{D-Bus Types (ii) and a\{sa(usuu)\}}{fig.telepathy.dbustypes}
+\aosafigure[250pt]{../images/telepathy/telepathy-types-unpacked.png}{D-Bus Types (ii) and a\{sa(usuu)\}}{fig.telepathy.dbustypes}
 
 \begin{aosasect2}{Handles}
 
@@ -712,7 +712,7 @@ that have no interest in communication channels beyond the initial
 request to request channels and have them handled by the best program
 available (e.g., launching a text chat from your email client).
 
-\aosafigure[300pt]{../images/telepathy/dispatching-model.eps}{Channel Request and Dispatching}{fig.telepathy.request}
+\aosafigure[300pt]{../images/telepathy/dispatching-model.png}{Channel Request and Dispatching}{fig.telepathy.request}
 
 The requesting program makes a channel request to the Channel
 Dispatcher, which in turn forwards the request to the appropriate
@@ -1075,7 +1075,7 @@ object. There are also mixins to implement the
 possible to implement the old and new presence interfaces, and old and
 new text message interfaces via one set of methods.
 
-\aosafigure{../images/telepathy/cm.eps}{Example Connection Manager Architecture}{fig.telepathy.manager}
+\aosafigure{../images/telepathy/cm.png}{Example Connection Manager Architecture}{fig.telepathy.manager}
 
 \begin{aosabox}{Using Mixins to Solve API Mistakes}
 
