@@ -86,7 +86,7 @@ selecting the workbench, you'll be presented with the Java
 perspective. A perspective organizes the views and editors that are
 specific to the tooling that is currently in use.
 
-\aosafigure{../images/eclipse/javaperspective.eps}{Java Perspective}{fig.ecl.jpersp}
+\aosafigure{../images/eclipse/javaperspective.png}{Java Perspective}{fig.ecl.jpersp}
 
 Early versions of the Eclipse SDK architecture had three major
 elements, which corresponded to three major sub-projects: the
@@ -227,7 +227,7 @@ plugins until they are needed. For instance, the plugin that
 contributes to the org.eclipse.ui.actionSet extension point wouldn't
 be activated until the user selected the new menu item in the toolbar.
 
-\aosafigure[300pt]{../images/eclipse/examplemenu.eps}{Example Menu}{fig.ecl.menu}
+\aosafigure[300pt]{../images/eclipse/examplemenu.png}{Example Menu}{fig.ecl.menu}
 
 The code that generates this menu item looks like this:
 
@@ -286,7 +286,7 @@ class components of the assembled
 application. \aosafigref{fig.ecl.plat} shows clusters of related
 functionality contributed by plugins in early versions of Eclipse.
 
-\aosafigure[250pt]{../images/eclipse/platform.eps}{Early Eclipse Architecture}{fig.ecl.plat}
+\aosafigure[250pt]{../images/eclipse/platform.png}{Early Eclipse Architecture}{fig.ecl.plat}
 
 The workbench is the most familiar UI element to users of the Eclipse
 platform, as it provides the structures that organize how Eclipse
@@ -641,7 +641,7 @@ that the \code{org.eclipse.core.runtime} bundle that
 \code{org.eclipse.ui} depends on must be at least 3.2.0 and less than
 4.0.0.
 
-\aosafigure[200pt]{../images/eclipse/bundlelifecycle.eps}{OSGi Bundle Lifecycle}{fig.ecl.blc}
+\aosafigure[200pt]{../images/eclipse/bundlelifecycle.png}{OSGi Bundle Lifecycle}{fig.ecl.blc}
 
 OSGi is a dynamic framework which supports the installation, starting,
 stopping, or uninstallation of bundles. As mentioned before, lazy
@@ -665,7 +665,7 @@ and version ranges in your manifests to specify the version ranges for
 your dependencies.  OSGi uses a four-part versioning naming scheme as
 shown in \aosafigref{fig.ecl.ver}.
 
-\aosafigure[200pt]{../images/eclipse/versioning.eps}{Versioning Naming Scheme}{fig.ecl.ver}
+\aosafigure[200pt]{../images/eclipse/versioning.png}{Versioning Naming Scheme}{fig.ecl.ver}
 
 With the OSGi version numbering scheme, each bundle has a unique
 identifier consisting of a name and a four part version number. An id
@@ -740,7 +740,7 @@ development time and money by focusing on building their tools on a
 platform with a stable API that guaranteed that their technology
 choice would have long term support.
 
-\aosafigure[300pt]{../images/eclipse/rcp.eps}{Eclipse 3.0 Architecture}{fig.ecl.rcp}
+\aosafigure[300pt]{../images/eclipse/rcp.png}{Eclipse 3.0 Architecture}{fig.ecl.rcp}
 
 Looking at the 3.0 architecture in \aosafigref{fig.ecl.rcp}, you will
 note that the Eclipse Runtime still exists to provide the application
@@ -769,7 +769,7 @@ of bundles that are packaged together in a format that can be built or
 installed. Features can also include other features. (See
 \aosafigref{fig.ecl.feat}.)
 
-\aosafigure[250pt]{../images/eclipse/eclipse33features.eps}{Eclipse 3.3 SDK Feature Hierarchy}{fig.ecl.feat}
+\aosafigure[250pt]{../images/eclipse/eclipse33features.png}{Eclipse 3.3 SDK Feature Hierarchy}{fig.ecl.feat}
 
 If you wished to update your Eclipse install to a new build that only
 incorporated one new bundle, the entire feature had to be updated
@@ -854,7 +854,7 @@ org.eclipse.equinox.launcher.gtk.linux.x86
 org.eclipse.equinox.launcher.gtk.linux.x86_64
 \end{verbatim}
 
-% \aosafigureTop[200pt]{../images/eclipse/rcpfeature33.eps}{Files Included in Eclipse Application}{fig.ecl.inst}
+% \aosafigureTop[200pt]{../images/eclipse/rcpfeature33.png}{Files Included in Eclipse Application}{fig.ecl.inst}
 
 These files couldn't be updated via
 update manager, because again, it only dealt with features.
@@ -886,7 +886,7 @@ separation of concerns is achieved by separating the metadata and the
 artifacts that they describe. A p2 repository consists of both
 metadata and artifact repositories.
 
-\aosafigure{../images/eclipse/p2.eps}{P2 Concepts}{fig.ecl.p2}
+\aosafigure{../images/eclipse/p2.png}{P2 Concepts}{fig.ecl.p2}
 
 A profile is a list of IUs in your install. For instance, your Eclipse
 SDK has a profile that describes your current install. From within
@@ -968,7 +968,7 @@ model, attract new committers and enable the platform to take
 advantage of new web-based technologies while providing an open
 architecture.
 
-\aosafigure{../images/eclipse/e4.eps}{Eclipse 4.0 SDK Early Adopter Release}{fig.ecl.e4}
+\aosafigure{../images/eclipse/e4.png}{Eclipse 4.0 SDK Early Adopter Release}{fig.ecl.e4}
 
 Eclipse 4.0 was first released in July 2010 for early adopters to
 provide feedback. It consisted of a combination of SDK bundles that
@@ -1014,7 +1014,7 @@ programming models. By convention, a service programming model contains service
 producers and consumers. The broker is responsible for managing the
 relationship between producers and consumers.
 
-\aosafigure[200pt]{../images/eclipse/producerconsumer.eps}{Relationship Between Producers and Consumers}{fig.ecl.prc}
+\aosafigure[200pt]{../images/eclipse/producerconsumer.png}{Relationship Between Producers and Consumers}{fig.ecl.prc}
 
 \pagebreak
 
@@ -1046,7 +1046,7 @@ object.  The context handles model elements and services.  Every
 element of the model, will have a context. Services are published in
 4.x by means of the OSGi service mechanism.
 
-\aosafigure[200pt]{../images/eclipse/context.eps}{Service Broker Context}{fig.ecl.con}
+\aosafigure[200pt]{../images/eclipse/context.png}{Service Broker Context}{fig.ecl.con}
 
 Producers add services and objects to the context which stores them.
 Services are injected into consumer objects by the context. The
