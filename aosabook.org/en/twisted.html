@@ -441,7 +441,7 @@ def finishProcessing(value):
 
 url = "http://google.com"
 deferred = getPage(url) # getPage returns a Deferred
-deferred.addCallbacks(success, failure)
+deferred.addCallbacks(success, logError)
 deferred.addBoth(stop)
 
 reactor.run()
