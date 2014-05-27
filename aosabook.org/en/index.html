@@ -4,750 +4,623 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
-    <link rel="stylesheet" href="/bootstrap/css/bootstrap.css" type="text/css" />
-    <link rel="stylesheet" href="/bootstrap/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/bootstrap/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/bootstrap/css/bootstrap-responsive.css" type="text/css" />
     <link rel="stylesheet" href="aosa.css" type="text/css" />
     <title>The Architecture of Open Source Applications</title>
   
-<!-- Start Google Analytics Tracker -->
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-1301159-2']);
-  _gaq.push(['_trackPageview']);
-  (function() {
-    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-  })();
-</script>
+    <!-- Start Google Analytics Tracker -->
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-1301159-2']);
+      _gaq.push(['_trackPageview']);
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+    </script>
+    <!-- End Google Analytics Tracker -->
 
-<!-- End Google Analytics Tracker -->
-
-</head>
+  </head>
   <body>
-
     <div class="container">
-      <div class="row">
+
+      <div class="span10 offset1">
         <div class="hero-unit">
 	  <img src="../images/logo_trans.png" align="left" style="padding:10px;vertical-align:middle" />
-    <h1>The Architecture of Open Source Applications</h1>
-
+	  <h1>The Architecture of Open Source Applications</h1>
         </div>
+      </div>
+
+      <div class="span10 offset1" align="center">
+	<h2>The Performance of Open Source Applications</h2>
       </div>
       <div class="row">
-        <div class="span10 offset1">
-          <p>
-            Architects look at thousands of buildings during their
-            training, and study critiques of those buildings written
-            by masters.  In contrast, most software developers only
-            ever get to know a handful of large programs
-            well&mdash;usually programs they wrote
-            themselves&mdash;and never study the great programs of
-            history.  As a result, they repeat one another's mistakes
-            rather than building on one another's successes.
-          </p>
-          
-          <p>
-            Our goal is to change that.  In these two books, the authors of
-            four dozen open source applications explain how their software
-            is structured, and why.  What are each program's major
-            components?  How do they interact?  And what did their builders
-            learn during their development?  In answering these questions,
-            the contributors to these books provide unique insights into how
-            they think.
-          </p>
-          
-          <p>
-            If you are a junior developer, and want to learn how your
-            more experienced colleagues think, these books are the place
-            to start.  If you are an intermediate or senior developer,
-            and want to see how your peers have solved hard design
-            problems, these books can help you too.
-          </p>
-
-          <p>
-            Follow us on our blog at <a href="http://aosabook.org/blog/">http://aosabook.org/blog/</a>,
-            or on Twitter at <a href="http://twitter.com/aosabook">@aosabook</a>
-            and using the <a href="http://twitter.com/#!/search/%23aosa">#aosa</a> hashtag.
-          </p>
-
-          <div class='alert alert-success'>
-            <p><strong>1 November, 2013</strong>: <em>The Performance of Open Source Applications</em> is <a href="http://aosabook.org/en/buy.html">now available in ePub and PDF</a>.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-      <!-- POSA chapter order
-
-            'chrome',
-            'ethercalc',
-            'ninja',
-            'pugixml',
-            'memshrink',
-            'dance',
-            'infinispan',
-            'talos',
-            'zotonic',
-            'mobile-perf',
-            'warp',
-            'khmer',
-      -->
-      <div class="row-fluid" align="center">
-        <h2>The Performance of Open Source Applications <span class="posa-is-new">(new!)</span></h2>
-        <div id="posa-row">
+	<div class="span5 offset1">
           <img class="cover" id="posa-cover" align="center" src="../images/posa-cover.png" alt="POSA Cover"/>
-          <div id="posa-chapters-list">
-          <table class="table table-striped table-condensed" >
-            <tr>
-              <td></td>
-              <td><a href="posa/introduction.html">Introduction</a></td>
-              <td><a href="posa/introduction.html#armstrong-tavish">Tavish Armstrong</a></td>
-            </tr>
-<tr>
- <td>
-  1
- </td>
- <td>
-  <a href="posa/high-performance-networking-in-chrome.html" title="High Performance Networking in&nbsp;Chrome">
-   High Performance Networking in&nbsp;Chrome
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#grigorik-ilya"> Ilya Grigorik</a>
- </td>
-</tr>
-<tr>
- <td>
-  2
- </td>
- <td>
-  <a href="posa/from-socialcalc-to-ethercalc.html" title="From SocialCalc to&nbsp;EtherCalc">
-   From SocialCalc to&nbsp;EtherCalc
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#tang-audrey"> Audrey Tang</a>
- </td>
-</tr>
-<tr>
- <td>
-  3
- </td>
- <td>
-  <a href="posa/ninja.html" title="Ninja">
-   Ninja
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#martin-evan"> Evan Martin</a>
- </td>
-</tr>
-<tr>
- <td>
-  4
- </td>
- <td>
-  <a href="posa/parsing-xml-at-the-speed-of-light.html" title='Parsing XML at the Speed of Light'>
-   Parsing
-   <span class="caps">
-    XML
-   </span>
-   at the Speed of&nbsp;Light
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#kapoulkine-arseny"> Arseny Kapoulkine</a>
- </td>
-</tr>
-<tr>
- <td>
-  5
- </td>
- <td>
-  <a href="posa/memshrink.html" title="MemShrink">
-   MemShrink
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#huey-kyle"> Kyle Huey</a>
- </td>
-</tr>
-<tr>
- <td>
-  6
- </td>
- <td>
-  <a href="posa/applying-optimization-principle-patterns-to-component-deployment-and-configuration-tools.html" title="Applying Optimization Principle Patterns to Component Deployment and Configuration&nbsp;Tools">
-   Applying Optimization Principle Patterns to Component Deployment and Configuration&nbsp;Tools
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#schmidt-doug">  Doug C. Schmidt</a>,
-    <a href="posa/introduction.html#otte-william">  William R. Otte</a>,
-   and
-    <a href="posa/introduction.html#gokhale-aniruddha">  Aniruddha Gokhale</a>
- </td>
-</tr>
-<tr>
- <td>
-  7
- </td>
- <td>
-  <a href="posa/infinispan.html" title="Infinispan">
-   Infinispan
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#surtani-manik"> Manik Surtani</a>
- </td>
-</tr>
-<tr>
- <td>
-  8
- </td>
- <td>
-  <a href="posa/talos.html" title="Talos">
-   Talos
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#talbert-clint"> Clint Talbert</a> and    <a href="posa/introduction.html#maher-joel"> Joel Maher</a>
- </td>
-</tr>
-<tr>
- <td>
-  9
- </td>
- <td>
-  <a href="posa/zotonic.html" title="Zotonic">
-   Zotonic
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#scherpenisse-arjan"> Arjan Scherpenisse</a>
-   and
-   <a href="posa/introduction.html#worrel-marc">  Marc Worrell</a>
- </td>
-</tr>
-<tr>
- <td>
-  10
- </td>
- <td>
-  <a href="posa/secrets-of-mobile-network-performance.html" title="Secrets of Mobile Network&nbsp;Performance">
-   Secrets of Mobile Network&nbsp;Performance
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#howard-bryce"> Bryce Howard</a>
- </td>
-</tr>
-<tr>
- <td>
-  11
- </td>
- <td>
-  <a href="posa/warp.html" title="Warp">
-   Warp
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#yamamoto-kazu">  Kazu Yamamoto</a>,
-   <a href="posa/introduction.html#snoyman-michael">  Michael Snoyman</a>,
-   and
-   <a href="posa/introduction.html#voellmy-andreas">  Andreas Voellmy</a>
- </td>
-</tr>
-<tr>
- <td>
-  12
- </td>
- <td>
-  <a href="posa/working-with-big-data-in-bioinformatics.html" title="Working with Big Data in&nbsp;Bioinformatics">
-   Working with Big Data in&nbsp;Bioinformatics
-  </a>
- </td>
- <td>
-   <a href="posa/introduction.html#mcdonald-eric"> Eric McDonald</a> and 
-   <a href="posa/introduction.html#brown-titus">C. Titus Brown</a>
- </td>
-</tr>
-
-          </table>
-          <p align=center>
-          	<a class="btn btn-info" href="buy.html#posa">Buy POSA</a><br />
+	</div>
+	<div class="span5">
+	  <p>
+	    In 1974, Donald Knuth wrote, "We should forget about small
+	    efficiencies, say about 97% of the time: premature
+	    optimization is the root of all evil." With computers
+	    available now that are millions of times faster than those
+	    available then, today's programmers have even less reason
+	    to worry about shaving cycles and saving bytes than those
+	    a generation ago. But "less" isn't "none": every once in a
+	    while, squeezing the last ounce of performance out of the
+	    machine really does matter. This book is written by over a
+	    dozen developers who have grappled with slow code, memory
+	    leaks, or uncontrollable latency in open source
+	    software. They share their mistakes and successes, and
+	    give the reader an over-the-shoulder view of how they
+	    approached their specific challenges. With examples from
+	    bioinformatics research code to web browsers, the
+	    solutions are as varied as the problems. This book will
+	    help junior and senior developers alike understand how
+	    their colleagues think about performance.
+	  </p>
+	  <p>
+	    &mdash; Tavish Armstrong, November 2013
+	  </p>
+          <p align="center">
+            <a class="btn btn-info" href="buy.html#posa">Buy POSA</a><br />
           </p>
-        </div>
-        </div>
+	</div>
+      </div>
+      <div class="span10 offset1">
+        <table class="table table-striped table-condensed" >
+          <tr>
+            <td></td>
+            <td><a href="posa/introduction.html">Introduction</a></td>
+            <td><a href="posa/introduction.html#armstrong-tavish">Tavish Armstrong</a></td>
+          </tr>
+	  <tr>
+	    <td>
+	      1
+	    </td>
+	    <td>
+	      <a href="posa/high-performance-networking-in-chrome.html" title="High Performance Networking in&nbsp;Chrome">
+		High Performance Networking in&nbsp;Chrome
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#grigorik-ilya"> Ilya Grigorik</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      2
+	    </td>
+	    <td>
+	      <a href="posa/from-socialcalc-to-ethercalc.html" title="From SocialCalc to&nbsp;EtherCalc">
+		From SocialCalc to&nbsp;EtherCalc
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#tang-audrey"> Audrey Tang</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      3
+	    </td>
+	    <td>
+	      <a href="posa/ninja.html" title="Ninja">
+		Ninja
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#martin-evan"> Evan Martin</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      4
+	    </td>
+	    <td>
+	      <a href="posa/parsing-xml-at-the-speed-of-light.html" title='Parsing XML at the Speed of Light'>
+		Parsing
+		<span class="caps">
+		  XML
+		</span>
+		at the Speed of&nbsp;Light
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#kapoulkine-arseny"> Arseny Kapoulkine</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      5
+	    </td>
+	    <td>
+	      <a href="posa/memshrink.html" title="MemShrink">
+		MemShrink
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#huey-kyle"> Kyle Huey</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      6
+	    </td>
+	    <td>
+	      <a href="posa/applying-optimization-principle-patterns-to-component-deployment-and-configuration-tools.html" title="Applying Optimization Principle Patterns to Component Deployment and Configuration&nbsp;Tools">
+		Applying Optimization Principle Patterns to Component Deployment and Configuration&nbsp;Tools
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#schmidt-doug">  Doug C. Schmidt</a>,
+	      <a href="posa/introduction.html#otte-william">  William R. Otte</a>,
+	      and
+	      <a href="posa/introduction.html#gokhale-aniruddha">  Aniruddha Gokhale</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      7
+	    </td>
+	    <td>
+	      <a href="posa/infinispan.html" title="Infinispan">
+		Infinispan
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#surtani-manik"> Manik Surtani</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      8
+	    </td>
+	    <td>
+	      <a href="posa/talos.html" title="Talos">
+		Talos
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#talbert-clint"> Clint Talbert</a> and    <a href="posa/introduction.html#maher-joel"> Joel Maher</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      9
+	    </td>
+	    <td>
+	      <a href="posa/zotonic.html" title="Zotonic">
+		Zotonic
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#scherpenisse-arjan"> Arjan Scherpenisse</a>
+	      and
+	      <a href="posa/introduction.html#worrel-marc">  Marc Worrell</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      10
+	    </td>
+	    <td>
+	      <a href="posa/secrets-of-mobile-network-performance.html" title="Secrets of Mobile Network&nbsp;Performance">
+		Secrets of Mobile Network&nbsp;Performance
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#howard-bryce"> Bryce Howard</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      11
+	    </td>
+	    <td>
+	      <a href="posa/warp.html" title="Warp">
+		Warp
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#yamamoto-kazu">  Kazu Yamamoto</a>,
+	      <a href="posa/introduction.html#snoyman-michael">  Michael Snoyman</a>,
+	      and
+	      <a href="posa/introduction.html#voellmy-andreas">  Andreas Voellmy</a>
+	    </td>
+	  </tr>
+	  <tr>
+	    <td>
+	      12
+	    </td>
+	    <td>
+	      <a href="posa/working-with-big-data-in-bioinformatics.html" title="Working with Big Data in&nbsp;Bioinformatics">
+		Working with Big Data in&nbsp;Bioinformatics
+	      </a>
+	    </td>
+	    <td>
+	      <a href="posa/introduction.html#mcdonald-eric"> Eric McDonald</a> and 
+	      <a href="posa/introduction.html#brown-titus">C. Titus Brown</a>
+	    </td>
+	  </tr>
+        </table>
       </div>
 
-      <div class="row-fluid">
-        <div class="span6" align="center">
+      <div class="span10 offset1" align="center">
+	<h2>The Architecture of Open Source Applications, Vol. 2</h2>
+      </div>
+      <div class="row">
+	<div class="span5 offset1">
           <img class="cover" align="center" src="../images/cover2.jpg" alt="Volume 2 cover"/>
-          <p>
-          	<a class="btn btn-info" href="buy.html#vol2">Buy Volume II</a><br />
+	</div>
+	<div class="span5">
+	  <p>
+	    In this, the second volume of our series, the authors of
+	    twenty-four open source applications explain how their
+	    software is structured, and why. What are each program's
+	    major components? How do they interact? And what did their
+	    builders learn during their development? In answering
+	    these questions, the contributors to this book provide
+	    unique insights into how they think.
+	  </p>
+	  <p>
+	    &mdash; Amy Brown &amp; Greg Wilson, June 2012
+	  </p>
+          <p align="center">
+            <a class="btn btn-info" href="buy.html#vol2">Buy Volume II</a><br />
           </p>
-          <table class="table table-striped table-condensed">
-            <tr>
-              <td></td>
-              <td><a href="intro2.html">Introduction</a></td>
-              <td><a href="intro2.html#brown-amy">Amy Brown</a> and <a href="intro2.html#wilson-greg">Greg Wilson</a></td>
-            </tr>
-            <tr>
-              <td align="right">1.</td>
-              <td><a href="distsys.html">Scalable Web Architecture and Distributed Systems</a></td>
-              <td><a href="intro2.html#matsudaira-kate">Kate Matsudaira</a></td>
-            </tr>
-            <tr>
-              <td align="right">2.</td>
-              <td><a href="ffreleng.html">Firefox Release Engineering</a></td>
-              <td>
-                <a href="intro2.html#atlee-chris">Chris AtLee</a>,
-                <a href="intro2.html#blakk-lukas">Lukas Blakk</a>,
-                <a href="intro2.html#oduinn-john">John O'Duinn</a>, and
-                <a href="intro2.html#zambrano-gasparnian-armen">Armen Zambrano Gasparnian</a>
-              </td>
-            </tr>
-            <tr>
-              <td align="right">3.</td>
-              <td><a href="freertos.html">FreeRTOS</a></td>
-              <td><a href="intro2.html#svec-christopher">Christopher Svec</a></td>
-            </tr>
-            <tr>
-              <td align="right">4.</td>
-              <td><a href="gdb.html">GDB</a></td>
-              <td><a href="intro2.html#shebs-stan">Stan Shebs</a></td>
-            </tr>
-            <tr>
-              <td align="right">5.</td>
-              <td><a href="ghc.html">The Glasgow Haskell Compiler</a></td>
-              <td>
-                <a href="intro2.html#marlow-simon">Simon Marlow</a> and
-                <a href="intro2.html#peyton-jones-simon">Simon Peyton-Jones</a>
-              </td>
-            </tr>
-            <tr>
-              <td align="right">6.</td>
-              <td><a href="git.html">Git</a></td>
-              <td><a href="intro2.html#potter-susan">Susan Potter</a></td>
-            </tr>
-            <tr>
-              <td align="right">7.</td>
-              <td><a href="gpsd.html">GPSD</a></td>
-              <td><a href="intro2.html#raymond-eric">Eric Raymond</a></td>
-            </tr>
-            <tr>
-              <td align="right">8.</td>
-              <td><a href="ironlang.html">The Dynamic Language Runtime and the Iron Languages</a></td>
-              <td><a href="intro2.html#hardy-jeff">Jeff Hardy</a></td>
-            </tr>
-            <tr>
-              <td align="right">9.</td>
-              <td><a href="itk.html">ITK</a></td>
-              <td>
-                <a href="intro2.html#ibanez-luis">Luis Ibanez</a> and 
-                <a href="intro2.html#king-brad">Brad King</a>
-              </td>
-            </tr>
-            <tr>
-              <td align="right">10.</td>
-              <td><a href="mailman.html">GNU Mailman</a></td>
-              <td><a href="intro2.html#warsaw-barry">Barry Warsaw</a></td>
-            </tr>
-            <tr>
-              <td align="right">11.</td>
-              <td><a href="matplotlib.html">matplotlib</a></td>
-              <td>
-                <a href="intro2.html#hunter-john">John Hunter</a> and
-                <a href="index.html#droettboom-michael">Michael Droettboom</a>
-              </td>
-            </tr>
-            <tr>
-              <td align="right">12.</td>
-              <td><a href="mediawiki.html">MediaWiki</a></td>
-              <td>
-                <a href="intro2.html#harihareswara-sumana">Sumana Harihareswara</a> and
-                <a href="intro2.html#paumier-guillaume">Guillaume Paumier</a>
-              </td>
-            </tr>
-            <tr>
-              <td align="right">13.</td>
-              <td><a href="moodle.html">Moodle</a></td>
-              <td><a href="intro2.html#hunt-tim">Tim Hunt</a></td>
-            </tr>
-            <tr>
-              <td align="right">14.</td>
-              <td><a href="nginx.html">nginx</a></td>
-              <td><a href="intro2.html#alexeev-andrey">Andrey Alexeev</a></td>
-            </tr>
-            <tr>
-              <td align="right">15.</td>
-              <td><a href="openmpi.html">Open MPI</a></td>
-              <td><a href="intro2.html#squyres-jeff">Jeff Squyres</a></td>
-            </tr>
-            <tr>
-              <td align="right">16.</td>
-              <td><a href="oscar.html">OSCAR</a></td>
-              <td><a href="intro2.html#ruttan-jennifer">Jennifer Ruttan</a></td>
-            </tr>
-            <tr>
-              <td align="right">17.</td>
-              <td><a href="pjs.html">Processing.js</a></td>
-              <td><a href="intro2.html#kamermans-mike">Mike Kamermans</a></td>
-            </tr>
-            <tr>
-              <td align="right">18.</td>
-              <td><a href="puppet.html">Puppet</a></td>
-              <td>
-                <a href="intro2.html#kanies-luke">Luke Kanies</a>
-              </td>
-            </tr>
-            <tr>
-              <td align="right">19.</td>
-              <td><a href="pypy.html">PyPy</a></td>
-              <td><a href="intro2.html#peterson-Benjamin">Benjamin Peterson</a></td>
-            </tr>
-            <tr>
-              <td align="right">20.</td>
-              <td><a href="sqlalchemy.html">SQLAlchemy</a></td>
-              <td><a href="intro2.html#bayer-michael">Michael Bayer</a></td>
-            </tr>
-            <tr>
-              <td align="right">21.</td>
-              <td><a href="twisted.html">Twisted</a></td>
-              <td><a href="intro2.html#mckellar-jessica">Jessica McKellar</a></td>
-            </tr>
-            <tr>
-              <td align="right">22.</td>
-              <td><a href="yesod.html">Yesod</a></td>
-              <td><a href="intro2.html#snoyman-michael">Michael Snoyman</a></td>
-            </tr>
-            <tr>
-              <td align="right">23.</td>
-              <td><a href="yocto.html">Yocto</a></td>
-              <td><a href="intro2.html#flanagan-elizabeth">Elizabeth Flanagan</a></td>
-            </tr>
-            <tr>
-              <td align="right">24.</td>
-              <td><a href="zeromq.html">ZeroMQ</a></td>
-              <td><a href="intro2.html#sustrik-martin">Martin S&uacute;strik</a></td>
-            </tr>
-            <tr>
-              <td></td>
-              <td><a href="bib2.html">Bibliography</a></td>
-              <td></td>
-            </tr>
-          </table>
-        </div>
-        <div class="span6" align="center">
+	</div>
+      </div>
+      <div class="span10 offset1">
+        <table class="table table-striped table-condensed" >
+          <tr>
+            <td></td>
+            <td><a href="intro2.html">Introduction</a></td>
+            <td><a href="intro2.html#brown-amy">Amy Brown</a> and <a href="intro2.html#wilson-greg">Greg Wilson</a></td>
+          </tr>
+          <tr>
+            <td align="right">1.</td>
+            <td><a href="distsys.html">Scalable Web Architecture and Distributed Systems</a></td>
+            <td><a href="intro2.html#matsudaira-kate">Kate Matsudaira</a></td>
+          </tr>
+          <tr>
+            <td align="right">2.</td>
+            <td><a href="ffreleng.html">Firefox Release Engineering</a></td>
+            <td>
+              <a href="intro2.html#atlee-chris">Chris AtLee</a>,
+              <a href="intro2.html#blakk-lukas">Lukas Blakk</a>,
+              <a href="intro2.html#oduinn-john">John O'Duinn</a>, and
+              <a href="intro2.html#zambrano-gasparnian-armen">Armen Zambrano Gasparnian</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="right">3.</td>
+            <td><a href="freertos.html">FreeRTOS</a></td>
+            <td><a href="intro2.html#svec-christopher">Christopher Svec</a></td>
+          </tr>
+          <tr>
+            <td align="right">4.</td>
+            <td><a href="gdb.html">GDB</a></td>
+            <td><a href="intro2.html#shebs-stan">Stan Shebs</a></td>
+          </tr>
+          <tr>
+            <td align="right">5.</td>
+            <td><a href="ghc.html">The Glasgow Haskell Compiler</a></td>
+            <td>
+              <a href="intro2.html#marlow-simon">Simon Marlow</a> and
+              <a href="intro2.html#peyton-jones-simon">Simon Peyton-Jones</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="right">6.</td>
+            <td><a href="git.html">Git</a></td>
+            <td><a href="intro2.html#potter-susan">Susan Potter</a></td>
+          </tr>
+          <tr>
+            <td align="right">7.</td>
+            <td><a href="gpsd.html">GPSD</a></td>
+            <td><a href="intro2.html#raymond-eric">Eric Raymond</a></td>
+          </tr>
+          <tr>
+            <td align="right">8.</td>
+            <td><a href="ironlang.html">The Dynamic Language Runtime and the Iron Languages</a></td>
+            <td><a href="intro2.html#hardy-jeff">Jeff Hardy</a></td>
+          </tr>
+          <tr>
+            <td align="right">9.</td>
+            <td><a href="itk.html">ITK</a></td>
+            <td>
+              <a href="intro2.html#ibanez-luis">Luis Ibanez</a> and 
+              <a href="intro2.html#king-brad">Brad King</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="right">10.</td>
+            <td><a href="mailman.html">GNU Mailman</a></td>
+            <td><a href="intro2.html#warsaw-barry">Barry Warsaw</a></td>
+          </tr>
+          <tr>
+            <td align="right">11.</td>
+            <td><a href="matplotlib.html">matplotlib</a></td>
+            <td>
+              <a href="intro2.html#hunter-john">John Hunter</a> and
+              <a href="index.html#droettboom-michael">Michael Droettboom</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="right">12.</td>
+            <td><a href="mediawiki.html">MediaWiki</a></td>
+            <td>
+              <a href="intro2.html#harihareswara-sumana">Sumana Harihareswara</a> and
+              <a href="intro2.html#paumier-guillaume">Guillaume Paumier</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="right">13.</td>
+            <td><a href="moodle.html">Moodle</a></td>
+            <td><a href="intro2.html#hunt-tim">Tim Hunt</a></td>
+          </tr>
+          <tr>
+            <td align="right">14.</td>
+            <td><a href="nginx.html">nginx</a></td>
+            <td><a href="intro2.html#alexeev-andrey">Andrey Alexeev</a></td>
+          </tr>
+          <tr>
+            <td align="right">15.</td>
+            <td><a href="openmpi.html">Open MPI</a></td>
+            <td><a href="intro2.html#squyres-jeff">Jeff Squyres</a></td>
+          </tr>
+          <tr>
+            <td align="right">16.</td>
+            <td><a href="oscar.html">OSCAR</a></td>
+            <td><a href="intro2.html#ruttan-jennifer">Jennifer Ruttan</a></td>
+          </tr>
+          <tr>
+            <td align="right">17.</td>
+            <td><a href="pjs.html">Processing.js</a></td>
+            <td><a href="intro2.html#kamermans-mike">Mike Kamermans</a></td>
+          </tr>
+          <tr>
+            <td align="right">18.</td>
+            <td><a href="puppet.html">Puppet</a></td>
+            <td>
+              <a href="intro2.html#kanies-luke">Luke Kanies</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="right">19.</td>
+            <td><a href="pypy.html">PyPy</a></td>
+            <td><a href="intro2.html#peterson-Benjamin">Benjamin Peterson</a></td>
+          </tr>
+          <tr>
+            <td align="right">20.</td>
+            <td><a href="sqlalchemy.html">SQLAlchemy</a></td>
+            <td><a href="intro2.html#bayer-michael">Michael Bayer</a></td>
+          </tr>
+          <tr>
+            <td align="right">21.</td>
+            <td><a href="twisted.html">Twisted</a></td>
+            <td><a href="intro2.html#mckellar-jessica">Jessica McKellar</a></td>
+          </tr>
+          <tr>
+            <td align="right">22.</td>
+            <td><a href="yesod.html">Yesod</a></td>
+            <td><a href="intro2.html#snoyman-michael">Michael Snoyman</a></td>
+          </tr>
+          <tr>
+            <td align="right">23.</td>
+            <td><a href="yocto.html">Yocto</a></td>
+            <td><a href="intro2.html#flanagan-elizabeth">Elizabeth Flanagan</a></td>
+          </tr>
+          <tr>
+            <td align="right">24.</td>
+            <td><a href="zeromq.html">ZeroMQ</a></td>
+            <td><a href="intro2.html#sustrik-martin">Martin S&uacute;strik</a></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td><a href="bib2.html">Bibliography</a></td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="span10 offset1" align="center">
+	<h2>The Architecture of Open Source Applications, Vol. 1</h2>
+      </div>
+      <div class="row">
+	<div class="span5 offset1">
           <img class="cover" src="../images/cover1.jpg" alt="Volume 1 cover"/> 
-          <p>
-          	<a class="btn btn-info" href="buy.html#vol1">Buy Volume I</a><br />
+	</div>
+	<div class="span5">
+	  <p>
+	    Architects look at thousands of buildings during their
+	    training, and study critiques of those buildings written
+	    by masters. In contrast, most software developers only
+	    ever get to know a handful of large programs well and
+	    never study the great programs of history.  This book
+	    seeks to change that by bringing together 25 descriptions
+	    of real applications, written by the people who created
+	    them.
+	  </p>
+	  <p>
+	    &mdash; Amy Brown &amp; Greg Wilson, June 2011
+	  </p>
+          <p align="center">
+            <a class="btn btn-info" href="buy.html#vol1">Buy Volume I</a><br />
           </p>
-
-          <table class="table table-striped table-condensed">
-            <tr>
-              <td align="right"></td>
-              <td><a href="intro1.html">Introduction</a></td>
-              <td><a href="intro1.html#brown-amy">Amy Brown</a> and <a href="intro1.html#wilson-greg">Greg Wilson</a></td>
-            </tr>
-            <tr>
-              <td align="right">1.</td>
-              <td><a href="asterisk.html">Asterisk</a></td>
-              <td><a href="intro1.html#bryant-russell">Russell Bryant</a></td>
-            </tr>
-            <tr>
-              <td align="right">2.</td>
-              <td><a href="audacity.html">Audacity</a></td>
-              <td><a href="intro1.html#crook-james">James Crook</a></td>
-            </tr>
-            <tr>
-              <td align="right">3.</td>
-              <td><a href="bash.html">The Bourne-Again Shell</a></td>
-              <td><a href="intro1.html#ramey-chet">Chet Ramey</a></td>
-            </tr>
-            <tr>
-              <td align="right">4.</td>
-              <td><a href="bdb.html">Berkeley DB</a></td>
-              <td><a href="intro1.html#seltzer-margo">Margo Seltzer</a> and <a href="intro1.html#bostic-keith">Keith Bostic</a></td>
-            </tr>
-            <tr>
-              <td align="right">5.</td>
-              <td><a href="cmake.html">CMake</a></td>
-              <td><a href="intro1.html#hoffman-bill">Bill Hoffman</a> and <a href="intro1.html#martin-kenneth">Kenneth Martin</a></td>
-            </tr>
-            <tr>
-              <td align="right">6.</td>
-              <td><a href="eclipse.html">Eclipse</a></td>
-              <td><a href="intro1.html#moir-kim">Kim Moir</a></td>
-            </tr>
-            <tr>
-              <td align="right">7.</td>
-              <td><a href="graphite.html">Graphite</a></td>
-              <td><a href="intro1.html#davis-chris">Chris Davis</a></td>
-            </tr>
-            <tr>
-              <td align="right">8.</td>
-              <td><a href="hdfs.html">The Hadoop Distributed File System</a></td>
-              <td><a href="intro1.html#chansler-robert">Robert Chansler</a>, <a href="intro1.html#kuang-hairong">Hairong Kuang</a>, <a href="intro1.html#radia-sanjay">Sanjay Radia</a>, <a href="intro1.html#shvachko-konstantin">Konstantin Shvachko</a>, and <a href="intro1.html#srinivas-suresh">Suresh Srinivas</a></td>
-            </tr>
-            <tr>
-              <td align="right">9.</td>
-              <td><a href="integration.html">Continuous Integration</a></td>
-              <td><a href="intro1.html#brown-titus">C. Titus Brown</a> and <a href="intro1.html#canino-koning-rosangela">Rosangela Canino-Koning</a></td>
-            </tr>
-            <tr>
-              <td align="right">10.</td>
-              <td><a href="jitsi.html">Jitsi</a></td>
-              <td><a href="intro1.html#ivov-emil">Emil Ivov</a></td>
-            </tr>
-            <tr>
-              <td align="right">11.</td>
-              <td><a href="llvm.html">LLVM</a></td>
-              <td><a href="intro1.html#lattner-chris">Chris Lattner</a></td>
-            </tr>
-            <tr>
-              <td align="right">12.</td>
-              <td><a href="mercurial.html">Mercurial</a></td>
-              <td><a href="intro1.html#ochtman-dirkjan">Dirkjan Ochtman</a></td>
-            </tr>
-            <tr>
-              <td align="right">13.</td>
-              <td><a href="nosql.html">The NoSQL Ecosystem</a></td>
-              <td><a href="intro1.html#marcus-adam">Adam Marcus</a></td>
-            </tr>
-            <tr>
-              <td align="right">14.</td>
-              <td><a href="packaging.html">Python Packaging</a></td>
-              <td><a href="intro1.html#ziade-tarek">Tarek Ziad&eacute;</a></td>
-            </tr>
-            <tr>
-              <td align="right">15.</td>
-              <td><a href="riak.html">Riak and Erlang/OTP</a></td>
-              <td><a href="intro1.html#cesarini-francesco">Francesco Cesarini</a>, <a href="intro1.html#gross-andy">Andy Gross</a>, and <a href="intro1.html#sheehy-justin">Justin Sheehy</a></td>
-            </tr>
-            <tr>
-              <td align="right">16.</td>
-              <td><a href="selenium.html">Selenium WebDriver</a></td>
-              <td><a href="intro1.html#stewart-simon">Simon Stewart</a></td>
-            </tr>
-            <tr>
-              <td align="right">17.</td>
-              <td><a href="sendmail.html">Sendmail</a></td>
-              <td><a href="intro1.html#allman-eric">Eric Allman</a></td>
-            </tr>
-            <tr>
-              <td align="right">18.</td>
-              <td><a href="snowflock.html">SnowFlock</a></td>
-              <td><a href="intro1.html#bryant-roy">Roy Bryant</a> and <a href="intro1.html#lagar-cavilla-andres">Andr&eacute;s Lagar-Cavilla</a></td>
-            </tr>
-            <tr>
-              <td align="right">19.</td>
-              <td><a href="socialcalc.html">SocialCalc</a></td>
-              <td><a href="intro1.html#tang-audrey">Audrey Tang</a></td>
-            </tr>
-            <tr>
-              <td align="right">20.</td>
-              <td><a href="telepathy.html">Telepathy</a></td>
-              <td><a href="intro1.html#madeley-danielle">Danielle Madeley</a></td>
-            </tr>
-            <tr>
-              <td align="right">21.</td>
-              <td><a href="thousandparsec.html">Thousand Parsec</a></td>
-              <td><a href="intro1.html#laudicina-alan">Alan Laudicina</a> and <a href="intro1.html#mavrinac-aaron">Aaron Mavrinac</a></td>
-            </tr>
-            <tr>
-              <td align="right">22.</td>
-              <td><a href="violet.html">Violet</a></td>
-              <td><a href="intro1.html#horstmann-cay">Cay Horstmann</a></td>
-            </tr>
-            <tr>
-              <td align="right">23.</td>
-              <td><a href="vistrails.html">VisTrails</a></td>
-              <td><a href="intro1.html#freire-juliana">Juliana Freire</a>, <a href="intro1.html#koop-david">David Koop</a>, <a href="intro1.html#santos-emanuele">Emanuele Santos</a>, <a href="intro1.html#scheidegger-carlos">Carlos Scheidegger</a>, <a href="intro1.html#silva-claudio">Claudio Silva</a>, and <a href="intro1.html#vo-huy">Huy T. Vo</a></td>
-            </tr>
-            <tr>
-              <td align="right">24.</td>
-              <td><a href="vtk.html">VTK</a></td>
-              <td><a href="intro1.html#geveci-berk">Berk Geveci</a> and <a href="intro1.html#schroeder-will">Will Schroeder</a></td>
-            </tr>
-            <tr>
-              <td align="right">25.</td>
-              <td><a href="wesnoth.html">Battle For Wesnoth</a></td>
-              <td><a href="intro1.html#shimooka-richard">Richard Shimooka</a> and <a href="intro1.html#white-david">David White</a></td>
-            </tr>
-            <tr>
-              <td></td>
-              <td><a href="bib1.html">Bibliography</a></td>
-              <td></td>
-            </tr>
-          </table>
-        </div>
+	</div>
+      </div>
+      <div class="span10 offset1">
+        <table class="table table-striped table-condensed">
+          <tr>
+            <td align="right"></td>
+            <td><a href="intro1.html">Introduction</a></td>
+            <td><a href="intro1.html#brown-amy">Amy Brown</a> and <a href="intro1.html#wilson-greg">Greg Wilson</a></td>
+          </tr>
+          <tr>
+            <td align="right">1.</td>
+            <td><a href="asterisk.html">Asterisk</a></td>
+            <td><a href="intro1.html#bryant-russell">Russell Bryant</a></td>
+          </tr>
+          <tr>
+            <td align="right">2.</td>
+            <td><a href="audacity.html">Audacity</a></td>
+            <td><a href="intro1.html#crook-james">James Crook</a></td>
+          </tr>
+          <tr>
+            <td align="right">3.</td>
+            <td><a href="bash.html">The Bourne-Again Shell</a></td>
+            <td><a href="intro1.html#ramey-chet">Chet Ramey</a></td>
+          </tr>
+          <tr>
+            <td align="right">4.</td>
+            <td><a href="bdb.html">Berkeley DB</a></td>
+            <td><a href="intro1.html#seltzer-margo">Margo Seltzer</a> and <a href="intro1.html#bostic-keith">Keith Bostic</a></td>
+          </tr>
+          <tr>
+            <td align="right">5.</td>
+            <td><a href="cmake.html">CMake</a></td>
+            <td><a href="intro1.html#hoffman-bill">Bill Hoffman</a> and <a href="intro1.html#martin-kenneth">Kenneth Martin</a></td>
+          </tr>
+          <tr>
+            <td align="right">6.</td>
+            <td><a href="eclipse.html">Eclipse</a></td>
+            <td><a href="intro1.html#moir-kim">Kim Moir</a></td>
+          </tr>
+          <tr>
+            <td align="right">7.</td>
+            <td><a href="graphite.html">Graphite</a></td>
+            <td><a href="intro1.html#davis-chris">Chris Davis</a></td>
+          </tr>
+          <tr>
+            <td align="right">8.</td>
+            <td><a href="hdfs.html">The Hadoop Distributed File System</a></td>
+            <td><a href="intro1.html#chansler-robert">Robert Chansler</a>, <a href="intro1.html#kuang-hairong">Hairong Kuang</a>, <a href="intro1.html#radia-sanjay">Sanjay Radia</a>, <a href="intro1.html#shvachko-konstantin">Konstantin Shvachko</a>, and <a href="intro1.html#srinivas-suresh">Suresh Srinivas</a></td>
+          </tr>
+          <tr>
+            <td align="right">9.</td>
+            <td><a href="integration.html">Continuous Integration</a></td>
+            <td><a href="intro1.html#brown-titus">C. Titus Brown</a> and <a href="intro1.html#canino-koning-rosangela">Rosangela Canino-Koning</a></td>
+          </tr>
+          <tr>
+            <td align="right">10.</td>
+            <td><a href="jitsi.html">Jitsi</a></td>
+            <td><a href="intro1.html#ivov-emil">Emil Ivov</a></td>
+          </tr>
+          <tr>
+            <td align="right">11.</td>
+            <td><a href="llvm.html">LLVM</a></td>
+            <td><a href="intro1.html#lattner-chris">Chris Lattner</a></td>
+          </tr>
+          <tr>
+            <td align="right">12.</td>
+            <td><a href="mercurial.html">Mercurial</a></td>
+            <td><a href="intro1.html#ochtman-dirkjan">Dirkjan Ochtman</a></td>
+          </tr>
+          <tr>
+            <td align="right">13.</td>
+            <td><a href="nosql.html">The NoSQL Ecosystem</a></td>
+            <td><a href="intro1.html#marcus-adam">Adam Marcus</a></td>
+          </tr>
+          <tr>
+            <td align="right">14.</td>
+            <td><a href="packaging.html">Python Packaging</a></td>
+            <td><a href="intro1.html#ziade-tarek">Tarek Ziad&eacute;</a></td>
+          </tr>
+          <tr>
+            <td align="right">15.</td>
+            <td><a href="riak.html">Riak and Erlang/OTP</a></td>
+            <td><a href="intro1.html#cesarini-francesco">Francesco Cesarini</a>, <a href="intro1.html#gross-andy">Andy Gross</a>, and <a href="intro1.html#sheehy-justin">Justin Sheehy</a></td>
+          </tr>
+          <tr>
+            <td align="right">16.</td>
+            <td><a href="selenium.html">Selenium WebDriver</a></td>
+            <td><a href="intro1.html#stewart-simon">Simon Stewart</a></td>
+          </tr>
+          <tr>
+            <td align="right">17.</td>
+            <td><a href="sendmail.html">Sendmail</a></td>
+            <td><a href="intro1.html#allman-eric">Eric Allman</a></td>
+          </tr>
+          <tr>
+            <td align="right">18.</td>
+            <td><a href="snowflock.html">SnowFlock</a></td>
+            <td><a href="intro1.html#bryant-roy">Roy Bryant</a> and <a href="intro1.html#lagar-cavilla-andres">Andr&eacute;s Lagar-Cavilla</a></td>
+          </tr>
+          <tr>
+            <td align="right">19.</td>
+            <td><a href="socialcalc.html">SocialCalc</a></td>
+            <td><a href="intro1.html#tang-audrey">Audrey Tang</a></td>
+          </tr>
+          <tr>
+            <td align="right">20.</td>
+            <td><a href="telepathy.html">Telepathy</a></td>
+            <td><a href="intro1.html#madeley-danielle">Danielle Madeley</a></td>
+          </tr>
+          <tr>
+            <td align="right">21.</td>
+            <td><a href="thousandparsec.html">Thousand Parsec</a></td>
+            <td><a href="intro1.html#laudicina-alan">Alan Laudicina</a> and <a href="intro1.html#mavrinac-aaron">Aaron Mavrinac</a></td>
+          </tr>
+          <tr>
+            <td align="right">22.</td>
+            <td><a href="violet.html">Violet</a></td>
+            <td><a href="intro1.html#horstmann-cay">Cay Horstmann</a></td>
+          </tr>
+          <tr>
+            <td align="right">23.</td>
+            <td><a href="vistrails.html">VisTrails</a></td>
+            <td><a href="intro1.html#freire-juliana">Juliana Freire</a>, <a href="intro1.html#koop-david">David Koop</a>, <a href="intro1.html#santos-emanuele">Emanuele Santos</a>, <a href="intro1.html#scheidegger-carlos">Carlos Scheidegger</a>, <a href="intro1.html#silva-claudio">Claudio Silva</a>, and <a href="intro1.html#vo-huy">Huy T. Vo</a></td>
+          </tr>
+          <tr>
+            <td align="right">24.</td>
+            <td><a href="vtk.html">VTK</a></td>
+            <td><a href="intro1.html#geveci-berk">Berk Geveci</a> and <a href="intro1.html#schroeder-will">Will Schroeder</a></td>
+          </tr>
+          <tr>
+            <td align="right">25.</td>
+            <td><a href="wesnoth.html">Battle For Wesnoth</a></td>
+            <td><a href="intro1.html#shimooka-richard">Richard Shimooka</a> and <a href="intro1.html#white-david">David White</a></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td><a href="bib1.html">Bibliography</a></td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
+    
+      <div class="span10 offset1" id="license">
+        <h2>License and Royalties</h2>
+        <p>
+          This work is made available under
+          the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
+          Commons Attribution 3.0 Unported</a> license.  Please see
+          the <a href="intro1.html#license">full description of the
+          license</a> for details.
+          All <a href="#purchase">royalties</a> from sales of these
+          books will be donated to
+          <a href="http://amnesty.org">Amnesty International</a>.
+        </p>
       </div>
 
-      <div class="row">
-        <div class="span10 offset1" id="license">
-
-          <h2>License and Royalties</h2>
-
-          <p>
-            This work is made available under
-            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
-            Commons Attribution 3.0 Unported</a> license.  Please see
-            the <a href="intro1.html#license">full description of the
-            license</a> for details.
-            All <a href="#purchase">royalties</a> from sales of these books will be donated to
-            <a href="http://amnesty.org">Amnesty International</a>.
-          </p>
-
-        </div>
+      <div class="span10 offset1" id="contribute">
+        <h2>Contributing</h2>
+        <p>
+          Dozens of volunteers worked hard to create this book,
+          but there is still lots to do.
+          You can help by reporting errors,
+          by helping to translate the content into other languages and formats,
+          or by describing the architecture of other open source projects.
+          Please contact us the coordinators for various translations listed below,
+          or mail us directly at <a href="mailto:aosa@aosabook.org">aosa@aosabook.org</a>
+          if you would like to start a new translation or write a chapter yourself.
+        </p>
       </div>
 
-<!-- Commenting out purchasing and royalties info because we now have the buy.html page
-
-      <div class="row">
-        <div class="span12" id="purchase">
-
-          <h2>Purchasing</h2>
-
-          <p>
-            <a href="http://www.lulu.com/shop/amy-brown-and-greg-wilson/the-architecture-of-open-source-applications/paperback/product-18961377.html">Paperback</a>,
-            <a href="http://www.lulu.com/content/e-book/the-architecture-of-open-source-applications-elegance-evolution-and-a-few-fearless-hacks/11091615">epub</a>,
-            and <a href="http://www.lulu.com/shop/amy-brown-and-greg-wilson/the-architecture-of-open-source-applications/ebook/product-20013493.html">PDF</a>
-            copies of <em>The Architecture of Open Source Applications, Volume I</em> may be purchased from Lulu.com and other
-            online booksellers.  All royalties from these sales will be
-            donated to
-            <a href="http://amnesty.org">Amnesty International</a>.
-            If you do buy the book <a href="http://www.lulu.com/product/paperback/the-architecture-of-open-source-applications/15663458">in print</a> or <a href="http://www.lulu.com/content/e-book/the-architecture-of-open-source-applications-elegance-evolution-and-a-few-fearless-hacks/11091615">epub</a>, please do so directly from Lulu rather than through Amazon or another retailer:
-          </p>
-
-          <div class="row">
-            <div class="span6">
-              <table class="table table-striped table-condensed">
-                <thead>
-                  <tr>
-                    <td></td>
-                    <td colspan="2"><strong>Paperback</strong></td>
-                    <td colspan="2"><strong>epub</strong></td>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td></td>
-                    <td align="right">Buy on Lulu</td>
-                    <td align="right">Buy on Amazon</td>
-                    <td align="right">Buy on Lulu</td>
-                    <td align="right">Buy from other retailer</td>
-                  </tr>
-                  <tr>
-                    <td>You pay:</td>
-                    <td align="right">$35.00</td>
-                    <td align="right">$35.00</td>
-                    <td align="right">$10.00</td>
-                    <td align="right">$10.00</td>
-                  </tr>
-                  <tr>
-                    <td>Lulu gets:</td>
-                    <td align="right">$3.74</td>
-                    <td align="right">$0.94</td>
-                    <td align="right">$2.79</td>
-                    <td align="right">n/a</td>
-                  </tr>
-                  <tr>
-                    <td>Amazon gets:</td>
-                    <td align="right"></td>
-                    <td align="right">$17.50</td>
-                    <td align="right"></td>
-                  </tr>
-                  <tr>
-                    <td>Amnesty gets:</td>
-                    <td align="right">$14.98</td>
-                    <td align="right">$3.78</td>
-                    <td align="right">$7.21</td>
-                    <td align="right">$5.60</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
- 
-            <div class="span8 offset2">
-              <table class="table table-striped table-condensed">
-                <thead>
-                  <tr>
-                    <td></td>
-                    <td colspan="2"><strong>Paperback</strong></td>
-                    <td colspan="2"><strong>epub</strong></td>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td></td>
-                    <td align="right">Buy on Lulu</td>
-                    <td align="right">Buy on Amazon</td>
-                    <td align="right">Buy on Lulu</td>
-                    <td align="right">Buy from other retailer</td>
-                  </tr>
-                  <tr>
-                    <td>You pay:</td>
-                    <td align="right">$35.00</td>
-                    <td align="right">$35.00</td>
-                    <td align="right">$10.00</td>
-                    <td align="right">$10.00</td>
-                  </tr>
-                  <tr>
-                    <td>Lulu gets:</td>
-                    <td align="right">$3.74</td>
-                    <td align="right">$0.94</td>
-                    <td align="right">$2.79</td>
-                    <td align="right">n/a</td>
-                  </tr>
-                  <tr>
-                    <td>Amazon gets:</td>
-                    <td align="right"></td>
-                    <td align="right">$17.50</td>
-                    <td align="right"></td>
-                  </tr>
-                  <tr>
-                    <td>Amnesty gets:</td>
-                    <td align="right">$15.80</td>
-                    <td align="right">$4.60</td>
-                    <td align="right">$7.21</td>
-                    <td align="right">$5.60</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <p>
-            The book is also <a href="http://www.amazon.com/Architecture-Open-Source-Applications-ebook/dp/B00557TMN4/">available for Kindle</a> on Amazon for US$9.99. (Amnesty International will get $6.66 of each sale).
-
- 
-          </p>
-        </div>
-      </div>
- -->
-
-      <div class="row">
-        <div class="span10 offset1" id="contribute">
-
-          <h2>
-            Contributing
-          </h2>
-
-          <p>
-            Dozens of volunteers worked hard to create this book,
-            but there is still lots to do.
-            You can help by reporting errors,
-            by helping to translate the content into other languages and formats,
-            or by describing the architecture of other open source projects.
-            Please contact us the coordinators for various translations listed below,
-            or mail us directly at <a href="mailto:aosa@aosabook.org">aosa@aosabook.org</a>
-            if you would like to start a new translation or write a chapter yourself.
-          </p>
-
-        </div>
-      </div>
-    </div></div>
+    </div>
   </body>
 </html>
