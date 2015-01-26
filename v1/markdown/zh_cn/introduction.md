@@ -56,7 +56,7 @@ Chris Lattner (LLVM)：Chris是一位软件开发者，他有各种各样的兴�
 
 Alan Laudicina (Thousand Parsec)：Alan是韦恩州立大学计算机科学的在读研究生，他所学的专业是分布式计算。在业务时间他喜欢写代码，学习编程语言和玩扑克。关于他的更多信息可以参见：[http://alanp.ca/](http://alanp.ca/)。
 
-Danielle Madeley (Telepathy): Danielle是一位澳大利亚的软件工程师，她在Collabora有限公司从事感应和其他一些神奇的工作。她取得了电子工程和计算机科学的双学位。她同时也收藏了大量的毛绒企鹅。她的博客地址是：[http://blogs.gnome.org/danni/](http://blogs.gnome.org/danni/)。
+Danielle Madeley (Telepathy): Danielle是澳大利亚的软件工程师，她在Collabora有限公司从事感应和其他一些神奇的工作。她取得了电子工程和计算机科学的双学位。她同时也收藏了大量的毛绒企鹅。她的博客地址是：[http://blogs.gnome.org/danni/](http://blogs.gnome.org/danni/)。
 	
 Adam Marcus (NoSQL)：Adam是麻省理工学院计算机科学和人工智能实验室的博士生，主要研究方向是数据库系统和社交计算的交叉领域。他最新的工作是把传统的数据库系统绑定到社交媒体流入如Twitter和人类计算平台例如Mechanical Turk。他喜欢在他的研究原型之上构建有用的开源系统，更喜欢深入了解开源存储系统。他的博客地址是：[http://blog.marcua.net](http://blog.marcua.net)。
 
