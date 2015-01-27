@@ -1,4 +1,4 @@
-|	[Introduction](https://github.com/hongbinzuo/aosabook/blob/master/v1/markdown/zh_cn/introduction.md)      |	Amy Brown and Greg Wilson
+|	[Introduction](https://github.com/hongbinzuo/aosabook/blob/zh_cn_trans/v1/markdown/zh_cn/introduction.md)      |	Amy Brown and Greg Wilson
 | :-------------------------------------|:-------------------------------------------------------
 |1.	Asterisk							|Russell Bryant
 |2.	Audacity							|	James Crook
