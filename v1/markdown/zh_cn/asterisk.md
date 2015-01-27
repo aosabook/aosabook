@@ -1,0 +1,11 @@
+#Asterisk
+
+Russell Bryant
+
+Asterisk<sup>1</sup>是一个开源的电话通讯应用软件平台，授权协议是GPLv2。简而言之，Asterisk就是一个打电话、接电话和对电话进行定制化处理的服务器端应用程序。
+
+这个项目是由Mark Spencer在1999年启动的。Mark有一个公司叫Linux支持服务公司，他需要一个电话系统帮助他运营业务。他没有钱去买一个系统，所以他就自己做了一个。当Asterisk逐渐流行起来，Linux支持服务公司就把业务方向转向了Asterisk，并且把公司的名字改成Digium公司。
+
+Asterisk这个名字来自Unix通配符，*。Asterisk项目的目标是能完成所有的电话通信事务。通过追求这个目标，Asterisk现在可以支持一长串接打电话的技术。这里面包括很多VoIP（Voice Over IP 网络电话技术）协议，也包括到传统电话网络的模拟和数字连接，或者到PSTN（Public Switched Telephone Network 公用电话交换网）的连接。Asterisk的主要强项就是系统能够接打和拨出多种类型的电话。
+
+一旦从Asterisk系统接到了或拨出了电话，那么就用很多方式来处理电话。有些功能是更加通用一些，例如语音信箱。也有一些其他小的功能可以组合在一起建立一个定制化的语音应用，例如回放声音文件，读出数字或语音识别。
