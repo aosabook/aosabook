@@ -95,6 +95,34 @@ Asterisk有将近两百个包含的应用程序。应用程序的定义非常松
 
 在我们进入一个例子之前，让我们来看一看Asterisk的dialplan处理呼叫数字1234的语法。注意选择1234是随机的。它会调用三个dialplan应用程序。首先，它应答这个呼叫。接着它播放一段声音文件。最后，它挂断通话。
 
+```
+; Define the rules for what happens when someone dials 1234.
+;
+exten => 1234,1,Answer()
+    same => n,Playback(demo-congrats)
+    same => n,Hangup()
+```
+
+关键字exten用来定义扩展。在exten那一行的右侧，1234意思是我们正在定义某人呼叫1234时的规则。下面的1意思是，这是这个号码拨了之后的第一步。最后的Answer告诉系统应答这个呼叫。接下来的两行都以same关键字开头，定义了上一个扩展的规则，这个例子里是1234的规则。n的意思是这是下一步要做的事。这两行里最后一项说明要采取什么行动。
+
+下面是使用dialplan的另一个例子。在这个例子里，一个呼入电话被应答。呼叫者听到了一声“嘀“，然后4个数字从呼叫者读入并存储到DIGITS变量。然后，这些数字被读回给呼叫者。最后，呼叫结束。
+
+```
+exten => 5678,1,Answer()
+    same => n,Read(DIGITS,beep,4)
+    same => n,SayDigits(${DIGITS})
+    same => n,Hangup()
+```
+
+前面也提到过，应用程序的定义非常松散——注册的函数原型非常简单：
+
+```
+int (*execute)(struct ast_channel *chan, const  char *args);
+```
+
+其实，应用程序的实现几乎使用了include/asterisk/下面的所有的API。
+
+
 ###脚注
 1. [http://www.asterisk.org/](http://www.asterisk.org/)
 2. DTMF代表双音多频。当有人在电话上按键的时候，在电话通话音频中发出的音调就是双音多频的实例。
