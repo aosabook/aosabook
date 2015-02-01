@@ -183,11 +183,78 @@ Asterisk是一个非常重的多线程应用。它使用了POSIX线程API来管�
 
 Dialplan应用一直在一个通道线程的上下文中执行。Dialplan函数也几乎一直这么做。从一个异步接口例如Asterisk命令行接口中读写dialplan函数是可以的。然而，一般都是通道线程作为ast_channel数据结构和的拥有者并且控制着对象的生命周期。
 
+##1.4. 呼叫场景
+
+上面两小节介绍了Asterisk组件的重要接口，以及线程执行模型。本小节中，我们把一些通用呼叫场景分解来详细说明Asterisk组件怎样在一起处理电话呼叫。
+
+###1.4.1 检查语音信箱
+
+一种呼叫场景是当有人拨进电话系统来检查语音信箱的时候。这种场景中最先涉及的主要组件是通道驱动。通道驱动会负责处理电话的呼入请求，这些会发生在通道驱动的监视线程中。根据电话呼叫所使用的通讯技术的不同，会有不同类型的协商动作来建立呼叫。建立呼叫的另一个步骤是确定呼叫的目的端。通常这是由呼叫者拨的号码指定的。然而，有些情况下，因为打电话使用的技术不支持说明所拨号码，那么就没有可用的号码。模拟电话线上的呼叫就是这样的一个例子。
+
+如果通道驱动验证Asterisk配置在dialplan（呼叫路由配置）中为所拨号码定义了扩展，那么它就会分配一个Asterisk通道对象（ast_channel）并且创建一个通道线程。通道线程有首要责任来处理呼叫的剩余部分（参见图1.5）。
+
+<div align="center"><img src="img/callSetupSequence.png"></div>
+<div align="center">图1.5 呼叫建立的序列图</div>
+
+通道线程的主循环处理dialplan执行。它找到在拨号扩展中定义的规则，然后执行已经定义的步骤。下面是定义在extension.conf中一个扩展的例子，使用了dialplan语法。如果有人拨打了*123这个号码，这个扩展会接听电话，然后执行VoicemailMain应用程序。这个应用程序的作用是用户可以打电话检查语音信箱中的消息。
+
+```
+exten => *123,1,Answer()
+    same => n,VoicemailMain()
+```
+
+当通道线程执行Answer应用程序时，Asterisk会应答来电。应答电话需要用专门的技术处理，所以除了一些通用的应答处理，ast_channel_tech结构中相关的应答回调也会被调用来做应答处理。这可能在IP网络上发送一个特别的数据包，把一个模拟线挂断等等。
+
+通道线程的下一步就是执行VoicemailMain（参见图1.6）。这个应用程序是由app_voicemail模块提供的。值得注意的是，虽然Voicemail代码处理很多的电话交互，但是它对于拨入Asterisk系统的电话所使用的技术一无所知。Asterisk通道抽象层隐藏了Voicemail实现中的这些细节。
+
+提供呼叫者访问自己的语音信箱的过程中由很多特性参与。然而，所有特性主要还是把读取和写入声音文件作为对于呼叫者的输入，主要是以数字按压的形式。DTMF数字可以通过多种方式递交到Asterisk系统。同样，这些细节也被通道驱动处理。一旦一个键的按压送到了Asterisk，它就会被转码成一个通用的键按压事件，并且传送到语音信箱的代码。
+
+已经提到过的Asterisk中重要的接口之一就是编解码转换器。这些编解码的实现对于这个呼叫场景来说是非常重要的。当语音信箱代码想要给呼叫者回放一个声音文件时，声音文件中音频的格式可能和Asterisk系统与呼叫者之间使用的音频格式不一样。如果它必须要把音频转码，它会建立一个由一个或多个编解码转换器所构成的转换路径，以便可以把格式从源端转换到目的端。
+
+<div align="center"><img src="img/voicemail.png"></div>
+<div align="center">图1.6 呼叫VoicemailMain</div>
+
+在某一时刻，呼叫者完成了和语音信箱的交互之后挂断电话。通道驱动器会检测到这个动作，然后把它转换成一般的信令事件。语音信箱代码会收到这个信令事件然后推出，因为呼叫者挂断电话之后就没什么事情可做了。控制会回到通道线程的主循环继续执行dialplan。因为在这个例子中，没有进一步的dialplan处理需要完成，通道驱动器就有机会处理技术相关的挂断处理，然后ast_channel对象就会被销毁。
+
+###1.4.2. 桥接呼叫
+
+Asterisk中另一种十分常用的呼叫场景是两个通道之间的桥接呼叫。这是当一个电话通过系统呼叫另一个电话的场景。初始的呼叫建立的流程和之前的例子是一样的。区别仅在于当呼叫建立之后处理（重译）通道线程开始执行dialplan。
+
+下面的dialplan是建立一个桥接呼叫的简单的例子。使用这样的扩展，当一个电话拨了1234之后，dialplan会执行Dial应用程序，也就是用来启动外部呼叫的主程序。
+
+```
+exten => 1234,1,Dial(SIP/bob)
+```
+
+Dial应用程序里指定的参数指明系统应该给叫做SIP/bob的设备打出电话。参数SIP部分指明打这个电话使用的是SIP协议。bob则被解释为实现了SIP协议的通道驱动器，chan_sip。假设通道驱动器已经给一个叫做bob的账户配置好了，它就知道怎样打到Bob的电话。
+
+Dial应用程序会要求Asterisk核心程序使用SIP/bob的标识分配一个新的Asterisk通道。核心程序会要求SIP通道驱动器执行具体技术的初始化。通道驱动器也会启动呼出电话的进程。在请求处理的过程中，它会把事件传回到Asterisk核心程序，也会被Dial应用程序接受。这些事件会包含一个响应：这个呼叫被应答了，目的端忙，网络拥塞，呼叫因为某些原因被拒绝了，或者一系列其他可能的原因。在理想的情况下，呼叫会被应答。呼叫被应答的事实也会被传递回呼入通道。Asterisk不会应答进入系统的呼叫，知道外部呼叫被应答了（重译）。一旦两个通道都被应答了，那么通道的桥接就开始了（参见图1.7）。
+
+<div align="center"><img src="img/bridgedCall.png"></div>
+<div align="center">图1.7 桥接呼叫</div>
+
+During a channel bridge, audio and signalling events from one channel are passed to the other until some event occurs that causes the bridge to end, such as one side of the call hanging up. The sequence diagram in Figure 1.8 demonstrates the key operations that are performed for an audio frame during a bridged call.
+
+在一个通道桥接，音频和信令事件会从一个通道传递到另一个知道发生某些事件导致桥接结束，例如通话的一端挂了电话。图1.8的序列图说明了在一个桥接呼叫过程中一个音频帧所执行的关键操作。
+
+<div align="center"><img src="img/bridgeFrameProcessSequence.png"></div>
+<div align="center">图1.8 桥接中音频帧处理序列图</div>
+
+一旦呼叫完成，挂断流程和之前的例子非常相似。主要的区别是由两个通道参与。在通道线程结束运行之前，两个通道会执行挂断处理的专门通道技术。
+
+##1.5. 最后评论
+
+Asterisk的架构现在已经超过十年了。然而，通道的基本概念和使用Asterisk的dialplan进行灵活的呼叫处理还在支撑着持续进化行业中复杂的通讯系统的开发。Asterisk架构没有处理好的一个方面是在多个服务器之间的可伸缩性。Asterisk开发社区现在在开发一个伴随项目，叫做Asterisk SCF（可伸缩的通信框架），目的是解决这些伸缩问题。在接下来的几年里，我们期待看到Asterisk，和Asterisk一起，继续占有电话通讯市场的重要份额，包含更多的安装量。
 
 ###脚注
 1. [http://www.asterisk.org/](http://www.asterisk.org/)
 2. DTMF代表双音多频。当有人在电话上按键的时候，在电话通话音频中发出的音调就是双音多频的实例。
 
+
+###译者注
+
+**History**
+ - 2015年2月1日 第一稿，需要重新阅读、校译和润色
 
 
 
