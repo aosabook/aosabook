@@ -120,7 +120,7 @@ exten => 5678,1,Answer()
 int (*execute)(struct ast_channel *chan, const  char *args);
 ```
 
-其实，应用程序的实现使用了`include/asterisk/`下面的几乎所有的API。
+其实，应用程序的实现使用了`include/asterisk/`下面几乎所有的API。
 
 ###1.2.3. 拨号方案的函数
 
