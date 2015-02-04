@@ -253,7 +253,7 @@ Asterisk的架构现在已经超过十年了。然而，通道的基本概念和
 
 ###译者注
 
-**关于Asterisk更多的信息
+**关于Asterisk更多的信息**
  - 一份开源的豆丁文档，源头无从查起，只知道译者是电信从业者，地址：[http://www.docin.com/p-524021486.html](http://www.docin.com/p-524021486.html)
  - 
 
