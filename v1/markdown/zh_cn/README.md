@@ -12,7 +12,7 @@ markdown格式的授权协议见底部。
 
 ## 协作方式
 
-AOSA这套书有电子书也有实体书，在电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本，同时，也提供了在Github上的版本。我们将主要采用Github的协作方式，具体如下：
+AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本，同时，也提供了在Github上的免费版本。我们将主要采用Github的协作方式，具体如下：
  1. 开通Github帐号，配置本地git工具，能够正确地同步更新、提交
  2. fork [hongbin的简体中文分支(Volume 1)](https://github.com/hongbinzuo/aosabook/tree/zh_cn_trans/v1)（方式A：推荐）或[aosabook主分支](https://github.com/aosabook/aosabook)（方式B：更自由）
  3. commiter编辑本地的某章翻译文本，质量尚可之后，提请Pull Request
@@ -73,4 +73,4 @@ AOSA这套书有电子书也有实体书，在电子书版本中有免费的HTML
 
 ## 授权协议
 
- <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a><br />本作品采用<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">知识共享署名-非商业性使用-相同方式共享 4.0 国际许可协议</a>进行许可。
+This work is made available under the [Creative Commons Attribution 3.0 Unported license](http://creativecommons.org/licenses/by/3.0/legalcode).
