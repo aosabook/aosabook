@@ -2,7 +2,13 @@
 
 ## 目标
 
-**aosabook开源翻译**项目的目标是翻译aosabook的三本书。这三本书的名字分别是The Architecture of Open Source Applications(AOSA) Volume I、Volume II和The Performance of Open Source Applications(POSA)，免费电子书网站地址是：[http://aosabook.org/en/index.html](http://aosabook.org/en/index.html)。这三本书汇聚了当今优秀开源软件的架构解读，其中包括了大名鼎鼎的Berkeley DB，Eclipse，Hadoop，nginx，ZeroMQ，Git，Chrome等等，以及少为人知但绝对重量级的各细分领域的开源软件。
+**aosabook开源翻译**项目的目标就是翻译aosabook的三本书。
+
+这三本书的名字分别是The Architecture of Open Source Applications(AOSA) Volume I、Volume II和The Performance of Open Source Applications(POSA)，免费电子书网站地址是：[http://aosabook.org/en/index.html](http://aosabook.org/en/index.html)。这三本书汇集了当今优秀开源软件的架构，对于想了解和参与开源软件的朋友很有帮助，其中包括了大名鼎鼎的Berkeley DB，Eclipse，Hadoop，nginx，ZeroMQ，Git，Chrome等等，以及少为人知但绝对重量级的各细分领域的开源软件。
+
+我们的目标就是使用开源的方式把它们翻译成简体中文版，免费的格式初步定位为markdown。之后，如有需要，也可以加工成PDF或ePub，授权策略待定。
+
+本项目授权协议为
 
 ## 协作方式
 
@@ -31,3 +37,7 @@ AOSA这套书有电子书也有实体书，在电子书版本中有免费的HTML
 任何建议或问题，请微博交流或发邮件至：
  - weibo: 左洪斌
  - Email: hongbinzuo@163.com
+
+## 授权协议
+
+ <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a><br />本作品采用<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">知识共享署名-非商业性使用-相同方式共享 4.0 国际许可协议</a>进行许可。
