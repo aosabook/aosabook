@@ -2,7 +2,7 @@
 
 ## 目标
 
-**aosabook开源翻译**项目的目标是翻译aosabook的三本书。这三本书的名字分别是The Architecture of Open Source Applications(AOSA) Volume I、Volume II和The Performance of Open Source Applications(POSA)，免费电子书网站地址是：[http://aosabook.org/en/index.html](http://aosabook.org/en/index.html)。这三本书汇聚了当今开源软件的精华，其中包括了大名鼎鼎的Berkeley DB，Eclipse，Hadoop，nginx，ZeroMQ，Git，Chrome等等，以及少为人知但绝对重量级的各细分领域的开源软件。
+**aosabook开源翻译**项目的目标是翻译aosabook的三本书。这三本书的名字分别是The Architecture of Open Source Applications(AOSA) Volume I、Volume II和The Performance of Open Source Applications(POSA)，免费电子书网站地址是：[http://aosabook.org/en/index.html](http://aosabook.org/en/index.html)。这三本书汇聚了当今优秀开源软件的架构解读，其中包括了大名鼎鼎的Berkeley DB，Eclipse，Hadoop，nginx，ZeroMQ，Git，Chrome等等，以及少为人知但绝对重量级的各细分领域的开源软件。
 
 ## 协作方式
 
@@ -28,5 +28,5 @@ AOSA这套书有电子书也有实体书，在电子书版本中有免费的HTML
 ## 联系
 
 任何建议或问题，请微博交流或发邮件至：
- - weibo: 左洪斌 
+ - weibo: 左洪斌
  - Email: hongbinzuo@163.com
