@@ -37,13 +37,13 @@ AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本�
 ## 翻译进展
 
 ### 第一卷
- - 目录 hongbin working
- - 介绍 译完已提交合并至主干
- - 第1章 译完已提交Pull Request到主干
- - 第2章 hongbin working
+ - 目录 hongbin已认领
+ - 介绍 已合并至主干
+ - 第1章 已提交Pull Request到主干
+ - 第2章 hongbin已认领
  - 第3章 待认领
- - 第4章 待认领
- - 第5章 moonshadow working
+ - 第4章 王慧已认领
+ - 第5章 moonshadow已认领
  - 第6章 待认领
  - 第7章 待认领
  - 第8章 待认领
