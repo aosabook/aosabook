@@ -21,7 +21,11 @@ AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本�
  6. 任何通用问题，可以通过Issue的方式提交到hongbin's分支，由hongbin协调解决
  7. 对于已经译完的译文，也可以在复查之后提出纠错申请（Issue）
 
-或者，你完全不想折腾Github的东东，那么，你可以通过邮箱的方式交流，我的邮箱信息如下，发送邮件标题为“aosabook+第X章翻译”，附件请使用Markdown格式。
+或者，你完全不想折腾Github的东东，那么，你可以通过邮箱的方式交流，我的邮箱信息如下，发送邮件标题为“aosabook+第X章翻译”，附件请使用Markdown格式。Markdown格式的书写，可以使用的工具有：
+  - Sublime Text
+  - Mou, Atom on Mac platform
+  - Emacs/Vim
+  - Any free text editors
 
 ## 时间表
 
