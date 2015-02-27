@@ -45,7 +45,7 @@ AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本�
  - 介绍 已合并至主干
  - 第1章 已提交Pull Request到主干
  - 第2章 hongbin 已认领
- - 第3章 待认领
+ - 第3章 fangmeng 已认领
  - 第4章 Berkeley DB 王慧 已认领
  - 第5章 CMake moonshadow 已认领
  - 第6章 Eclipse 童童的小河 已认领
