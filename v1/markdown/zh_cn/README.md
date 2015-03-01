@@ -42,9 +42,9 @@ AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本�
 
 ### 第一卷
  - 目录 hongbin 已认领
- - 介绍 已合并至主干
- - 第1章 已提交Pull Request到主干
- - 第2章 hongbin 已认领
+ - 介绍 hongbin 已合并至主干
+ - 第1章 Asterisk hongbin已提交Pull Request到主干
+ - 第2章 Audacity hongbin已认领
  - 第3章 The Bourne-Again Shell fangmeng 已认领
  - 第4章 Berkeley DB 王慧 已认领
  - 第5章 CMake moonshadow 已认领
@@ -57,7 +57,7 @@ AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本�
  - 第12章 待认领
  - 第13章 The NoSQL Ecosystem 潇洒哥已认领
  - 第14章 待认领
- - 第15章 待认领
+ - 第15章 Riak and Erlang/OTP Jingang已认领
  - 第16章 待认领
  - 第17章 待认领
  - 第18章 待认领
@@ -68,6 +68,12 @@ AOSA电子书版本中有免费的HTML版，也有收费的PDF和ePub等版本�
  - 第23章 待认领
  - 第24章 VTK 马苏宏已认领
  - 第25章 待认领
+
+## 参考
+
+### Markdown介绍
+ - http://markdown.tw/
+
 
 ## 联系
 
