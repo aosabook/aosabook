@@ -2,8 +2,7 @@
 
 \usepackage{graphicx}
 \usepackage{epstopdf}
-\usepackage{url} % this package doesn't make proper clickable links, but
-% \usepackage{hyperref} % this package breaks the build.
+\usepackage{hyperref}
 \usepackage{microtype}
 \usepackage{amssymb}
 \usepackage{framed} % for sidebars
@@ -21,6 +20,13 @@
 \usepackage{tgheros}     % sans-serif font
 
 \author{Amy Brown \& Greg Wilson}
+
+\hypersetup{
+    colorlinks=true,
+    urlcolor=blue,
+    linkcolor=black,
+    citecolor=red
+}
 
 % define page size and margins etc
 \geometry{paperwidth=18.91cm,paperheight=24.589cm,
