@@ -17,12 +17,20 @@ When Audrey's chapter was first presented to readers, many protested at how
 dependent it was on external frameworks and libraries. This is only half of the
 truth; Instead of just leveraging these components, Audrey provides a miniature
 ontology for the kinds of patterns that web programmers can expect to use now
-and in the future. 
+and in the future. (For the curious, there is also a [99-line version that uses
+only DOM
+APIs](https://github.com/audreyt/500lines/tree/master/spreadsheet/as-without-angularjs).)
 
 Most engineers spend a lot of time figuring out how to build software based on
 the work of others. We feel that reading about how an experienced engineer
 identifies the patterns in software she is reusing is a valuable lesson for us
 all.
+
+This chapter was written _way back_ in 2014 when Traceur was the leading ES6
+compiler implementation. Audrey has informed us that she probably would have
+used [Babel](https://babeljs.io/) if she was writing this chapter now. If
+you are interested in updating the source and the chapter to reflect this,
+we're open to pull requests!
 
 If you find errors you think are worth reporting, please open an issue on our
 [GitHub tracker](https://github.com/aosabook/500lines/issues). 
