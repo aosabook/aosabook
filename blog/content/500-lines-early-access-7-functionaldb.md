@@ -14,8 +14,8 @@ organization.
 
 In this chapter, Yoav shows how using immutability as a guiding principle
 allows us to build an astonishingly capable database system in fewer than 500
-lines of Clojure. This includes the persistence layer itself, along with a
-miniature declarative query languages, and a host of other features. 
+lines of Clojure. This includes a transaction system, a miniature declarative
+query language, and a host of other features. 
 
 As usual, if you find errors you think are worth reporting, please open an issue on our
 [GitHub tracker](https://github.com/aosabook/500lines/issues). 
