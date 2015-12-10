@@ -1,4 +1,4 @@
-Title: Early Access Release of Malini Das' "Continuous Integration" Chapter 
+Title: Early Access Release of Jessica Hamrick's "Rejection Sampler" Chapter 
 Date: 2015-12-10 11:00
 Author: Michael DiBernardo
 Category: 500lines
