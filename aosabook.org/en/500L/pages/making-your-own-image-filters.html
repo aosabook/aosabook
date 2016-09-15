@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/code.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/500L.css" type="text/css" />
+    <title>500 Lines or Less | Making Your Own Image Filters</title>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+          tex2jax: {
+            inlineMath: [['$','$'], ['\\(','\\)']],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+          },
+        });
+    </script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'></a>
+          <h1>Making Your Own Image Filters</h1>
+          <h2 class="author">Cate Huston</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+      <div class="row">
+        <div class='span10 offset1' id='content'>
+          <p><em>Cate left the tech industry and spent a year finding her way back whilst building her passion project Show &amp; Hide. She is Director of Mobile Engineering at Ride, speaks internationally on mobile development and engineering culture, co-curates Technically Speaking and is an advisor at Glowforge. Cate doesn’t exactly live in Colombia but she spends a lot of time there, and has lived and worked in the UK, Australia, Canada, China the United States, previously as an engineer at Google, an Extreme Blue intern at IBM, and a ski instructor. Cate blogs at <a href="http://www.catehuston.com/blog/">Accidentally in Code</a> and is <a href="https://twitter.com/catehstn">@catehstn</a> on Twitter.</em></p>
+
+<h2 id="a-brilliant-idea-that-wasnt-all-that-brilliant">A Brilliant Idea (That Wasn’t All That Brilliant)</h2>
+
+<p>When I was traveling in China I often saw series of four paintings showing the same place in different seasons. Color—the cool whites of winter, pale hues of spring, lush greens of summer, and reds and yellows of fall—is what visually differentiates the seasons. Around 2011, I had what I thought was a brilliant idea: I wanted to be able to visualize a photo series as a series of colors. I thought it would show travel, and progression through the seasons.</p>
+
+<p>But I didn’t know how to calculate the dominant color from an image. I thought about scaling the image down to a 1x1 square and seeing what was left, but that seemed like cheating. I knew how I wanted to display the images, though: in a layout called the <a href="http://www.catehuston.com/applets/Sunflower/index.html">Sunflower layout</a>. It’s the most efficient way to lay out circles.</p>
+
+<p>I left this project for years, distracted by work, life, travel, talks. Eventually I returned to it, figured out how to calculate the dominant color, and <a href="http://www.catehuston.com/blog/2013/09/02/visualising-a-photo-series/">finished my visualization</a>. That is when I discovered that this idea wasn’t, in fact, brilliant. The progression wasn’t as clear as I hoped, the dominant color extracted wasn’t generally the most appealing shade, the creation took a long time (a couple of seconds per image), and it took hundreds of images to make something cool (<a href="#figure-11.1">Figure 11.1</a>).</p>
+
+<div class="center figure">
+<a name="figure-11.1"></a><img src="image-filters-images/sunflower.jpg" alt="Figure 11.1 - Sunflower layout" title="Figure 11.1 - Sunflower layout" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.1 - Sunflower layout</small>
+</p>
+
+<p>You might think this would be discouraging, but by the time I got to this point I had learned many things that hadn’t come my way before — about color spaces and pixel manipulation — and I had started making those cool partially colored images, the kind you find on postcards of London with a red bus or phone booth and everything else in grayscale.</p>
+
+<p>I used a framework called <a href="https://processing.org/">Processing</a> because I was familiar with it from developing programming curricula, and because I knew it made it easy to create visual applications. It’s a tool originally designed for artists, so it abstracts away much of the boilerplate. It allowed me to play and experiment.</p>
+
+<p>University, and later work, filled up my time with other people’s ideas and priorities. Part of finishing this project was learning how to carve out time to make progress on my own ideas; I required about four hours of good mental time a week. A tool that allowed me to move faster was therefore really helpful, even necessary—although it came with its own set of problems, especially around writing tests.</p>
+
+<p>I felt that thorough tests were especially important for validating how the project was working, and for making it easier to pick up and resume a project that was often on ice for weeks, even months at a time. Tests (and blogposts!) formed the documentation for this project. I could leave failing tests to document what should happen that I hadn’t figured out yet, and make changes with confidence that if I changed something that I had forgotten was critical, the tests would remind me.</p>
+
+<p>This chapter will cover some details about Processing and talk you through color spaces, decomposing an image into pixels and manipulating them, and unit testing something that wasn’t designed with testing in mind. But I hope it will also prompt you to make some progress on whatever idea you haven’t made time for lately; even if your idea turns out to be as terrible as mine was, you may make something cool and learn something fascinating in the process.</p>
+
+<h2 id="the-app">The App</h2>
+
+<p>This chapter will show you how to create an image filter application that you can use to manipulate your digital images using filters that you create. We'll use Processing, a programming language and development environment built in Java. We’ll cover setting up the application in Processing, some of the features of Processing, aspects of color representation, and how to create color filters (mimicking what was used in old-fashioned photography). We'll also create a special kind of filter that can only be done digitally: determining the dominant hue of an image and showing or hiding it, to create eerie partially colored images.</p>
+
+<p>Finally, we’ll add a thorough test suite, and cover how to handle some of the limitations of Processing when it comes to testability.</p>
+
+<h2 id="background">Background</h2>
+
+<p>Today we can take a photo, manipulate it, and share it with all our friends in a matter of seconds. However, a long long time ago (in digital terms), it was a process that took weeks.</p>
+
+<p>In the old days, we would take the picture, then when we had used a whole roll of film, we would take it in to be developed (often at the pharmacy). We'd pick up the developed pictures some days later—and discover that there was something wrong with many of them. Hand not steady enough? Random person or thing that we didn’t notice at the time? Overexposed? Underexposed? Of course by then it was too late to remedy the problem.</p>
+
+<p>The process that turned the film into pictures was one that most people didn’t understand. Light was a problem, so you had to be careful with the film. There was a process, involving darkened rooms and chemicals, that they sometimes showed in films or on TV.</p>
+
+<p>But probably even fewer people understand how we get from the point-and-click on our smartphone camera to an image on Instagram. There are actually many similarities.</p>
+
+<h3 id="photographs-the-old-way">Photographs, the Old Way</h3>
+
+<p>Photographs are created by the effect of light on a light-sensitive surface. Photographic film is covered in silver halide crystals. (Extra layers are used to create color photographs — for simplicity let’s just stick to black-and-white photography here.)</p>
+
+<p>When talking an old-fashioned photograph — with film — the light hits the film according to what you’re pointing at, and the crystals at those points are changed in varying degrees, according to the amount of light. Then, the <a href="http://photography.tutsplus.com/tutorials/step-by-step-guide-to-developing-black-and-white-t-max-film--photo-2580">development process</a> converts the silver salts to metallic silver, creating the negative. The negative has the light and dark areas of the image inverted. Once the negatives have been developed, there is another series of steps to reverse the image and print it.</p>
+
+<h3 id="photographs-the-digital-way">Photographs, the Digital Way</h3>
+
+<p>When taking pictures using our smartphones or digital cameras, there is no film. There is something called an <em>active-pixel sensor</em> which functions in a similar way. Where we used to have silver crystals, now we have pixels — tiny squares. (In fact, pixel is short for &quot;picture element&quot;.) Digital images are made up of pixels, and the higher the resolution the more pixels there are. This is why low-resolution images are described as &quot;pixelated&quot; — you can start to see the squares. These pixels are stored in an array, with the number in each array &quot;box&quot; containing the color.</p>
+
+<p>In <a href="#figure-11.2">Figure 11.2</a>, we see a high-resolution picture of some blow-up animals taken at MoMA in NYC. <a href="#figure-11.3">Figure 11.3</a> is the same image blown up, but with just 24 x 32 pixels.</p>
+
+<div class="center figure">
+<a name="figure-11.2"></a><img src="image-filters-images/animals.jpg" alt="Figure 11.2 - Blow-up animals at MoMA NY" title="Figure 11.2 - Blow-up animals at MoMA NY" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.2 - Blow-up animals at MoMA NY</small>
+</p>
+
+<div class="center figure">
+<a name="figure-11.3"></a><img src="image-filters-images/pixelanimals.jpg" alt="Figure 11.3 - Blow-up animals, blown up" title="Figure 11.3 - Blow-up animals, blown up" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.3 - Blow-up animals, blown up</small>
+</p>
+
+<p>See how it's so blurry? We call that <em>pixelation</em>, which means the image is too big for the number of pixels it contains and the squares become visible. Here we can use it to get a better sense of an image being made up of squares of color.</p>
+
+<p>What do these pixels look like? If we print out the colors of some of the pixels in the middle (10,10 to 10,14) using the handy <code>Integer.toHexString</code> in Java, we get hex colors:</p>
+
+<pre><code>FFE8B1
+FFFAC4
+FFFCC3
+FFFCC2
+FFF5B7</code></pre>
+
+<p>Hex colors are six characters long. The first two are the red value, the second two the green value, and the third two the blue value. Sometimes there are an extra two characters which are the alpha value. In this case <code>FFFAC4</code> means:</p>
+
+<p></p>
+
+<ul>
+<li>red = FF (hex) = 255 (base 10)</li>
+<li>green = FA (hex) = 250 (base 10)</li>
+<li>blue = C4 (hex) = 196 (base 10)</li>
+</ul>
+
+<h2 id="running-the-app">Running the App</h2>
+
+<p>In <a href="#figure-11.4">Figure 11.4</a>, we have a picture of our app running. It’s very much developer-designed, I know, but we only have 500 lines of Java to work with so something had to suffer! You can see the list of commands on the right. Some things we can do:</p>
+
+<ul>
+<li>Adjust the RGB filters.</li>
+<li>Adjust the “hue tolerance”.</li>
+<li>Set the dominant hue filters, to either show or hide the dominant hue.</li>
+<li>Apply our current setting (it is infeasible to run this every key press).</li>
+<li>Reset the image.</li>
+<li>Save the image we have made.</li>
+</ul>
+
+<div class="center figure">
+<a name="figure-11.4"></a><img src="image-filters-images/app.jpg" alt="Figure 11.4 - The App" title="Figure 11.4 - The App" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.4 - The App</small>
+</p>
+
+<p>Processing makes it simple to create a little application and do image manipulation; it has a very visual focus. We’ll work with the Java-based version, although Processing has now been ported to other languages.</p>
+
+<p>For this tutorial, I use Processing in Eclipse by adding <code>core.jar</code> to my build path. If you want, you can use the Processing IDE, which removes the need for a lot of boilerplate Java code. If you later want to port it over to Processing.js and upload it online, you need to replace the file chooser with something else.</p>
+
+<p>There are detailed instructions with screenshots in the project's <a href="https://github.com/aosabook/500lines/blob/master/image-filters/SETUP.MD">repository</a>. If you are familiar with Eclipse and Java already you may not need them.</p>
+
+<h2 id="processing-basics">Processing Basics</h2>
+
+<h3 id="size-and-color">Size and Color</h3>
+
+<p>We don’t want our app to be a tiny grey window, so the two essential methods that we will start by overriding are <a href="http://processing.org/reference/setup_.html"><code>setup()</code></a>, and <a href="http://processing.org/reference/draw_.html"><code>draw()</code></a>. The <code>setup()</code> method is only called when the app starts, and is where we do things like set the size of the app window. The <code>draw()</code> method is called for every animation, or after some action can be triggered by calling <code>redraw()</code>. (As covered in the Processing Documentation, <code>draw()</code> should not be called explicitly.)</p>
+
+<p>Processing is designed to work nicely to create animated sketches, but in this case we don’t want animation<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>, we want to respond to key presses. To prevent animation (which would be a drag on performance) we will call <a href="http://www.processing.org/reference/noLoop_.html"><code>noLoop()</code></a> from setup. This means that <code>draw()</code> will only be called immediately after <code>setup()</code>, and whenever we call <code>redraw()</code>.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> WIDTH = <span class="dv">360</span>;
+<span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> HEIGHT = <span class="dv">240</span>;
+
+<span class="kw">public</span> <span class="dt">void</span> <span class="fu">setup</span>() {
+  <span class="fu">noLoop</span>();
+
+  <span class="co">// Set up the view.</span>
+  <span class="fu">size</span>(WIDTH, HEIGHT);
+  <span class="fu">background</span>(<span class="dv">0</span>);
+}
+
+<span class="kw">public</span> <span class="dt">void</span> <span class="fu">draw</span>() {
+  <span class="fu">background</span>(<span class="dv">0</span>);
+}</code></pre>
+
+<p>These don’t really do much yet, but try running the app again, adjusting the constants in <code>WIDTH</code> and <code>HEIGHT</code>, to see different sizes.</p>
+
+<p><code>background(0)</code> specifies a black background. Try changing the number passed to <code>background()</code> and see what happens — it’s the alpha value, and so if you only pass one number in, it is always greyscale. Alternatively, you can call <code>background(int r, int g, int b)</code>.</p>
+
+<h3 id="pimage">PImage</h3>
+
+<p>The <a href="http://processing.org/reference/PImage.html">PImage object</a> is the Processing object that represents an image. We’re going to be using this a lot, so it’s worth reading through the documentation. It has three fields (Table 11.1) as well as some methods that we will use (Table 11.2).</p>
+
+<table>
+  <tr>
+    <td>
+<code>pixels[]</code>
+</td>
+    <td>
+Array containing the color of every pixel in the image
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>width</code>
+</td>
+    <td>
+Image width in pixels
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>height</code>
+</td>
+    <td>
+Image height in pixels
+</td>
+  </tr>
+</table>
+
+<p>: <b>Table 11.1</b> - PImage fields</p>
+
+<table>
+  <tr>
+    <td>
+<code>loadPixels</code>
+</td>
+    <td>
+Loads the pixel data for the image into its <code>pixels[]</code> array
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>updatePixels</code>
+</td>
+    <td>
+Updates the image with the data in its <code>pixels[]</code> array
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>resize</code>
+</td>
+    <td>
+Changes the size of an image to a new width and height
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>get</code>
+</td>
+    <td>
+Reads the color of any pixel or grabs a rectangle of pixels
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>set</code>
+</td>
+    <td>
+Writes a color to any pixel or writes an image into another
+</td>
+  </tr>
+  <tr>
+    <td>
+<code>save</code>
+</td>
+    <td>
+Saves the image to a TIFF, TARGA, PNG, or JPEG file
+</td>
+  </tr>
+</table>
+
+<p>: <b>Table 11.2</b> - PImage methods</p>
+
+<h3 id="file-chooser">File Chooser</h3>
+
+<p>Processing handles most of the file choosing process; we just need to call <a href="http://www.processing.org/reference/selectInput_.html"><code>selectInput()</code></a>, and implement a callback (which must be public).</p>
+
+<p>To people familiar with Java this might seem odd; a listener or a lambda expression might make more sense. However, as Processing was developed as a tool for artists, for the most part these things have been abstracted away by the language to keep it unintimidating. This is a choice the designers made: to prioritize simplicity and approachability over power and flexibility. If you use the stripped-down Processing editor, rather than Processing as a library in Eclipse, you don’t even need to define class names.</p>
+
+<p>Other language designers with different target audiences make different choices, as they should. For example, in Haskell, a purely functional language, purity of functional language paradigms is prioritised over everything else. This makes it a better tool for mathematical problems than for anything requiring IO.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="co">// Called on key press.</span>
+<span class="kw">private</span> <span class="dt">void</span> <span class="fu">chooseFile</span>() {
+  <span class="co">// Choose the file.</span>
+  <span class="fu">selectInput</span>(<span class="st">&quot;Select a file to process:&quot;</span>, <span class="st">&quot;fileSelected&quot;</span>);
+}
+
+<span class="kw">public</span> <span class="dt">void</span> <span class="fu">fileSelected</span>(File file) {
+  <span class="kw">if</span> (file == <span class="kw">null</span>) {
+    <span class="fu">println</span>(<span class="st">&quot;User hit cancel.&quot;</span>);
+  } <span class="kw">else</span> {
+    <span class="co">// save the image</span>
+    <span class="fu">redraw</span>(); <span class="co">// update the display</span>
+  }
+}</code></pre>
+
+<h3 id="responding-to-key-presses">Responding to Key Presses</h3>
+
+<p>Normally in Java, responding to key presses requires adding listeners and implementing anonymous functions. However, as with the file chooser, Processing handles a lot of this for us. We just need to implement <a href="https://www.processing.org/reference/keyPressed_.html"><code>keyPressed()</code></a>.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">public</span> <span class="dt">void</span> <span class="fu">keyPressed</span>() {
+  <span class="fu">print</span>(“key pressed: ” + key);
+}</code></pre>
+
+<p>If you run the app again, every time you press a key it will output it to the console. Later, you’ll want to do different things depending on what key was pressed, and to do this you just switch on the key value. (This exists in the <code>PApplet</code> superclass, and contains the last key pressed.)</p>
+
+<h2 id="writing-tests">Writing Tests</h2>
+
+<p>This app doesn’t do a lot yet, but we can already see number of places where things can go wrong; for example, triggering the wrong action with key presses. As we add complexity, we add more potential problems, such as updating the image state incorrectly, or miscalculating pixel colors after applying a filter. I also just enjoy (some think weirdly) writing unit tests. Whilst some people seem to think of testing as a thing that delays checking code in, I see tests as my #1 debugging tool, and as an opportunity to deeply understand what is going on in my code.</p>
+
+<p>I adore Processing, but it’s designed to create visual applications, and in this area maybe unit testing isn’t a huge concern. It’s clear it isn’t written for testability; in fact it’s written in such a way that makes it untestable, as is. Part of this is because it hides complexity, and some of that hidden complexity is really useful in writing unit tests. The use of static and final methods make it much harder to use mocks (objects that record interaction and allow you to fake part of your system to verify another part is behaving correctly), which rely on the ability to subclass.</p>
+
+<p>We might start a greenfield project with great intentions to do Test Driven Development (TDD) and achieve perfect test coverage, but in reality we are usually looking at a mass of code written by various and assorted people and trying to figure out what it is supposed to be doing, and how and why it is going wrong. Then maybe we don’t write perfect tests, but writing tests at all will help us navigate the situation, document what is happening and move forward.</p>
+
+<p>We create &quot;seams&quot; that allow us to break something up from its amorphous mass of tangled pieces and verify it in parts. To do this, we will sometimes create wrapper classes that can be mocked. These classes do nothing more than hold a collection of similar methods, or forward calls on to another object that cannot be mocked (due to final or static methods), and as such they are very dull to write, but key to creating seams and making the code testable.</p>
+
+<p>I used JUnit for tests, as I was working in Java with Processing as a library. For mocking I used Mockito. You can download <a href="https://code.google.com/p/mockito/downloads/list">Mockito</a> and add the JAR to your buildpath in the same way you added <code>core.jar</code>. I created two helper classes that make it possible to mock and test the app (otherwise we can’t test behavior involving <code>PImage</code> or <code>PApplet</code> methods).</p>
+
+<p><code>IFAImage</code> is a thin wrapper around PImage. <code>PixelColorHelper</code> is a wrapper around applet pixel color methods. These wrappers call the final, and static methods, but the caller methods are neither final nor static themselves — this allows them to be mocked. These are deliberately lightweight, and we could have gone further, but this was sufficient to address the major problem of testability when using Processing — static, and final methods. The goal was to make an app, after all — not a unit testing framework for Processing!</p>
+
+<p>A class called <code>ImageState</code> forms the &quot;model&quot; of this application, removing as much logic from the class extending <code>PApplet</code> as possible, for better testability. It also makes for a cleaner design and separation of concerns: the <code>App</code> controls the interactions and the UI, not the image manipulation.</p>
+
+<h2 id="do-it-yourself-filters">Do-It-Yourself Filters</h2>
+
+<h3 id="rgb-filters">RGB Filters</h3>
+
+<p>Before we start writing more complicated pixel processing, we can start with a short exercise that will get us comfortable doing pixel manipulation. We’ll create standard (red, green, blue) color filters that will allow us to create the same effect as placing a colored plate over the lens of a camera, only letting through light with enough red (or green, or blue).</p>
+
+<p>By applying different filters to this image <a href="#figure-11.5">Figure 11.5</a> (taken on a spring trip to Frankfurt) it’s almost like the seasons are different. (Remember the four-seasons paintings we imagined earlier?) See how much more green the tree becomes when the red filter is applied.</p>
+
+<div class="center figure">
+<a name="figure-11.5"></a><img src="image-filters-images/frankfurt.jpg" alt="Figure 11.5 - Four (Simulated) Seasons in Frankfurt" title="Figure 11.5 - Four (Simulated) Seasons in Frankfurt" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.5 - Four (Simulated) Seasons in Frankfurt</small>
+</p>
+
+<p>How do we do it?</p>
+
+<ul>
+<li><p>Set the filter. (You can combine red, green and blue filters as in the image earlier; I haven’t in these examples so that the effect is clearer.)</p></li>
+<li><p>For each pixel in the image, check its RGB value.</p></li>
+<li>If the red is less than the red filter, set the red to zero.</li>
+<li>If the green is less than the green filter, set the green to zero.</li>
+<li>If the blue is less than the blue filter, set the blue to zero.</li>
+<li><p>Any pixel with insufficient of all of these colors will be black.</p></li>
+</ul>
+
+<p>Although our image is 2-dimensional, the pixels live in a 1-dimensional array starting top-left and moving <a href="https://processing.org/tutorials/pixels/">left to right, top to bottom</a>. The array indices for a 4x4 image are shown here:</p>
+
+<table>
+  <tr>
+    <td>
+0
+</td>
+    <td>
+1
+</td>
+    <td>
+2
+</td>
+    <td>
+3
+</td>
+  </tr>
+  <tr>
+    <td>
+4
+</td>
+    <td>
+5
+</td>
+    <td>
+6
+</td>
+    <td>
+7
+</td>
+  </tr>
+  <tr>
+    <td>
+8
+</td>
+    <td>
+9
+</td>
+    <td>
+10
+</td>
+    <td>
+11
+</td>
+  </tr>
+  <tr>
+    <td>
+12
+</td>
+    <td>
+13
+</td>
+    <td>
+14
+</td>
+    <td>
+15
+</td>
+  </tr>
+</table>
+
+<p>: <b>Table 11.3</b> - Pixel indices for a 4x4 image</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">public</span> <span class="dt">void</span> <span class="fu">applyColorFilter</span>(PApplet applet, IFAImage img, <span class="dt">int</span> minRed,
+      <span class="dt">int</span> minGreen, <span class="dt">int</span> minBlue, <span class="dt">int</span> colorRange) {  
+  img.<span class="fu">loadPixels</span>();
+  <span class="dt">int</span> numberOfPixels = img.<span class="fu">getPixels</span>().<span class="fu">length</span>;
+  <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">0</span>; i &lt; numberOfPixels; i++) {
+    <span class="dt">int</span> pixel = img.<span class="fu">getPixel</span>(i);
+    <span class="dt">float</span> alpha = pixelColorHelper.<span class="fu">alpha</span>(applet, pixel);
+    <span class="dt">float</span> red = pixelColorHelper.<span class="fu">red</span>(applet, pixel);
+    <span class="dt">float</span> green = pixelColorHelper.<span class="fu">green</span>(applet, pixel);
+    <span class="dt">float</span> blue = pixelColorHelper.<span class="fu">blue</span>(applet, pixel);
+
+    red = (red &gt;= minRed) ? red : <span class="dv">0</span>;
+    green = (green &gt;= minGreen) ? green : <span class="dv">0</span>;
+    blue = (blue &gt;= minBlue) ? blue : <span class="dv">0</span>;
+
+    image.<span class="fu">setPixel</span>(i, pixelColorHelper.<span class="fu">color</span>(applet, red, green, blue, alpha));
+  }
+}</code></pre>
+
+<h3 id="color">Color</h3>
+
+<p>As our first example of an image filter showed, the concept and representation of colors in a program is very important to understanding how our filters work. To prepare ourselves for working on our next filter, let's explore the concept of color a bit more.</p>
+
+<p>We were using a concept in the previous section called &quot;color space&quot;, which is way of representing color digitally. Kids mixing paints learn that colors can be made from other colors; things work slightly differently in digital (less risk of being covered in paint!) but similar. Processing makes it really easy to work with whatever color space you want, but you need to know which one to pick, so it’s important to understand how they work.</p>
+
+<h4 id="rgb-colors">RGB colors</h4>
+
+<p>The color space that most programmers are familiar with is RGBA: red, green, blue and alpha; it's what we were using above. In hexadecimal (base 16), the first two digits are the amount of red, the second two blue, the third two green, and the final two (if they are there) are the alpha value. The values range from 00 in base 16 (0 in base 10) through to FF (255 in base 10). The alpha represents opacity, where 0 is transparent and 100% is opaque.</p>
+
+<h4 id="hsb-or-hsv-colors">HSB or HSV colors</h4>
+
+<p>This color space is not quite as well known as RGB. The first number represents the hue, the second number the saturation (how intense the color is), and the third number the brightness. The HSB color space can be represented by a cone: The hue is the position around the cone, saturation the distance from the centre, and brightness the height (0 brightness is black).</p>
+
+<h3 id="extracting-the-dominant-hue-from-an-image">Extracting the Dominant Hue from an Image</h3>
+
+<p>Now that we’re comfortable with pixel manipulation, let’s do something that we could only do digitally. Digitally, we can manipulate the image in a way that isn’t so uniform.</p>
+
+<p>When I look through my stream of pictures I can see themes emerging. The nighttime series I took at sunset from a boat on Hong Kong harbour, the grey of North Korea, the lush greens of Bali, the icy whites and pale blues of an Icelandic winter. Can we take a picture and pull out that main color that dominates the scene?</p>
+
+<p>It makes sense to use the HSB color space for this — we are interested in the hue when figuring out what the main color is. It’s possible to do this using RGB values, but more difficult (we would have to compare all three values) and it would be more sensitive to darkness. We can change to the HSB color space using <a href="http://processing.org/reference/colorMode_.html">colorMode</a>.</p>
+
+<p>Having settled on this color space, it’s simpler than it would have been using RGB. We need to find the hue of each pixel, and figure out which is most &quot;popular&quot;. We probably don’t want to be exact — we want to group very similar hues together, and we can handle this using two strategies.</p>
+
+<p>Firstly we will round the decimals that come back to whole numbers, as this makes it simple to determine which &quot;bucket&quot; we put each pixel in. Secondly we can change the range of the hues. If we think back to the cone representation above, we might think of hues as having 360 degrees (like a circle). Processing uses 255 by default, which is the same as is typical for RGB (255 is FF in hexadecimal). The higher the range we use, the more distinct the hues in the picture will be. Using a smaller range will allow us to group together similar hues. Using a 360 degree range, it’s unlikely that we will be able to tell the difference between a hue of 224 and a hue of 225, as the difference is very small. If we make the range one-third of that, 120, both these hues become 75 after rounding.</p>
+
+<p>We can change the range of hues using <code>colorMode</code>. If we call <code>colorMode(HSB, 120)</code> we have just made our hue detection a bit less than half as exact as if we used the 255 range. We also know that our hues will fall into 120 &quot;buckets&quot;, so we can simply go through our image, get the hue for a pixel, and add one to the corresponding count in an array. This will be <span class="math">\(O(n)\)</span>, where <span class="math">\(n\)</span> is the number of pixels, as it requires action on each one.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">for</span>(<span class="dt">int</span> px in pixels) {
+  <span class="dt">int</span> hue = Math.<span class="fu">round</span>(<span class="fu">hue</span>(px));
+  hues[hue]++;
+}</code></pre>
+
+<p>At the end we can print this hue to the screen, or display it next to the picture (<a href="#figure-11.6">Figure 11.6</a>).</p>
+
+<div class="center figure">
+<a name="figure-11.6"></a><img src="image-filters-images/hueranges.jpg" alt="Figure 11.6 - Dominant hue versus size of range (number of buckets) used" title="Figure 11.6 - Dominant hue versus size of range (number of buckets) used" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.6 - Dominant hue versus size of range (number of buckets) used</small>
+</p>
+
+<p>Once we’ve extracted the &quot;dominant&quot; hue, we can choose to either show or hide it in the image. We can show the dominant hue with varying tolerance (ranges around it that we will accept). Pixels that don’t fall into this range can be changed to grayscale by setting the value based on the brightness. <a href="#figure-11.7">Figure 11.7</a> shows the dominant hue determined using a range of 240, and with varying tolerance. The tolerance is the amount either side of the most popular hue that gets grouped together.</p>
+
+<div class="center figure">
+<a name="figure-11.7"></a><img src="image-filters-images/showdominant.jpg" alt="Figure 11.7 - Showing dominant hue" title="Figure 11.7 - Showing dominant hue" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.7 - Showing dominant hue</small>
+</p>
+
+<p>Alternatively, we can hide the dominant hue. In <a href="#figure-11.8">Figure 11.8</a>, the images are transposed side by side: the original in the middle, on the left the dominant hue (the brownish color of the path) is shown, and on the right the dominant hue is hidden (range 320, tolerance 20).</p>
+
+<div class="center figure">
+<a name="figure-11.8"></a><img src="image-filters-images/hidedominant.jpg" alt="Figure 11.8 - Hiding dominant hue" title="Figure 11.8 - Hiding dominant hue" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.8 - Hiding dominant hue</small>
+</p>
+
+<p>Each image requires a double pass (looking at each pixel twice), so on images with a large number of pixels it can take a noticeable amount of time.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">public</span> HSBColor <span class="fu">getDominantHue</span>(PApplet applet, IFAImage image, <span class="dt">int</span> hueRange) {
+  image.<span class="fu">loadPixels</span>();
+  <span class="dt">int</span> numberOfPixels = image.<span class="fu">getPixels</span>().<span class="fu">length</span>;
+  <span class="dt">int</span>[] hues = <span class="kw">new</span> <span class="dt">int</span>[hueRange];
+  <span class="dt">float</span>[] saturations = <span class="kw">new</span> <span class="dt">float</span>[hueRange];
+  <span class="dt">float</span>[] brightnesses = <span class="kw">new</span> <span class="dt">float</span>[hueRange];
+
+  <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">0</span>; i &lt; numberOfPixels; i++) {
+    <span class="dt">int</span> pixel = image.<span class="fu">getPixel</span>(i);
+    <span class="dt">int</span> hue = Math.<span class="fu">round</span>(pixelColorHelper.<span class="fu">hue</span>(applet, pixel));
+    <span class="dt">float</span> saturation = pixelColorHelper.<span class="fu">saturation</span>(applet, pixel);
+    <span class="dt">float</span> brightness = pixelColorHelper.<span class="fu">brightness</span>(applet, pixel);
+    hues[hue]++;
+    saturations[hue] += saturation;
+    brightnesses[hue] += brightness;
+  }
+
+  <span class="co">// Find the most common hue.</span>
+  <span class="dt">int</span> hueCount = hues[<span class="dv">0</span>];
+  <span class="dt">int</span> hue = <span class="dv">0</span>;
+  <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">1</span>; i &lt; hues.<span class="fu">length</span>; i++) {
+    <span class="kw">if</span> (hues[i] &gt; hueCount) {
+      hueCount = hues[i];
+      hue = i;
+    }
+  }
+
+  <span class="co">// Return the color to display.</span>
+  <span class="dt">float</span> s = saturations[hue] / hueCount;
+  <span class="dt">float</span> b = brightnesses[hue] / hueCount;
+  <span class="kw">return</span> <span class="kw">new</span> <span class="fu">HSBColor</span>(hue, s, b);
+}
+
+
+<span class="kw">public</span> <span class="dt">void</span> <span class="fu">processImageForHue</span>(PApplet applet, IFAImage image, <span class="dt">int</span> hueRange,
+    <span class="dt">int</span> hueTolerance, <span class="dt">boolean</span> showHue) {
+  applet.<span class="fu">colorMode</span>(PApplet.<span class="fu">HSB</span>, (hueRange - <span class="dv">1</span>));
+  image.<span class="fu">loadPixels</span>();
+  <span class="dt">int</span> numberOfPixels = image.<span class="fu">getPixels</span>().<span class="fu">length</span>;
+  HSBColor dominantHue = <span class="fu">getDominantHue</span>(applet, image, hueRange);
+  <span class="co">// Manipulate photo, grayscale any pixel that isn&#39;t close to that hue.</span>
+  <span class="dt">float</span> lower = dominantHue.<span class="fu">h</span> - hueTolerance;
+  <span class="dt">float</span> upper = dominantHue.<span class="fu">h</span> + hueTolerance;
+  <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">0</span>; i &lt; numberOfPixels; i++) {
+    <span class="dt">int</span> pixel = image.<span class="fu">getPixel</span>(i);
+    <span class="dt">float</span> hue = pixelColorHelper.<span class="fu">hue</span>(applet, pixel);
+    <span class="kw">if</span> (<span class="fu">hueInRange</span>(hue, hueRange, lower, upper) == showHue) {
+      <span class="dt">float</span> brightness = pixelColorHelper.<span class="fu">brightness</span>(applet, pixel);
+      image.<span class="fu">setPixel</span>(i, pixelColorHelper.<span class="fu">color</span>(applet, brightness));
+    }
+  }
+  image.<span class="fu">updatePixels</span>();
+}</code></pre>
+
+<h3 id="combining-filters">Combining Filters</h3>
+
+<p>With the UI as it is, the user can combine the red, green, and blue filters together. If they combine the dominant hue filters with the red, green, and blue filters the results can sometimes be a little unexpected, because of changing the color spaces.</p>
+
+<p>Processing has some <a href="https://www.processing.org/reference/filter_.html">built-in methods</a> that support the manipulation of images; for example, <code>invert</code> and <code>blur</code>.</p>
+
+<p>To achieve effects like sharpening, blurring, or sepia we apply matrices. For every pixel of the image, take the sum of products where each product is the color value of the current pixel or a neighbor of it, with the corresponding value of the <a href="http://lodev.org/cgtutor/filtering.html">filter matrix</a>. There are some special matrices of specific values that sharpen images.</p>
+
+<h2 id="architecture">Architecture</h2>
+
+<p>There are three main components to the app (<a href="#figure-11.9">Figure 11.9</a>).</p>
+
+<h3 id="the-app-1">The App</h3>
+
+<p>The app consists of one file: <code>ImageFilterApp.java</code>. This extends <code>PApplet</code> (the Processing app superclass) and handles layout, user interaction, etc. This class is the hardest to test, so we want to keep it as small as possible.</p>
+
+<h3 id="model">Model</h3>
+
+<p>Model consists of three files: <code>HSBColor.java</code> is a simple container for HSB colors (consisting of hue, saturation, and brightness). <code>IFAImage</code> is a wrapper around <code>PImage</code> for testability. (<code>PImage</code> contains a number of final methods which cannot be mocked.) Finally, <code>ImageState.java</code> is the object which describes the state of the image — what level of filters should be applied, and which filters — and handles loading the image. (Note: The image needs to be reloaded whenever color filters are adjusted down, and whenever the dominant hue is recalculated. For clarity, we just reload each time the image is processed.)</p>
+
+<h3 id="color-1">Color</h3>
+
+<p>Color consists of two files: <code>ColorHelper.java</code> is where all the image processing and filtering takes place, and <code>PixelColorHelper.java</code> abstracts out final <code>PApplet</code> methods for pixel colors for testability.</p>
+
+<div class="center figure">
+<a name="figure-11.9"></a><img src="image-filters-images/architecture.jpg" alt="Figure 11.9 - Architecture diagram" title="Figure 11.9 - Architecture diagram" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 11.9 - Architecture diagram</small>
+</p>
+
+<h3 id="wrapper-classes-and-tests">Wrapper Classes and Tests</h3>
+
+<p>Briefly mentioned above, there are two wrapper classes (<code>IFAImage</code> and <code>PixelColorHelper</code>) that wrap library methods for testability. This is because, in Java, the keyword &quot;final&quot; indicates a method that cannot be overridden or hidden by subclasses, which means they cannot be mocked.</p>
+
+<p><code>PixelColorHelper</code> wraps methods on the applet. This means we need to pass the applet in to each method call. (Alternatively, we could make it a field and set it on initialization.)</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.color;</span>
+
+<span class="kw">import processing.core.PApplet;</span>
+
+<span class="kw">public</span> <span class="kw">class</span> PixelColorHelper {
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">alpha</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">alpha</span>(pixel);
+  }
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">blue</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">blue</span>(pixel);
+  }
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">brightness</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">brightness</span>(pixel);
+  }
+
+  <span class="kw">public</span> <span class="dt">int</span> <span class="fu">color</span>(PApplet applet, <span class="dt">float</span> greyscale) {
+    <span class="kw">return</span> applet.<span class="fu">color</span>(greyscale);
+  }
+
+  <span class="kw">public</span> <span class="dt">int</span> <span class="fu">color</span>(PApplet applet, <span class="dt">float</span> red, <span class="dt">float</span> green, <span class="dt">float</span> blue,
+           <span class="dt">float</span> alpha) {
+    <span class="kw">return</span> applet.<span class="fu">color</span>(red, green, blue, alpha);
+  }
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">green</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">green</span>(pixel);
+  }
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">hue</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">hue</span>(pixel);
+  }
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">red</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">red</span>(pixel);
+  }
+
+  <span class="kw">public</span> <span class="dt">float</span> <span class="fu">saturation</span>(PApplet applet, <span class="dt">int</span> pixel) {
+    <span class="kw">return</span> applet.<span class="fu">saturation</span>(pixel);
+  }
+}</code></pre>
+
+<p><code>IFAImage</code> is a wrapper around <code>PImage</code>, so in our app we don’t initialize a <code>PImage</code>, but rather an <code>IFAImage</code> — although we do have to expose the <code>PImage</code> so that it can be rendered.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.model;</span>
+
+<span class="kw">import processing.core.PApplet;</span>
+<span class="kw">import processing.core.PImage;</span>
+
+<span class="kw">public</span> <span class="kw">class</span> IFAImage {
+
+  <span class="kw">private</span> PImage image;
+
+  <span class="kw">public</span> <span class="fu">IFAImage</span>() {
+    image = <span class="kw">null</span>;
+  }
+
+  <span class="kw">public</span> PImage <span class="fu">image</span>() {
+    <span class="kw">return</span> image;
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">update</span>(PApplet applet, String filepath) {
+    image = <span class="kw">null</span>;
+    image = applet.<span class="fu">loadImage</span>(filepath);
+  }
+
+  <span class="co">// Wrapped methods from PImage.</span>
+  <span class="kw">public</span> <span class="dt">int</span> <span class="fu">getHeight</span>() {
+    <span class="kw">return</span> image.<span class="fu">height</span>;
+  }
+
+  <span class="kw">public</span> <span class="dt">int</span> <span class="fu">getPixel</span>(<span class="dt">int</span> px) {
+    <span class="kw">return</span> image.<span class="fu">pixels</span>[px];
+  }
+
+  <span class="kw">public</span> <span class="dt">int</span>[] <span class="fu">getPixels</span>() {
+    <span class="kw">return</span> image.<span class="fu">pixels</span>;
+  }
+
+  <span class="kw">public</span> <span class="dt">int</span> <span class="fu">getWidth</span>() {
+    <span class="kw">return</span> image.<span class="fu">width</span>;
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">loadPixels</span>() {
+    image.<span class="fu">loadPixels</span>();
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">resize</span>(<span class="dt">int</span> width, <span class="dt">int</span> height) {
+    image.<span class="fu">resize</span>(width, height);
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">save</span>(String filepath) {
+    image.<span class="fu">save</span>(filepath);
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">setPixel</span>(<span class="dt">int</span> px, <span class="dt">int</span> color) {
+    image.<span class="fu">pixels</span>[px] = color;
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">updatePixels</span>() {
+    image.<span class="fu">updatePixels</span>();
+  }
+}</code></pre>
+
+<p>Finally, we have our simple container class, <code>HSBColor</code>. Note that it is immutable (once created, it cannot be changed). Immutable objects are better for thread safety (something we have no need of here!) but are also easier to understand and reason about. In general, I tend to make simple model classes immutable unless I find a good reason for them not to be.</p>
+
+<p>Some of you may know that there are already classes representing color in <a href="https://www.processing.org/reference/color_datatype.html">Processing</a> and in <a href="https://docs.oracle.com/javase/7/docs/api/java/awt/Color.html">Java itself</a>. Without going too much into the details of these, both of them are more focused on RGB color, and the Java class in particular adds way more complexity than we need. We would probably be okay if we did want to use Java’s <code>awt.Color</code>; however <a href="http://processing.org/reference/javadoc/core/processing/core/PApplet.html">awt GUI components cannot be used in Processing</a>, so for our purposes creating this simple container class to hold these bits of data we need is easiest.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.model;</span>
+
+<span class="kw">public</span> <span class="kw">class</span> HSBColor {
+
+  <span class="kw">public</span> <span class="dt">final</span> <span class="dt">float</span> h;
+  <span class="kw">public</span> <span class="dt">final</span> <span class="dt">float</span> s;
+  <span class="kw">public</span> <span class="dt">final</span> <span class="dt">float</span> b;
+
+  <span class="kw">public</span> <span class="fu">HSBColor</span>(<span class="dt">float</span> h, <span class="dt">float</span> s, <span class="dt">float</span> b) {
+    <span class="kw">this</span>.<span class="fu">h</span> = h;
+    <span class="kw">this</span>.<span class="fu">s</span> = s;
+    <span class="kw">this</span>.<span class="fu">b</span> = b;
+  }
+}</code></pre>
+
+<h3 id="colorhelper-and-associated-tests">ColorHelper and Associated Tests</h3>
+
+<p><code>ColorHelper</code> is where all the image manipulation lives. The methods in this class could be static if not for needing a <code>PixelColorHelper</code>. (Although we won’t get into the debate about the merits of static methods here.)</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.color;</span>
+
+<span class="kw">import processing.core.PApplet;</span>
+
+<span class="kw">import com.catehuston.imagefilter.model.HSBColor;</span>
+<span class="kw">import com.catehuston.imagefilter.model.IFAImage;</span>
+
+<span class="kw">public</span> <span class="kw">class</span> ColorHelper {
+
+  <span class="kw">private</span> <span class="dt">final</span> PixelColorHelper pixelColorHelper;
+
+  <span class="kw">public</span> <span class="fu">ColorHelper</span>(PixelColorHelper pixelColorHelper) {
+    <span class="kw">this</span>.<span class="fu">pixelColorHelper</span> = pixelColorHelper;
+  }
+
+  <span class="kw">public</span> <span class="dt">boolean</span> <span class="fu">hueInRange</span>(<span class="dt">float</span> hue, <span class="dt">int</span> hueRange, <span class="dt">float</span> lower, <span class="dt">float</span> upper) {
+    <span class="co">// Need to compensate for it being circular - can go around.</span>
+    <span class="kw">if</span> (lower &lt; <span class="dv">0</span>) {
+      lower += hueRange;
+    }
+    <span class="kw">if</span> (upper &gt; hueRange) {
+      upper -= hueRange;
+    }
+    <span class="kw">if</span> (lower &lt; upper) {
+      <span class="kw">return</span> hue &lt; upper &amp;&amp; hue &gt; lower;
+    } <span class="kw">else</span> {
+      <span class="kw">return</span> hue &lt; upper || hue &gt; lower;
+    }
+  }
+
+  <span class="kw">public</span> HSBColor <span class="fu">getDominantHue</span>(PApplet applet, IFAImage image, <span class="dt">int</span> hueRange) {
+    image.<span class="fu">loadPixels</span>();
+    <span class="dt">int</span> numberOfPixels = image.<span class="fu">getPixels</span>().<span class="fu">length</span>;
+    <span class="dt">int</span>[] hues = <span class="kw">new</span> <span class="dt">int</span>[hueRange];
+    <span class="dt">float</span>[] saturations = <span class="kw">new</span> <span class="dt">float</span>[hueRange];
+    <span class="dt">float</span>[] brightnesses = <span class="kw">new</span> <span class="dt">float</span>[hueRange];
+
+    <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">0</span>; i &lt; numberOfPixels; i++) {
+      <span class="dt">int</span> pixel = image.<span class="fu">getPixel</span>(i);
+      <span class="dt">int</span> hue = Math.<span class="fu">round</span>(pixelColorHelper.<span class="fu">hue</span>(applet, pixel));
+      <span class="dt">float</span> saturation = pixelColorHelper.<span class="fu">saturation</span>(applet, pixel);
+      <span class="dt">float</span> brightness = pixelColorHelper.<span class="fu">brightness</span>(applet, pixel);
+      hues[hue]++;
+      saturations[hue] += saturation;
+      brightnesses[hue] += brightness;
+    }
+
+    <span class="co">// Find the most common hue.</span>
+    <span class="dt">int</span> hueCount = hues[<span class="dv">0</span>];
+    <span class="dt">int</span> hue = <span class="dv">0</span>;
+    <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">1</span>; i &lt; hues.<span class="fu">length</span>; i++) {
+      <span class="kw">if</span> (hues[i] &gt; hueCount) {
+        hueCount = hues[i];
+        hue = i;
+      }
+    }
+
+    <span class="co">// Return the color to display.</span>
+    <span class="dt">float</span> s = saturations[hue] / hueCount;
+    <span class="dt">float</span> b = brightnesses[hue] / hueCount;
+    <span class="kw">return</span> <span class="kw">new</span> <span class="fu">HSBColor</span>(hue, s, b);
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">processImageForHue</span>(PApplet applet, IFAImage image, <span class="dt">int</span> hueRange,
+      <span class="dt">int</span> hueTolerance, <span class="dt">boolean</span> showHue) {
+    applet.<span class="fu">colorMode</span>(PApplet.<span class="fu">HSB</span>, (hueRange - <span class="dv">1</span>));
+    image.<span class="fu">loadPixels</span>();
+    <span class="dt">int</span> numberOfPixels = image.<span class="fu">getPixels</span>().<span class="fu">length</span>;
+    HSBColor dominantHue = <span class="fu">getDominantHue</span>(applet, image, hueRange);
+    <span class="co">// Manipulate photo, grayscale any pixel that isn&#39;t close to that hue.</span>
+    <span class="dt">float</span> lower = dominantHue.<span class="fu">h</span> - hueTolerance;
+    <span class="dt">float</span> upper = dominantHue.<span class="fu">h</span> + hueTolerance;
+    <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">0</span>; i &lt; numberOfPixels; i++) {
+      <span class="dt">int</span> pixel = image.<span class="fu">getPixel</span>(i);
+      <span class="dt">float</span> hue = pixelColorHelper.<span class="fu">hue</span>(applet, pixel);
+      <span class="kw">if</span> (<span class="fu">hueInRange</span>(hue, hueRange, lower, upper) == showHue) {
+        <span class="dt">float</span> brightness = pixelColorHelper.<span class="fu">brightness</span>(applet, pixel);
+        image.<span class="fu">setPixel</span>(i, pixelColorHelper.<span class="fu">color</span>(applet, brightness));
+      }
+    }
+    image.<span class="fu">updatePixels</span>();
+  }
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">applyColorFilter</span>(PApplet applet, IFAImage image, <span class="dt">int</span> minRed,
+      <span class="dt">int</span> minGreen, <span class="dt">int</span> minBlue, <span class="dt">int</span> colorRange) {
+    applet.<span class="fu">colorMode</span>(PApplet.<span class="fu">RGB</span>, colorRange);
+    image.<span class="fu">loadPixels</span>();
+    <span class="dt">int</span> numberOfPixels = image.<span class="fu">getPixels</span>().<span class="fu">length</span>;
+    <span class="kw">for</span> (<span class="dt">int</span> i = <span class="dv">0</span>; i &lt; numberOfPixels; i++) {
+      <span class="dt">int</span> pixel = image.<span class="fu">getPixel</span>(i);
+      <span class="dt">float</span> alpha = pixelColorHelper.<span class="fu">alpha</span>(applet, pixel);
+      <span class="dt">float</span> red = pixelColorHelper.<span class="fu">red</span>(applet, pixel);
+      <span class="dt">float</span> green = pixelColorHelper.<span class="fu">green</span>(applet, pixel);
+      <span class="dt">float</span> blue = pixelColorHelper.<span class="fu">blue</span>(applet, pixel);
+
+      red = (red &gt;= minRed) ? red : <span class="dv">0</span>;
+      green = (green &gt;= minGreen) ? green : <span class="dv">0</span>;
+      blue = (blue &gt;= minBlue) ? blue : <span class="dv">0</span>;
+
+      image.<span class="fu">setPixel</span>(i, pixelColorHelper.<span class="fu">color</span>(applet, red, green, blue, alpha));
+    }
+  }
+}</code></pre>
+
+<p>We don't want to test this with whole images, because we want images that we know the properties of and reason about. We approximate this by mocking the images and making them return an array of pixels — in this case, 5. This allows us to verify that the behavior is as expected. Earlier we covered the concept of mock objects, and here we see their use. We are using <a href="http://docs.mockito.googlecode.com/hg/org/mockito/Mockito.html">Mockito</a> as our mock object framework.</p>
+
+<p>To create a mock we use the <code>@Mock</code> annotation on an instance variable, and it will be mocked at runtime by the <code>MockitoJUnitRunner</code>.</p>
+
+<p>To stub (set the behavior of) a method, we use:</p>
+
+<pre class="sourceCode java"><code class="sourceCode java">    <span class="fu">when</span>(mock.<span class="fu">methodCall</span>()).<span class="fu">thenReturn</span>(value)</code></pre>
+
+<p>To verify a method was called, we use <code>verify(mock.methodCall())</code>.</p>
+
+<p>We'll show a few example test cases here; if you'd like to see the rest, visit the source folder for this project in the <a href="https://github.com/aosabook/500lines/tree/master/image-filters"><em>500 Lines or Less</em> GitHub repository</a>.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.color;</span>
+
+<span class="co">/* ... Imports omitted ... */</span>
+
+<span class="fu">@RunWith</span>(MockitoJUnitRunner.<span class="fu">class</span>)
+<span class="kw">public</span> <span class="kw">class</span> ColorHelperTest {
+
+  <span class="fu">@Mock</span> PApplet applet;
+  <span class="fu">@Mock</span> IFAImage image;
+  <span class="fu">@Mock</span> PixelColorHelper pixelColorHelper;
+
+  ColorHelper colorHelper;
+
+  <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> px1 = <span class="dv">1000</span>;
+  <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> px2 = <span class="dv">1010</span>;
+  <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> px3 = <span class="dv">1030</span>;
+  <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> px4 = <span class="dv">1040</span>;
+  <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> px5 = <span class="dv">1050</span>;
+  <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span>[] pixels = { px1, px2, px3, px4, px5 };
+
+  <span class="fu">@Before</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">setUp</span>() <span class="kw">throws</span> Exception {
+    colorHelper = <span class="kw">new</span> <span class="fu">ColorHelper</span>(pixelColorHelper);
+    <span class="fu">when</span>(image.<span class="fu">getPixels</span>()).<span class="fu">thenReturn</span>(pixels);
+    <span class="fu">setHsbValuesForPixel</span>(<span class="dv">0</span>, px1, 30F, 5F, 10F);
+    <span class="fu">setHsbValuesForPixel</span>(<span class="dv">1</span>, px2, 20F, 6F, 11F);
+    <span class="fu">setHsbValuesForPixel</span>(<span class="dv">2</span>, px3, 30F, 7F, 12F);
+    <span class="fu">setHsbValuesForPixel</span>(<span class="dv">3</span>, px4, 50F, 8F, 13F);
+    <span class="fu">setHsbValuesForPixel</span>(<span class="dv">4</span>, px5, 30F, 9F, 14F);
+  }
+
+  <span class="kw">private</span> <span class="dt">void</span> <span class="fu">setHsbValuesForPixel</span>(<span class="dt">int</span> px, <span class="dt">int</span> color, <span class="dt">float</span> h, <span class="dt">float</span> s, <span class="dt">float</span> b) {
+    <span class="fu">when</span>(image.<span class="fu">getPixel</span>(px)).<span class="fu">thenReturn</span>(color);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">hue</span>(applet, color)).<span class="fu">thenReturn</span>(h);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">saturation</span>(applet, color)).<span class="fu">thenReturn</span>(s);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">brightness</span>(applet, color)).<span class="fu">thenReturn</span>(b);
+  }
+
+  <span class="kw">private</span> <span class="dt">void</span> <span class="fu">setRgbValuesForPixel</span>(<span class="dt">int</span> px, <span class="dt">int</span> color, <span class="dt">float</span> r, <span class="dt">float</span> g, <span class="dt">float</span> b, 
+            <span class="dt">float</span> alpha) {
+    <span class="fu">when</span>(image.<span class="fu">getPixel</span>(px)).<span class="fu">thenReturn</span>(color);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">red</span>(applet, color)).<span class="fu">thenReturn</span>(r);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">green</span>(applet, color)).<span class="fu">thenReturn</span>(g);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">blue</span>(applet, color)).<span class="fu">thenReturn</span>(b);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">alpha</span>(applet, color)).<span class="fu">thenReturn</span>(alpha);
+  }
+
+    <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testHsbColorFromImage</span>() {
+    HSBColor color = colorHelper.<span class="fu">getDominantHue</span>(applet, image, <span class="dv">100</span>);
+    <span class="fu">verify</span>(image).<span class="fu">loadPixels</span>();
+
+    <span class="fu">assertEquals</span>(30F, color.<span class="fu">h</span>, <span class="dv">0</span>);
+    <span class="fu">assertEquals</span>(7F, color.<span class="fu">s</span>, <span class="dv">0</span>);
+    <span class="fu">assertEquals</span>(12F, color.<span class="fu">b</span>, <span class="dv">0</span>);
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testProcessImageNoHue</span>() {
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 11F)).<span class="fu">thenReturn</span>(<span class="dv">11</span>);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 13F)).<span class="fu">thenReturn</span>(<span class="dv">13</span>);
+    colorHelper.<span class="fu">processImageForHue</span>(applet, image, <span class="dv">60</span>, <span class="dv">2</span>, <span class="kw">false</span>);
+    <span class="fu">verify</span>(applet).<span class="fu">colorMode</span>(PApplet.<span class="fu">HSB</span>, <span class="dv">59</span>);
+    <span class="fu">verify</span>(image, <span class="fu">times</span>(<span class="dv">2</span>)).<span class="fu">loadPixels</span>();
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">1</span>, <span class="dv">11</span>);
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">3</span>, <span class="dv">13</span>);
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testApplyColorFilter</span>() {
+    <span class="fu">setRgbValuesForPixel</span>(<span class="dv">0</span>, px1, 10F, 12F, 14F, 60F);
+    <span class="fu">setRgbValuesForPixel</span>(<span class="dv">1</span>, px2, 20F, 22F, 24F, 70F);
+    <span class="fu">setRgbValuesForPixel</span>(<span class="dv">2</span>, px3, 30F, 32F, 34F, 80F);
+    <span class="fu">setRgbValuesForPixel</span>(<span class="dv">3</span>, px4, 40F, 42F, 44F, 90F);
+    <span class="fu">setRgbValuesForPixel</span>(<span class="dv">4</span>, px5, 50F, 52F, 54F, 100F);
+
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 0F, 0F, 0F, 60F)).<span class="fu">thenReturn</span>(<span class="dv">5</span>);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 20F, 0F, 0F, 70F)).<span class="fu">thenReturn</span>(<span class="dv">15</span>);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 30F, 32F, 0F, 80F)).<span class="fu">thenReturn</span>(<span class="dv">25</span>);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 40F, 42F, 44F, 90F)).<span class="fu">thenReturn</span>(<span class="dv">35</span>);
+    <span class="fu">when</span>(pixelColorHelper.<span class="fu">color</span>(applet, 50F, 52F, 54F, 100F)).<span class="fu">thenReturn</span>(<span class="dv">45</span>);
+
+    colorHelper.<span class="fu">applyColorFilter</span>(applet, image, <span class="dv">15</span>, <span class="dv">25</span>, <span class="dv">35</span>, <span class="dv">100</span>);
+    <span class="fu">verify</span>(applet).<span class="fu">colorMode</span>(PApplet.<span class="fu">RGB</span>, <span class="dv">100</span>);
+    <span class="fu">verify</span>(image).<span class="fu">loadPixels</span>();
+
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">0</span>, <span class="dv">5</span>);
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">1</span>, <span class="dv">15</span>);
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">2</span>, <span class="dv">25</span>);
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">3</span>, <span class="dv">35</span>);
+    <span class="fu">verify</span>(image).<span class="fu">setPixel</span>(<span class="dv">4</span>, <span class="dv">45</span>);
+  }
+}</code></pre>
+
+<p></p>
+
+<p>Notice that:</p>
+
+<ul>
+<li>We use the <code>MockitoJUnit</code> runner.</li>
+<li>We mock <code>PApplet</code>, <code>IFAImage</code> (created for expressly this purpose), and <code>ImageColorHelper</code>.</li>
+<li>Test methods are annotated with <code>@Test</code><a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>. If you want to ignore a test (e.g., whilst debugging) you can add the annotation <code>@Ignore</code>.</li>
+<li>In <code>setup()</code>, we create the pixel array and have the mock image always return it.</li>
+<li>Helper methods make it easier to set expectations for recurring tasks (e.g., <code>set*ForPixel()</code>).</li>
+</ul>
+
+<h3 id="image-state-and-associated-tests">Image State and Associated Tests</h3>
+
+<p><code>ImageState</code> holds the current &quot;state&quot; of the image — the image itself, and the settings and filters that will be applied. We'll omit the full implementation of <code>ImageState</code> here, but we'll show how it can be tested. You can visit the source repository for this project to see the full details.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.model;</span>
+
+<span class="kw">import processing.core.PApplet;</span>
+<span class="kw">import com.catehuston.imagefilter.color.ColorHelper;</span>
+
+<span class="kw">public</span> <span class="kw">class</span> ImageState {
+
+  <span class="kw">enum</span> ColorMode {
+    COLOR_FILTER,
+    SHOW_DOMINANT_HUE,
+    HIDE_DOMINANT_HUE
+  }
+
+  <span class="kw">private</span> <span class="dt">final</span> ColorHelper colorHelper;
+  <span class="kw">private</span> IFAImage image;
+  <span class="kw">private</span> String filepath;
+
+  <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> INITIAL_HUE_TOLERANCE = <span class="dv">5</span>;
+
+  ColorMode colorModeState = ColorMode.<span class="fu">COLOR_FILTER</span>;
+  <span class="dt">int</span> blueFilter = <span class="dv">0</span>;
+  <span class="dt">int</span> greenFilter = <span class="dv">0</span>;
+  <span class="dt">int</span> hueTolerance = <span class="dv">0</span>;
+  <span class="dt">int</span> redFilter = <span class="dv">0</span>;
+
+  <span class="kw">public</span> <span class="fu">ImageState</span>(ColorHelper colorHelper) {
+    <span class="kw">this</span>.<span class="fu">colorHelper</span> = colorHelper;
+    image = <span class="kw">new</span> <span class="fu">IFAImage</span>();
+    hueTolerance = INITIAL_HUE_TOLERANCE;
+  }
+  <span class="co">/* ... getters &amp; setters */</span>
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">updateImage</span>(PApplet applet, <span class="dt">int</span> hueRange, <span class="dt">int</span> rgbColorRange, 
+          <span class="dt">int</span> imageMax) { <span class="kw">... </span>}
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">processKeyPress</span>(<span class="dt">char</span> key, <span class="dt">int</span> inc, <span class="dt">int</span> rgbColorRange,
+          <span class="dt">int</span> hueIncrement, <span class="dt">int</span> hueRange) { <span class="kw">... </span>}
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">setUpImage</span>(PApplet applet, <span class="dt">int</span> imageMax) { <span class="kw">... </span>}
+
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">resetImage</span>(PApplet applet, <span class="dt">int</span> imageMax) { <span class="kw">... </span>}
+
+  <span class="co">// For testing purposes only.</span>
+  <span class="kw">protected</span> <span class="dt">void</span> <span class="fu">set</span>(IFAImage image, ColorMode colorModeState,
+            <span class="dt">int</span> redFilter, <span class="dt">int</span> greenFilter, <span class="dt">int</span> blueFilter, <span class="dt">int</span> hueTolerance) { <span class="kw">... </span>}
+}</code></pre>
+
+<p>Here we can test that the appropriate actions happen for the given state; that fields are incremented and decremented appropriately.</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.model;</span>
+
+<span class="co">/* ... Imports omitted ... */</span>
+
+<span class="fu">@RunWith</span>(MockitoJUnitRunner.<span class="fu">class</span>)
+<span class="kw">public</span> <span class="kw">class</span> ImageStateTest {
+
+  <span class="fu">@Mock</span> PApplet applet;
+  <span class="fu">@Mock</span> ColorHelper colorHelper;
+  <span class="fu">@Mock</span> IFAImage image;
+
+  <span class="kw">private</span> ImageState imageState;
+
+  <span class="fu">@Before</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">setUp</span>() <span class="kw">throws</span> Exception {
+    imageState = <span class="kw">new</span> <span class="fu">ImageState</span>(colorHelper);
+  }
+
+  <span class="kw">private</span> <span class="dt">void</span> <span class="fu">assertState</span>(ColorMode colorMode, <span class="dt">int</span> redFilter,
+      <span class="dt">int</span> greenFilter, <span class="dt">int</span> blueFilter, <span class="dt">int</span> hueTolerance) {
+    <span class="fu">assertEquals</span>(colorMode, imageState.<span class="fu">getColorMode</span>());
+    <span class="fu">assertEquals</span>(redFilter, imageState.<span class="fu">redFilter</span>());
+    <span class="fu">assertEquals</span>(greenFilter, imageState.<span class="fu">greenFilter</span>());
+    <span class="fu">assertEquals</span>(blueFilter, imageState.<span class="fu">blueFilter</span>());
+    <span class="fu">assertEquals</span>(hueTolerance, imageState.<span class="fu">hueTolerance</span>());
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testUpdateImageDominantHueHidden</span>() {
+    imageState.<span class="fu">setFilepath</span>(<span class="st">&quot;filepath&quot;</span>);
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">HIDE_DOMINANT_HUE</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+
+    imageState.<span class="fu">updateImage</span>(applet, <span class="dv">100</span>, <span class="dv">100</span>, <span class="dv">500</span>);
+
+    <span class="fu">verify</span>(image).<span class="fu">update</span>(applet, <span class="st">&quot;filepath&quot;</span>);
+    <span class="fu">verify</span>(colorHelper).<span class="fu">processImageForHue</span>(applet, image, <span class="dv">100</span>, <span class="dv">10</span>, <span class="kw">false</span>);
+    <span class="fu">verify</span>(colorHelper).<span class="fu">applyColorFilter</span>(applet, image, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">100</span>);
+    <span class="fu">verify</span>(image).<span class="fu">updatePixels</span>();
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testUpdateDominantHueShowing</span>() {
+    imageState.<span class="fu">setFilepath</span>(<span class="st">&quot;filepath&quot;</span>);
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">SHOW_DOMINANT_HUE</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+
+    imageState.<span class="fu">updateImage</span>(applet, <span class="dv">100</span>, <span class="dv">100</span>, <span class="dv">500</span>);
+
+    <span class="fu">verify</span>(image).<span class="fu">update</span>(applet, <span class="st">&quot;filepath&quot;</span>);
+    <span class="fu">verify</span>(colorHelper).<span class="fu">processImageForHue</span>(applet, image, <span class="dv">100</span>, <span class="dv">10</span>, <span class="kw">true</span>);
+    <span class="fu">verify</span>(colorHelper).<span class="fu">applyColorFilter</span>(applet, image, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">100</span>);
+    <span class="fu">verify</span>(image).<span class="fu">updatePixels</span>();
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testUpdateRGBOnly</span>() {
+    imageState.<span class="fu">setFilepath</span>(<span class="st">&quot;filepath&quot;</span>);
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+
+    imageState.<span class="fu">updateImage</span>(applet, <span class="dv">100</span>, <span class="dv">100</span>, <span class="dv">500</span>);
+
+    <span class="fu">verify</span>(image).<span class="fu">update</span>(applet, <span class="st">&quot;filepath&quot;</span>);
+    <span class="fu">verify</span>(colorHelper, <span class="fu">never</span>()).<span class="fu">processImageForHue</span>(<span class="fu">any</span>(PApplet.<span class="fu">class</span>), 
+                <span class="fu">any</span>(IFAImage.<span class="fu">class</span>), <span class="fu">anyInt</span>(), <span class="fu">anyInt</span>(), <span class="fu">anyBoolean</span>());
+    <span class="fu">verify</span>(colorHelper).<span class="fu">applyColorFilter</span>(applet, image, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">100</span>);
+    <span class="fu">verify</span>(image).<span class="fu">updatePixels</span>();
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testKeyPress</span>() {
+    imageState.<span class="fu">processKeyPress</span>(&#39;r&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">5</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;e&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;g&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">5</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;f&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;b&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;v&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;h&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">HIDE_DOMINANT_HUE</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;i&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">HIDE_DOMINANT_HUE</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">7</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;u&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">HIDE_DOMINANT_HUE</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;h&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;s&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">SHOW_DOMINANT_HUE</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    imageState.<span class="fu">processKeyPress</span>(&#39;s&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+
+    <span class="co">// Random key should do nothing.</span>
+    imageState.<span class="fu">processKeyPress</span>(&#39;z&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testSave</span>() {
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">SHOW_DOMINANT_HUE</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+    imageState.<span class="fu">setFilepath</span>(<span class="st">&quot;filepath&quot;</span>);
+    imageState.<span class="fu">processKeyPress</span>(&#39;w&#39;, <span class="dv">5</span>, <span class="dv">100</span>, <span class="dv">2</span>, <span class="dv">200</span>);
+
+    <span class="fu">verify</span>(image).<span class="fu">save</span>(<span class="st">&quot;filepath-new.png&quot;</span>);
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testSetupImageLandscape</span>() {
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">SHOW_DOMINANT_HUE</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+    <span class="fu">when</span>(image.<span class="fu">getWidth</span>()).<span class="fu">thenReturn</span>(<span class="dv">20</span>);
+    <span class="fu">when</span>(image.<span class="fu">getHeight</span>()).<span class="fu">thenReturn</span>(<span class="dv">8</span>);
+    imageState.<span class="fu">setUpImage</span>(applet, <span class="dv">10</span>);
+    <span class="fu">verify</span>(image).<span class="fu">update</span>(applet, <span class="kw">null</span>);
+    <span class="fu">verify</span>(image).<span class="fu">resize</span>(<span class="dv">10</span>, <span class="dv">4</span>);
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testSetupImagePortrait</span>() {
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">SHOW_DOMINANT_HUE</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+    <span class="fu">when</span>(image.<span class="fu">getWidth</span>()).<span class="fu">thenReturn</span>(<span class="dv">8</span>);
+    <span class="fu">when</span>(image.<span class="fu">getHeight</span>()).<span class="fu">thenReturn</span>(<span class="dv">20</span>);
+    imageState.<span class="fu">setUpImage</span>(applet, <span class="dv">10</span>);
+    <span class="fu">verify</span>(image).<span class="fu">update</span>(applet, <span class="kw">null</span>);
+    <span class="fu">verify</span>(image).<span class="fu">resize</span>(<span class="dv">4</span>, <span class="dv">10</span>);
+  }
+
+  <span class="fu">@Test</span> <span class="kw">public</span> <span class="dt">void</span> <span class="fu">testResetImage</span>() {
+    imageState.<span class="fu">set</span>(image, ColorMode.<span class="fu">SHOW_DOMINANT_HUE</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>);
+    imageState.<span class="fu">resetImage</span>(applet, <span class="dv">10</span>);
+    <span class="fu">assertState</span>(ColorMode.<span class="fu">COLOR_FILTER</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">5</span>);
+  }
+}</code></pre>
+
+<p>Notice that:</p>
+
+<ul>
+<li>We exposed a protected initialization method <code>set</code> for testing that helps us quickly get the system under test into a specific state.</li>
+<li>We mock <code>PApplet</code>, <code>ColorHelper</code>, and <code>IFAImage</code> (created expressly for this purpose).</li>
+<li>This time we use a helper (<code>assertState()</code>) to simplify asserting the state of the image.</li>
+</ul>
+
+<h4 id="measuring-test-coverage">Measuring test coverage</h4>
+
+<p>I use <a href="http://www.eclemma.org/installation.html#marketplace">EclEmma</a> to measure test coverage within Eclipse. Overall for the app we have 81% test coverage, with none of <code>ImageFilterApp</code> covered, 94.8% for <code>ImageState</code>, and 100% for <code>ColorHelper</code>.</p>
+
+<h3 id="imagefilterapp">ImageFilterApp</h3>
+
+<p>This is where everything is tied together, but we want as little as possible here. The App is hard to unit test (much of it is layout), but because we've pushed so much of the app's functionality into our own tested classes, we're able to assure ourselves that the important parts are working as intended.</p>
+
+<p>We set the size of the app, and do the layout. (These things are verified by running the app and making sure it looks okay — no matter how good the test coverage, this step should not be skipped!)</p>
+
+<pre class="sourceCode java"><code class="sourceCode java"><span class="kw">package com.catehuston.imagefilter.app;</span>
+
+<span class="kw">import java.io.File;</span>
+
+<span class="kw">import processing.core.PApplet;</span>
+
+<span class="kw">import com.catehuston.imagefilter.color.ColorHelper;</span>
+<span class="kw">import com.catehuston.imagefilter.color.PixelColorHelper;</span>
+<span class="kw">import com.catehuston.imagefilter.model.ImageState;</span>
+
+<span class="fu">@SuppressWarnings</span>(<span class="st">&quot;serial&quot;</span>)
+<span class="kw">public</span> <span class="kw">class</span> ImageFilterApp <span class="kw">extends</span> PApplet {
+
+  <span class="dt">static</span> <span class="dt">final</span> String INSTRUCTIONS = <span class="st">&quot;...&quot;</span>;
+
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> FILTER_HEIGHT = <span class="dv">2</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> FILTER_INCREMENT = <span class="dv">5</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> HUE_INCREMENT = <span class="dv">2</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> HUE_RANGE = <span class="dv">100</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> IMAGE_MAX = <span class="dv">640</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> RGB_COLOR_RANGE = <span class="dv">100</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> SIDE_BAR_PADDING = <span class="dv">10</span>;
+  <span class="dt">static</span> <span class="dt">final</span> <span class="dt">int</span> SIDE_BAR_WIDTH = RGB_COLOR_RANGE + <span class="dv">2</span> * SIDE_BAR_PADDING + <span class="dv">50</span>;
+
+  <span class="kw">private</span> ImageState imageState;
+
+  <span class="dt">boolean</span> redrawImage = <span class="kw">true</span>;
+
+  <span class="fu">@Override</span>
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">setup</span>() {
+    <span class="fu">noLoop</span>();
+    imageState = <span class="kw">new</span> <span class="fu">ImageState</span>(<span class="kw">new</span> <span class="fu">ColorHelper</span>(<span class="kw">new</span> <span class="fu">PixelColorHelper</span>()));
+
+    <span class="co">// Set up the view.</span>
+    <span class="fu">size</span>(IMAGE_MAX + SIDE_BAR_WIDTH, IMAGE_MAX);
+    <span class="fu">background</span>(<span class="dv">0</span>);
+
+    <span class="fu">chooseFile</span>();
+  }
+
+  <span class="fu">@Override</span>
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">draw</span>() {
+    <span class="co">// Draw image.</span>
+    <span class="kw">if</span> (imageState.<span class="fu">image</span>().<span class="fu">image</span>() != <span class="kw">null</span> &amp;&amp; redrawImage) {
+      <span class="fu">background</span>(<span class="dv">0</span>);
+      <span class="fu">drawImage</span>();
+    }
+
+    <span class="fu">colorMode</span>(RGB, RGB_COLOR_RANGE);
+    <span class="fu">fill</span>(<span class="dv">0</span>);
+    <span class="fu">rect</span>(IMAGE_MAX, <span class="dv">0</span>, SIDE_BAR_WIDTH, IMAGE_MAX);
+    <span class="fu">stroke</span>(RGB_COLOR_RANGE);
+    <span class="fu">line</span>(IMAGE_MAX, <span class="dv">0</span>, IMAGE_MAX, IMAGE_MAX);
+
+    <span class="co">// Draw red line</span>
+    <span class="dt">int</span> x = IMAGE_MAX + SIDE_BAR_PADDING;
+    <span class="dt">int</span> y = <span class="dv">2</span> * SIDE_BAR_PADDING;
+    <span class="fu">stroke</span>(RGB_COLOR_RANGE, <span class="dv">0</span>, <span class="dv">0</span>);
+    <span class="fu">line</span>(x, y, x + RGB_COLOR_RANGE, y);
+    <span class="fu">line</span>(x + imageState.<span class="fu">redFilter</span>(), y - FILTER_HEIGHT,
+        x + imageState.<span class="fu">redFilter</span>(), y + FILTER_HEIGHT);
+
+    <span class="co">// Draw green line</span>
+    y += <span class="dv">2</span> * SIDE_BAR_PADDING;
+    <span class="fu">stroke</span>(<span class="dv">0</span>, RGB_COLOR_RANGE, <span class="dv">0</span>);
+    <span class="fu">line</span>(x, y, x + RGB_COLOR_RANGE, y);
+    <span class="fu">line</span>(x + imageState.<span class="fu">greenFilter</span>(), y - FILTER_HEIGHT,
+        x + imageState.<span class="fu">greenFilter</span>(), y + FILTER_HEIGHT);
+
+    <span class="co">// Draw blue line</span>
+    y += <span class="dv">2</span> * SIDE_BAR_PADDING;
+    <span class="fu">stroke</span>(<span class="dv">0</span>, <span class="dv">0</span>, RGB_COLOR_RANGE);
+    <span class="fu">line</span>(x, y, x + RGB_COLOR_RANGE, y);
+    <span class="fu">line</span>(x + imageState.<span class="fu">blueFilter</span>(), y - FILTER_HEIGHT,
+        x + imageState.<span class="fu">blueFilter</span>(), y + FILTER_HEIGHT);
+
+    <span class="co">// Draw white line.</span>
+    y += <span class="dv">2</span> * SIDE_BAR_PADDING;
+    <span class="fu">stroke</span>(HUE_RANGE);
+    <span class="fu">line</span>(x, y, x + <span class="dv">100</span>, y);
+    <span class="fu">line</span>(x + imageState.<span class="fu">hueTolerance</span>(), y - FILTER_HEIGHT,
+        x + imageState.<span class="fu">hueTolerance</span>(), y + FILTER_HEIGHT);
+
+    y += <span class="dv">4</span> * SIDE_BAR_PADDING;
+    <span class="fu">fill</span>(RGB_COLOR_RANGE);
+    <span class="fu">text</span>(INSTRUCTIONS, x, y);
+    <span class="fu">updatePixels</span>();
+  }
+
+  <span class="co">// Callback for selectInput(), has to be public to be found.</span>
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">fileSelected</span>(File file) {
+    <span class="kw">if</span> (file == <span class="kw">null</span>) {
+      <span class="fu">println</span>(<span class="st">&quot;User hit cancel.&quot;</span>);
+    } <span class="kw">else</span> {
+      imageState.<span class="fu">setFilepath</span>(file.<span class="fu">getAbsolutePath</span>());
+      imageState.<span class="fu">setUpImage</span>(<span class="kw">this</span>, IMAGE_MAX);
+      redrawImage = <span class="kw">true</span>;
+      <span class="fu">redraw</span>();
+    }
+  }
+
+  <span class="kw">private</span> <span class="dt">void</span> <span class="fu">drawImage</span>() {
+    <span class="fu">imageMode</span>(CENTER);
+    imageState.<span class="fu">updateImage</span>(<span class="kw">this</span>, HUE_RANGE, RGB_COLOR_RANGE, IMAGE_MAX);
+    <span class="fu">image</span>(imageState.<span class="fu">image</span>().<span class="fu">image</span>(), IMAGE_MAX/<span class="dv">2</span>, IMAGE_MAX/<span class="dv">2</span>, 
+                imageState.<span class="fu">image</span>().<span class="fu">getWidth</span>(), imageState.<span class="fu">image</span>().<span class="fu">getHeight</span>());
+    redrawImage = <span class="kw">false</span>;
+  }
+
+  <span class="fu">@Override</span>
+  <span class="kw">public</span> <span class="dt">void</span> <span class="fu">keyPressed</span>() {
+    <span class="kw">switch</span>(key) {
+    <span class="kw">case</span> &#39;c&#39;:
+      <span class="fu">chooseFile</span>();
+      <span class="kw">break</span>;
+    <span class="kw">case</span> &#39;p&#39;:
+      redrawImage = <span class="kw">true</span>;
+      <span class="kw">break</span>;
+    <span class="kw">case</span> &#39; &#39;:
+      imageState.<span class="fu">resetImage</span>(<span class="kw">this</span>, IMAGE_MAX);
+      redrawImage = <span class="kw">true</span>;
+      <span class="kw">break</span>;
+    }
+    imageState.<span class="fu">processKeyPress</span>(key, FILTER_INCREMENT, RGB_COLOR_RANGE, 
+                HUE_INCREMENT, HUE_RANGE);
+    <span class="fu">redraw</span>();
+  }
+
+  <span class="kw">private</span> <span class="dt">void</span> <span class="fu">chooseFile</span>() {
+    <span class="co">// Choose the file.</span>
+    <span class="fu">selectInput</span>(<span class="st">&quot;Select a file to process:&quot;</span>, <span class="st">&quot;fileSelected&quot;</span>);
+  }
+}</code></pre>
+
+<p>Notice that:</p>
+
+<ul>
+<li>Our implementation extends <code>PApplet</code>.</li>
+<li>Most work is done in <code>ImageState</code>.</li>
+<li><code>fileSelected()</code> is the callback for <code>selectInput()</code>.</li>
+<li><code>static final</code> constants are defined up at the top.</li>
+</ul>
+
+<h2 id="the-value-of-prototyping">The Value of Prototyping</h2>
+
+<p>In real world programming, we spend a lot of time on productionisation work. Making things look just so. Maintaining 99.9% uptime. We spend more time on corner cases than refining algorithms.</p>
+
+<p>These constraints and requirements are important for our users. However there’s also space for freeing ourselves from them to play and explore.</p>
+
+<p>Eventually, I decided to port this to a native mobile app. Processing has an Android library, but as many mobile developers do, I opted to go iOS first. I had years of iOS experience, although I’d done little with CoreGraphics, but I don’t think even if I had had this idea initially, I would have been able to build it straight away on iOS. The platform forced me to operate in the RGB color space, and made it hard to extract the pixels from the image (hello, C). Memory and waiting was a major risk.</p>
+
+<p>There were exhilarating moments, when it worked for the first time. When it first ran on my device... without crashing. When I optimized memory usage by 66% and cut seconds off the runtime. And there were large periods of time locked away in a dark room, cursing intermittently.</p>
+
+<p>Because I had my prototype, I could explain to my business partner and our designer what I was thinking and what the app would do. It meant I deeply understood how it would work, and it was just a question of making it work nicely on this other platform. I knew what I was aiming for, so at the end of a long day shut away fighting with it and feeling like I had little to show for it I kept going… and hit an exhilarating moment and milestone the following morning.</p>
+
+<p>So, how do you find the dominant color in an image? There’s an app for that: <a href="http://showandhide.com">Show &amp; Hide</a>.</p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>If we wanted to create an animated sketch we would not call <code>noLoop()</code> (or, if we wanted to start animating later, we would call <code>loop()</code>). The frequency of the animation is determined by <code>frameRate()</code>.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>Method names in tests need not start with <code>test</code> as of JUnit 4, but habits are hard to break.<a href="#fnref2">↩</a></p></li>
+</ol>
+</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

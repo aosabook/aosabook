@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/code.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/500L.css" type="text/css" />
+    <title>500 Lines or Less | The Same-Origin Policy</title>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+          tex2jax: {
+            inlineMath: [['$','$'], ['\\(','\\)']],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+          },
+        });
+    </script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'></a>
+          <h1>The Same-Origin Policy</h1>
+          <h2 class="author">Eunsuk Kang, Santiago Perez De Rosso, and Daniel Jackson</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+      <div class="row">
+        <div class='span10 offset1' id='content'>
+          <p><em>Eunsuk Kang is a PhD candidate and a member of the Software Design Group at MIT. He received his SM (Master of Science) in Computer Science from MIT (2010), and a Bachelor of Software Engineering from the University of Waterloo (2007). His research projects have focused on developing tools and techniques for software modeling and verification, with applications to security and safety-critical systems.</em></p>
+
+<p><em>Santiago Perez De Rosso is a PhD student in the Software Design Group at MIT. He received his SM in Computer Science from MIT (2015), and an undergraduate degree from ITBA (2011). He used to work at Google, developing frameworks and tools to make engineers more productive (2012). He currently spends most of his time thinking about design and version control.</em></p>
+
+<p><em>Daniel Jackson is a professor in the Department of Electrical Engineering and Computer Science at MIT, and leads the Software Design Group in the Computer Science and Artificial Intelligence Laboratory. He received an MA from Oxford University (1984) in Physics, and his SM (1988) and PhD (1992) in Computer Science from MIT. He was a software engineer for Logica UK Ltd. (1984-1986), Assistant Professor of Computer Science at Carnegie Mellon University (1992-1997), and has been at MIT since 1997. He has broad interests in software engineering, especially in development methods, design and specification, formal methods, and safety critical systems.</em></p>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>The same-origin policy (SOP) is an important part of the security mechanism of every modern browser. It controls when scripts running in a browser can communicate with one another (roughly, when they originate from the same website). First introduced in Netscape Navigator, the SOP now plays a critical role in the security of web applications; without it, it would be far easier for a malicious hacker to peruse your private photos on Facebook, read your email, or empty your bank account.</p>
+
+<p>But the SOP is far from perfect. At times, it is too restrictive; there are cases (such as mashups) in which scripts from different origins should be able to share a resource but cannot. At other times it is not restrictive enough, leaving corner cases that can be exploited using common attacks such as cross-site request forgery. Furthermore, the design of the SOP has evolved organically over the years and puzzles many developers.</p>
+
+<p>The goal of this chapter is to capture the essence of this important—yet often misunderstood—feature. In particular, we will attempt to answer the following questions:</p>
+
+<ul>
+<li>Why is the SOP necessary? What are the types of security violations that it prevents?</li>
+<li>How is the behavior of a web application affected by the SOP?</li>
+<li>What are different mechanisms for bypassing the SOP?</li>
+<li>How secure are these mechanisms? What are potential security issues that they introduce?</li>
+</ul>
+
+<p>Covering the SOP in its entirety is a daunting task, given the complexity of the parts that are involved—web servers, browsers, HTTP, HTML documents, client-side scripts, and so on. We would likely get bogged down by the gritty details of all these parts (and consume our 500 lines before even reaching SOP). But how can we hope to be precise without representing crucial details?</p>
+
+<h2 id="modeling-with-alloy">Modeling with Alloy</h2>
+
+<p>This chapter is somewhat different from others in this book. Instead of building a working implementation, we will construct an executable model that serves as a simple yet precise description of the SOP. Like an implementation, the model can be executed to explore dynamic behaviors of the system, but unlike an implementation, the model omits low-level details that may get in the way of understanding the essential concepts.</p>
+
+<p>The approach we take might be called “agile modeling” because of its similarities to agile programming. We work incrementally, assembling the model bit by bit. Our evolving model is at every point something that can be executed. We formulate and run tests as we go, so that by the end we have not only the model itself but also a collection of <em>properties</em> that it satisfies.</p>
+
+<p>To construct this model, we use <em>Alloy</em>, a language for modeling and analyzing software design. An Alloy model cannot be executed in the traditional sense of program execution. Instead, a model can be (1) <em>simulated</em> to produce an <em>instance</em>, which represents a valid scenario or configuration of a system, and (2) <em>checked</em> to see whether the model satisfies a desired property.</p>
+
+<p>Despite the above similarities, agile modeling differs from agile programming in one key respect: Although we'll be running tests, we actually won't be writing any. Alloy's analyzer generates test cases automatically, and all that needs to be provided is the property to be checked. Needless to say, this saves a lot of trouble (and text). The analyzer actually executes all possible test cases up to a certain size (called a <em>scope</em>); this typically means generating all starting states with at most some number of objects, and then choosing operations and arguments to apply up to some number of steps. Because so many tests (typically billions) are executed, and because all possible configurations that a state can take are covered (albeit within the scope), this analysis tends to expose bugs more effectively than conventional testing (and is sometimes described as &quot;bounded verification&quot;).</p>
+
+<h3 id="simplifications">Simplifications</h3>
+
+<p>Because the SOP operates in the context of browsers, servers, HTTP, and so on, a complete description would be overwhelming. So our model (like all models) abstracts away irrelevant aspects, such as how network packets are structured and routed. But it also simplifies some relevant aspects, which means that the model cannot fully account for all possible security vulnerabilities.</p>
+
+<p>For example, we treat HTTP requests like remote procedure calls, ignoring the fact that responses to requests might come out of order. We also assume that DNS (the domain name service) is static, so we cannot consider attacks in which a DNS binding changes during an interaction. In principle, though, it would be possible to extend our model to cover all these aspects, although it's in the very nature of security analysis that no model (even if it represents the entire codebase) can be guaranteed to be complete.</p>
+
+<h2 id="roadmap">Roadmap</h2>
+
+<p>Here is the order in which we will proceed with our model of the SOP. We will begin by building models of three key components that we need in order for us to talk about the SOP: HTTP, the browser, and client-side scripting. We will build on top of these basic models to define what it means for a web application to be <em>secure</em>, and then introduce the SOP as a mechanism that attempts to achieve the required security properties.</p>
+
+<p>We will then see that the SOP can sometimes be too restrictive, getting in the way of a web application's proper functioning. So we will introduce four different techniques that are commonly used to bypass the restrictions that are imposed by the policy.</p>
+
+<p>Feel free to explore the sections in any order you'd like. If you are new to Alloy, we recommend starting with the first three sections (HTTP, Browser, and Script), as they introduce some of the basic concepts of the modeling language. While you are making your way through the chapter, we also encourage you to play with the models in the Alloy Analyzer; run them, explore the generated scenarios, and try making modifications and seeing their effects. It is <a href="http://alloy.mit.edu">freely available for download</a>.</p>
+
+<h2 id="model-of-the-web">Model of the Web</h2>
+
+<h3 id="http">HTTP</h3>
+
+<p>The first step in building an Alloy model is to declare some sets of objects. Let's start with resources:</p>
+
+<pre class="alloy"><code>sig Resource {}</code></pre>
+
+<p>The keyword <code>sig</code> identifies this as an Alloy <em>signature</em> declaration. This introduces a set of resource objects; think of these, just like the objects of a class with no instance variables, as blobs that have identity but no content. When the analysis runs, this set will be determined, just as a class in an object-oriented language comes to denote a set of objects when the program executes.</p>
+
+<p>Resources are named by URLs (<em>uniform resource locators</em>):</p>
+
+<pre class="alloy"><code>sig Url {
+  protocol: Protocol,
+  host: Domain,
+  port: lone Port,
+  path: Path
+}
+sig Protocol, Port, Path {}
+sig Domain { subsumes: set Domain }</code></pre>
+
+<p>Here we have five signature declarations, introducing a set of URLs and four additional sets for each of the basic kinds of objects they comprise. Within the URL declaration, we have four <em>fields</em>. Fields are like instance variables in a class; if <code>u</code> is a URL, for example, then <code>u.protocol</code> would represent the protocol of that URL (just like dot in Java). But in fact, as we'll see later, these fields are relations. You can think of each one as if it were a two-column database table. Thus <code>protocol</code> is a table with the first column containing URLs and the second column containing protocols. And the innocuous looking dot operator is in fact a rather general kind of relational join, so that you could also write <code>protocol.p</code> for all the URLs with a protocol <code>p</code>—but more on that later.</p>
+
+<p>Note that paths, unlike URLs, are treated as if they have no structure—a simplification. The keyword <code>lone</code> (which can be read &quot;less than or equal to one&quot;) says that each URL has at most one port. The path is the string that follows the host name in the URL, and which (for a simple static server) corresponds to the file path of the resource; we're assuming that it's always present, but can be an empty path.</p>
+
+<p>Let us introduce clients and servers, each of which contains a mapping from paths to resources:</p>
+
+<pre class="alloy"><code>abstract sig Endpoint {}
+abstract sig Client extends Endpoint {}
+abstract sig Server extends Endpoint {
+  resources: Path -&gt; lone Resource
+}</code></pre>
+
+<p>The <code>extends</code> keyword introduces a subset, so the set <code>Client</code> of all clients, for example, is a subset of the set <code>Endpoint</code> of all endpoints. Extensions are disjoint, so no endpoint is both a client and a server. The <code>abstract</code> keyword says that all extensions of a signature exhaust it, so its occurrence in the declaration of <code>Endpoint</code>, for example, says that every endpoint must belong to one of the subsets (at this point, <code>Client</code> and <code>Server</code>). For a server <code>s</code>, the expression <code>s.resources</code> will denote a map from paths to resources (hence the arrow in the declaration). Recall that each field is actually a relation that includes the owning signature as a first column, so this field represents a three-column relation on <code>Server</code>, <code>Path</code> and <code>Resource</code>.</p>
+
+<p>To map a URL to a server, we introduce a set <code>Dns</code> of domain name servers, each with a mapping from domains to servers:</p>
+
+<pre class="alloy"><code>one sig Dns {
+  map: Domain -&gt; Server
+}</code></pre>
+
+<p>The keyword <code>one</code> in the signature declaration means that (for simplicity) we're going to assume exactly one domain name server, and there will be a single DNS mapping, given by the expression <code>Dns.map</code>. Again, as with the serving resources, this could be dynamic (and in fact there are known security attacks that rely on changing DNS bindings during an interaction) but we're simplifying.</p>
+
+<p>In order to model HTTP requests, we also need the concept of <em>cookies</em>, so let's declare them:</p>
+
+<pre class="alloy"><code>sig Cookie {
+  domains: set Domain
+}</code></pre>
+
+<p>Each cookie is scoped with a set of domains; this captures the fact that a cookie can apply to <code>*.mit.edu</code>, which would include all domains with the suffix <code>mit.edu</code>.</p>
+
+<p>Finally, we can put this all together to construct a model of HTTP requests:</p>
+
+<pre class="alloy"><code>abstract sig HttpRequest extends Call {
+  url: Url,
+  sentCookies: set Cookie,
+  body: lone Resource,
+  receivedCookies: set Cookie,
+  response: lone Resource,
+}{
+  from in Client
+  to in Dns.map[url.host]
+}</code></pre>
+
+<p>We're modeling an HTTP request and response in a single object; the <code>url</code>, <code>sentCookies</code> and <code>body</code> are sent by the client, and the <code>receivedCookies</code> and <code>response</code> are sent back by the server.</p>
+
+<p>When writing the <code>HttpRequest</code> signature, we found that it contained generic features of calls, namely that they are from and to particular things. So we actually wrote a little Alloy module that declares the <code>Call</code> signature, and to use it here we need to import it:</p>
+
+<pre class="alloy"><code>open call[Endpoint]</code></pre>
+
+<p>It's a polymorphic module, so it's instantiated with <code>Endpoint</code>, the set of things calls are from and to. (The module appears in full in <a href="#500l.sop.appendix">Appendix: Reusing Modules in Alloy</a>.)</p>
+
+<p>Following the field declarations in <code>HttpRequest</code> is a collection of constraints. Each of these constraints applies to all members of the set of HTTP requests. The constraints say that (1) each request comes from a client, and (2) each request is sent to one of the servers specified by the URL host under the DNS mapping.</p>
+
+<p>One of the prominent features of Alloy is that a model, no matter how simple or detailed, can be executed at any time to generate sample system instances. Let's use the <code>run</code> command to ask the Alloy Analyzer to execute the HTTP model that we have so far:</p>
+
+<pre class="alloy"><code>run {} for 3    -- generate an instance with up to 3 objects of every signature type</code></pre>
+
+<p>As soon as the analyzer finds a possible instance of the system, it automatically produces a diagram of the instance, like in <a href="#figure-17.1">Figure 17.1</a>.</p>
+
+<div class="center figure">
+<a name="figure-17.1"></a><img src="same-origin-policy-images/fig-http-1.png" alt="Figure 17.1 - A possible instance" title="Figure 17.1 - A possible instance" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.1 - A possible instance</small>
+</p>
+
+<p>This instance shows a client (represented by node <code>Client</code>) sending an <code>HttpRequest</code> to <code>Server</code>, which, in response, returns a resource object and instructs the client to store <code>Cookie</code> at <code>Domain</code>.</p>
+
+<p>Even though this is a tiny instance with seemingly few details, it signals a flaw in our model. Note that the resource returned from the request (<code>Resource1</code>) does not exist in the server. We neglected to specify an obvious fact about the server; namely, that every response to a request is a resource that the server stores. We can go back to our definition of <code>HttpRequest</code> and add a constraint:</p>
+
+<pre class="alloy"><code>abstract sig HttpRequest extends Call { ... }{
+  ...
+  response = to.resources[url.path]
+}</code></pre>
+
+<p>Rerunning now produces instances without the flaw.</p>
+
+<p>Instead of generating sample instances, we can ask the analyzer to <em>check</em> whether the model satisfies a property. For example, one property we might want is that when a client sends the same request multiple times, it always receives the same response back:</p>
+
+<pre class="alloy"><code>check { 
+    all r1, r2: HttpRequest | r1.url = r2.url implies r1.response = r2.response 
+} for 3 </code></pre>
+
+<p>Given this <code>check</code> command, the analyzer explores every possible behavior of the system (up to the specified bound), and when it finds one that violates the property, displays that instance as a <em>counterexample</em>, as shown in <a href="#figure-17.2">Figure 17.2</a> and <a href="#figure-17.3">Figure 17.3</a>.</p>
+
+<div class="center figure">
+<a name="figure-17.2"></a><img src="same-origin-policy-images/fig-http-2a.png" alt="Figure 17.2 - Counterexample at time 0" title="Figure 17.2 - Counterexample at time 0" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.2 - Counterexample at time 0</small>
+</p>
+
+<div class="center figure">
+<a name="figure-17.3"></a><img src="same-origin-policy-images/fig-http-2b.png" alt="Figure 17.3 - Counterexample at time 1" title="Figure 17.3 - Counterexample at time 1" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.3 - Counterexample at time 1</small>
+</p>
+
+<p>This counterexample again shows an HTTP request being made by a client, but with two different servers. (In the Alloy visualizer, objects of the same type are distinguished by appending numeric suffixes to their names; if there is only one object of a given type, no suffix is added. Every name that appears in a snapshot diagram is the name of an object. So—perhaps confusingly at first sight—the names <code>Domain</code>, <code>Path</code>, <code>Resource</code>, <code>Url</code> all refer to individual objects, not to types.)</p>
+
+<p>Note that while the DNS maps <code>Domain</code> to both <code>Server0</code> and <code>Server1</code> (in reality, this is a common practice for load balancing), only <code>Server1</code> maps <code>Path</code> to a resource object, causing <code>HttpRequest1</code> to result in an empty response: another error in our model. To fix this, we add an Alloy <em>fact</em> recording that any two servers to which DNS maps a single host provide the same set of resources:</p>
+
+<pre class="alloy"><code>fact ServerAssumption {
+  all s1, s2: Server | 
+    (some Dns.map.s1 &amp; Dns.map.s2) implies s1.resources = s2.resources
+}</code></pre>
+
+<p>When we re-run the <code>check</code> command after adding this fact, the analyzer no longer reports any counterexamples for the property. This doesn't mean the property has been proven to be true, since there might be a counterexample in a larger scope. But it is unlikely that the property is false, since the analyzer has tested all possible instances involving 3 objects of each type.</p>
+
+<p>If desired, however, we can re-run the analysis with a larger scope for increased confidence. For example, running the above check with the scope of 10 still does not produce any counterexample, suggesting that the property is likely to be valid. However, keep in mind that given a larger scope, the analyzer needs to test a greater number of instances, and so it will likely take longer to complete.</p>
+
+<h3 id="browser">Browser</h3>
+
+<p>Let's now introduce browsers into our model:</p>
+
+<pre class="alloy"><code>sig Browser extends Client {
+  documents: Document -&gt; Time,
+  cookies: Cookie -&gt; Time,
+}</code></pre>
+
+<p>This is our first example of a signature with <em>dynamic fields</em>. Alloy has no built-in notions of time or behavior, which means that a variety of idioms can be used. In this model, we're using a common idiom in which you introduce a notion of <code>Time</code>, and attach it as a final column for every time-varying field. For example, the expression <code>b.cookies.t</code> represents the set of cookies that are stored in browser <code>b</code> at a particular time <code>t</code>. Likewise, the <code>documents</code> field associates a set of documents with each browser at a given time. (For more details about how we model the dynamic behavior, see <a href="#500l.sop.appendix">Appendix: Reusing Modules in Alloy</a>.)</p>
+
+<p>Documents are created from a response to an HTTP request. They can also be destroyed if, for example, the user closes a tab or the browser, but we leave this out of the model. A document has a URL (the one from which the document was originated), some content (the DOM), and a domain:</p>
+
+<pre class="alloy"><code>sig Document {
+  src: Url,
+  content: Resource -&gt; Time,
+  domain: Domain -&gt; Time
+}</code></pre>
+
+<p>The inclusion of the <code>Time</code> column for the latter two fields tells us that they can vary over time, and its omission for the first (<code>src</code>, representing the source URL of the document) indicates that the source URL is fixed.</p>
+
+<p>To model the effect of an HTTP request on a browser, we introduce a new signature, since not all HTTP requests will originate at the level of the browser; the rest will come from scripts.</p>
+
+<pre class="alloy"><code>sig BrowserHttpRequest extends HttpRequest {
+  doc: Document
+}{
+  -- the request comes from a browser
+  from in Browser
+  -- the cookies being sent exist in the browser at the time of the request
+  sentCookies in from.cookies.start
+  -- every cookie sent must be scoped to the url of the request
+  all c: sentCookies | url.host in c.domains
+
+  -- a new document is created to display the content of the response
+  documents.end = documents.start + from -&gt; doc
+  -- the new document has the response as its contents
+  content.end = content.start ++ doc -&gt; response
+  -- the new document has the host of the url as its domain
+  domain.end = domain.start ++ doc -&gt; url.host
+  -- the document&#39;s source field is the url of the request
+  doc.src = url
+
+  -- new cookies are stored by the browser
+  cookies.end = cookies.start + from -&gt; sentCookies
+}</code></pre>
+
+<p>This kind of request has one new field, <code>doc</code>, representing the document created in the browser from the resource returned by the request. As with <code>HttpRequest</code>, the behavior is described as a collection of constraints. Some of these say when the call can happen: for example, that the call has to come from a browser. Some constrain the arguments of the call: for example, that the cookies must be scoped appropriately. And some constrain the effect, using a common idiom that relates the value of a relation after the call to its value before.</p>
+
+<p>For example, to understand the constraint <code>documents.end = documents.start + from -&gt; doc</code> remember that <code>documents</code> is a 3-column relation on browsers, documents and times. The fields <code>start</code> and <code>end</code> come from the declaration of <code>Call</code> (which we haven't seen, but is included in the listing at the end), and represent the times at the beginning and end of the call. The expression <code>documents.end</code> gives the mapping from browsers to documents when the call has ended. So this constraint says that after the call, the mapping is the same, except for a new entry in the table mapping <code>from</code> to <code>doc</code>.</p>
+
+<p>Some constraints use the <code>++</code> relational <em>override</em> operator: <code>e1 ++ e2</code> contains all tuples of <code>e2</code>, and additionally, any tuples of <code>e1</code> whose first element is not the first element of a tuple in <code>e2</code>. For example, the constraint <code>content.end = content.start ++ doc -&gt; response</code> says that after the call, the <code>content</code> mapping will be updated to map <code>doc</code> to <code>response</code> (overriding any previous mapping of <code>doc</code>). If we were to use the union operator <code>+</code> instead, then the same document might (incorrectly) be mapped to multiple resources in the after state.</p>
+
+<h3 id="script">Script</h3>
+
+<p>Next, we will build on the HTTP and browser models to introduce <em>client-side scripts</em>, which represent pieces of code (typically in JavaScript) executing inside a browser document (<code>context</code>).</p>
+
+<pre class="alloy"><code>sig Script extends Client { context: Document }</code></pre>
+
+<p>A script is a dynamic entity that can perform two different kinds of action: (1) it can make HTTP requests (i.e., Ajax requests) and (2) it can perform browser operations to manipulate the content and properties of a document. The flexibility of client-side scripts is one of the main catalysts of the rapid development of Web 2.0, but is also the reason why the SOP was created in the first place. Without the SOP, scripts would be able to send arbitrary requests to servers, or freely modify documents inside the browser—which would be bad news if one or more of the scripts turned out to be malicious.</p>
+
+<p>A script can communicate to a server by sending an <code>XmlHttpRequest</code>:</p>
+
+<pre class="alloy"><code>sig XmlHttpRequest extends HttpRequest {}{
+  from in Script
+  noBrowserChange[start, end] and noDocumentChange[start, end]
+}</code></pre>
+
+<p>An <code>XmlHttpRequest</code> can be used by a script to send/receive resources to/from a server, but unlike <code>BrowserHttpRequest</code>, it does not immediately result in the creation of a new page or other changes to the browser and its documents. To say that a call does not modify these aspects of the system, we define predicates <code>noBrowserChange</code> and <code>noDocumentChange</code>:</p>
+
+<pre class="alloy"><code>pred noBrowserChange[start, end: Time] {
+  documents.end = documents.start and cookies.end = cookies.start  
+}
+pred noDocumentChange[start, end: Time] {
+  content.end = content.start and domain.end = domain.start  
+}</code></pre>
+
+<p>What kind of operations can a script perform on documents? First, we introduce a generic notion of <em>browser operations</em> to represent a set of browser API functions that can be invoked by a script:</p>
+
+<pre class="alloy"><code>abstract sig BrowserOp extends Call { doc: Document }{
+  from in Script and to in Browser
+  doc + from.context in to.documents.start
+  noBrowserChange[start, end]
+}</code></pre>
+
+<p>Field <code>doc</code> refers to the document that will be accessed or manipulated by this call. The second constraint in the signature facts says that both <code>doc</code> and the document in which the script executes (<code>from.context</code>) must be documents that currently exist inside the browser. Finally, a <code>BrowserOp</code> may modify the state of a document, but not the set of documents or cookies that are stored in the browser. (Actually, cookies can be associated with a document and modified using a browser API, but we omit this detail for now.)</p>
+
+<p>A script can read from and write to various parts of a document (usually called DOM elements). In a typical browser, there are a large number of API functions for accessing the DOM (e.g., <code>document.getElementById</code>), but enumerating all of them is not important for our purpose. Instead, we will simply group them into two kinds—<code>ReadDom</code> and <code>WriteDom</code>—and model modifications as wholesale replacements of the entire document:</p>
+
+<pre class="alloy"><code>sig ReadDom extends BrowserOp { result: Resource }{
+  result = doc.content.start
+  noDocumentChange[start, end]
+}
+sig WriteDom extends BrowserOp { newDom: Resource }{
+  content.end = content.start ++ doc -&gt; newDom
+  domain.end = domain.start
+}</code></pre>
+
+<p><code>ReadDom</code> returns the content of the target document, but does not modify it; <code>WriteDom</code>, on the other hand, sets the new content of the target document to <code>newDom</code>.</p>
+
+<p>In addition, a script can modify various properties of a document, such as its width, height, domain, and title. For our discussion of the SOP, we are only interested in the domain property, which we will introduce in a later section.</p>
+
+<h2 id="example-applications">Example Applications</h2>
+
+<p>As we've seen earlier, given a <code>run</code> or <code>check</code> command, the Alloy Analyzer generates a scenario (if it exists) that is consistent with the description of the system in the model. By default, the analyzer arbitrarily picks <em>any</em> one of the possible system scenarios (up to the specified bound), and assigns numeric identifiers to signature instances (<code>Server0</code>, <code>Browser1</code>, etc.) in the scenario.</p>
+
+<p>Sometimes, we may wish to analyze the behavior of a <em>particular</em> web application, instead of exploring scenarios with a random configuration of servers and clients. For example, imagine that we wish to build an email application that runs inside a browser (like Gmail). In addition to providing basic email features, our application might display a banner from a third-party advertisement service, which is controlled by a potentially malicious actor.</p>
+
+<p>In Alloy, the keywords <code>one sig</code> introduce a <em>singleton</em> signature containing exactly one object; we saw an example above with <code>Dns</code>. This syntax can be used to specify concrete atoms. For example, to say that there is one inbox page and one ad banner (each of which is a document) we can write:</p>
+
+<pre class="alloy"><code>one sig InboxPage, AdBanner extends Document {}</code></pre>
+
+<p>With this declaration, every scenario that Alloy generates will contain at least these two <code>Document</code> objects.</p>
+
+<p>Likewise, we can specify particular servers, domains and so on, with a constraint (which we've called <code>Configuration</code>) to specify the relationships between them:</p>
+
+<pre class="alloy"><code>one sig EmailServer, EvilServer extends Server {}
+one sig EvilScript extends Script {}
+one sig EmailDomain, EvilDomain extends Domain {}
+fact Configuration {
+  EvilScript.context = AdBanner
+  InboxPage.domain.first = EmailDomain
+  AdBanner.domain.first = EvilDomain  
+  Dns.map = EmailDomain -&gt; EmailServer + EvilDomain -&gt; EvilServer
+}</code></pre>
+
+<p>For example, the last constraint in the fact specifies how the DNS is configured to map domain names for the two servers in our system. Without this constraint, the Alloy Analyzer may generate scenarios where <code>EmailDomain</code> is mapped to <code>EvilServer</code>, which are not of interest to us. (In practice, such a mapping may be possible due to an attack called <em>DNS spoofing</em>, but we will rule it out from our model since it lies outside the class of attacks that the SOP is designed to prevent.)</p>
+
+<p>Let us introduce two additional applications: an online calendar and a blog site:</p>
+
+<pre class="alloy"><code>one sig CalendarServer, BlogServer extends Document {} 
+one sig CalendarDomain, BlogDomain extends Domain {}</code></pre>
+
+<p>We should update the constraint about the DNS mapping above to incorporate the domain names for these two servers:</p>
+
+<pre class="alloy"><code>fact Configuration {
+  ...
+  Dns.map = EmailDomain -&gt; EmailServer + EvilDomain -&gt; EvilServer + 
+            CalendarDomain -&gt; CalendarServer + BlogDomain -&gt; BlogServer  
+}</code></pre>
+
+<p>In addition, let us say that that the email, blog, and calendar applications are all developed by a single organization, and thus, share the same base domain name. Conceptually, we can think of <code>EmailServer</code> and <code>CalendarServer</code> having subdomains <code>email</code> and <code>calendar</code>, sharing <code>example.com</code> as the common superdomain. In our model, this can be represented by introducing a domain name that <em>subsumes</em> others:</p>
+
+<pre class="alloy"><code>one sig ExampleDomain extends Domain {}{
+  subsumes = EmailDomain + EvilDomain + CalendarDomain + this
+}   </code></pre>
+
+<p>Note that <code>this</code> is included as a member of <code>subsumes</code>, since every domain name subsumes itself.</p>
+
+<p>There are other details about these applications that we omit here (see <code>example.als</code> for the full model). But we will revisit these applications as our running example throughout the remainder of this chapter.</p>
+
+<h2 id="security-properties">Security Properties</h2>
+
+<p>Before we get to the SOP itself, there is an important question that we have not discussed yet: What exactly do we mean when we say our system is <em>secure</em>?</p>
+
+<p>Not surprisingly, this is a tricky question to answer. For our purposes, we will turn to two well-studied concepts in information security—<em>confidentiality</em> and <em>integrity</em>. Both of these concepts talk about how information should be allowed to pass through the various parts of the system. Roughly, <em>confidentiality</em> means that a critical piece of data should only be accessible to parts that are deemed trusted, and <em>integrity</em> means that trusted parts only rely on data that have not been maliciously tampered with.</p>
+
+<h3 id="dataflow-properties">Dataflow Properties</h3>
+
+<p>In order to specify these security properties more precisely, we first need to define what it means for a piece of data to <em>flow</em> from one part of the system to another. In our model so far, we have described interactions between two endpoints as being carried out through <em>calls</em>; e.g., a browser interacts with a server by making HTTP requests, and a script interacts with the browser by invoking browser API operations. Intuitively, during each call, a piece of data may flow from one endpoint to another as an <em>argument</em> or <em>return value</em> of the call. To represent this, we introduce a notion of <code>DataflowCall</code> into the model, and associate each call with a set of <code>args</code> and <code>returns</code> data fields:</p>
+
+<pre class="alloy"><code>sig Data in Resource + Cookie {}
+
+sig DataflowCall in Call {
+  args, returns: set Data,  --- arguments and return data of this call
+}{
+ this in HttpRequest implies
+    args = this.sentCookies + this.body and
+    returns = this.receivedCookies + this.response
+ ...
+}</code></pre>
+
+<p>For example, during each call of type <code>HttpRequest</code>, the client transfers <code>sentCookies</code> and <code>body</code> to the server, and receives <code>receivedCookies</code> and <code>response</code> as return values.</p>
+
+<p>More generally, arguments flow from the sender of the call to the receiver, and return values flow from the receiver to the sender. This means that the only way for an endpoint to access a new piece of data is by receiving it as an argument of a call that the endpoint accepts, or a return value of a call that the endpoint invokes. We introduce a notion of <code>DataflowModule</code>, and assign field <code>accesses</code> to represent the set of data elements that the module can access at each time step:</p>
+
+<pre class="alloy"><code>sig DataflowModule in Endpoint {
+  -- Set of data that this component initially owns
+  accesses: Data -&gt; Time
+}{
+  all d: Data, t: Time - first |
+     -- This endpoint can only access a piece of data &quot;d&quot; at time &quot;t&quot; only when
+    d -&gt; t in accesses implies
+      -- (1) It already had access in the previous time step, or
+      d -&gt; t.prev in accesses or
+      -- there is some call &quot;c&quot; that ended at &quot;t&quot; such that
+      some c: Call &amp; end.t |
+        -- (2) the endpoint receives &quot;c&quot; that carries &quot;d&quot; as one of its arguments or
+        c.to = this and d in c.args or
+        -- (3) the endpoint sends &quot;c&quot; that returns &quot;d&quot; 
+        c.from = this and d in c.returns 
+}</code></pre>
+
+<p>We also need to restrict data elements that a module can provide as arguments or return values of a call. Otherwise, we may get weird scenarios where a module can make a call with an argument that it has no access to.</p>
+
+<pre class="alloy"><code>sig DataflowCall in Call { ... } {
+  -- (1) Any arguments must be accessible to the sender
+  args in from.accesses.start
+  -- (2) Any data returned from this call must be accessible to the receiver
+  returns in to.accesses.start
+}</code></pre>
+
+<p>Now that we have means to describe data flow between different parts of the system, we are (almost) ready to state security properties that we care about. But recall that confidentiality and integrity are <em>context-dependent</em> notions; these properties make sense only if we can talk about some agents within the system as being trusted (or malicious). Similarly, not all information is equally important: we need to distinguish between data elements that we consider to be critical or malicious (or neither):</p>
+
+<pre class="alloy"><code>sig TrustedModule, MaliciousModule in DataflowModule {}
+sig CriticalData, MaliciousData in Data {}</code></pre>
+
+<p>Then, the confidentiality property can be stated as an <em>assertion</em> on the flow of critical data into non-trusted parts of the system:</p>
+
+<pre class="alloy"><code>// No malicious module should be able to access critical data
+assert Confidentiality {
+  no m: Module - TrustedModule, t: Time |
+    some CriticalData &amp; m.accesses.t 
+}</code></pre>
+
+<p>The integrity property is the dual of confidentiality:</p>
+
+<pre class="alloy"><code>// No malicious data should ever flow into a trusted module
+assert Integrity {
+  no m: TrustedModule, t: Time | 
+    some MaliciousData &amp; m.accesses.t
+}</code></pre>
+
+<h3 id="threat-model">Threat Model</h3>
+
+<p>A threat model describes a set of actions that an attacker may perform in an attempt to compromise a security property of a system. Building a threat model is an important step in any secure system design; it allows us to identify (possibly invalid) assumptions that we have about the system and its environment, and prioritize different types of risks that need to be mitigated.</p>
+
+<p>In our model, we consider an attacker that can act as a server, a script or a client. As a server, the attacker may set up malicious web pages to solicit visits from unsuspecting users, who, in turn, may inadvertently send sensitive information to the attacker as part of a HTTP request. The attacker may create a malicious script that invokes DOM operations to read data from other pages and relays those data to the attacker's server. Finally, as a client, the attacker may impersonate a normal user and send malicious requests to a server in an attempt to access the user's data. We do not consider attackers that eavesdrop on the connection between different network endpoints; although it is a threat in practice, the SOP is not designed to prevent it, and thus it lies outside the scope of our model.</p>
+
+<h3 id="checking-properties">Checking Properties</h3>
+
+<p>Now that we have defined the security properties and the attacker's behavior, let us show how the Alloy Analyzer can be used to automatically check that those properties hold even in the presence of the attacker. When prompted with a <code>check</code> command, the analyzer explores <em>all</em> possible dataflow traces in the system and produces a counterexample (if one exists) that demonstrates how an assertion might be violated:</p>
+
+<pre><code>check Confidentiality for 5</code></pre>
+
+<p>For example, when checking the model of our example application against the confidentiality property, the analyzer generates the scenario seen in <a href="#figure-17.4">Figure 17.4</a> and <a href="#figure-17.5">Figure 17.5</a>, which shows how <code>EvilScript</code> may access a piece of critical data (<code>MyInboxInfo</code>).</p>
+
+<div class="center figure">
+<a name="figure-17.4"></a><img src="same-origin-policy-images/fig-attack-1a.png" alt="Figure 17.4 - Confidentiality counterexample at time 0" title="Figure 17.4 - Confidentiality counterexample at time 0" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.4 - Confidentiality counterexample at time 0</small>
+</p>
+
+<div class="center figure">
+<a name="figure-17.5"></a><img src="same-origin-policy-images/fig-attack-1b.png" alt="Figure 17.5 - Confidentiality counterexample at time 1" title="Figure 17.5 - Confidentiality counterexample at time 1" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.5 - Confidentiality counterexample at time 1</small>
+</p>
+
+<p>This counterexample involves two steps. In the first step (<a href="#figure-17.4">Figure 17.4</a>), <code>EvilScript</code>, executing inside <code>AdBanner</code> from <code>EvilDomain</code>, reads the content of <code>InboxPage</code>, which originates from <code>EmailDomain</code>. In the next step (<a href="#figure-17.5">Figure 17.5</a>), <code>EvilScript</code> sends the same content (<code>MyInboxInfo</code>) to <code>EvilServer</code> by making an <code>XmlHtttpRequest</code> call. The core of the problem here is that a script executing under one domain is able to read the content of a document from another domain; as we will see in the next section, this is exactly one of the scenarios that the SOP is designed to prevent.</p>
+
+<p>There may be multiple counterexamples to a single assertion. Consider <a href="#figure-17.6">Figure 17.6</a>, which shows a different way in which the system may violate the confidentiality property.</p>
+
+<div class="center figure">
+<a name="figure-17.6"></a><img src="same-origin-policy-images/fig-attack-2.png" alt="Figure 17.6 - Another confidentiality violation" title="Figure 17.6 - Another confidentiality violation" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.6 - Another confidentiality violation</small>
+</p>
+
+<p>In this scenario, instead of reading the content of the inbox page, <code>EvilScript</code> directly makes a <code>GetInboxInfo</code> request to <code>EmailServer</code>. Note that the request includes a cookie (<code>MyCookie</code>), which is scoped to the same domain as the destination server. This is potentially dangerous, because if the cookie is used to represent the user's identity (e.g., a session cookie), <code>EvilScript</code> can effectively pretend to be the user and trick the server into responding with the user's private data (<code>MyInboxInfo</code>). Here, the problem is again related to the liberal ways in which a script may be used to access information across different domains—namely, that a script executing under one domain is able to make an HTTP request to a server with a different domain.</p>
+
+<p>These two counterexamples tell us that extra measures are needed to restrict the behavior of scripts, especially since some of those scripts could be malicious. This is exactly where the SOP comes in.</p>
+
+<h2 id="same-origin-policy">Same-Origin Policy</h2>
+
+<p>Before we can state the SOP, the first thing we should do is to introduce the notion of an <em>origin</em>, which is composed of a protocol, host, and optional port:</p>
+
+<pre class="alloy"><code>sig Origin {
+  protocol: Protocol,
+  host: Domain,
+  port: lone Port
+}</code></pre>
+
+<p>For convenience, let us define a function that, given a URL, returns the corresponding origin:</p>
+
+<pre class="alloy"><code>fun origin[u: Url] : Origin {
+    {o: Origin | o.protocol = u.protocol and o.host = u.host and o.port = u.port }
+}</code></pre>
+
+<p>The SOP itself has two parts, restricting the ability of a script to (1) make DOM API calls and (2) send HTTP requests. The first part of the policy states that a script can only read from and write to a document that comes from the same origin as the script:</p>
+
+<pre class="alloy"><code>fact domSop {
+  all o: ReadDom + WriteDom |  let target = o.doc, caller = o.from.context |
+    origin[target] = origin[caller] 
+}</code></pre>
+
+<p>An instance such as the first script scenario (from the previous section) is not possible under <code>domSop</code>, since <code>Script</code> is not allowed to invoke <code>ReadDom</code> on a document from a different origin.</p>
+
+<p>The second part of the policy says that a script cannot send an HTTP request to a server unless its context has the same origin as the target URL—effectively preventing instances such as the second script scenario.</p>
+
+<pre class="alloy"><code>fact xmlHttpReqSop { 
+  all x: XmlHttpRequest | origin[x.url] = origin[x.from.context.src] 
+}</code></pre>
+
+<p>As we can see, the SOP is designed to prevent the two types of vulnerabilities that could arise from actions of a malicious script; without it, the web would be a much more dangerous place than it is today.</p>
+
+<p>It turns out, however, that the SOP can be <em>too</em> restrictive. For example, sometimes you <em>do</em> want to allow communication between two documents of different origins. By the above definition of an origin, a script from <code>foo.example.com</code> would not be able to read the content of <code>bar.example.com</code>, or send a HTTP request to <code>www.example.com</code>, because these are all considered distinct hosts.</p>
+
+<p>In order to allow some form of cross-origin communication when necessary, browsers implemented a variety of mechanisms for relaxing the SOP. Some of these are more well-thought-out than others, and some have pitfalls that, when badly used, can undermine the security benefits of the SOP. In the following sections, we will describe the most common of these mechanisms, and discuss their potential security pitfalls.</p>
+
+<h2 id="techniques-for-bypassing-the-sop">Techniques for Bypassing the SOP</h2>
+
+<p>The SOP is a classic example of the tension between functionality and security; we want to make sure our sites are robust and functional, but the mechanism for securing it can sometimes get in the way. Indeed, when the SOP was initially introduced, developers ran into trouble building sites that made legitimate uses of cross-domain communication (e.g., mashups).</p>
+
+<p>In this section, we will discuss four techniques that have been devised and frequently used by web developers to bypass the restrictions imposed by the SOP: (1) The <code>document.domain</code> property relaxation; (2) JSONP; (3) PostMessage; and (4) CORS. These are valuable tools, but if used without caution, may render a web application vulnerable to exactly the kinds of attacks that the SOP was designed to thwart in the first place.</p>
+
+<p>Each of these four techniques is surprisingly complex, and if described in full detail, would merit its own chapter. So here we just give a brief impression of how they work, potential security problems that they introduce, and how to prevent these problems. In particular, we will ask the Alloy Analyzer to check, for each technique, whether it could be abused by an attacker to undermine the two security properties that we defined earlier:</p>
+
+<pre><code>check Confidentiality for 5
+check Integrity for 5</code></pre>
+
+<p>Based on insights from the counterexamples that the analyzer generates, we will discuss guidelines for safely using these techniques without falling into security pitfalls.</p>
+
+<h3 id="domain-property">Domain Property</h3>
+
+<p>As the first technique on our list, we will look at the use of the <code>document.domain</code> property as a way of bypassing the SOP. The idea behind this technique is to allow two documents from different origins to access each other's DOM simply by setting the <code>document.domain</code> property to the same value. So, for example, a script from <code>email.example.com</code> could read or write the DOM of a document from <code>calendar.example.com</code> if the scripts in both documents set the <code>document.domain</code> property to <code>example.com</code> (assuming both source URLs have also the same protocol and port).</p>
+
+<p>We model the behavior of setting the <code>document.domain</code> property as a type of browser operation called <code>SetDomain</code>:</p>
+
+<pre class="alloy"><code>// Modify the document.domain property
+sig SetDomain extends BrowserOp { newDomain: Domain }{
+  doc = from.context
+  domain.end = domain.start ++ doc -&gt; newDomain
+  -- no change to the content of the document
+  content.end = content.start
+}</code></pre>
+
+<p>The <code>newDomain</code> field represents the value to which the property should be set. There's a caveat, though: scripts can only set the domain property to a right-hand, fully qualified fragment of its hostname. (I.e., <code>email.example.com</code> can set it to <code>example.com</code> but not to <code>google.com</code>.) We use a fact to capture this rule about subdomains:</p>
+
+<pre class="alloy"><code>// Scripts can only set the domain property to only one that is a right-hand,
+// fully-qualified fragment of its hostname
+fact setDomainRule {
+  all d: Document | d.src.host in (d.domain.Time).subsumes
+}</code></pre>
+
+<p>If it weren't for this rule, any site could set the <code>document.domain</code> property to any value, which means that, for example, a malicious site could set the domain property to your bank domain, load your bank account in an iframe, and (assuming the bank page has set its domain property) read the DOM of your bank page.</p>
+
+<p>Let us go back to our original definition of the SOP, and relax its restriction on DOM access in order to take into account the effect of the <code>document.domain</code> property. If two scripts set the property to the same value, and they have the same protocol and port, then these two scripts can interact with each other (that is, read and write each other's DOM).</p>
+
+<pre class="alloy"><code>fact domSop {
+  -- For every successful read/write DOM operation,
+  all o: ReadDom + WriteDom |  let target = o.doc, caller = o.from.context |
+    -- (1) target and caller documents are from the same origin, or
+    origin[target] = origin[caller] or
+    -- (2) domain properties of both documents have been modified
+    (target + caller in (o.prevs &lt;: SetDomain).doc and
+      -- ...and they have matching origin values.
+      currOrigin[target, o.start] = currOrigin[caller, o.start])
+}</code></pre>
+
+<p>Here, <code>currOrigin[d, t]</code> is a function that returns the origin of document <code>d</code> with the property <code>document.domain</code> at time <code>t</code> as its hostname.</p>
+
+<p>It is worth pointing out that the <code>document.domain</code> properties for <em>both</em> documents must be <em>explictly</em> set sometime after they are loaded into the browser. Let us say that document A is loaded from <code>example.com</code>, and document B from <code>calendar.example.com</code> has its domain property modified to <code>example.com</code>. Even though the two documents now have the same domain property, they will <em>not</em> be able to interact with each other, unless document A also explictly sets its property to <code>example.com</code>. At first, this seems like a rather strange behavior. However, without this, various bad things can happen. For example, a site could be subject to a cross-site scripting attack from its subdomains: A malicious script in document B might modify its domain property to <code>example.com</code> and manipulate the DOM of document A, even though the latter never intended to interact with document B.</p>
+
+<p><strong>Analysis:</strong> Now that we have relaxed the SOP to allow cross-origin communication under certain circumstances, do the security guarantees of the SOP still hold? Let us ask the Alloy Analyzer to tell us whether the <code>document.domain</code> property could be abused by an attacker to access or tamper with a user's sensitive data.</p>
+
+<p>Indeed, given the new, relaxed definition of the SOP, the analyzer generates a counterexample scenario to the confidentiality property:</p>
+
+<pre><code>check Confidentiality for 5</code></pre>
+
+<p>This scenario consists of five steps; the first three steps show a typical use of <code>document.domain</code>, where two documents from distinct origins, <code>CalendarPage</code> and <code>InboxPage</code>, communicate by setting their domain properties to a common value (<code>ExampleDomain</code>). The last two steps introduce another document, <code>BlogPage</code>, that has been compromised with a malicious script that attempts to access the content of the other two documents.</p>
+
+<p>At the beginning of the scenario (<a href="#figure-17.7">Figure 17.7</a> and <a href="#figure-17.8">Figure 17.8</a>), <code>InboxPage</code> and <code>CalendarPage</code> have domain properties with two distinct values (<code>EmailDomain</code> and <code>ExampleDomain</code>, respectively), so the browser will prevent them from accessing each other's DOM. The scripts running inside the documents (<code>InboxScript</code> and <code>CalendarScript</code>) each execute the <code>SetDomain</code> operation to modify their domain properties to <code>ExampleDomain</code> (which is allowed because <code>ExampleDomain</code> is a superdomain of the original domain).</p>
+
+<div class="center figure">
+<a name="figure-17.7"></a><img src="same-origin-policy-images/fig-setdomain-1a.png" alt="Figure 17.7 - Cross-origin counterexample at time 0" title="Figure 17.7 - Cross-origin counterexample at time 0" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.7 - Cross-origin counterexample at time 0</small>
+</p>
+
+<div class="center figure">
+<a name="figure-17.8"></a><img src="same-origin-policy-images/fig-setdomain-1b.png" alt="Figure 17.8 - Cross-origin counterexample at time 1" title="Figure 17.8 - Cross-origin counterexample at time 1" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.8 - Cross-origin counterexample at time 1</small>
+</p>
+
+<p>Having done this, they can now access each other's DOM by executing <code>ReadDom</code> or <code>WriteDom</code> operations, as in <a href="#figure-17.9">Figure 17.9</a>.</p>
+
+<div class="center figure">
+<a name="figure-17.9"></a><img src="same-origin-policy-images/fig-setdomain-1c.png" alt="Figure 17.9 - Cross-origin counterexample at time 2" title="Figure 17.9 - Cross-origin counterexample at time 2" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.9 - Cross-origin counterexample at time 2</small>
+</p>
+
+<p>Note that when you set the domain of <code>email.example.com</code> and <code>calendar.example.com</code> to <code>example.com</code>, you are allowing not only these two pages to communicate between each other, but also <em>any</em> other page that has <code>example.com</code> as a superdomain (e.g., <code>blog.example.com</code>). An attacker also realizes this, and constructs a special script (<code>EvilScript</code>) that runs inside the attacker's blog page (<code>BlogPage</code>). In the next step (<a href="#figure-17.10">Figure 17.10</a>), the script executes the <code>SetDomain</code> operation to modify the domain property of <code>BlogPage</code> to <code>ExampleDomain</code>.</p>
+
+<div class="center figure">
+<a name="figure-17.10"></a><img src="same-origin-policy-images/fig-setdomain-2a.png" alt="Figure 17.10 - Cross-origin counterexample at time 3" title="Figure 17.10 - Cross-origin counterexample at time 3" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.10 - Cross-origin counterexample at time 3</small>
+</p>
+
+<p>Now that <code>BlogPage</code> has the same domain property as the other two documents, it can successfully execute the <code>ReadDOM</code> operation to access their content (<a href="#figure-17.11">Figure 17.11</a>.)</p>
+
+<div class="center figure">
+<a name="figure-17.11"></a><img src="same-origin-policy-images/fig-setdomain-2b.png" alt="Figure 17.11 - Cross-origin counterexample at time 4" title="Figure 17.11 - Cross-origin counterexample at time 4" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.11 - Cross-origin counterexample at time 4</small>
+</p>
+
+<p>This attack points out one crucial weakness of the domain property method for cross-origin communication: The security of an application that uses this method is only as strong as the weakest link in all of the pages that share the same base domain. We will shortly discuss another method called PostMessage, which can be used for a more general class of cross-origin communication while also being more secure.</p>
+
+<h3 id="json-with-padding-jsonp">JSON with Padding (JSONP)</h3>
+
+<p>Before the introduction of CORS (which we will discuss shortly), JSONP was perhaps the most popular technique for bypassing the SOP restriction on XMLHttpRequest, and still remains widely used today. JSONP takes advantage of the fact that script inclusion tags in HTML (i.e., <code>&lt;script&gt;</code>) are exempt from the SOP*; that is, you can include a script from <em>any</em> URL, and the browser readily executes it in the current document:</p>
+
+<p>(* Without this exemption, it would not be possible to load JavaScript libraries, such as JQuery, from other domains.)</p>
+
+<pre class="sourceCode html"><code class="sourceCode html"><span class="kw">&lt;script</span><span class="ot"> src=</span><span class="st">&quot;http://www.example.com/myscript.js&quot;</span><span class="kw">&gt;&lt;/script&gt;</span></code></pre>
+
+<p>A script tag can be used to obtain code, but how do we use it to receive arbitrary <em>data</em> (e.g., a JSON object) from a different domain? The problem is that the browser expects the content of <code>src</code> to be a piece of JavaScript code, and so simply having it point at a data source (e.g., a JSON or HTML file) results in a syntax error.</p>
+
+<p>One workaround is to wrap the desired data inside a string that the browser recognizes as valid JavaScript code; this string is sometimes called <em>padding</em> (hence the name &quot;JSON with padding&quot;). This padding could be any arbitrary JavaScript code, but conventionally, it is the name of a callback function (already defined in the current document) that is to be executed on the response data:</p>
+
+<pre class="sourceCode html"><code class="sourceCode html"><span class="kw">&lt;script</span><span class="ot"> src=</span><span class="st">&quot;http://www.example.com/mydata?jsonp=processData&quot;</span><span class="kw">&gt;&lt;/script&gt;</span></code></pre>
+
+<p>The server on <code>www.example.com</code> recognizes it as a JSONP request, and wraps the requested data inside the <code>jsonp</code> parameter:</p>
+
+<pre class="sourceCode javascript"><code class="sourceCode javascript"><span class="fu">processData</span>(mydata)</code></pre>
+
+<p>which is a valid JavaScript statement (namely, the application of function &quot;processData&quot; on value &quot;mydata&quot;), and is executed by the browser in the current document.</p>
+
+<p>In our model, JSONP is modeled as a kind of HTTP request that includes the identifier of a callback function in the field <code>padding</code>. After receiving a JSONP request, the server returns a response that has the requested resource (<code>payload</code>) wrapped inside the callback function (<code>cb</code>).</p>
+
+<pre class="alloy"><code>sig CallbackID {}  // identifier of a callback function
+// Request sent as a result of &lt;script&gt; tag
+sig JsonpRequest in BrowserHttpRequest {
+  padding: CallbackID
+}{
+  response in JsonpResponse
+}
+sig JsonpResponse in Resource {
+  cb: CallbackID,
+  payload: Resource
+}</code></pre>
+
+<p>When the browser receives the response, it executes the callback function on the payload:</p>
+
+<pre class="alloy"><code>sig JsonpCallback extends EventHandler {
+  cb: CallbackID,
+  payload: Resource
+}{
+  causedBy in JsonpRequest
+  let resp = causedBy.response | 
+    cb = resp.@cb and
+    -- result of JSONP request is passed on as an argument to the callback
+    payload = resp.@payload
+}</code></pre>
+
+<p>(<code>EventHandler</code> is a special type of call that must take place sometime after another call, which is denoted by <code>causedBy</code>; we will use event handlers to model actions that are performed by scripts in response to browser events.)</p>
+
+<p>Note that the callback function executed is the same as the one that's included in the response (<code>cb = resp.@cb</code>), but <em>not</em> necessarily the same as <code>padding</code> in the original JSONP request. In other words, for the JSONP communication to work, the server is responsible for properly constructing a response that includes the original padding as the callback function (i.e., ensure that <code>JsonRequest.padding = JsonpResponse.cb</code>). In principle, the server can choose to include any callback function (or any piece of JavaScript), including one that has nothing to do with <code>padding</code> in the request. This highlights a potential risk of JSONP: the server that accepts the JSONP requests must be trustworthy and secure, because it has the ability to execute any piece of JavaScript code in the client document.</p>
+
+<p><strong>Analysis:</strong> Checking the <code>Confidentiality</code> property with the Alloy Analyzer returns a counterexample that shows one potential security risk of JSONP. In this scenario, the calendar application (<code>CalendarServer</code>) makes its resources available to third-party sites using a JSONP endpoint (<code>GetSchedule</code>). To restrict access to the resources, <code>CalendarServer</code> only sends back a response with the schedule for a user if the request contains a cookie that correctly identifies that user.</p>
+
+<p>Note that once a server provides an HTTP endpoint as a JSONP service, anyone can make a JSONP request to it, including malicious sites. In this scenario, the ad banner page from <code>EvilServer</code> includes a <em>script</em> tag that causes a <code>GetSchedule</code> request, with a callback function called <code>Leak</code> as <code>padding</code>. Typically, the developer of <code>AdBanner</code> does not have direct access to the victim user's session cookie (<code>MyCookie</code>) for <code>CalendarServer</code>. However, because the JSONP request is being sent to <code>CalendarServer</code>, the browser automatically includes <code>MyCookie</code> as part of the request; <code>CalendarServer</code>, having received a JSONP request with <code>MyCookie</code>, will return the victim's resource (<code>MySchedule</code>) wrapped inside the padding <code>Leak</code> (<a href="#figure-17.12">Figure 17.12</a>.)</p>
+
+<div class="center figure">
+<a name="figure-17.12"></a><img src="same-origin-policy-images/fig-jsonp-1.png" alt="Figure 17.12 - JSONP counterexample at time 0" title="Figure 17.12 - JSONP counterexample at time 0" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.12 - JSONP counterexample at time 0</small>
+</p>
+
+<p>In the next step, the browser interprets the JSONP response as a call to <code>Leak(MySchedule)</code> (<a href="#figure-17.13">Figure 17.13</a>). The rest of the attack is simple; <code>Leak</code> can simply be programmed to forward the input argument to <code>EvilServer</code>, allowing the attacker to access the victim's sensitive information.</p>
+
+<div class="center figure">
+<a name="figure-17.13"></a><img src="same-origin-policy-images/fig-jsonp-2.png" alt="Figure 17.13 - JSONP counterexample at time 1" title="Figure 17.13 - JSONP counterexample at time 1" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.13 - JSONP counterexample at time 1</small>
+</p>
+
+<p>This attack, an example of <em>cross-site request forgery</em> (CSRF), shows an inherent weakness of JSOPN; <em>any</em> site on the web can make a JSONP request simply by including a <code>&lt;script&gt;</code> tag and access the payload inside the padding. The risk can be mitigated in two ways: (1) ensure that a JSONP request never returns sensitive data, or (2) use another mechanism in place of cookies (e.g., secret tokens) to authorize the request.</p>
+
+<h3 id="postmessage">PostMessage</h3>
+
+<p>PostMessage is a new feature in HTML5 that allows scripts from two documents (of possibly different origins) to communicate with each other. It offers a more disciplined alternative to the method of setting the <code>domain</code> property, but brings its own security risks.</p>
+
+<p><code>PostMessage</code> is a browser API function that takes two arguments: (1) the data to be sent (<code>message</code>), and (2) the origin of the document receiving the message (<code>targetOrigin</code>):</p>
+
+<pre class="alloy"><code>sig PostMessage extends BrowserOp {
+  message: Resource,
+  targetOrigin: Origin
+}</code></pre>
+
+<p>To receive a message from another document, the receiving document registers an event handler that is invoked by the browser as a consequence of a <code>PostMessage</code>:</p>
+
+<pre class="alloy"><code>sig ReceiveMessage extends EventHandler {
+  data: Resource,
+  srcOrigin: Origin
+}{
+  causedBy in PostMessage
+  -- &quot;ReceiveMessage&quot; event is sent to the script with the correct context
+  origin[to.context.src] = causedBy.targetOrigin
+  -- messages match
+  data = causedBy.@message
+  -- the origin of the sender script is provided as &quot;srcOrigin&quot; param 
+  srcOrigin = origin[causedBy.@from.context.src]
+}</code></pre>
+
+<p>The browser passes two parameters to <code>ReceiveMessage</code>: a resource (<code>data</code>) that corresponds to the message being sent, and the origin of the sender document (<code>srcOrigin</code>). The signature fact contains four constraints to ensure that each <code>ReceiveMessage</code> is well-formed with respect to its corresponding <code>PostMessage</code>.</p>
+
+<p><strong>Analysis:</strong> Again, let us ask the Alloy Analyzer whether <code>PostMessage</code> is a secure way of performing cross-origin communication. This time, the analyzer returns a counterexample for the <code>Integrity</code> property, meaning the attacker is able to exploit a weakness in <code>PostMessage</code> to introduce malicious data into a trusted application.</p>
+
+<p>Note that by default, the PostMessage mechanism does not restrict who is allowed to send PostMessage; in other words, any document can send a message to another document as long as the latter has registered a <code>ReceiveMessage</code> handler. For example, in the following instance generated from Alloy, <code>EvilScript</code>, running inside <code>AdBanner</code>, sends a malicious <code>PostMessage</code> to a document with the target origin of <code>EmailDomain</code> (<a href="#figure-17.14">Figure 17.14</a>.)</p>
+
+<div class="center figure">
+<a name="figure-17.14"></a><img src="same-origin-policy-images/fig-postmessage-1.png" alt="Figure 17.14 - PostMessage counterexample at time 0" title="Figure 17.14 - PostMessage counterexample at time 0" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.14 - PostMessage counterexample at time 0</small>
+</p>
+
+<p>The browser then forwards this message to the document(s) with the corresponding origin (in this case, <code>InboxPage</code>). Unless <code>InboxScript</code> specifically checks the value of <code>srcOrigin</code> to filter out messages from unwanted origins, <code>InboxPage</code> will accept the malicious data, possibly leading to further security attacks. (For example, it may embed a piece of JavaScript to carry out an XSS attack.) This is shown in <a href="#figure-17.14">Figure 17.14</a>.</p>
+
+<div class="center figure">
+<a name="figure-17.15"></a><img src="same-origin-policy-images/fig-postmessage-2.png" alt="Figure 17.15 - PostMessage counterexample at time 1" title="Figure 17.15 - PostMessage counterexample at time 1" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.15 - PostMessage counterexample at time 1</small>
+</p>
+
+<p>As this example illustrates, <code>PostMessage</code> is not secure by default, and it is the responsibility of the receiving document to <em>additionally</em> check the <code>srcOrigin</code> parameter to ensure that the message is coming from a trustworthy document. Unfortunately, in practice, many sites omit this check, enabling a malicious document to inject bad content as part of a <code>PostMessage</code><a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>.</p>
+
+<p>However, the omission of the origin check may not simply be the result of programmer ignorance. Implementing an appropriate check on an incoming PostMessage can be tricky; in some applications, it is hard to determine in advance the list of trusted origins from which messages are expected to be received. (In some apps, this list may even change dynamically.) This, again, highlights the tension between security and functionality: PostMessage can be used for secure cross-origin communication, but only when a whitelist of trusted origins is known.</p>
+
+<h3 id="cross-origin-resource-sharing-cors">Cross-Origin Resource Sharing (CORS)</h3>
+
+<p>Cross-Origin Resource Sharing (CORS) is a mechanism designed to allow a server to share its resources with sites from different origins. In particular, CORS can be used by a script from one origin to make requests to a server with a different origin, effectively bypassing the restriction of the SOP on cross-origin Ajax requests.</p>
+
+<p>Briefly, a typical CORS process involves two steps: (1) a script wanting to access a resource from a foreign server includes, in its request, an &quot;Origin&quot; header that specifies the origin of the script, and (2) the server includes an &quot;Access-Control-Allow-Origin&quot; header as part of its response, indicating a set of origins that are allowed to access the server's resource. Normally, without CORS, a browser would prevent the script from making a cross-origin request in the first place, conforming to the SOP. However, with CORS enabled, the browser allows the script to send the request and access its response, but <em>only if</em> &quot;Origin&quot; is one of the origins specified in &quot;Access-Control-Allow-Origin&quot;.</p>
+
+<p>(CORS additionally includes a notion of <em>preflight</em> requests, not discussed here, to support complex types of cross-origin requests besides GETs and POSTs.)</p>
+
+<p>In Alloy, we model a CORS request as a special kind of <code>XmlHttpRequest</code>, with two extra fields <code>origin</code> and <code>allowedOrigins</code>:</p>
+
+<pre class="alloy"><code>sig CorsRequest in XmlHttpRequest {
+  -- &quot;origin&quot; header in request from client
+  origin: Origin,
+  -- &quot;access-control-allow-origin&quot; header in response from server
+  allowedOrigins: set Origin
+}{
+  from in Script
+}</code></pre>
+
+<p>We then use an Alloy fact <code>corsRule</code> to describe what constitutes a valid CORS request:</p>
+
+<pre class="alloy"><code>fact corsRule {
+  all r: CorsRequest |
+    -- the origin header of a CORS request matches the script context
+    r.origin = origin[r.from.context.src] and
+    -- the specified origin is one of the allowed origins
+    r.origin in r.allowedOrigins
+}</code></pre>
+
+<p><strong>Analysis:</strong> Can CORS be misused in a way that would allow the attacker to compromise the security of a trusted site? When prompted, the Alloy Analyzer returns a simple counterexample for the <code>Confidentiality</code> property.</p>
+
+<p>Here, the developer of the calendar application decides to share some of its resources with other applications by using the CORS mechanism. Unfortunately, <code>CalendarServer</code> is configured to return <code>Origin</code> (which represents the set of all origin values) for the <code>access-control-allow-origin</code> header in CORS responses. As a result, a script from any origin, including <code>EvilDomain</code>, is allowed to make a cross-site request to <code>CalendarServer</code> and read its response (<a href="#figure-17.16">Figure 17.16</a>).</p>
+
+<div class="center figure">
+<a name="figure-17.16"></a><img src="same-origin-policy-images/fig-cors.png" alt="Figure 17.16 - CORS counterexample" title="Figure 17.16 - CORS counterexample" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 17.16 - CORS counterexample</small>
+</p>
+
+<p>This example highlights one common mistake that developers make with CORS: Using the wildcard value &quot;*&quot; as the value of &quot;access-control-allow-origin&quot; header, allowing any site to access a resource on the server. This access pattern is appropriate if the resource is considered public and accessible to anyone. However, it turns out that many sites use &quot;*&quot; as the default value even for private resources, inadvertently allowing malicious scripts to access them through CORS requests<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a>.</p>
+
+<p>Why would a developer ever use the wildcard? It turns out that specifying the allowed origins can be tricky, since it may not be clear at design time which origins should be granted access at runtime (similar to the PostMessage issue discusssed above). A service may, for example, allow third-party applications to subscribe dynamically to its resources.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>In this chapter, we set out to construct a document that provides a clear understanding of the SOP and its related mechanisms by building a <em>model</em> of the policy in a language called Alloy. Our model of the SOP is not an implementation in the traditional sense, and can't be deployed for use, unlike artifacts shown in other chapters. Instead, we wanted to demonstrate the key elements behind our approach to &quot;agile modeling&quot;: (1) starting out with a small, abstract model of the system and <em>incrementally</em> adding details as necessary, (2) specifying <em>properties</em> that the system is expected to satisfy, and (3) applying <em>rigorous analysis</em> to explore potential flaws in the design of the system. Of course, this chapter was written long after the SOP was first introduced, but we believe that this type of modeling would potentially be even more beneficial if it is done during the early stage of system design.</p>
+
+<p>Besides the SOP, Alloy has been used to model and reason about a variety of systems across different domains—ranging from network protocols, semantic web, bytecode security to electronic voting and medical systems. For many of these systems, Alloy's analysis led to discovery of design flaws and bugs that had eluded the developers, in some cases, for years. We invite our readers to visit the <a href="http://alloy.mit.edu">Alloy page</a> and try building a model of their favorite system!</p>
+
+<h2 id="appendix-reusing-modules-in-alloy">Appendix: Reusing Modules in Alloy</h2>
+
+<p><a name="500l.sop.appendix"> </a> As mentioned earlier in this chapter, Alloy makes no assumptions about the behavior of the system being modeled. The lack of a built-in paradigm allows the user to encode a wide range of modeling idioms using a small core of the basic language constructs. We could, for example, specify a system as a state machine, a data model with complex invariants, a distributed event model with a global clock, or whatever idiom is most suitable for the problem at hand. Commonly used idioms can be captured as a generic module and reused across multiple systems.</p>
+
+<p>In our model of the SOP, we model the system as a set of endpoints that communicate with each other by making one or more <em>calls</em>. Since <em>call</em> is a fairly generic notion, we encapsulate its description in a separate Alloy module, to be imported from other modules that rely on it -- similar to standard libraries in programming languages:</p>
+
+<pre class="alloy"><code>module call[T] </code></pre>
+
+<p>In this module declaration, <code>T</code> represents a type parameter that can be instantiated to a concrete type that is provided when the module is imported. We will soon see how this type parameter is used.</p>
+
+<p>It is often convenient to describe the system execution as taking place over a global time frame, so that we can talk about calls as occurring before or after each other (or at the same time). To represent the notion of time, we introduce a new signature called <code>Time</code>:</p>
+
+<pre class="alloy"><code>open util/ordering[Time] as ord
+sig Time {}</code></pre>
+
+<p>In Alloy, <code>util/ordering</code> is a built-in module that imposes a total order on the type parameter, and so by importing <code>ordering[Time]</code>, we obtain a set of <code>Time</code> objects that behave like other totally ordered sets (e.g., natural numbers).</p>
+
+<p>Note that there is absolutely nothing special about <code>Time</code>; we could have named it any other way (for example, <code>Step</code> or <code>State</code>), and it wouldn't have changed the behavior of the model at all. All we are doing here is using an additional column in a relation as a way of representing the content of a field at different points in a system execution; for example, <code>cookies</code> in the <code>Browser</code> signature. In this sense, <code>Time</code> objects are nothing but helper objects used as a kind of index.</p>
+
+<p>Each call occurs between two points in time—its <code>start</code> and <code>end</code> times, and is associated with a sender (represented by <code>from</code>) and a receiver (<code>to</code>):</p>
+
+<pre class="alloy"><code>abstract sig Call { start, end: Time, from, to: T } </code></pre>
+
+<p>Recall that in our discussion of HTTP requests, we imported the module <code>call</code> by passing <code>Endpoint</code> as its type parameter. As a result, the parametric type <code>T</code> is instantiated to <code>Endpoint</code>, and we obtain a set of <code>Call</code> objects that are associated with a pair of sender and receiver endpoints. A module can be imported multiple times; for example, we could declare a signature called <code>UnixProcess</code>, and instantiate the module <code>call</code> to obtain a distinct set of <code>Call</code> objects that are sent from one Unix process to another.</p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Sooel Son and Vitaly Shmatikov. <em>The Postman Always Rings Twice: Attacking and Defending postMessage in HTML5 Websites</em>. Network and Distributed System Security Symposium (NDSS), 2013.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>Sebastian Lekies, Martin Johns, and Walter Tighzert. <em>The State of the Cross-Domain Nation</em>. Web 2.0 Security and Privacy (W2SP), 2011.<a href="#fnref2">↩</a></p></li>
+</ol>
+</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

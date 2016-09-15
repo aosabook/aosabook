@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/code.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/500L.css" type="text/css" />
+    <title>500 Lines or Less | An Event-Driven Web Framework</title>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+          tex2jax: {
+            inlineMath: [['$','$'], ['\\(','\\)']],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+          },
+        });
+    </script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'></a>
+          <h1>An Event-Driven Web Framework</h1>
+          <h2 class="author">Leo Zovic</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+      <div class="row">
+        <div class='span10 offset1' id='content'>
+          <p><em>Leo (better known online as inaimathi) is a recovering Graphic Designer who has professionally written Scheme, Common Lisp, Erlang, Javascript, Haskell, Clojure, Go, Python, PHP and C. He currently blogs about programming, plays board games and works at a Ruby-based startup in Toronto, Ontario.</em></p>
+
+<p>In 2013, I decided to write a <a href="https://github.com/Inaimathi/deal">web-based game prototyping tool</a> for card and board games called <em>House</em>. In these types of games, it is common for one player to wait for another player to make a move; however, when the other player finally does take action, we would like for the waiting player to be notified of the move quickly thereafter.</p>
+
+<p>This is a problem that turns out to be more complicated than it first seems. In this chapter, we'll explore the issues with using HTTP to build this sort of interaction, and then we'll build a <em>web framework</em> in Common Lisp that allows us to solve similar problems in the future.</p>
+
+<h2 id="the-basics-of-http-servers">The Basics of HTTP Servers</h2>
+
+<p>At the simplest level, an HTTP exchange is a single request followed by a single response. A <em>client</em> sends a request, which includes a resource identifier, an HTTP version tag, some headers and some parameters. The <em>server</em> parses that request, figures out what to do about it, and sends a response which includes the same HTTP version tag, a response code, some headers and a response body.</p>
+
+<p>Notice that, in this description, the server responds to a request from a specific client. In our case, we want each player to be updated about <em>any</em> moves as soon as they happen, rather than only getting notifications when their own move is made. This means we need the server to <em>push</em> messages to clients without first receiving a request for the information.<a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a></p>
+
+<p>There are several standard approaches to enabling server push over HTTP.</p>
+
+<h3 id="cometlong-poll">Comet/Long Poll</h3>
+
+<p>The &quot;long poll&quot; technique has the client send the server a new request as soon as it receives a response. Instead of fulfilling that request right away, the server waits on a subsequent event to respond. This is a bit of a semantic distinction, since the client is still taking action on every update.</p>
+
+<h3 id="server-sent-events-sse">Server-Sent Events (SSE)</h3>
+
+<p>Server-sent events require that the client initiates a connection and then keeps it open. The server periodically writes new data to the connection without closing it, and the client interprets incoming new messages as they arrive rather than waiting for the response connection to terminate. This is a bit more efficient than the Comet/long poll approach because each message doesn't have to incur the overhead of new HTTP headers.</p>
+
+<h3 id="websockets">WebSockets</h3>
+
+<p>WebSockets are a communication protocol built on top of HTTP. The server and client open up an HTTP conversation, then perform a handshake and protocol escalation. The end result is that they're still communicating over TCP/IP, but they're not using HTTP to do it at all. The advantage this has over SSEs is that you can customize the protocol for efficiency.</p>
+
+<h3 id="long-lived-connections">Long-Lived Connections</h3>
+
+<p>These three approaches are quite different from one another, but they all share an important characteristic: they all depend on long-lived connections. Long polling depends on the server keeping requests around until new data is available, SSEs keep an open stream between client and server to which data is periodically written, and WebSockets change the protocol a particular connection is using, but leave it open.</p>
+
+<p>To see why this might cause problems for your average HTTP server, let's consider how the underlying implementation might work.</p>
+
+<h3 id="traditional-http-server-architecture">Traditional HTTP Server Architecture</h3>
+
+<p><a name="sec.eventsweb.serverarch"> </a></p>
+
+<p>A single HTTP server processes many requests concurrently. Historically, many HTTP servers have used a <em>thread-per-request</em> architecture. That is, for each incoming request, the server creates a thread to do the work necessary to respond.</p>
+
+<p>Since each of these connections is intended to be short-lived, we don't need many threads executing in parallel to handle them all. This model also simplifies the <em>implementation</em> of the server by enabling the server programmer to write code as if there were only one connection being handled at any given time. It also gives us the freedom to clean up failed or &quot;zombie&quot; connections and their associated resources by killing the corresponding thread and letting the garbage collector do its job.</p>
+
+<p>The key observation is that an HTTP server hosting a &quot;traditional&quot; web application that has <span class="math">\(N\)</span> concurrent users might only need to handle a very small fraction of <span class="math">\(N\)</span> requests <em>in parallel</em> to succeed. For the type of interactive application that we are trying to build, <span class="math">\(N\)</span> users will almost certainly require the application to maintain at least <span class="math">\(N\)</span> connections in parallel, at once.</p>
+
+<p>The consequence of keeping long-lived connections around is that we'll need either:</p>
+
+<ul>
+<li>A platform where threads are &quot;cheap&quot; enough that we can use large numbers of them at once.</li>
+<li>A server architecture that can handle many connections with a single thread.</li>
+</ul>
+
+<p>There are programming environments such as <a href="http://racket-lang.org/">Racket</a>, <a href="http://www.erlang.org/">Erlang</a>, and <a href="http://hackage.haskell.org/package/base-4.7.0.1/docs/Control-Concurrent.html">Haskell</a> that provide thread-like constructs that are &quot;lightweight&quot; enough to consider the first option. This approach requires the programmer to explicitly deal with synchronization issues, which are going to be much more prevalent in a system where connections are open for a long time and likely all competing for similar resources. Specifically, if we have some sort of central data shared by several users simultaneously, we will need to coordinate reads and writes of that data in some way.</p>
+
+<p>If we don't have cheap threads at our disposal or we are unwilling to work with explicit synchronization, we must consider having a single thread handle many connections.<a href="#fn2" class="footnoteRef" id="fnref2"><sup>2</sup></a> In this model, our single thread is going to be handling tiny &quot;slices&quot; of many requests all at once, switching between them as efficiently as it possibly can. This system architecture pattern is most commonly referred to as <em>event-driven</em> or <em>event-based</em>.<a href="#fn3" class="footnoteRef" id="fnref3"><sup>3</sup></a></p>
+
+<p>Since we are only managing a single thread, we don't have to worry as much about protecting shared resources from simultaneous access. However, we do have a unique problem of our own in this model. Since our single thread is working on all in-flight requests at once, we must make sure that it <strong>never blocks</strong>. Blocking on any connection blocks the entire server from making progress on any other request. We have to be able to move on to another client if the current one can't be serviced further, and we need to be able to do so in a manner that doesn't throw out the work done so far.<a href="#fn4" class="footnoteRef" id="fnref4"><sup>4</sup></a></p>
+
+<p>While it is uncommon for a programmer to explicitly tell a thread to stop working, many common operations carry a risk of blocking. Because threads are so prevalent, and reasoning about asynchronicity is a heavy burden on the programmer, many languages and their frameworks assume that blocking on I/O is a desirable property. This makes it very easy to block somewhere <em>by accident</em>. Luckily, Common Lisp does provide us with a minimal set of asynchronous I/O primitives which we can build on top of.</p>
+
+<h3 id="architectural-decisions">Architectural Decisions</h3>
+
+<p>Now that we've studied the background of this problem, we've arrived at the point where we need to make informed decisions about <em>what</em> we are building.</p>
+
+<p>At the time I started thinking about this project, Common Lisp didn't have a complete green-thread implementation, and the <a href="http://common-lisp.net/project/bordeaux-threads/">standard portable threading library</a> doesn't qualify as &quot;really REALLY cheap&quot;. The options amounted to either picking a different language, or building an event-driven web server for my purpose. I chose the latter.</p>
+
+<p>In addition to the server architecture, we also need to choose which of the three server-push approaches to use. The use-case we are considering (an interactive multiplayer board game) requires frequent updates to each client, but relatively sparse requests <em>from</em> each client, which fits the SSE approach to pushing updates, so we'll go with this.</p>
+
+<p>Now that we've motivated our architectural decision and decided on a mechanism for simulating bidirectional communication between clients and server, let's get started on building our web framework. We'll start by building a relatively &quot;dumb&quot; server first, and then we'll extend it into a web-application framework that lets us focus on <em>what</em> our heavily-interactive program needs to do, and not <em>how</em> it is doing it.</p>
+
+<h2 id="building-an-event-driven-web-server">Building an Event-Driven Web Server</h2>
+
+<p>Most programs that use a single process to manage concurrent streams of work use a pattern called an <em>event loop</em>. Let's look at what an event loop for our web server might look like.</p>
+
+<h3 id="the-event-loop">The Event Loop</h3>
+
+<p>Our event loop needs to:</p>
+
+<ul>
+<li>listen for incoming connections;</li>
+<li>handle all new handshakes or incoming data on existing connections;</li>
+<li>clean up dangling sockets that are unexpectedly killed (e.g. by an interrupt)</li>
+</ul>
+
+<pre class="lisp"><code>(defmethod start ((port integer))
+  (let ((server (socket-listen
+         usocket:*wildcard-host* port
+         :reuse-address t
+         :element-type &#39;octet))
+    (conns (make-hash-table)))
+    (unwind-protect
+     (loop (loop for ready
+          in (wait-for-input
+              (cons server (alexandria:hash-table-keys conns))
+              :ready-only t)
+          do (process-ready ready conns)))
+      (loop for c being the hash-keys of conns
+     do (loop while (socket-close c)))
+      (loop while (socket-close server)))))</code></pre>
+
+<p>If you haven't written a Common Lisp program before, this code block requires some explanation. What we have written here is a <em>method definition</em>. While Lisp is popularly known as a functional language, it also has its own system for object-oriented programming called &quot;The Common Lisp Object System&quot;, which is usually abbreviated as &quot;CLOS&quot;.<a href="#fn5" class="footnoteRef" id="fnref5"><sup>5</sup></a></p>
+
+<h3 id="clos-and-generic-functions">CLOS and Generic Functions</h3>
+
+<p>In CLOS, instead of focusing on classes and methods, we write <a href="http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html"><em>generic functions</em></a> that are implemented as collections of <em>methods</em>. In this model, methods don't <em>belong to</em> classes, they <em>specialize on</em> types.<a href="#fn6" class="footnoteRef" id="fnref6"><sup>6</sup></a> The <code>start</code> method we just wrote is a unary method where the argument <code>port</code> is <em>specialized on</em> the type <code>integer</code>. This means that we could have several implementations of <code>start</code> where <code>port</code> varies in type, and the runtime will select which implementation to use depending on the type of <code>port</code> when <code>start</code> is called.</p>
+
+<p>More generally, methods can specialize on more than one argument. When a <code>method</code> is called, the runtime:</p>
+
+<ul>
+<li>dispatches on the type of its arguments to figure out which method body should be run, and</li>
+<li>runs the appropriate function.</li>
+</ul>
+
+<h3 id="processing-sockets">Processing Sockets</h3>
+
+<p>We'll see another generic function at work in <code>process-ready</code>, which was called earlier from our event loop. It processes a ready socket with one of two methods, depending on the type of socket we are handling.</p>
+
+<p>The two types we're concerned with are the <code>stream-usocket</code>, which represents a client socket that will make a request and expect to be sent some data back, and the <code>stream-server-usocket</code>, which represents our local TCP listener that will have new client connections for us to deal with.</p>
+
+<p>If a <code>stream-server-socket</code> is <code>ready</code>, that means there's a new client socket waiting to start a conversation. We call <code>socket-accept</code> to accept the connection, and then put the result in our connection table so that our event loop can begin processing it with the others.</p>
+
+<pre class="lisp"><code>(defmethod process-ready ((ready stream-server-usocket) (conns hash-table))
+  (setf (gethash (socket-accept ready :element-type &#39;octet) conns) nil))</code></pre>
+
+<p>When a <code>stream-usocket</code> is <code>ready</code>, that means that it has some bytes ready for us to read. (It's also possible that the other party has terminated the connection.)</p>
+
+<pre class="lisp"><code>(defmethod process-ready ((ready stream-usocket) (conns hash-table))
+  (let ((buf (or (gethash ready conns)
+         (setf (gethash ready conns)
+               (make-instance &#39;buffer :bi-stream (flex-stream ready))))))
+    (if (eq :eof (buffer! buf))
+    (ignore-errors
+      (remhash ready conns)
+      (socket-close ready))
+    (let ((too-big?
+           (&gt; (total-buffered buf)
+          +max-request-size+))
+          (too-old?
+           (&gt; (- (get-universal-time) (started buf))
+          +max-request-age+))
+          (too-needy?
+           (&gt; (tries buf)
+          +max-buffer-tries+)))
+      (cond (too-big?
+         (error! +413+ ready)
+         (remhash ready conns))
+        ((or too-old? too-needy?)
+         (error! +400+ ready)
+         (remhash ready conns))
+        ((and (request buf) (zerop (expecting buf)))
+         (remhash ready conns)
+         (when (contents buf)
+           (setf (parameters (request buf))
+             (nconc (parse buf) (parameters (request buf)))))
+         (handler-case
+             (handle-request ready (request buf))
+           (http-assertion-error () (error! +400+ ready))
+           ((and (not warning)
+             (not simple-error)) (e)
+             (error! +500+ ready e))))
+        (t
+         (setf (contents buf) nil)))))))</code></pre>
+
+<p>This is more involved than the first case. We:</p>
+
+<ol style="list-style-type: decimal">
+<li>Get the buffer associated with this socket, or create it if it doesn't exist yet;</li>
+<li>Read output into that buffer, which happens in the call to <code>buffer!</code>;</li>
+<li>If that read got us an <code>:eof</code>, the other side hung up, so we discard the socket <em>and</em> its buffer;</li>
+<li>Otherwise, we check if the buffer is one of <code>complete?</code>, <code>too-big?</code>, <code>too-old?</code> or <code>too-needy?</code>. If so, we remove it from the connections table and return the appropriate HTTP response.</li>
+</ol>
+
+<p>This is the first time we're seeing I/O in our event loop. In our discussion in <a href="#sec.eventsweb.serverarch">Traditional HTTP Server Architecture</a>, we mentioned that we have to be very careful about I/O in an event-driven system, because we could accidentally block our single thread. So, what do we do here to ensure that this doesn't happen? We have to explore our implementation of <code>buffer!</code> to find out exactly how this works.</p>
+
+<h3 id="processing-connections-without-blocking">Processing Connections Without Blocking</h3>
+
+<p>The basis of our approach to processing connections without blocking is the library function <a href="http://clhs.lisp.se/Body/f_rd_c_1.htm"><code>read-char-no-hang</code></a>, which immediately returns <code>nil</code> when called on a stream that has no available data. Where there is data to be read, we use a buffer to store intermediate input for this connection.</p>
+
+<pre class="lisp"><code>(defmethod buffer! ((buffer buffer))
+  (handler-case
+      (let ((stream (bi-stream buffer)))
+        (incf (tries buffer))
+        (loop for char = (read-char-no-hang stream) until (null char)
+           do (push char (contents buffer))
+           do (incf (total-buffered buffer))
+           when (request buffer) do (decf (expecting buffer))
+           when (line-terminated? (contents buffer))
+           do (multiple-value-bind (parsed expecting) (parse buffer)
+            (setf (request buffer) parsed
+                  (expecting buffer) expecting)
+            (return char))
+           when (&gt; (total-buffered buffer) +max-request-size+) return char
+           finally (return char)))
+    (error () :eof)))</code></pre>
+
+<p>When <code>buffer!</code> is called on a <code>buffer</code>, it:</p>
+
+<ul>
+<li>increments the <code>tries</code> count, so that we can evict &quot;needy&quot; buffers in <code>process-ready</code>;</li>
+<li>loops to read characters from the input stream, and</li>
+<li>returns the last character it read if it has read all of the available input.</li>
+</ul>
+
+<p>It also tracks any <code>\r\n\r\n</code> sequences so that we can later detect complete requests. Finally, if any error results, it returns an <code>:eof</code> to signal that <code>process-ready</code> should discard this connection.</p>
+
+<p>The <code>buffer</code> type is a CLOS <a href="http://www.gigamonkeys.com/book/object-reorientation-classes.html"><em>class</em></a>. Classes in CLOS let us define a type with fields called <code>slots</code>. We don't see the behaviours associated with <code>buffer</code> on the class definition, because (as we've already learned), we do that using generic functions like <code>buffer!</code>.</p>
+
+<p><code>defclass</code> does allow us to specify getters/setters (<code>reader</code>s/<code>accessor</code>s), and slot initializers; <code>:initform</code> specifies a default value, while <code>:initarg</code> identifies a hook that the caller of <code>make-instance</code> can use to provide a default value.</p>
+
+<pre class="lisp"><code>(defclass buffer ()
+  ((tries :accessor tries :initform 0)
+   (contents :accessor contents :initform nil)
+   (bi-stream :reader bi-stream :initarg :bi-stream)
+   (total-buffered :accessor total-buffered :initform 0)
+   (started :reader started :initform (get-universal-time))
+   (request :accessor request :initform nil)
+   (expecting :accessor expecting :initform 0)))</code></pre>
+
+<p>Our <code>buffer</code> class has seven slots:</p>
+
+<ul>
+<li><code>tries</code>, which keeps count of how many times we've tried reading into this buffer</li>
+<li><code>contents</code>, which contains what we've read so far</li>
+<li><code>bi-stream</code>, which a hack around some of those Common Lisp-specific, non-blocking-I/O annoyances I mentioned earlier</li>
+<li><code>total-buffered</code>, which is a count of chars we've read so far</li>
+<li><code>started</code>, which is a timestamp that tells us when we created this buffer</li>
+<li><code>request</code>, which will eventually contain the request we construct from buffered data</li>
+<li><code>expecting</code>, which will signal how many more chars we're expecting (if any) after we buffer the request headers</li>
+</ul>
+
+<h3 id="interpreting-requests">Interpreting Requests</h3>
+
+<p><a name="sec.eventsweb.handlerfunc"> </a> Now that we've seen how we incrementally assemble full requests from bits of data that are pooled into our buffers, what happens when we have a full request ready for handling? This happens in the method <code>handle-request</code>.</p>
+
+<pre class="lisp"><code>(defmethod handle-request ((socket usocket) (req request))
+  (aif (lookup (resource req) *handlers*)
+       (funcall it socket (parameters req))
+       (error! +404+ socket)))</code></pre>
+
+<p>This method adds another layer of error handling so that if the request is old, big, or needy, we can send a <code>400</code> response to indicate that the client provided us with some bad or slow data. However, if any <em>other</em> error happens here, it's because the programer made a mistake defining a <em>handler</em>, which should be treated as a <code>500</code> error. This will inform the client that something went wrong on the server as a result of their legitimate request.</p>
+
+<p>If the request is well-formed, we do the tiny and obvious job of looking up the requested resource in the <code>*handlers*</code> table. If we find one, we <code>funcall</code> <code>it</code>, passing along the client <code>socket</code> as well as the parsed request parameters. If there's no matching handler in the <code>*handlers*</code> table, we instead send along a <code>404</code> error. The handler system will be part of our full-fledged <em>web framework</em>, which we'll discuss in a later section.</p>
+
+<p>We still haven't seen how requests are parsed and interpreted from one of our buffers, though. Let's look at that next:</p>
+
+<pre class="lisp"><code>(defmethod parse ((buf buffer))
+  (let ((str (coerce (reverse (contents buf)) &#39;string)))
+    (if (request buf)
+        (parse-params str)
+        (parse str))))</code></pre>
+
+<p>This high-level method delegates to a specialization of <code>parse</code> that works with plain strings, or to <code>parse-params</code> that interprets the buffer contents as HTTP parameters. These are called depending on how much of the request we've already processed; the final <code>parse</code> happens when we already have a partial <code>request</code> saved in the <code>buffer</code>, at which point we're only looking to parse the request body.</p>
+
+<pre class="lisp"><code>(defmethod parse ((str string))
+  (let ((lines (split &quot;\\r?\\n&quot; str)))
+    (destructuring-bind (req-type path http-version) (split &quot; &quot; (pop lines))
+      (declare (ignore req-type))
+      (assert-http (string= http-version &quot;HTTP/1.1&quot;))
+      (let* ((path-pieces (split &quot;\\?&quot; path))
+         (resource (first path-pieces))
+         (parameters (second path-pieces))
+         (req (make-instance &#39;request :resource resource)))
+    (loop
+       for header = (pop lines)
+       for (name value) = (split &quot;: &quot; header)
+       until (null name)
+       do (push (cons (-&gt;keyword name) value) (headers req)))
+    (setf (parameters req) (parse-params parameters))
+    req))))
+
+(defmethod parse-params ((params null)) nil)
+
+(defmethod parse-params ((params string))
+  (loop for pair in (split &quot;&amp;&quot; params)
+     for (name val) = (split &quot;=&quot; pair)
+     collect (cons (-&gt;keyword name) (or val &quot;&quot;))))</code></pre>
+
+<p>In the <code>parse</code> method specializing on <code>string</code>, we transform the content into usable pieces. We do so on strings instead of working directly with buffers because this makes it easier to test the actual parsing code in an environment like an interpreter or REPL.</p>
+
+<p>The parsing process is:</p>
+
+<ol style="list-style-type: decimal">
+<li>Split on <code>&quot;\\r?\\n&quot;</code>.</li>
+<li>Split the first line of that on <code>&quot; &quot;</code> to get the request type (<code>POST</code>, <code>GET</code>, etc)/URI path/http-version.</li>
+<li>Assert that we're dealing with an <code>HTTP/1.1</code> request.</li>
+<li>Split the URI path on <code>&quot;?&quot;</code>, which gives us plain resource separate from any <code>GET</code> parameters.</li>
+<li>Make a new <code>request</code> instance with the resource in place.</li>
+<li>Populate that <code>request</code> instance with each split header line.</li>
+<li>Set that <code>request</code>s parameters to the result of parsing our <code>GET</code> parameters.</li>
+</ol>
+
+<p>As you might expect by now, <code>request</code> is an instance of a CLOS class:</p>
+
+<pre class="lisp"><code>    (defclass request ()
+      ((resource :accessor resource :initarg :resource)
+       (headers :accessor headers :initarg :headers :initform nil)
+       (parameters :accessor parameters :initarg :parameters :initform nil)))</code></pre>
+
+<p>We've now seen how our clients can send requests and have them interpreted and handled by our server. The last thing we have to implement as part of our core server interface is the capability to write responses back to the client.</p>
+
+<h3 id="rendering-responses">Rendering Responses</h3>
+
+<p>Before we discuss rendering responses, we have to consider that there are two kinds of responses that we may be returning to our clients. The first is a &quot;normal&quot; HTTP response, complete with HTTP headers and body. We represent these kinds of responses with instances of the <code>response</code> class:</p>
+
+<pre class="lisp"><code>(defclass response ()
+  ((content-type
+    :accessor content-type :initform &quot;text/html&quot; :initarg :content-type)
+   (charset
+    :accessor charset :initform &quot;utf-8&quot;)
+   (response-code
+    :accessor response-code :initform &quot;200 OK&quot; :initarg :response-code)
+   (keep-alive?
+    :accessor keep-alive? :initform nil :initarg :keep-alive?)
+   (body
+    :accessor body :initform nil :initarg :body)))</code></pre>
+
+<p>The second is an <a href="http://www.w3.org/TR/eventsource/">SSE message</a>, which we will use to send an incremental update to our clients.</p>
+
+<pre class="lisp"><code>(defclass sse ()
+  ((id :reader id :initarg :id :initform nil)
+   (event :reader event :initarg :event :initform nil)
+   (retry :reader retry :initarg :retry :initform nil)
+   (data :reader data :initarg :data)))</code></pre>
+
+<p>We'll send an HTTP response whenever we receive a full HTTP request; however, how do we know when and where to send SSE messages without an originating client request?</p>
+
+<p>A simple solution is to register <em>channels</em><a href="#fn7" class="footnoteRef" id="fnref7"><sup>7</sup></a>, to which we'll subscribe <code>socket</code>s as necessary.</p>
+
+<pre class="lisp"><code>(defparameter *channels* (make-hash-table))
+
+(defmethod subscribe! ((channel symbol) (sock usocket))
+  (push sock (gethash channel *channels*))
+  nil)</code></pre>
+
+<p>We can then <code>publish!</code> notifications to said channels as soon as they become available.</p>
+
+<pre class="lisp"><code>(defmethod publish! ((channel symbol) (message string))
+  (awhen (gethash channel *channels*)
+     (setf (gethash channel *channels*)
+           (loop with msg = (make-instance &#39;sse :data message)
+          for sock in it
+          when (ignore-errors
+             (write! msg sock)
+             (force-output (socket-stream sock))
+             sock)
+          collect it))))</code></pre>
+
+<p>In <code>publish!</code>, we call <code>write!</code> to actually write an <code>sse</code> to a socket. We'll also need a specialization of <code>write!</code> on <code>response</code>s to write full HTTP responses as well. Let's handle the HTTP case first.</p>
+
+<pre class="lisp"><code>(defmethod write! ((res response) (socket usocket))
+  (handler-case
+      (with-timeout (.2)
+    (let ((stream (flex-stream socket)))
+      (flet ((write-ln (&amp;rest sequences)
+           (mapc (lambda (seq) (write-sequence seq stream)) sequences)
+           (crlf stream)))
+        (write-ln &quot;HTTP/1.1 &quot; (response-code res))
+        (write-ln
+         &quot;Content-Type: &quot; (content-type res) &quot;; charset=&quot; (charset res))
+        (write-ln &quot;Cache-Control: no-cache, no-store, must-revalidate&quot;)
+        (when (keep-alive? res)
+          (write-ln &quot;Connection: keep-alive&quot;)
+          (write-ln &quot;Expires: Thu, 01 Jan 1970 00:00:01 GMT&quot;))
+        (awhen (body res)
+          (write-ln &quot;Content-Length: &quot; (write-to-string (length it)))
+          (crlf stream)
+          (write-ln it))
+        (values))))
+    (trivial-timeout:timeout-error ()
+      (values))))</code></pre>
+
+<p>This version of <code>write!</code> takes a <code>response</code> and a <code>usocket</code> named <code>sock</code>, and writes content to a stream provided by <code>sock</code>. We locally define the function <code>write-ln</code> which takes some number of sequences, and writes them out to the stream followed by a <code>crlf</code>. This is for readability; we could instead have called <code>write-sequence</code>/<code>crlf</code> directly.</p>
+
+<p>Note that we're doing the &quot;Must not block&quot; thing again. While writes are likely to be buffered and are at lower risk of blocking than reads, we still don't want our server to grind to a halt if something goes wrong here. If the write takes more than 0.2 seconds<a href="#fn8" class="footnoteRef" id="fnref8"><sup>8</sup></a>, we just move on (throwing out the current socket) rather than waiting any longer.</p>
+
+<p>Writing an <code>SSE</code> out is conceptually similar to writing out a <code>response</code>:</p>
+
+<pre class="lisp"><code>(defmethod write! ((res sse) (socket usocket))
+  (let ((stream (flex-stream socket)))
+    (handler-case
+    (with-timeout (.2)
+      (format
+       stream &quot;~@[id: ~a~%~]~@[event: ~a~%~]~@[retry: ~a~%~]data: ~a~%~%&quot;
+       (id res) (event res) (retry res) (data res)))
+      (trivial-timeout:timeout-error ()
+        (values)))))</code></pre>
+
+<p>This is simpler than working with full HTTP responses since the SSE message standard doesn't specify <code>CRLF</code> line-endings, so we can get away with a single <code>format</code> call. The <code>~@[</code>...<code>~]</code> blocks are <em>conditional directives</em>, which allow us to gracefully handle <code>nil</code> slots. For example, if <code>(id res)</code> is non-nil, we'll output <code>id: &lt;the id here&gt;</code>, otherwise we will ignore the directive entirely. The payload of our incremental update <code>data</code> is the only required slot of <code>sse</code>, so we can include it without worrying about it being <code>nil</code>. And again, we're not waiting around for <em>too</em> long. After 0.2 seconds, we'll time out and move on to the next thing if the write hasn't completed by then.</p>
+
+<h3 id="error-responses">Error Responses</h3>
+
+<p>Our treatment of the request/response cycle so far hasn't covered what happens when something goes wrong. Specifically, we used the <code>error!</code> function in <code>handle-request</code> and <code>process-ready</code> without describing what it does.</p>
+
+<pre class="lisp"><code>(define-condition http-assertion-error (error)
+  ((assertion :initarg :assertion :initform nil :reader assertion))
+  (:report (lambda (condition stream)
+         (format stream &quot;Failed assertions &#39;~s&#39;&quot;
+             (assertion condition)))))</code></pre>
+
+<p><code>define-condition</code> creates new error classes in Common Lisp. In this case, we are defining an HTTP assertion error, and stating that it will specifically need to know the actual assertion it's acting on, and a way to output itself to a stream. In other languages, you'd call this a method. Here, it's a function that happens to be the slot value of a class.</p>
+
+<p>How do we represent errors to the client? Let's define the <code>4xx</code> and <code>5xx</code>-class HTTP errors that we'll be using often:</p>
+
+<pre class="lisp"><code>(defparameter +404+
+  (make-instance
+   &#39;response :response-code &quot;404 Not Found&quot;
+   :content-type &quot;text/plain&quot;
+   :body &quot;Resource not found...&quot;))
+
+(defparameter +400+
+  (make-instance
+   &#39;response :response-code &quot;400 Bad Request&quot;
+   :content-type &quot;text/plain&quot;
+   :body &quot;Malformed, or slow HTTP request...&quot;))
+
+(defparameter +413+
+  (make-instance
+   &#39;response :response-code &quot;413 Request Entity Too Large&quot;
+   :content-type &quot;text/plain&quot;
+   :body &quot;Your request is too long...&quot;))
+
+(defparameter +500+
+  (make-instance
+   &#39;response :response-code &quot;500 Internal Server Error&quot;
+   :content-type &quot;text/plain&quot;
+   :body &quot;Something went wrong on our end...&quot;))</code></pre>
+
+<p>Now we can see what <code>error!</code> does:</p>
+
+<pre class="lisp"><code>(defmethod error! ((err response) (sock usocket) &amp;optional instance)
+  (declare (ignorable instance))
+  (ignore-errors
+    (write! err sock)
+    (socket-close sock)))</code></pre>
+
+<p>It takes an error response and a socket, writes the response to the socket and closes it (ignoring errors, in case the other end has already disconnected). The <code>instance</code> argument here is for logging/debugging purposes.</p>
+
+<p>And with that, we have an event-driven web server that can respond to HTTP requests or send SSE messages, complete with error handling!</p>
+
+<h2 id="extending-the-server-into-a-web-framework">Extending the Server Into a Web Framework</h2>
+
+<p>We have now built a reasonably functional web server that will move requests, responses, and messages to and from clients. The actual work of any web application hosted by this server is done by delegating to handler functions, which were introduced in <a href="#sec.eventsweb.handlerfunc">Interpreting Requests</a> but left underspecified.</p>
+
+<p>The interface between our server and the hosted application is an important one, because it dictates how easily application programmers can work with our infrastructure. Ideally, our handler interface would map parameters from a request to a function that does the real work:</p>
+
+<pre class="lisp"><code>(define-handler (source :is-stream? nil) (room)
+  (subscribe! (intern room :keyword) sock))
+
+(define-handler (send-message) (room name message)
+  (publish! (intern room :keyword)
+        (encode-json-to-string
+         `((:name . ,name) (:message . ,message)))))
+
+(define-handler (index) ()
+  (with-html-output-to-string (s nil :prologue t :indent t)
+    (:html
+     (:head (:script
+         :type &quot;text/javascript&quot;
+         :src &quot;/static/js/interface.js&quot;))
+     (:body (:div :id &quot;messages&quot;)
+        (:textarea :id &quot;input&quot;)
+        (:button :id &quot;send&quot; &quot;Send&quot;)))))</code></pre>
+
+<p>One of the concerns I had in mind when writing House was that, like any application open to the greater internet, it would be processing requests from untrusted clients. It would be nice to be able to say specifically what <em>type</em> of data each request should contain by providing a small <em>schema</em> that describes the data. Our previous list of handlers would then look like this:</p>
+
+<pre class="lisp"><code>(defun len-between (min thing max)
+  (&gt;= max (length thing) min))
+
+(define-handler (source :is-stream? nil)
+    ((room :string (len-between 0 room 16)))
+  (subscribe! (intern room :keyword) sock))
+
+(define-handler (send-message)
+    ((room :string (len-between 0 room 16))
+     (name :string (len-between 1 name 64))
+     (message :string (len-between 5 message 256)))
+  (publish! (intern room :keyword)
+        (encode-json-to-string
+         `((:name . ,name) (:message . ,message)))))
+
+(define-handler (index) ()
+  (with-html-output-to-string (s nil :prologue t :indent t)
+    (:html
+     (:head (:script
+         :type &quot;text/javascript&quot;
+         :src &quot;/static/js/interface.js&quot;))
+     (:body (:div :id &quot;messages&quot;)
+        (:textarea :id &quot;input&quot;)
+        (:button :id &quot;send&quot; &quot;Send&quot;)))))</code></pre>
+
+<p>While we are still working with Lisp code, this interface is starting to look almost like a <em>declarative language</em>, in which we state <em>what</em> we want our handlers to validate without thinking too much about <em>how</em> they are going to do it. What we are doing is building a <em>domain-specific language</em> (DSL) for handler functions; that is, we are creating a specific convention and syntax that allows us to concisely express exactly what we want our handlers to validate. This approach of building a small language to solve the problem at hand is frequently used by Lisp programmers, and it is a useful technique that can be applied in other programming languages.</p>
+
+<h3 id="a-dsl-for-handlers">A DSL for Handlers</h3>
+
+<p>Now that we have a loose specification for how we want our handler DSL to look, how do we implement it? That is, what specifically do we expect to happen when we call <code>define-handler</code>? Let's consider the definition for <code>send-message</code> from above:</p>
+
+<pre class="lisp"><code>(define-handler (send-message)
+    ((room :string (len-between 0 room 16))
+     (name :string (len-between 1 name 64))
+     (message :string (len-between 5 message 256)))
+  (publish! (intern room :keyword)
+        (encode-json-to-string
+         `((:name . ,name) (:message . ,message)))))</code></pre>
+
+<p>What we would like <code>define-handler</code> to do here is:</p>
+
+<ol style="list-style-type: decimal">
+<li>Bind the action <code>(publish! ...)</code> to the URI <code>/send-message</code> in the handlers table.</li>
+<li>When a request to this URI is made:
+<ul>
+<li>Ensure that the HTTP parameters <code>room</code>, <code>name</code> and <code>message</code> were included.</li>
+<li>Validate that <code>room</code> is a string no longer than 16 characters, <code>name</code> is a string of between 1 and 64 characters (inclusive) and that <code>message</code> is a string of between 5 and 256 characters (also inclusive).</li>
+</ul></li>
+<li>After the response has been returned, close the channel.</li>
+</ol>
+
+<p>While we could write Lisp functions to do all of these things, and then manually assemble the pieces ourselves, a more common approach is to use a Lisp facility called <code>macros</code> to <em>generate</em> the Lisp code for us. This allows us to concisely express what we want our DSL to do, without having to maintain a lot of code to do it. You can think of a macro as an &quot;executable template&quot; that will be expanded into Lisp code at runtime.</p>
+
+<p>Here's our <code>define-handler</code> macro<a href="#fn9" class="footnoteRef" id="fnref9"><sup>9</sup></a>:</p>
+
+<pre class="lisp"><code>(defmacro define-handler
+    ((name &amp;key (is-stream? t) (content-type &quot;text/html&quot;)) (&amp;rest args)
+     &amp;body body)
+  (if is-stream?
+      `(bind-handler
+    ,name (make-closing-handler
+           (:content-type ,content-type)
+           ,args ,@body))
+      `(bind-handler
+    ,name (make-stream-handler ,args ,@body))))</code></pre>
+
+<p>It delegates to three other macros (<code>bind-handler</code>, <code>make-closing-handler</code>, <code>make-stream-handler</code>) that we will define later. <code>make-closing-handler</code> will create a handler for a full HTTP request/response cycle; <code>make-stream-handler</code> will instead handle an SSE message. The predicate <code>is-stream?</code> distinguishes between these cases for us. The backtick and comma are macro-specific operators that we can use to &quot;cut holes&quot; in our code that will be filled out by values specified in our Lisp code when we actually use <code>define-handler</code>.</p>
+
+<p>Notice how closely our macro conforms to our specification of what we wanted <code>define-handler</code> to do: If we were to write a series of Lisp functions to do all of these things, the intent of the code would be much more difficult to discern by inspection.</p>
+
+<h3 id="expanding-a-handler">Expanding a Handler</h3>
+
+<p>Let's step through the expansion for the <code>send-message</code> handler so that we better understand what is actually going on when Lisp &quot;expands&quot; our macro for us. We'll use the macro expansion feature from the <a href="https://common-lisp.net/project/slime/">SLIME</a> Emacs mode to do this. Calling <code>macro-expander</code> on <code>define-handler</code> will expand our macro by one &quot;level&quot;, leaving our helper macros in their still-condensed form:</p>
+
+<pre class="lisp"><code>(BIND-HANDLER
+ SEND-MESSAGE
+ (MAKE-CLOSING-HANDLER
+  (:CONTENT-TYPE &quot;text/html&quot;)
+  ((ROOM :STRING (LEN-BETWEEN 0 ROOM 16))
+   (NAME :STRING (LEN-BETWEEN 1 NAME 64))
+   (MESSAGE :STRING (LEN-BETWEEN 5 MESSAGE 256)))
+  (PUBLISH! (INTERN ROOM :KEYWORD)
+        (ENCODE-JSON-TO-STRING
+         `((:NAME ,@NAME) (:MESSAGE ,@MESSAGE))))))</code></pre>
+
+<p>Our macro has already saved us a bit of typing by substituting our <code>send-message</code> specific code into our handler template. <code>bind-handler</code> is another macro which maps a URI to a handler function on our handlers table; since it's now at the root of our expansion, let's see how it is defined before expanding this further.</p>
+
+<pre class="lisp"><code>(defmacro bind-handler (name handler)
+  (assert (symbolp name) nil &quot;`name` must be a symbol&quot;)
+  (let ((uri (if (eq name &#39;root) &quot;/&quot; (format nil &quot;/~(~a~)&quot; name))))
+    `(progn
+       (when (gethash ,uri *handlers*)
+     (warn ,(format nil &quot;Redefining handler &#39;~a&#39;&quot; uri)))
+       (setf (gethash ,uri *handlers*) ,handler))))</code></pre>
+
+<p>The binding happens in the last line: <code>(setf (gethash ,uri *handlers*) ,handler)</code>, which is what hash-table assignments look like in Common Lisp (modulo the commas, which are part of our macro). Note that the <code>assert</code> is outside of the quoted area, which means that it'll be run as soon as the macro is <em>called</em> rather than when its result is evaluated.</p>
+
+<p>When we further expand our expansion of the <code>send-message</code> <code>define-handler</code> above, we get:</p>
+
+<pre class="lisp"><code>(PROGN
+  (WHEN (GETHASH &quot;/send-message&quot; *HANDLERS*)
+    (WARN &quot;Redefining handler &#39;/send-message&#39;&quot;))
+  (SETF (GETHASH &quot;/send-message&quot; *HANDLERS*)
+    (MAKE-CLOSING-HANDLER
+     (:CONTENT-TYPE &quot;text/html&quot;)
+     ((ROOM :STRING (LEN-BETWEEN 0 ROOM 16))
+      (NAME :STRING (LEN-BETWEEN 1 NAME 64))
+      (MESSAGE :STRING (LEN-BETWEEN 5 MESSAGE 256)))
+     (PUBLISH! (INTERN ROOM :KEYWORD)
+           (ENCODE-JSON-TO-STRING
+            `((:NAME ,@NAME) (:MESSAGE ,@MESSAGE)))))))</code></pre>
+
+<p>This is starting to look more like a custom implementation of what we would have written to marshal a request from a URI to a handler function, had we written it all ourselves. But we didn't have to!</p>
+
+<p>We still have <code>make-closing-handler</code> left to go in our expansion. Here is its definition:</p>
+
+<pre class="lisp"><code>(defmacro make-closing-handler
+    ((&amp;key (content-type &quot;text/html&quot;)) (&amp;rest args) &amp;body body)
+  `(lambda (sock parameters)
+     (declare (ignorable parameters))
+     ,(arguments
+       args
+       `(let ((res (make-instance
+            &#39;response
+            :content-type ,content-type
+            :body (progn ,@body))))
+      (write! res sock)
+      (socket-close sock)))))</code></pre>
+
+<p>So making a closing-handler involves making a <code>lambda</code>, which is just what you call anonymous functions in Common Lisp. We also set up an interior scope that makes a <code>response</code> out of the <code>body</code> argument we're passing in, performs a <code>write!</code> to the requesting socket, then closes it. The remaining question is, what is <code>arguments</code>?</p>
+
+<pre class="lisp"><code>(defun arguments (args body)
+  (loop with res = body
+     for arg in args
+     do (match arg
+     ((guard arg-sym (symbolp arg-sym))
+      (setf res `(let ((,arg-sym ,(arg-exp arg-sym))) ,res)))
+     ((list* arg-sym type restrictions)
+      (setf res
+        (let ((sym (or (type-expression
+                (arg-exp arg-sym)
+                type restrictions)
+                   (arg-exp arg-sym))))
+          `(let ((,arg-sym ,sym))
+             ,@(awhen (type-assertion arg-sym type restrictions)
+             `((assert-http ,it)))
+             ,res)))))
+     finally (return res)))</code></pre>
+
+<p>Welcome to the hard part. <code>arguments</code> turns the validators we registered with our handler into a tree of parse attempts and assertions. <code>type-expression</code>, <code>arg-exp</code>, and <code>type-assertion</code> are used to implement and enforce a &quot;type system&quot; for the kinds of data we're expecting in our responses; we'll discuss them in <a href="#sec.eventsweb.types">HTTP &quot;Types&quot;</a>. Using this together with <code>make-closing-handler</code> would implement the validation rules we wrote here:</p>
+
+<pre class="lisp"><code>(define-handler (send-message)
+    ((room :string (&gt;= 16 (length room)))
+     (name :string (&gt;= 64 (length name) 1))
+     (message :string (&gt;= 256 (length message) 5)))
+  (publish! (intern room :keyword)
+        (encode-json-to-string
+         `((:name . ,name) (:message . ,message)))))</code></pre>
+
+<p>...as an &quot;unrolled&quot; sequence of checks needed to validate the request:</p>
+
+<pre class="lisp"><code>(LAMBDA (SOCK #:COOKIE?1111 SESSION PARAMETERS)
+  (DECLARE (IGNORABLE SESSION PARAMETERS))
+  (LET ((ROOM (AIF (CDR (ASSOC :ROOM PARAMETERS))
+           (URI-DECODE IT)
+           (ERROR (MAKE-INSTANCE
+               &#39;HTTP-ASSERTION-ERROR
+               :ASSERTION &#39;ROOM)))))
+    (ASSERT-HTTP (&gt;= 16 (LENGTH ROOM)))
+    (LET ((NAME (AIF (CDR (ASSOC :NAME PARAMETERS))
+             (URI-DECODE IT)
+             (ERROR (MAKE-INSTANCE
+                 &#39;HTTP-ASSERTION-ERROR
+                 :ASSERTION &#39;NAME)))))
+      (ASSERT-HTTP (&gt;= 64 (LENGTH NAME) 1))
+      (LET ((MESSAGE (AIF (CDR (ASSOC :MESSAGE PARAMETERS))
+              (URI-DECODE IT)
+              (ERROR (MAKE-INSTANCE
+                  &#39;HTTP-ASSERTION-ERROR
+                  :ASSERTION &#39;MESSAGE)))))
+    (ASSERT-HTTP (&gt;= 256 (LENGTH MESSAGE) 5))
+    (LET ((RES (MAKE-INSTANCE
+            &#39;RESPONSE :CONTENT-TYPE &quot;text/html&quot;
+            :COOKIE (UNLESS #:COOKIE?1111
+                  (TOKEN SESSION))
+            :BODY (PROGN
+                (PUBLISH!
+                 (INTERN ROOM :KEYWORD)
+                 (ENCODE-JSON-TO-STRING
+                  `((:NAME ,@NAME)
+                (:MESSAGE ,@MESSAGE))))))))
+      (WRITE! RES SOCK)
+      (SOCKET-CLOSE SOCK))))))</code></pre>
+
+<p>This gets us the validation we need for full HTTP request/response cycles. What about our SSEs? <code>make-stream-handler</code> does the same basic thing as <code>make-closing-handler</code>, except that it writes an <code>SSE</code> rather than a <code>RESPONSE</code>, and it calls <code>force-output</code> instead of <code>socket-close</code> because we want to flush data over the connection without closing it:</p>
+
+<pre class="lisp"><code>(defmacro make-stream-handler ((&amp;rest args) &amp;body body)
+  `(lambda (sock parameters)
+     (declare (ignorable parameters))
+     ,(arguments
+       args
+       `(let ((res (progn ,@body)))
+      (write! (make-instance
+           &#39;response
+           :keep-alive? t
+           :content-type &quot;text/event-stream&quot;)
+          sock)
+      (write!
+       (make-instance &#39;sse :data (or res &quot;Listening...&quot;))
+       sock)
+      (force-output
+       (socket-stream sock))))))
+
+(defmacro assert-http (assertion)
+  `(unless ,assertion
+     (error (make-instance
+         &#39;http-assertion-error
+         :assertion &#39;,assertion))))</code></pre>
+
+<p><code>assert-http</code> is a macro that creates the boilerplate code we need in error cases. It expands into a check of the given assertion, throws an <code>http-assertion-error</code> if it fails, and packs the original assertion along in that event.</p>
+
+<pre class="lisp"><code>(defmacro assert-http (assertion)
+  `(unless ,assertion
+     (error (make-instance
+         &#39;http-assertion-error
+         :assertion &#39;,assertion))))</code></pre>
+
+<h3 id="http-types">HTTP &quot;Types&quot;</h3>
+
+<p><a name="sec.eventsweb.types"> </a></p>
+
+<p>In the previous section, we briefly touched on three expressions that we're using to implement our HTTP type validation system: <code>arg-exp</code>, <code>type-expression</code> and <code>type-assertion</code>. Once you understand those, there will be no magic left in our framework. We'll start with the easy one first.</p>
+
+<h4 id="arg-exp">arg-exp</h4>
+
+<p><code>arg-exp</code> takes a symbol and creates an <code>aif</code> expression that checks for the presence of a parameter.</p>
+
+<pre class="lisp"><code>(defun arg-exp (arg-sym)
+  `(aif (cdr (assoc ,(-&gt;keyword arg-sym) parameters))
+    (uri-decode it)
+    (error (make-instance
+        &#39;http-assertion-error
+        :assertion &#39;,arg-sym))))</code></pre>
+
+<p>Evaluating <code>arg-exp</code> on a symbol looks like:</p>
+
+<pre class="lisp"><code>HOUSE&gt; (arg-exp &#39;room)
+(AIF (CDR (ASSOC :ROOM PARAMETERS))
+     (URI-DECODE IT)
+     (ERROR (MAKE-INSTANCE
+         &#39;HTTP-ASSERTION-ERROR
+         :ASSERTION &#39;ROOM)))
+HOUSE&gt;</code></pre>
+
+<p>We've been using forms like <code>aif</code> and <code>awhen</code> without understanding how they work, so let's take some time to explore them now.</p>
+
+<p>Recall that Lisp code is itself represented as a tree. That's what the parentheses are for; they show us how leaves and branches fit together. If we step back to what we were doing in the previous section, <code>make-closing-handler</code> calls a function called <code>arguments</code> to generate part of the Lisp tree it's constructing, which in turn calls some tree-manipulating helper functions, including <code>arg-exp</code>, to generate its return value.</p>
+
+<p>That is, we've built a small system that takes a Lisp expression as input, and produces a different Lisp expression as output. Possibly the simplest way of conceptualizing this is as a simple Common–Lisp-to-Common–Lisp compiler that is specialized to the problem at hand.</p>
+
+<p>A widely used classification of such compilers is as <em>anaphoric macros</em>. This term comes from the linguistic concept of an <em>anaphor</em>, which is the use of one word as a substitute for a group of words that preceded it. <code>aif</code> and <code>awhen</code> are anaphoric macros, and they're the only ones that I tend to often use. There are many more availabile in the <a href="http://www.cliki.net/Anaphora"><code>anaphora</code> package</a>.</p>
+
+<p>As far as I know, anaphoric macros were first defined by Paul Graham in an <a href="http://dunsmor.com/lisp/onlisp/onlisp_18.html">OnLisp chapter</a>. The use case he gives is a situation where you want to do some sort of expensive or semi-expensive check, then do something conditionally on the result. In the above context, we're using <code>aif</code> to do a check the result of an <code>alist</code> traversal.</p>
+
+<pre class="lisp"><code>(aif (cdr (assoc :room parameters))
+     (uri-decode it)
+     (error (make-instance
+         &#39;http-assertion-error
+         :assertion &#39;room)))</code></pre>
+
+<p>This takes the <code>cdr</code> of looking up the symbol <code>:room</code> in the association list <code>parameters</code>. If that returns a non-nil value, <code>uri-decode</code> it, otherwise throw an error of the type <code>http-assertion-error</code>.</p>
+
+<p>In other words, the above is equivalent to:</p>
+
+<pre class="lisp"><code>(let ((it (cdr (assoc :room parameters))))
+  (if it
+      (uri-decode it)
+      (error (make-instance
+          &#39;http-assertion-error
+          :assertion &#39;room))))</code></pre>
+
+<p>Strongly-typed functional languages like Haskell often use a <code>Maybe</code> type in this situation. In Common Lisp, we capture the symbol <code>it</code> in the expansion as the name for the result of the check.</p>
+
+<p>Understanding this, we should be able to see that <code>arg-exp</code> is generating a specific, repetitive, piece of the code tree that we eventually want to evaluate. In this case, the piece that checks for the presence of the given parameter among the handlers' <code>parameters</code>. Now, let's move onto...</p>
+
+<h4 id="type-expression">type-expression</h4>
+
+<pre class="lisp"><code>(defgeneric type-expression (parameter type)
+  (:documentation
+   &quot;A type-expression will tell the server
+how to convert a parameter from a string to
+a particular, necessary type.&quot;))
+...
+(defmethod type-expression (parameter type) nil)</code></pre>
+
+<p>This is a generic function that generates new tree structures (coincidentally Lisp code), rather than just a function. The only thing the above tells you is that by default, a <code>type-expression</code> is <code>NIL</code>. Which is to say, we don't have one. If we encounter a <code>NIL</code>, we use the raw output of <code>arg-exp</code>, but that doesn't tell us much about the most common case. To see that, let's take a look at a built-in (to <code>:house</code>) <code>define-http-type</code> expression.</p>
+
+<pre class="lisp"><code>(define-http-type (:integer)
+    :type-expression `(parse-integer ,parameter :junk-allowed t)
+    :type-assertion `(numberp ,parameter))</code></pre>
+
+<p>An <code>:integer</code> is something we're making from a <code>parameter</code> by using <code>parse-integer</code>. The <code>junk-allowed</code> parameter tells <code>parse-integer</code> that we're not confident the data we're giving it is actually parseable, so we need to make sure that the returned result is an integer. If it isn't, we get this behaviour:</p>
+
+<pre><code>HOUSE&gt; (type-expression &#39;blah :integer)
+(PARSE-INTEGER BLAH :JUNK-ALLOWED T)
+HOUSE&gt;</code></pre>
+
+<p><code>define-http-handler</code><a href="#fn10" class="footnoteRef" id="fnref10"><sup>10</sup></a> is one of the exported symbols for our framework. This lets our application programmers define their own types to simplify parsing above the handful of &quot;builtins&quot; that we give them (<code>:string</code>, <code>:integer</code>, <code>:keyword</code>, <code>:json</code>, <code>:list-of-keyword</code> and <code>:list-of-integer</code>).</p>
+
+<pre class="lisp"><code>(defmacro define-http-type ((type) &amp;key type-expression type-assertion)
+  (with-gensyms (tp)
+    `(let ((,tp ,type))
+       ,@(when type-expression
+      `((defmethod type-expression (parameter (type (eql ,tp)))
+          ,type-expression)))
+       ,@(when type-assertion
+      `((defmethod type-assertion (parameter (type (eql ,tp)))
+          ,type-assertion))))))</code></pre>
+
+<p>It works by creating <code>type-expression</code> and <code>type-assertion</code> method definitions for the type being defined. We could let users of our framework do this manually without much trouble; however, adding this extra level of indirection gives us, the framework programmers, the freedom to change <em>how</em> types are implemented without forcing our users to re-write their specifications. This isn't just an academic consideration; I've personally made radical changes to this part of the system when first building it, and was pleased to find that I had to make very few edits to the applications that depended on it.</p>
+
+<p>Let's take a look at the expansion of that integer definition to see how it works in detail:</p>
+
+<pre class="lisp"><code>(LET ((#:TP1288 :INTEGER))
+  (DEFMETHOD TYPE-EXPRESSION (PARAMETER (TYPE (EQL #:TP1288)))
+    `(PARSE-INTEGER ,PARAMETER :JUNK-ALLOWED T))
+  (DEFMETHOD TYPE-ASSERTION (PARAMETER (TYPE (EQL #:TP1288)))
+    `(NUMBERP ,PARAMETER)))</code></pre>
+
+<p>As we said, it doesn't reduce code size by much, but it does prevent us from needing to care what the specific parameters of those methods are, or even that they're methods at all.</p>
+
+<h4 id="type-assertion">type-assertion</h4>
+
+<p>Now that we can define types, let's look at how we use <code>type-assertion</code> to validate that a parse satisfies our requirements. It, too, takes the form of a complementary <code>defgeneric</code>/<code>defmethod</code> pair just like <code>type-expression</code>:</p>
+
+<pre class="lisp"><code>(defgeneric type-assertion (parameter type)
+  (:documentation
+   &quot;A lookup assertion is run on a parameter
+immediately after conversion. Use it to restrict
+ the space of a particular parameter.&quot;))
+...
+(defmethod type-assertion (parameter type) nil)</code></pre>
+
+<p>Here's what this one outputs:</p>
+
+<pre class="lisp"><code>HOUSE&gt; (type-assertion &#39;blah :integer)
+(NUMBERP BLAH)
+HOUSE&gt;</code></pre>
+
+<p>There are cases where <code>type-assertion</code> won't need to do anything. For example, since HTTP parameters are given to us as strings, our <code>:string</code> type assertion has nothing to validate:</p>
+
+<pre class="lisp"><code>HOUSE&gt; (type-assertion &#39;blah :string)
+NIL
+HOUSE&gt;</code></pre>
+
+<h3 id="all-together-now">All Together Now</h3>
+
+<p>We did it! We built a web framework on top of an event-driven webserver implementation. Our framework (and handler DSL) defines new applications by:</p>
+
+<ul>
+<li>Mapping URLs to handlers;</li>
+<li>Defining handlers to enforce the type safety and validation rules on requests;</li>
+<li>Optionally specifying new types for handlers as required.</li>
+</ul>
+
+<p>Now we can describe our application like this:</p>
+
+<pre class="lisp"><code>(defun len-between (min thing max)
+  (&gt;= max (length thing) min))
+
+(define-handler (source :is-stream? nil)
+    ((room :string (len-between 0 room 16)))
+  (subscribe! (intern room :keyword) sock))
+
+(define-handler (send-message)
+    ((room :string (len-between 0 room 16))
+     (name :string (len-between 1 name 64))
+     (message :string (len-between 5 message 256)))
+  (publish! (intern room :keyword)
+        (encode-json-to-string
+         `((:name . ,name) (:message . ,message)))))
+
+(define-handler (index) ()
+  (with-html-output-to-string (s nil :prologue t :indent t)
+    (:html
+     (:head (:script
+         :type &quot;text/javascript&quot;
+         :src &quot;/static/js/interface.js&quot;))
+     (:body (:div :id &quot;messages&quot;)
+        (:textarea :id &quot;input&quot;)
+        (:button :id &quot;send&quot; &quot;Send&quot;)))))
+
+(start 4242)</code></pre>
+
+<p>Once we write <code>interface.js</code> to provide the client-side interactivity, this will start an HTTP chat server on port <code>4242</code> and listen for incoming connections.</p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>One solution to this problem is to force the clients to <em>poll</em> the server. That is, each client would periodically send the server a request asking if anything has changed. This can work for simple applications, but in this chapter we're going to focus on the solutions available to you when this model stops working.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>We could consider a more general system that handles <span class="math">\(N\)</span> concurrent users with <span class="math">\(M\)</span> threads for some configurable value of <span class="math">\(M\)</span>; in this model, the <span class="math">\(N\)</span> connections are said to be <em>multiplexed</em> across the <span class="math">\(M\)</span> threads. In this chapter, we are going to focus on writing a program where <span class="math">\(M\)</span> is fixed at 1; however, the lessons learned here should be partially applicable to the more general model.<a href="#fnref2">↩</a></p></li>
+<li id="fn3"><p>This nomenclature is a bit confusing, and has its origin in early operating-systems research. It refers to how communication is done between multiple concurrent processes. In a thread-based system, communication is done through a synchronized resource such as shared memory. In an event-based system, processes generally communicate through a queue where they post items that describe what they have done or what they want done, which is maintained by our single thread of execution. Since these items generally describe desired or past actions, they are referred to as 'events'.<a href="#fnref3">↩</a></p></li>
+<li id="fn4"><p>See  for another take on this problem.<a href="#fnref4">↩</a></p></li>
+<li id="fn5"><p>Pronounced &quot;kloss&quot;, &quot;see-loss&quot; or &quot;see-lows&quot;, depending on who you talk to.<a href="#fnref5">↩</a></p></li>
+<li id="fn6"><p>The Julia programming language takes a similar approach to object-oriented programming; you can learn more about it in .<a href="#fnref6">↩</a></p></li>
+<li id="fn7"><p>We're incidentally introducing some new syntax here. This is our way of declaring a mutable variable. It has the form <code>(defparameter &lt;name&gt; &lt;value&gt; &lt;optional docstring&gt;)</code>.<a href="#fnref7">↩</a></p></li>
+<li id="fn8"><p><code>with-timeout</code> has different implementations on different Lisps. In some environments, it may create another thread or process to monitor the one that invoked it. While we'd only be creating at most one of these at a time, it is a relatively heavyweight operation to be performing per-write. We might want to consider an alternative approach in those environments.<a href="#fnref8">↩</a></p></li>
+<li id="fn9"><p>I should note, the below code-block is VERY unconventional indentation for Common Lisp. Arglists are typically not broken up over multiple lines, and are usually kept on the same line as the macro/function name. I had to do it to stick to the line-width guidelines for this book, but would otherwise prefer to have longer lines that break naturally at places dictated by the content of the code.<a href="#fnref9">↩</a></p></li>
+<li id="fn10"><p>This macro is difficult to read because it tries hard to make its output human-readable, by expanding <code>NIL</code>s away using <code>,@</code> where possible.<a href="#fnref10">↩</a></p></li>
+</ol>
+</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

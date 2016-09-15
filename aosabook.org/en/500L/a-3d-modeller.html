@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/code.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/500L.css" type="text/css" />
+    <title>500 Lines or Less | A 3D Modeller</title>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+          tex2jax: {
+            inlineMath: [['$','$'], ['\\(','\\)']],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+          },
+        });
+    </script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'></a>
+          <h1>A 3D Modeller</h1>
+          <h2 class="author">Erick Dransch</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+      <div class="row">
+        <div class='span10 offset1' id='content'>
+          <p><em>Erick is a software developer and 2D and 3D computer graphics enthusiast. He has worked on video games, 3D special effects software, and computer aided design tools. If it involves simulating reality, chances are he'd like to learn more about it. You can find him online at <a href="http://erickdransch.com">erickdransch.com</a>.</em></p>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>Humans are innately creative. We continuously design and build novel, useful, and interesting things. In modern times, we write software to assist in the design and creation process. Computer-aided design (CAD) software allows creators to design buildings, bridges, video game art, film monsters, 3D printable objects, and many other things before building a physical version of the design.</p>
+
+<p>At their core, CAD tools are a method of abstracting the 3-dimensional design into something that can be viewed and edited on a 2-dimensional screen. To fulfill that definition, CAD tools must offer three basic pieces of functionality. Firstly, they must have a data structure to represent the object that's being designed: this is the computer's understanding of the 3-dimensional world that the user is building. Secondly, the CAD tool must offer some way to display the design on the user's screen. The user is designing a physical object with 3 dimensions, but the computer screen has only 2 dimensions. The CAD tool must model how we perceive objects, and draw them to the screen in a way that the user can understand all 3 dimensions of the object. Thirdly, the CAD tool must offer a way to interact with the object being designed. The user must be able to add to and modify the design in order to produce the desired result. Additionally, all tools would need a way to save and load designs from disk so that users can collaborate, share, and save their work.</p>
+
+<p>A domain-specific CAD tool offers many additional features for the specific requirements of the domain. For example, an architecture CAD tool would offer physics simulations to test climate stresses on the building, a 3D printing tool would have features that check whether the object is actually valid to print, an electrical CAD tool would simulate the physics of electricity running through copper, and a film special effects suite would include features to accurately simulate pyrokinetics.</p>
+
+<p>However, all CAD tools must include at least the three features discussed above: a data structure to represent the design, the ability to display it to the screen, and a method to interact with the design.</p>
+
+<p>With that in mind, let's explore how we can represent a 3D design, display it to the screen, and interact with it, in 500 lines of Python.</p>
+
+<h2 id="rendering-as-a-guide">Rendering as a Guide</h2>
+
+<p>The driving force behind many of the design decisions in a 3D modeller is the rendering process. We want to be able to store and render complex objects in our design, but we want to keep the complexity of the rendering code low. Let us examine the rendering process, and explore the data structure for the design that allows us to store and draw arbitarily complex objects with simple rendering logic.</p>
+
+<h3 id="managing-interfaces-and-the-main-loop">Managing Interfaces and the Main Loop</h3>
+
+<p>Before we begin rendering, there are a few things we need to set up. First, we need to create a window to display our design in. Secondly, we want to communicate with graphics drivers to render to the screen. We would rather not communicate directly with graphics drivers, so we use a cross-platform abstraction layer called OpenGL, and a library called GLUT (the OpenGL Utility Toolkit) to manage our window.</p>
+
+<h4 id="a-note-about-opengl">A Note About OpenGL</h4>
+
+<!-- @mikedebo: Are we going to have actual sidebars in the book? If so we can make this into a sidebar (together with the paragraph on GLUT). Keep in mind sidebars can be hard (but not impossible) to do in ebooks. I wouldn't do sidebars unless there are at least three chapters which use them. -->
+
+<p>OpenGL is a graphical application programming interface for cross-platform development. It's the standard API for developing graphics applications across platforms. OpenGL has two major variants: Legacy OpenGL and Modern OpenGL.</p>
+
+<p>Rendering in OpenGL is based on polygons defined by vertices and normals. For example, to render one side of a cube, we specify the 4 vertices and the normal of the side.</p>
+
+<p>Legacy OpenGL provides a &quot;fixed function pipeline&quot;. By setting global variables, the programmer can enable and disable automated implementations of features such as lighting, coloring, face culling, etc. OpenGL then automatically renders the scene with the enabled functionality. This functionality is deprecated.</p>
+
+<p>Modern OpenGL, on the other hand, features a programmable rendering pipeline where the programmer writes small programs called &quot;shaders&quot; that run on dedicated graphics hardware (GPUs). The programmable pipeline of Modern OpenGL has replaced Legacy OpenGL.</p>
+
+<p>In this project, despite the fact that it is deprecated, we use Legacy OpenGL. The fixed functionality provided by Legacy OpenGL is very useful for keeping code size small. It reduces the amount of linear algebra knowledge required, and it simplifies the code we will write.</p>
+
+<h4 id="about-glut">About GLUT</h4>
+
+<p>GLUT, which is bundled with OpenGL, allows us to create operating system windows and to register user interface callbacks. This basic functionality is sufficient for our purposes. If we wanted a more full-featured library for window management and user interaction, we would consider using a full windowing toolkit like GTK or Qt.</p>
+
+<h4 id="the-viewer">The Viewer</h4>
+
+<p>To manage the setting up of GLUT and OpenGL, and to drive the rest of the modeller, we create a class called <code>Viewer</code>. We use a single <code>Viewer</code> instance, which manages window creation and rendering, and contains the main loop for our program. In the initialization process for <code>Viewer</code>, we create the GUI window and initialize OpenGL.</p>
+
+<p>The function <code>init_interface</code> creates the window that the modeller will be rendered into and specifies the function to be called when the design needs to rendered. The <code>init_opengl</code> function sets up the OpenGL state needed for the project. It sets the matrices, enables backface culling, registers a light to illuminate the scene, and tells OpenGL that we would like objects to be colored. The <code>init_scene</code> function creates the <code>Scene</code> objects and places some initial nodes to get the user started. We will see more about the <code>Scene</code> data structure shortly. Finally, <code>init_interaction</code> registers callbacks for user interaction, as we'll discuss later.</p>
+
+<p>After initializing <code>Viewer</code>, we call <code>glutMainLoop</code> to transfer program execution to GLUT. This function never returns. The callbacks we have registered on GLUT events will be called when those events occur.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> Viewer(<span class="dt">object</span>):
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; Initialize the viewer. &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.init_interface()
+        <span class="ot">self</span>.init_opengl()
+        <span class="ot">self</span>.init_scene()
+        <span class="ot">self</span>.init_interaction()
+        init_primitives()
+
+    <span class="kw">def</span> init_interface(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; initialize the window and register the render function &quot;&quot;&quot;</span>
+        glutInit()
+        glutInitWindowSize(<span class="dv">640</span>, <span class="dv">480</span>)
+        glutCreateWindow(<span class="st">&quot;3D Modeller&quot;</span>)
+        glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB)
+        glutDisplayFunc(<span class="ot">self</span>.render)
+
+    <span class="kw">def</span> init_opengl(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; initialize the opengl settings to render the scene &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.inverseModelView = numpy.identity(<span class="dv">4</span>)
+        <span class="ot">self</span>.modelView = numpy.identity(<span class="dv">4</span>)
+
+        glEnable(GL_CULL_FACE)
+        glCullFace(GL_BACK)
+        glEnable(GL_DEPTH_TEST)
+        glDepthFunc(GL_LESS)
+
+        glEnable(GL_LIGHT0)
+        glLightfv(GL_LIGHT0, GL_POSITION, GLfloat_4(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">0</span>))
+        glLightfv(GL_LIGHT0, GL_SPOT_DIRECTION, GLfloat_3(<span class="dv">0</span>, <span class="dv">0</span>, -<span class="dv">1</span>))
+
+        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+        glEnable(GL_COLOR_MATERIAL)
+        glClearColor(<span class="fl">0.4</span>, <span class="fl">0.4</span>, <span class="fl">0.4</span>, <span class="fl">0.0</span>)
+
+    <span class="kw">def</span> init_scene(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; initialize the scene object and initial scene &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.scene = Scene()
+        <span class="ot">self</span>.create_sample_scene()
+
+    <span class="kw">def</span> create_sample_scene(<span class="ot">self</span>):
+        cube_node = Cube()
+        cube_node.translate(<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">2</span>)
+        cube_node.color_index = <span class="dv">2</span>
+        <span class="ot">self</span>.scene.add_node(cube_node)
+
+        sphere_node = Sphere()
+        sphere_node.translate(-<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">2</span>)
+        sphere_node.color_index = <span class="dv">3</span>
+        <span class="ot">self</span>.scene.add_node(sphere_node)
+
+        hierarchical_node = SnowFigure()
+        hierarchical_node.translate(-<span class="dv">2</span>, <span class="dv">0</span>, -<span class="dv">2</span>)
+        <span class="ot">self</span>.scene.add_node(hierarchical_node)
+
+    <span class="kw">def</span> init_interaction(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; init user interaction and callbacks &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.interaction = Interaction()
+        <span class="ot">self</span>.interaction.register_callback(<span class="st">&#39;pick&#39;</span>, <span class="ot">self</span>.pick)
+        <span class="ot">self</span>.interaction.register_callback(<span class="st">&#39;move&#39;</span>, <span class="ot">self</span>.move)
+        <span class="ot">self</span>.interaction.register_callback(<span class="st">&#39;place&#39;</span>, <span class="ot">self</span>.place)
+        <span class="ot">self</span>.interaction.register_callback(<span class="st">&#39;rotate_color&#39;</span>, <span class="ot">self</span>.rotate_color)
+        <span class="ot">self</span>.interaction.register_callback(<span class="st">&#39;scale&#39;</span>, <span class="ot">self</span>.scale)
+
+    <span class="kw">def</span> main_loop(<span class="ot">self</span>):
+        glutMainLoop()
+
+<span class="kw">if</span> <span class="ot">__name__</span> == <span class="st">&quot;__main__&quot;</span>:
+    viewer = Viewer()
+    viewer.main_loop()</code></pre>
+
+<p>Before we dive into the <code>render</code> function, we should discuss a little bit of linear algebra.</p>
+
+<h3 id="coordinate-space">Coordinate Space</h3>
+
+<p>For our purposes, a Coordinate Space is an origin point and a set of 3 basis vectors, usually the <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> axes.</p>
+
+<h3 id="point">Point</h3>
+
+<p>Any point in 3 dimensions can be represented as an offset in the <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> directions from the origin point. The representation of a point is relative to the coordinate space that the point is in. The same point has different representations in different coordinate spaces. Any point in 3 dimensions can be represented in any 3-dimensional coordinate space.</p>
+
+<h3 id="vector">Vector</h3>
+
+<p>A vector is an <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> value representing the difference between two points in the <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> axes, respectively.</p>
+
+<h3 id="transformation-matrix">Transformation Matrix</h3>
+
+<p>In computer graphics, it is convenient to use multiple different coordinate spaces for different types of points. Transformation matrices convert points from one coordinate space to another coordinate space. To convert a vector <span class="math">\(v\)</span> from one coordinate space to another, we multiply by a transformation matrix <span class="math">\(M\)</span>: <span class="math">\(v&#39; = M v\)</span>. Some common transformation matrices are translations, scaling, and rotations.</p>
+
+<h3 id="model-world-view-and-projection-coordinate-spaces">Model, World, View, and Projection Coordinate Spaces</h3>
+
+<div class="center figure">
+<a name="figure-13.1"></a><img src="modeller-images/newtranspipe.png" alt="Figure 13.1 - Transformation Pipeline" title="Figure 13.1 - Transformation Pipeline" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 13.1 - Transformation Pipeline</small>
+</p>
+
+<p>To draw an item to the screen, we need to convert between a few different coordinate spaces.</p>
+
+<p>The right hand side of <a href="#figure-13.1">Figure 13.1</a><a href="#fn1" class="footnoteRef" id="fnref1"><sup>1</sup></a>, including all of the transformations from Eye Space to Viewport Space will all be handled for us by OpenGL.</p>
+
+<p>Conversion from eye space to homogeneous clip space is handled by <code>gluPerspective</code>, and conversion to normalized device space and viewport space is handled by <code>glViewport</code>. These two matrices are multiplied together and stored as the GL_PROJECTION matrix. We don't need to know the terminology or the details of how these matrices work for this project.</p>
+
+<p>We do, however, need to manage the left hand side of the diagram ourselves. We define a matrix which converts points in the model (also called a mesh) from the model spaces into the world space, called the model matrix. We alse define the view matrix, which converts from the world space into the eye space. In this project, we combine these two matrices to obtain the ModelView matrix.</p>
+
+<p>To learn more about the full graphics rendering pipeline, and the coordinate spaces involved, refer to chapter 2 of <a href="http://www.realtimerendering.com/"><em>Real Time Rendering</em></a>, or another introductory computer graphics book.</p>
+
+<h3 id="rendering-with-the-viewer">Rendering with the Viewer</h3>
+
+<p>The <code>render</code> function begins by setting up any of the OpenGL state that needs to be done at render time. It initializes the projection matrix via <code>init_view</code> and uses data from the interaction member to initialize the ModelView matrix with the transformation matrix that converts from the scene space to world space. We will see more about the Interaction class below. It clears the screen with <code>glClear</code> and it tells the scene to render itself, and then renders the unit grid.</p>
+
+<p>We disable OpenGL's lighting before rendering the grid. With lighting disabled, OpenGL renders items with solid colors, rather than simulating a light source. This way, the grid has visual differentiation from the scene. Finally, <code>glFlush</code> signals to the graphics driver that we are ready for the buffer to be flushed and displayed to the screen.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Viewer</span>
+    <span class="kw">def</span> render(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; The render pass for the scene &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.init_view()
+
+        glEnable(GL_LIGHTING)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+        <span class="co"># Load the modelview matrix from the current state of the trackball</span>
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+        loc = <span class="ot">self</span>.interaction.translation
+        glTranslated(loc[<span class="dv">0</span>], loc[<span class="dv">1</span>], loc[<span class="dv">2</span>])
+        glMultMatrixf(<span class="ot">self</span>.interaction.trackball.matrix)
+
+        <span class="co"># store the inverse of the current modelview.</span>
+        currentModelView = numpy.array(glGetFloatv(GL_MODELVIEW_MATRIX))
+        <span class="ot">self</span>.modelView = numpy.transpose(currentModelView)
+        <span class="ot">self</span>.inverseModelView = inv(numpy.transpose(currentModelView))
+
+        <span class="co"># render the scene. This will call the render function for each object</span>
+        <span class="co"># in the scene</span>
+        <span class="ot">self</span>.scene.render()
+
+        <span class="co"># draw the grid</span>
+        glDisable(GL_LIGHTING)
+        glCallList(G_OBJ_PLANE)
+        glPopMatrix()
+
+        <span class="co"># flush the buffers so that the scene can be drawn</span>
+        glFlush()
+
+    <span class="kw">def</span> init_view(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; initialize the projection matrix &quot;&quot;&quot;</span>
+        xSize, ySize = glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)
+        aspect_ratio = <span class="dt">float</span>(xSize) / <span class="dt">float</span>(ySize)
+
+        <span class="co"># load the projection matrix. Always the same</span>
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+
+        glViewport(<span class="dv">0</span>, <span class="dv">0</span>, xSize, ySize)
+        gluPerspective(<span class="dv">70</span>, aspect_ratio, <span class="fl">0.1</span>, <span class="fl">1000.0</span>)
+        glTranslated(<span class="dv">0</span>, <span class="dv">0</span>, -<span class="dv">15</span>)</code></pre>
+
+<h3 id="what-to-render-the-scene">What to Render: The Scene</h3>
+
+<p>Now that we've initialized the rendering pipeline to handle drawing in the world coordinate space, what are we going to render? Recall that our goal is to have a design consisting of 3D models. We need a data structure to contain the design, and we need use this data structure to render the design. Notice above that we call <code>self.scene.render()</code> from the viewer's render loop. What is the scene?</p>
+
+<p>The <code>Scene</code> class is the interface to the data structure we use to represent the design. It abstracts away details of the data structure and provides the necessary interface functions required to interact with the design, including functions to render, add items, and manipulate items. There is one <code>Scene</code> object, owned by the viewer. The <code>Scene</code> instance keeps a list of all of the items in the scene, called <code>node_list</code>. It also keeps track of the selected item. The <code>render</code> function on the scene simply calls <code>render</code> on each of the members of <code>node_list</code>.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> Scene(<span class="dt">object</span>):
+
+    <span class="co"># the default depth from the camera to place an object at</span>
+    PLACE_DEPTH = <span class="fl">15.0</span>
+
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="co"># The scene keeps a list of nodes that are displayed</span>
+        <span class="ot">self</span>.node_list = <span class="dt">list</span>()
+        <span class="co"># Keep track of the currently selected node.</span>
+        <span class="co"># Actions may depend on whether or not something is selected</span>
+        <span class="ot">self</span>.selected_node = <span class="ot">None</span>
+
+    <span class="kw">def</span> add_node(<span class="ot">self</span>, node):
+        <span class="co">&quot;&quot;&quot; Add a new node to the scene &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.node_list.append(node)
+
+    <span class="kw">def</span> render(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; Render the scene. &quot;&quot;&quot;</span>
+        <span class="kw">for</span> node in <span class="ot">self</span>.node_list:
+            node.render()</code></pre>
+
+<h3 id="nodes">Nodes</h3>
+
+<p>In the Scene's <code>render</code> function, we call <code>render</code> on each of the items in the Scene's <code>node_list</code>. But what are the elements of that list? We call them <em>nodes</em>. Conceptually, a node is anything that can be placed in the scene. In object-oriented software, we write <code>Node</code> as an abstract base class. Any classes that represent objects to be placed in the <code>Scene</code> will inherit from <code>Node</code>. This base class allows us to reason about the scene abstractly. The rest of the code base doesn't need to know about the details of the objects it displays; it only needs to know that they are of the class <code>Node</code>.</p>
+
+<p>Each type of <code>Node</code> defines its own behavior for rendering itself and for any other interactions. The <code>Node</code> keeps track of important data about itself: translation matrix, scale matrix, color, etc. Multiplying the node's translation matrix by its scaling matrix gives the transformation matrix from the node's model coordinate space to the world coordinate space. The node also stores an axis-aligned bounding box (AABB). We'll see more about AABBs when we discuss selection below.</p>
+
+<p>The simplest concrete implementation of <code>Node</code> is a <em>primitive</em>. A primitive is a single solid shape that can be added the scene. In this project, the primitives are <code>Cube</code> and <code>Sphere</code>.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> Node(<span class="dt">object</span>):
+    <span class="co">&quot;&quot;&quot; Base class for scene elements &quot;&quot;&quot;</span>
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="ot">self</span>.color_index = random.randint(color.MIN_COLOR, color.MAX_COLOR)
+        <span class="ot">self</span>.aabb = AABB([<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>], [<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>])
+        <span class="ot">self</span>.translation_matrix = numpy.identity(<span class="dv">4</span>)
+        <span class="ot">self</span>.scaling_matrix = numpy.identity(<span class="dv">4</span>)
+        <span class="ot">self</span>.selected = <span class="ot">False</span>
+
+    <span class="kw">def</span> render(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; renders the item to the screen &quot;&quot;&quot;</span>
+        glPushMatrix()
+        glMultMatrixf(numpy.transpose(<span class="ot">self</span>.translation_matrix))
+        glMultMatrixf(<span class="ot">self</span>.scaling_matrix)
+        cur_color = color.COLORS[<span class="ot">self</span>.color_index]
+        glColor3f(cur_color[<span class="dv">0</span>], cur_color[<span class="dv">1</span>], cur_color[<span class="dv">2</span>])
+        <span class="kw">if</span> <span class="ot">self</span>.selected:  <span class="co"># emit light if the node is selected</span>
+            glMaterialfv(GL_FRONT, GL_EMISSION, [<span class="fl">0.3</span>, <span class="fl">0.3</span>, <span class="fl">0.3</span>])
+
+        <span class="ot">self</span>.render_self()
+
+        <span class="kw">if</span> <span class="ot">self</span>.selected:
+            glMaterialfv(GL_FRONT, GL_EMISSION, [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>])
+        glPopMatrix()
+
+    <span class="kw">def</span> render_self(<span class="ot">self</span>):
+        <span class="kw">raise</span> <span class="ot">NotImplementedError</span>(
+            <span class="st">&quot;The Abstract Node Class doesn&#39;t define &#39;render_self&#39;&quot;</span>)
+
+<span class="kw">class</span> Primitive(Node):
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="dt">super</span>(Primitive, <span class="ot">self</span>).<span class="ot">__init__</span>()
+        <span class="ot">self</span>.call_list = <span class="ot">None</span>
+
+    <span class="kw">def</span> render_self(<span class="ot">self</span>):
+        glCallList(<span class="ot">self</span>.call_list)
+
+
+<span class="kw">class</span> Sphere(Primitive):
+    <span class="co">&quot;&quot;&quot; Sphere primitive &quot;&quot;&quot;</span>
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="dt">super</span>(Sphere, <span class="ot">self</span>).<span class="ot">__init__</span>()
+        <span class="ot">self</span>.call_list = G_OBJ_SPHERE
+
+
+<span class="kw">class</span> Cube(Primitive):
+    <span class="co">&quot;&quot;&quot; Cube primitive &quot;&quot;&quot;</span>
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="dt">super</span>(Cube, <span class="ot">self</span>).<span class="ot">__init__</span>()
+        <span class="ot">self</span>.call_list = G_OBJ_CUBE</code></pre>
+
+<p>Rendering nodes is based on the transformation matrices that each node stores. The transformation matrix for a node is the combination of its scaling matrix and its translation matrix. Regardless of the type of node, the first step to rendering is to set the OpenGL ModelView matrix to the transformation matrix to convert from the model coordinate space to the view coordinate space. Once the OpenGL matrices are up to date, we call <code>render_self</code> to tell the node to make the necessary OpenGL calls to draw itself. Finally, we undo any changes we made to the OpenGL state for this specific node. We use the <code>glPushMatrix</code> and <code>glPopMatrix</code> functions in OpenGL to save and restore the state of the ModelView matrix before and after we render the node. Notice that the node stores its color, location, and scale, and applies these to the OpenGL state before rendering.</p>
+
+<p>If the node is currently selected, we make it emit light. This way, the user has a visual indication of which node they have selected.</p>
+
+<p>To render primitives, we use the call lists feature from OpenGL. An OpenGL call list is a series of OpenGL calls that are defined once and bundled together under a single name. The calls can be dispatched with <code>glCallList(LIST_NAME)</code>. Each primitive (<code>Sphere</code> and <code>Cube</code>) defines the call list required to render it (not shown).</p>
+
+<p>For example, the call list for a cube draws the 6 faces of the cube, with the center at the origin and the edges exactly 1 unit long. </p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="co"># Pseudocode Cube definition</span>
+<span class="co"># Left face</span>
+((-<span class="fl">0.5</span>, -<span class="fl">0.5</span>, -<span class="fl">0.5</span>), (-<span class="fl">0.5</span>, -<span class="fl">0.5</span>, <span class="fl">0.5</span>), (-<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>), (-<span class="fl">0.5</span>, <span class="fl">0.5</span>, -<span class="fl">0.5</span>)),
+<span class="co"># Back face</span>
+((-<span class="fl">0.5</span>, -<span class="fl">0.5</span>, -<span class="fl">0.5</span>), (-<span class="fl">0.5</span>, <span class="fl">0.5</span>, -<span class="fl">0.5</span>), (<span class="fl">0.5</span>, <span class="fl">0.5</span>, -<span class="fl">0.5</span>), (<span class="fl">0.5</span>, -<span class="fl">0.5</span>, -<span class="fl">0.5</span>)),
+<span class="co"># Right face</span>
+((<span class="fl">0.5</span>, -<span class="fl">0.5</span>, -<span class="fl">0.5</span>), (<span class="fl">0.5</span>, <span class="fl">0.5</span>, -<span class="fl">0.5</span>), (<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>), (<span class="fl">0.5</span>, -<span class="fl">0.5</span>, <span class="fl">0.5</span>)),
+<span class="co"># Front face</span>
+((-<span class="fl">0.5</span>, -<span class="fl">0.5</span>, <span class="fl">0.5</span>), (<span class="fl">0.5</span>, -<span class="fl">0.5</span>, <span class="fl">0.5</span>), (<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>), (-<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>)),
+<span class="co"># Bottom face</span>
+((-<span class="fl">0.5</span>, -<span class="fl">0.5</span>, <span class="fl">0.5</span>), (-<span class="fl">0.5</span>, -<span class="fl">0.5</span>, -<span class="fl">0.5</span>), (<span class="fl">0.5</span>, -<span class="fl">0.5</span>, -<span class="fl">0.5</span>), (<span class="fl">0.5</span>, -<span class="fl">0.5</span>, <span class="fl">0.5</span>)),
+<span class="co"># Top face</span>
+((-<span class="fl">0.5</span>, <span class="fl">0.5</span>, -<span class="fl">0.5</span>), (-<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>), (<span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>), (<span class="fl">0.5</span>, <span class="fl">0.5</span>, -<span class="fl">0.5</span>))</code></pre>
+
+<p>Using only primitives would be quite limiting for modelling applications. 3D models are generally made up of multiple primitives (or triangular meshes, which are outside the scope of this project). Fortunately, our design of the <code>Node</code> class facilitates <code>Scene</code> nodes that are made up of multiple primitives. In fact, we can support arbitrary groupings of nodes with no added complexity.</p>
+
+<p>As motivation, let us consider a very basic figure: a typical snowman, or snow figure, made up of three spheres. Even though the figure is comprised of three separate primitives, we would like to be able to treat it as a single object.</p>
+
+<p>We create a class called <code>HierarchicalNode</code>, a <code>Node</code> that contains other nodes. It manages a list of &quot;children&quot;. The <code>render_self</code> function for hierarchical nodes simply calls <code>render_self</code> on each of the child nodes. With the <code>HierarchicalNode</code> class, it is very easy to add figures to the scene. Now, defining the snow figure is as simple as specifying the shapes that comprise it, and their relative positions and sizes.</p>
+
+<div class="center figure">
+<a name="figure-13.2"></a><img src="modeller-images/nodes.jpg" alt="Figure 13.2 - Hierarchy of `Node` subclasses" title="Figure 13.2 - Hierarchy of `Node` subclasses" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 13.2 - Hierarchy of <code>Node</code> subclasses</small>
+</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> HierarchicalNode(Node):
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="dt">super</span>(HierarchicalNode, <span class="ot">self</span>).<span class="ot">__init__</span>()
+        <span class="ot">self</span>.child_nodes = []
+
+    <span class="kw">def</span> render_self(<span class="ot">self</span>):
+        <span class="kw">for</span> child in <span class="ot">self</span>.child_nodes:
+            child.render()</code></pre>
+
+<p></p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> SnowFigure(HierarchicalNode):
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="dt">super</span>(SnowFigure, <span class="ot">self</span>).<span class="ot">__init__</span>()
+        <span class="ot">self</span>.child_nodes = [Sphere(), Sphere(), Sphere()]
+        <span class="ot">self</span>.child_nodes[<span class="dv">0</span>].translate(<span class="dv">0</span>, -<span class="fl">0.6</span>, <span class="dv">0</span>) <span class="co"># scale 1.0</span>
+        <span class="ot">self</span>.child_nodes[<span class="dv">1</span>].translate(<span class="dv">0</span>, <span class="fl">0.1</span>, <span class="dv">0</span>)
+        <span class="ot">self</span>.child_nodes[<span class="dv">1</span>].scaling_matrix = numpy.dot(
+            <span class="ot">self</span>.scaling_matrix, scaling([<span class="fl">0.8</span>, <span class="fl">0.8</span>, <span class="fl">0.8</span>]))
+        <span class="ot">self</span>.child_nodes[<span class="dv">2</span>].translate(<span class="dv">0</span>, <span class="fl">0.75</span>, <span class="dv">0</span>)
+        <span class="ot">self</span>.child_nodes[<span class="dv">2</span>].scaling_matrix = numpy.dot(
+            <span class="ot">self</span>.scaling_matrix, scaling([<span class="fl">0.7</span>, <span class="fl">0.7</span>, <span class="fl">0.7</span>]))
+        <span class="kw">for</span> child_node in <span class="ot">self</span>.child_nodes:
+            child_node.color_index = color.MIN_COLOR
+        <span class="ot">self</span>.aabb = AABB([<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>], [<span class="fl">0.5</span>, <span class="fl">1.1</span>, <span class="fl">0.5</span>])</code></pre>
+
+<p>You might observe that the <code>Node</code> objects form a tree data structure. The <code>render</code> function, through hierarchical nodes, does a depth-first traversal through the tree. As it traverses, it keeps a stack of <code>ModelView</code> matrices, used for conversion into the world space. At each step, it pushes the current <code>ModelView</code> matrix onto the stack, and when it completes rendering of all child nodes, it pops the matrix off the stack, leaving the parent node's <code>ModelView</code> matrix at the top of the stack.</p>
+
+<p>By making the <code>Node</code> class extensible in this way, we can add new types of shapes to the scene without changing any of the other code for scene manipulation and rendering. Using the node concept to abstract away the fact that one <code>Scene</code> object may have many children is known as the Composite design pattern.</p>
+
+<h3 id="user-interaction">User Interaction</h3>
+
+<p>Now that our modeller is capable of storing and displaying the scene, we need a way to interact with it. There are two types of interactions that we need to facilitate. First, we need the capability of changing the viewing perspective of the scene. We want to be able to move the eye, or camera, around the scene. Second, we need to be able to add new nodes and to modify nodes in the scene.</p>
+
+<p>To enable user interaction, we need to know when the user presses keys or moves the mouse. Luckily, the operating system already knows when these events happen. GLUT allows us to register a function to be called whenever a certain event occurs. We write functions to interpret key presses and mouse movement, and tell GLUT to call those functions when the corresponding keys are pressed. Once we know which keys the user is pressing, we need to interpret the input and apply the intended actions to the scene.</p>
+
+<p>The logic for listening to operating system events and interpreting their meaning is found in the <code>Interaction</code> class. The <code>Viewer</code> class we wrote earlier owns the single instance of <code>Interaction</code>. We will use the GLUT callback mechanism to register functions to be called when a mouse button is pressed (<code>glutMouseFunc</code>), when the mouse is moved (<code>glutMotionFunc</code>), when a keyboard button is pressed (<code>glutKeyboardFunc</code>), and when the arrow keys are pressed (<code>glutSpecialFunc</code>). We'll see the functions that handle input events shortly.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">class</span> Interaction(<span class="dt">object</span>):
+    <span class="kw">def</span> <span class="ot">__init__</span>(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; Handles user interaction &quot;&quot;&quot;</span>
+        <span class="co"># currently pressed mouse button</span>
+        <span class="ot">self</span>.pressed = <span class="ot">None</span>
+        <span class="co"># the current location of the camera</span>
+        <span class="ot">self</span>.translation = [<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>]
+        <span class="co"># the trackball to calculate rotation</span>
+        <span class="ot">self</span>.trackball = trackball.Trackball(theta = -<span class="dv">25</span>, distance=<span class="dv">15</span>)
+        <span class="co"># the current mouse location</span>
+        <span class="ot">self</span>.mouse_loc = <span class="ot">None</span>
+        <span class="co"># Unsophisticated callback mechanism</span>
+        <span class="ot">self</span>.callbacks = defaultdict(<span class="dt">list</span>)
+
+        <span class="ot">self</span>.register()
+
+    <span class="kw">def</span> register(<span class="ot">self</span>):
+        <span class="co">&quot;&quot;&quot; register callbacks with glut &quot;&quot;&quot;</span>
+        glutMouseFunc(<span class="ot">self</span>.handle_mouse_button)
+        glutMotionFunc(<span class="ot">self</span>.handle_mouse_move)
+        glutKeyboardFunc(<span class="ot">self</span>.handle_keystroke)
+        glutSpecialFunc(<span class="ot">self</span>.handle_keystroke)</code></pre>
+
+<h4 id="operating-system-callbacks">Operating System Callbacks</h4>
+
+<p>In order to meaningfully interpret user input, we need to combine knowledge of the mouse position, mouse buttons, and keyboard. Because interpreting user input into meaningful actions requires many lines of code, we encapsulate it in a separate class, away from the main code path. The <code>Interaction</code> class hides unrelated complexity from the rest of the codebase and translates operating system events into application-level events.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Interaction </span>
+    <span class="kw">def</span> translate(<span class="ot">self</span>, x, y, z):
+        <span class="co">&quot;&quot;&quot; translate the camera &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.translation[<span class="dv">0</span>] += x
+        <span class="ot">self</span>.translation[<span class="dv">1</span>] += y
+        <span class="ot">self</span>.translation[<span class="dv">2</span>] += z
+
+    <span class="kw">def</span> handle_mouse_button(<span class="ot">self</span>, button, mode, x, y):
+        <span class="co">&quot;&quot;&quot; Called when the mouse button is pressed or released &quot;&quot;&quot;</span>
+        xSize, ySize = glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)
+        y = ySize - y  <span class="co"># invert the y coordinate because OpenGL is inverted</span>
+        <span class="ot">self</span>.mouse_loc = (x, y)
+
+        <span class="kw">if</span> mode == GLUT_DOWN:
+            <span class="ot">self</span>.pressed = button
+            <span class="kw">if</span> button == GLUT_RIGHT_BUTTON:
+                <span class="kw">pass</span>
+            <span class="kw">elif</span> button == GLUT_LEFT_BUTTON:  <span class="co"># pick</span>
+                <span class="ot">self</span>.trigger(<span class="st">&#39;pick&#39;</span>, x, y)
+            <span class="kw">elif</span> button == <span class="dv">3</span>:  <span class="co"># scroll up</span>
+                <span class="ot">self</span>.translate(<span class="dv">0</span>, <span class="dv">0</span>, <span class="fl">1.0</span>)
+            <span class="kw">elif</span> button == <span class="dv">4</span>:  <span class="co"># scroll up</span>
+                <span class="ot">self</span>.translate(<span class="dv">0</span>, <span class="dv">0</span>, -<span class="fl">1.0</span>)
+        <span class="kw">else</span>:  <span class="co"># mouse button release</span>
+            <span class="ot">self</span>.pressed = <span class="ot">None</span>
+        glutPostRedisplay()
+
+    <span class="kw">def</span> handle_mouse_move(<span class="ot">self</span>, x, screen_y):
+        <span class="co">&quot;&quot;&quot; Called when the mouse is moved &quot;&quot;&quot;</span>
+        xSize, ySize = glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)
+        y = ySize - screen_y  <span class="co"># invert the y coordinate because OpenGL is inverted</span>
+        <span class="kw">if</span> <span class="ot">self</span>.pressed is not <span class="ot">None</span>:
+            dx = x - <span class="ot">self</span>.mouse_loc[<span class="dv">0</span>]
+            dy = y - <span class="ot">self</span>.mouse_loc[<span class="dv">1</span>]
+            <span class="kw">if</span> <span class="ot">self</span>.pressed == GLUT_RIGHT_BUTTON and <span class="ot">self</span>.trackball is not <span class="ot">None</span>:
+                <span class="co"># ignore the updated camera loc because we want to always</span>
+                <span class="co"># rotate around the origin</span>
+                <span class="ot">self</span>.trackball.drag_to(<span class="ot">self</span>.mouse_loc[<span class="dv">0</span>], <span class="ot">self</span>.mouse_loc[<span class="dv">1</span>], dx, dy)
+            <span class="kw">elif</span> <span class="ot">self</span>.pressed == GLUT_LEFT_BUTTON:
+                <span class="ot">self</span>.trigger(<span class="st">&#39;move&#39;</span>, x, y)
+            <span class="kw">elif</span> <span class="ot">self</span>.pressed == GLUT_MIDDLE_BUTTON:
+                <span class="ot">self</span>.translate(dx/<span class="fl">60.0</span>, dy/<span class="fl">60.0</span>, <span class="dv">0</span>)
+            <span class="kw">else</span>:
+                <span class="kw">pass</span>
+            glutPostRedisplay()
+        <span class="ot">self</span>.mouse_loc = (x, y)
+
+    <span class="kw">def</span> handle_keystroke(<span class="ot">self</span>, key, x, screen_y):
+        <span class="co">&quot;&quot;&quot; Called on keyboard input from the user &quot;&quot;&quot;</span>
+        xSize, ySize = glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)
+        y = ySize - screen_y
+        <span class="kw">if</span> key == <span class="st">&#39;s&#39;</span>:
+            <span class="ot">self</span>.trigger(<span class="st">&#39;place&#39;</span>, <span class="st">&#39;sphere&#39;</span>, x, y)
+        <span class="kw">elif</span> key == <span class="st">&#39;c&#39;</span>:
+            <span class="ot">self</span>.trigger(<span class="st">&#39;place&#39;</span>, <span class="st">&#39;cube&#39;</span>, x, y)
+        <span class="kw">elif</span> key == GLUT_KEY_UP:
+            <span class="ot">self</span>.trigger(<span class="st">&#39;scale&#39;</span>, up=<span class="ot">True</span>)
+        <span class="kw">elif</span> key == GLUT_KEY_DOWN:
+            <span class="ot">self</span>.trigger(<span class="st">&#39;scale&#39;</span>, up=<span class="ot">False</span>)
+        <span class="kw">elif</span> key == GLUT_KEY_LEFT:
+            <span class="ot">self</span>.trigger(<span class="st">&#39;rotate_color&#39;</span>, forward=<span class="ot">True</span>)
+        <span class="kw">elif</span> key == GLUT_KEY_RIGHT:
+            <span class="ot">self</span>.trigger(<span class="st">&#39;rotate_color&#39;</span>, forward=<span class="ot">False</span>)
+        glutPostRedisplay()</code></pre>
+
+<h4 id="internal-callbacks">Internal Callbacks</h4>
+
+<p>In the code snippet above, you will notice that when the <code>Interaction</code> instance interprets a user action, it calls <code>self.trigger</code> with a string describing the action type. The <code>trigger</code> function on the <code>Interaction</code> class is part of a simple callback system that we will use for handling application-level events. Recall that the <code>init_interaction</code> function on the <code>Viewer</code> class registers callbacks on the <code>Interaction</code> instance by calling <code>register_callback</code>.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Interaction</span>
+    <span class="kw">def</span> register_callback(<span class="ot">self</span>, name, func):
+        <span class="ot">self</span>.callbacks[name].append(func)</code></pre>
+
+<p>When user interface code needs to trigger an event on the scene, the <code>Interaction</code> class calls all of the saved callbacks it has for that specific event:</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Interaction</span>
+    <span class="kw">def</span> trigger(<span class="ot">self</span>, name, *args, **kwargs):
+        <span class="kw">for</span> func in <span class="ot">self</span>.callbacks[name]:
+            func(*args, **kwargs)</code></pre>
+
+<p>This application-level callback system abstracts away the need for the rest of the system to know about operating system input. Each application-level callback represents a meaningful request within the application. The <code>Interaction</code> class acts as a translator between operating system events and application-level events. This means that if we decided to port the modeller to another toolkit in addition to GLUT, we would only need to replace the <code>Interaction</code> class with a class that converts the input from the new toolkit into the same set of meaningful application-level callbacks. We use callbacks and arguments in Table 13.1.</p>
+
+<table>
+<caption><b>Table 13.1</b> - Interaction callbacks and arguments</caption>
+<thead>
+<tr class="header">
+<th align="left">Callback</th>
+<th align="left">Arguments</th>
+<th align="left">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>pick</code></td>
+<td align="left">x:number, y:number</td>
+<td align="left">Selects the node at the mouse pointer location.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>move</code></td>
+<td align="left">x:number, y:number</td>
+<td align="left">Moves the currently selected node to the mouse pointer location.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>place</code></td>
+<td align="left">shape:string, x:number, y:number</td>
+<td align="left">Places a shape of the specified type at the mouse pointer location.</td>
+</tr>
+<tr class="even">
+<td align="left"><code>rotate_color</code></td>
+<td align="left">forward:boolean</td>
+<td align="left">Rotates the color of the currently selected node through the list of colors, forwards or backwards.</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>scale</code></td>
+<td align="left">up:boolean</td>
+<td align="left">Scales the currently selected node up or down, according to parameter.</td>
+</tr>
+</tbody>
+</table>
+
+<p>This simple callback system provides all of the functionality we need for this project. In a production 3D modeller, however, user interface objects are often created and destroyed dynamically. In that case, we would need a more sophisticated event listening system, where objects can both register and un-register callbacks for events.</p>
+
+<h3 id="interfacing-with-the-scene">Interfacing with the Scene</h3>
+
+<p>With our callback mechanism, we can receive meaningful information about user input events from the <code>Interaction</code> class. We are ready to apply these actions to the <code>Scene</code>.</p>
+
+<h4 id="moving-the-scene">Moving the Scene</h4>
+
+<p>In this project, we accomplish camera motion by transforming the scene. In other words, the camera is at a fixed location and user input moves the scene instead of moving the camera. The camera is placed at <code>[0, 0, -15]</code> and faces the world space origin. (Alternatively, we could change the perspective matrix to move the camera instead of the scene. This design decision has very little impact on the rest of the project.) Revisiting the <code>render</code> function in the <code>Viewer</code>, we see that the <code>Interaction</code> state is used to transform the OpenGL matrix state before rendering the <code>Scene</code>. There are two types of interaction with the scene: rotation and translation.</p>
+
+<h4 id="rotating-the-scene-with-a-trackball">Rotating the Scene with a Trackball</h4>
+
+<p>We accomplish rotation of the scene by using a <em>trackball</em> algorithm. The trackball is an intuitive interface for manipulating the scene in three dimensions. Conceptually, a trackball interface functions as if the scene was inside a transparent globe. Placing a hand on the surface of the globe and pushing it rotates the globe. Similarly, clicking the right mouse button and moving it on the screen rotates the scene. You can find out more about the theory of the trackball at the <a href="http://www.opengl.org/wiki/Object_Mouse_Trackball">OpenGL Wiki</a>. In this project, we use a trackball implementation provided as part of <a href="https://code.google.com/p/glumpy/source/browse/glumpy/trackball.py">Glumpy</a>.</p>
+
+<p>We interact with the trackball using the <code>drag_to</code> function, with the current location of the mouse as the starting location and the change in mouse location as parameters.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="ot">self</span>.trackball.drag_to(<span class="ot">self</span>.mouse_loc[<span class="dv">0</span>], <span class="ot">self</span>.mouse_loc[<span class="dv">1</span>], dx, dy)</code></pre>
+
+<p>The resulting rotation matrix is <code>trackball.matrix</code> in the viewer when the scene is rendered.</p>
+
+<h4 id="aside-quaternions">Aside: Quaternions</h4>
+
+<p>Rotations are traditionally represented in one of two ways. The first is a rotation value around each axis; you could store this as a 3-tuple of floating point numbers. The other common representation for rotations is a quaternion, an element composed of a vector with <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> coordinates, and a <span class="math">\(w\)</span> rotation. Using quaternions has numerous benefits over per-axis rotation; in particular, they are more numerically stable. Using quaternions avoids problems like gimbal lock. The downside of quaternions is that they are less intuitive to work with and harder to understand. If you are brave and would like to learn more about quaternions, you can refer to <a href="http://3dgep.com/?p=1815">this explanation</a>.</p>
+
+<p>The trackball implementation avoids gimbal lock by using quaternions internally to store the rotation of the scene. Luckily, we do not need to work with quaternions directly, because the matrix member on the trackball converts the rotation to a matrix.</p>
+
+<h4 id="translating-the-scene">Translating the Scene</h4>
+
+<p>Translating the scene (i.e., sliding it) is much simpler than rotating it. Scene translations are provided with the mouse wheel and the left mouse button. The left mouse button translates the scene in the <span class="math">\(x\)</span> and <span class="math">\(y\)</span> coordinates. Scrolling the mouse wheel translates the scene in the z coordinate (towards or away from the camera). The <code>Interaction</code> class stores the current scene translation and modifies it with the <code>translate</code> function. The viewer retrieves the <code>Interaction</code> camera location during rendering to use in a <code>glTranslated</code> call.</p>
+
+<h4 id="selecting-scene-objects">Selecting Scene Objects</h4>
+
+<p>Now that the user can move and rotate the entire scene to get the perspective they want, the next step is to allow the user to modify and manipulate the objects that make up the scene.</p>
+
+<p>In order for the user to manipulate objects in the scene, they need to be able to select items.</p>
+
+<p>To select an item, we use the current projection matrix to generate a ray that represents the mouse click, as if the mouse pointer shoots a ray into the scene. The selected node is the closest node to the camera with which the ray intersects. Thus the problem of picking reduced to the problem of finding intersections between a ray and nodes in the scene. So the question is: How do we tell if the ray hits a node?</p>
+
+<p>Calculating exactly whether a ray intersects with a node is a challenging problem in terms of both complexity of code and of performance. We would need to write a ray-object intersection check for each type of primitive. For scene nodes with complex mesh geometries with many faces, calculating exact ray-object intersection would require testing the ray against each face and would be computationally expensive.</p>
+
+<p>For the purposes of keeping the code compact and performance reasonable, we use a simple, fast approximation for the ray-object intersection test. In our implementation, each node stores an axis-aligned bounding box (AABB), which is an approximation of the space it occupies. To test whether a ray intersects with a node, we test whether the ray intersects with the node's AABB. This implementation means that all nodes share the same code for intersection tests, and it means that the performance cost is constant and small for all node types.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Viewer</span>
+    <span class="kw">def</span> get_ray(<span class="ot">self</span>, x, y):
+        <span class="co">&quot;&quot;&quot; </span>
+<span class="co">        Generate a ray beginning at the near plane, in the direction that</span>
+<span class="co">        the x, y coordinates are facing </span>
+
+<span class="co">        Consumes: x, y coordinates of mouse on screen </span>
+<span class="co">        Return: start, direction of the ray </span>
+<span class="co">        &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.init_view()
+
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
+        <span class="co"># get two points on the line.</span>
+        start = numpy.array(gluUnProject(x, y, <span class="fl">0.001</span>))
+        end = numpy.array(gluUnProject(x, y, <span class="fl">0.999</span>))
+
+        <span class="co"># convert those points into a ray</span>
+        direction = end - start
+        direction = direction / norm(direction)
+
+        <span class="kw">return</span> (start, direction)
+
+    <span class="kw">def</span> pick(<span class="ot">self</span>, x, y):
+        <span class="co">&quot;&quot;&quot; Execute pick of an object. Selects an object in the scene. &quot;&quot;&quot;</span>
+        start, direction = <span class="ot">self</span>.get_ray(x, y)
+        <span class="ot">self</span>.scene.pick(start, direction, <span class="ot">self</span>.modelView)</code></pre>
+
+<p>To determine which node was clicked on, we traverse the scene to test whether the ray hits any nodes. We deselect the currently selected node and then choose the node with the intersection closest to the ray origin.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Scene</span>
+    <span class="kw">def</span> pick(<span class="ot">self</span>, start, direction, mat):
+        <span class="co">&quot;&quot;&quot; </span>
+<span class="co">        Execute selection.</span>
+<span class="co">            </span>
+<span class="co">        start, direction describe a Ray. </span>
+<span class="co">        mat is the inverse of the current modelview matrix for the scene.</span>
+<span class="co">        &quot;&quot;&quot;</span>
+        <span class="kw">if</span> <span class="ot">self</span>.selected_node is not <span class="ot">None</span>:
+            <span class="ot">self</span>.selected_node.select(<span class="ot">False</span>)
+            <span class="ot">self</span>.selected_node = <span class="ot">None</span>
+
+        <span class="co"># Keep track of the closest hit.</span>
+        mindist = sys.maxint
+        closest_node = <span class="ot">None</span>
+        <span class="kw">for</span> node in <span class="ot">self</span>.node_list:
+            hit, distance = node.pick(start, direction, mat)
+            <span class="kw">if</span> hit and distance &lt; mindist:
+                mindist, closest_node = distance, node
+
+        <span class="co"># If we hit something, keep track of it.</span>
+        <span class="kw">if</span> closest_node is not <span class="ot">None</span>:
+            closest_node.select()
+            closest_node.depth = mindist
+            closest_node.selected_loc = start + direction * mindist
+            <span class="ot">self</span>.selected_node = closest_node</code></pre>
+
+<p>Within the <code>Node</code> class, the <code>pick</code> function tests whether the ray intersects with the axis-aligned bounding box of the <code>Node</code>. If a node is selected, the <code>select</code> function toggles the selected state of the node. Notice that the AABB's <code>ray_hit</code> function accepts the transformation matrix between the box's coordinate space and the ray's coordinate space as the third parameter. Each node applies its own transformation to the matrix before making the <code>ray_hit</code> function call.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Node</span>
+    <span class="kw">def</span> pick(<span class="ot">self</span>, start, direction, mat):
+        <span class="co">&quot;&quot;&quot; </span>
+<span class="co">        Return whether or not the ray hits the object</span>
+
+<span class="co">        Consume:  </span>
+<span class="co">        start, direction form the ray to check</span>
+<span class="co">        mat is the modelview matrix to transform the ray by </span>
+<span class="co">        &quot;&quot;&quot;</span>
+
+        <span class="co"># transform the modelview matrix by the current translation</span>
+        newmat = numpy.dot(
+            numpy.dot(mat, <span class="ot">self</span>.translation_matrix), 
+            numpy.linalg.inv(<span class="ot">self</span>.scaling_matrix)
+        )
+        results = <span class="ot">self</span>.aabb.ray_hit(start, direction, newmat)
+        <span class="kw">return</span> results
+
+    <span class="kw">def</span> select(<span class="ot">self</span>, select=<span class="ot">None</span>):
+       <span class="co">&quot;&quot;&quot; Toggles or sets selected state &quot;&quot;&quot;</span>
+       <span class="kw">if</span> select is not <span class="ot">None</span>:
+           <span class="ot">self</span>.selected = select
+       <span class="kw">else</span>:
+           <span class="ot">self</span>.selected = not <span class="ot">self</span>.selected
+    </code></pre>
+
+<p>The ray-AABB selection approach is very simple to understand and implement. However, the results are wrong in certain situations.</p>
+
+<div class="center figure">
+<a name="figure-13.3"></a><img src="modeller-images/AABBError.png" alt="Figure 13.3 - AABB Error" title="Figure 13.3 - AABB Error" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 13.3 - AABB Error</small>
+</p>
+
+<p>For example, in the case of the <code>Sphere</code> primitive, the sphere itself only touches the AABB in the centre of each of the AABB's faces. However if the user clicks on the corner of the Sphere's AABB, the collision will be detected with the Sphere, even if the user intended to click past the Sphere onto something behind it (<a href="#figure-13.3">Figure 13.3</a>).</p>
+
+<p>This trade-off between complexity, performance, and accuracy is common in computer graphics and in many areas of software engineering.</p>
+
+<h4 id="modifying-scene-objects">Modifying Scene Objects</h4>
+
+<p>Next, we would like to allow the user to manipulate the selected nodes. They might want to move, resize, or change the color of the selected node. When the user inputs a command to manipulate a node, the <code>Interaction</code> class converts the input into the action that the user intended, and calls the corresponding callback.</p>
+
+<p>When the <code>Viewer</code> receives a callback for one of these events, it calls the appropriate function on the <code>Scene</code>, which in turn applies the transformation to the currently selected <code>Node</code>.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Viewer</span>
+    <span class="kw">def</span> move(<span class="ot">self</span>, x, y):
+        <span class="co">&quot;&quot;&quot; Execute a move command on the scene. &quot;&quot;&quot;</span>
+        start, direction = <span class="ot">self</span>.get_ray(x, y)
+        <span class="ot">self</span>.scene.move_selected(start, direction, <span class="ot">self</span>.inverseModelView)
+
+    <span class="kw">def</span> rotate_color(<span class="ot">self</span>, forward):
+        <span class="co">&quot;&quot;&quot; </span>
+<span class="co">        Rotate the color of the selected Node. </span>
+<span class="co">        Boolean &#39;forward&#39; indicates direction of rotation. </span>
+<span class="co">        &quot;&quot;&quot;</span>
+        <span class="ot">self</span>.scene.rotate_selected_color(forward)
+
+    <span class="kw">def</span> scale(<span class="ot">self</span>, up):
+        <span class="co">&quot;&quot;&quot; Scale the selected Node. Boolean up indicates scaling larger.&quot;&quot;&quot;</span>
+        <span class="ot">self</span>.scene.scale_selected(up)</code></pre>
+
+<h4 id="changing-color">Changing Color</h4>
+
+<p>Manipulating color is accomplished with a list of possible colors. The user can cycle through the list with the arrow keys. The scene dispatches the color change command to the currently selected node.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Scene</span>
+    <span class="kw">def</span> rotate_selected_color(<span class="ot">self</span>, forwards):
+        <span class="co">&quot;&quot;&quot; Rotate the color of the currently selected node &quot;&quot;&quot;</span>
+        <span class="kw">if</span> <span class="ot">self</span>.selected_node is <span class="ot">None</span>: <span class="kw">return</span>
+        <span class="ot">self</span>.selected_node.rotate_color(forwards)</code></pre>
+
+<p>Each node stores its current color. The <code>rotate_color</code> function simply modifies the current color of the node. The color is passed to OpenGL with <code>glColor</code> when the node is rendered.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Node</span>
+    <span class="kw">def</span> rotate_color(<span class="ot">self</span>, forwards):
+        <span class="ot">self</span>.color_index += <span class="dv">1</span> <span class="kw">if</span> forwards <span class="kw">else</span> -<span class="dv">1</span>
+        <span class="kw">if</span> <span class="ot">self</span>.color_index &gt; color.MAX_COLOR:
+            <span class="ot">self</span>.color_index = color.MIN_COLOR
+        <span class="kw">if</span> <span class="ot">self</span>.color_index &lt; color.MIN_COLOR:
+            <span class="ot">self</span>.color_index = color.MAX_COLOR</code></pre>
+
+<h4 id="scaling-nodes">Scaling Nodes</h4>
+
+<p>As with color, the scene dispatches any scaling modifications to the selected node, if there is one.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Scene</span>
+    <span class="kw">def</span> scale_selected(<span class="ot">self</span>, up):
+        <span class="co">&quot;&quot;&quot; Scale the current selection &quot;&quot;&quot;</span>
+        <span class="kw">if</span> <span class="ot">self</span>.selected_node is <span class="ot">None</span>: <span class="kw">return</span>
+        <span class="ot">self</span>.selected_node.scale(up)
+    </code></pre>
+
+<p>Each node stores a current matrix that stores its scale. A matrix that scales by parameters <span class="math">\(x\)</span>, <span class="math">\(y\)</span> and <span class="math">\(z\)</span> in those respective directions is:</p>
+
+<p><span class="math">\[
+    \begin{bmatrix}
+    x &amp; 0 &amp; 0 &amp; 0 \\
+    0 &amp; y &amp; 0 &amp; 0 \\
+    0 &amp; 0 &amp; z &amp; 0 \\
+    0 &amp; 0 &amp; 0 &amp; 1 \\ 
+    \end{bmatrix}
+\]</span></p>
+
+<p>When the user modifies the scale of a node, the resulting scaling matrix is multiplied into the current scaling matrix for the node.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Node</span>
+    <span class="kw">def</span> scale(<span class="ot">self</span>, up):
+        s =  <span class="fl">1.1</span> <span class="kw">if</span> up <span class="kw">else</span> <span class="fl">0.9</span>
+        <span class="ot">self</span>.scaling_matrix = numpy.dot(<span class="ot">self</span>.scaling_matrix, scaling([s, s, s]))
+        <span class="ot">self</span>.aabb.scale(s)</code></pre>
+
+<p>The function <code>scaling</code> returns such a matrix, given a list of the <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> scaling factors.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> scaling(scale):
+    s = numpy.identity(<span class="dv">4</span>)
+    s[<span class="dv">0</span>, <span class="dv">0</span>] = scale[<span class="dv">0</span>]
+    s[<span class="dv">1</span>, <span class="dv">1</span>] = scale[<span class="dv">1</span>]
+    s[<span class="dv">2</span>, <span class="dv">2</span>] = scale[<span class="dv">2</span>]
+    s[<span class="dv">3</span>, <span class="dv">3</span>] = <span class="dv">1</span>
+    <span class="kw">return</span> s</code></pre>
+
+<h4 id="moving-nodes">Moving Nodes</h4>
+
+<p>In order to translate a node, we use the same ray calculation we used for picking. We pass the ray that represents the current mouse location in to the scene's <code>move</code> function. The new location of the node should be on the ray. In order to determine where on the ray to place the node, we need to know the node's distance from the camera. Since we stored the node's location and distance from the camera when it was selected (in the <code>pick</code> function), we can use that data here. We find the point that is the same distance from the camera along the target ray and we calculate the vector difference between the new and old locations. We then translate the node by the resulting vector.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Scene</span>
+    <span class="kw">def</span> move_selected(<span class="ot">self</span>, start, direction, inv_modelview):
+        <span class="co">&quot;&quot;&quot; </span>
+<span class="co">        Move the selected node, if there is one.</span>
+<span class="co">            </span>
+<span class="co">        Consume: </span>
+<span class="co">        start, direction describes the Ray to move to</span>
+<span class="co">        mat is the modelview matrix for the scene </span>
+<span class="co">        &quot;&quot;&quot;</span>
+        <span class="kw">if</span> <span class="ot">self</span>.selected_node is <span class="ot">None</span>: <span class="kw">return</span>
+
+        <span class="co"># Find the current depth and location of the selected node</span>
+        node = <span class="ot">self</span>.selected_node
+        depth = node.depth
+        oldloc = node.selected_loc
+
+        <span class="co"># The new location of the node is the same depth along the new ray</span>
+        newloc = (start + direction * depth)
+
+        <span class="co"># transform the translation with the modelview matrix</span>
+        translation = newloc - oldloc
+        pre_tran = numpy.array([translation[<span class="dv">0</span>], translation[<span class="dv">1</span>], translation[<span class="dv">2</span>], <span class="dv">0</span>])
+        translation = inv_modelview.dot(pre_tran)
+
+        <span class="co"># translate the node and track its location</span>
+        node.translate(translation[<span class="dv">0</span>], translation[<span class="dv">1</span>], translation[<span class="dv">2</span>])
+        node.selected_loc = newloc</code></pre>
+
+<p>Notice that the new and old locations are defined in the camera coordinate space. We need our translation to be defined in the world coordinate space. Thus, we convert the camera space translation into a world space translation by multiplying by the inverse of the modelview matrix.</p>
+
+<p>As with scale, each node stores a matrix which represents its translation. A translation matrix looks like:</p>
+
+<p><span class="math">\[
+   \begin{bmatrix}
+   1 &amp; 0 &amp; 0 &amp; x \\
+   0 &amp; 1 &amp; 0 &amp; y \\
+   0 &amp; 0 &amp; 1 &amp; z \\
+   0 &amp; 0 &amp; 0 &amp; 1 \\
+   \end{bmatrix}
+\]</span></p>
+
+<p>When the node is translated, we construct a new translation matrix for the current translation, and multiply it into the node's translation matrix for use during rendering.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Node</span>
+    <span class="kw">def</span> translate(<span class="ot">self</span>, x, y, z):
+        <span class="ot">self</span>.translation_matrix = numpy.dot(
+            <span class="ot">self</span>.translation_matrix, 
+            translation([x, y, z]))</code></pre>
+
+<p>The <code>translation</code> function returns a translation matrix given a list representing the <span class="math">\(x\)</span>, <span class="math">\(y\)</span>, and <span class="math">\(z\)</span> translation distances.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python"><span class="kw">def</span> translation(displacement):
+    t = numpy.identity(<span class="dv">4</span>)
+    t[<span class="dv">0</span>, <span class="dv">3</span>] = displacement[<span class="dv">0</span>]
+    t[<span class="dv">1</span>, <span class="dv">3</span>] = displacement[<span class="dv">1</span>]
+    t[<span class="dv">2</span>, <span class="dv">3</span>] = displacement[<span class="dv">2</span>]
+    <span class="kw">return</span> t</code></pre>
+
+<h4 id="placing-nodes">Placing Nodes</h4>
+
+<p>Node placement uses techniques from both picking and translation. We use the same ray calculation for the current mouse location to determine where to place the node.</p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Viewer</span>
+    <span class="kw">def</span> place(<span class="ot">self</span>, shape, x, y):
+        <span class="co">&quot;&quot;&quot; Execute a placement of a new primitive into the scene. &quot;&quot;&quot;</span>
+        start, direction = <span class="ot">self</span>.get_ray(x, y)
+        <span class="ot">self</span>.scene.place(shape, start, direction, <span class="ot">self</span>.inverseModelView)</code></pre>
+
+<p>To place a new node, we first create the new instance of the corresponding type of node and add it to the scene. We want to place the node underneath the user's cursor, so we find a point on the ray, at a fixed distance from the camera. Again, the ray is represented in camera space, so we convert the resulting translation vector into the world coordinate space by multiplying it by the inverse modelview matrix. Finally, we translate the new node by the calculated vector. </p>
+
+<pre class="sourceCode python"><code class="sourceCode python">    <span class="co"># class Scene</span>
+    <span class="kw">def</span> place(<span class="ot">self</span>, shape, start, direction, inv_modelview):
+        <span class="co">&quot;&quot;&quot; </span>
+<span class="co">        Place a new node.</span>
+<span class="co">            </span>
+<span class="co">        Consume:  </span>
+<span class="co">        shape the shape to add</span>
+<span class="co">        start, direction describes the Ray to move to</span>
+<span class="co">        inv_modelview is the inverse modelview matrix for the scene </span>
+<span class="co">        &quot;&quot;&quot;</span>
+        new_node = <span class="ot">None</span>
+        <span class="kw">if</span> shape == <span class="st">&#39;sphere&#39;</span>: new_node = Sphere()
+        <span class="kw">elif</span> shape == <span class="st">&#39;cube&#39;</span>: new_node = Cube()
+        <span class="kw">elif</span> shape == <span class="st">&#39;figure&#39;</span>: new_node = SnowFigure()
+
+        <span class="ot">self</span>.add_node(new_node)
+
+        <span class="co"># place the node at the cursor in camera-space</span>
+        translation = (start + direction * <span class="ot">self</span>.PLACE_DEPTH)
+
+        <span class="co"># convert the translation to world-space</span>
+        pre_tran = numpy.array([translation[<span class="dv">0</span>], translation[<span class="dv">1</span>], translation[<span class="dv">2</span>], <span class="dv">1</span>])
+        translation = inv_modelview.dot(pre_tran)
+
+        new_node.translate(translation[<span class="dv">0</span>], translation[<span class="dv">1</span>], translation[<span class="dv">2</span>])</code></pre>
+
+<h2 id="summary">Summary</h2>
+
+<p>Congratulations! We've successfully implemented a tiny 3D modeller!</p>
+
+<div class="center figure">
+<a name="figure-13.4"></a><img src="modeller-images/StartScene.png" alt="Figure 13.4 - Sample Scene" title="Figure 13.4 - Sample Scene" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 13.4 - Sample Scene</small>
+</p>
+
+<p>We saw how to develop an extensible data structure to represent the objects in the scene. We noticed that using the Composite design pattern and a tree-based data structure makes it easy to traverse the scene for rendering and allows us to add new types of nodes with no added complexity. We leveraged this data structure to render the design to the screen, and manipulated OpenGL matrices in the traversal of the scene graph. We built a very simple callback system for application-level events, and used it to encapsulate handling of operating system events. We discussed possible implementations for ray-object collision detection, and the trade-offs between correctness, complexity, and performance. Finally, we implemented methods for manipulating the contents of the scene.</p>
+
+<p>You can expect to find these same basic building blocks in production 3D software. The scene graph structure and relative coordinate spaces are found in many types of 3D graphics applications, from CAD tools to game engines. One major simplification in this project is in the user interface. A production 3D modeller would be expected to have a complete user interface, which would necessitate a much more sophisticated events system instead of our simple callback system.</p>
+
+<p>We could do further experimentation to add new features to this project. Try one of these:</p>
+
+<ul>
+<li>Add a <code>Node</code> type to support triangle meshes for arbitrary shapes.</li>
+<li>Add an undo stack, to allow undo/redo of modeller actions.</li>
+<li>Save/load the design using a 3D file format like DXF.</li>
+<li>Integrate a rendering engine: export the design for use in a photorealistic renderer.</li>
+<li>Improve collision detection with accurate ray-object intersection.</li>
+</ul>
+
+<h2 id="further-exploration">Further Exploration</h2>
+
+<p>For further insight into real-world 3D modelling software, a few open source projects are interesting.</p>
+
+<p><a href="http://www.blender.org/">Blender</a> is an open source full-featured 3D animation suite. It provides a full 3D pipeline for building special effects in video, or for game creation. The modeller is a small part of this project, and it is a good example of integrating a modeller into a large software suite.</p>
+
+<p><a href="http://www.openscad.org/">OpenSCAD</a> is an open source 3D modelling tool. It is not interactive; rather, it reads a script file that specifies how to generate the scene. This gives the designer &quot;full control over the modelling process&quot;.</p>
+
+<p>For more information about algorithms and techniques in computer graphics, <a href="http://tog.acm.org/resources/GraphicsGems/">Graphics Gems</a> is a great resource.</p>
+
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Thanks to Dr. Anton Gerdelan for the image. His OpenGL tutorial book is available at <a href="http://antongerdelan.net/opengl/">http://antongerdelan.net/opengl/</a>.<a href="#fnref1">↩</a></p></li>
+</ol>
+</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

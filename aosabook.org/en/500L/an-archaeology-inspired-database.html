@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap-responsive.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/code.css" type="text/css" />
+    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/500L.css" type="text/css" />
+    <title>500 Lines or Less | An Archaeology-Inspired Database</title>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+          tex2jax: {
+            inlineMath: [['$','$'], ['\\(','\\)']],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+          },
+        });
+    </script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+</head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="hero-unit">
+	  <a class='pull-right' href='/en/index.html'></a>
+          <h1>An Archaeology-Inspired Database</h1>
+          <h2 class="author">Yoav Rubin</h2>
+          <blockquote class="pull-right">
+            </blockquote>
+
+        </div>
+      </div>
+      <div class="row">
+        <div class='span10 offset1' id='content'>
+          <p><em>Yoav Rubin is a Senior Software Engineer at Microsoft, and prior to that was a Research Staff Member and a Master Inventor at IBM Research. He works now in the domain of data security in the cloud, and in the past his work focused on developing cloud or web based development environments. Yoav holds an M.Sc. in Medical Research in the field of Neuroscience and B.Sc in Information Systems Engineering. He goes by <a href="https://twitter.com/yoavrubin">@yoavrubin</a> on Twitter, and occasionally blogs at <a href="http://yoavrubin.blogspot.com">http://yoavrubin.blogspot.com</a>.</em></p>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>Software development is often viewed as a rigorous process, where the inputs are requirements and the output is the working product. However, software developers are people, with their own perspectives and biases which color the outcome of their work.</p>
+
+<p>In this chapter, we will explore how a change in a common perspective affects the design and implementation of a well-studied type of software: a database.</p>
+
+<p>Database systems are designed to store and query data. This is something that all information workers do; however, the systems themselves were designed by computer scientists. As a result, modern database systems are highly influenced by computer scientists’ definition of what data is, and what can be done with it.</p>
+
+<p>For example, most modern databases implement updates by overwriting old data in-place instead of appending the new data and keeping the old. This mechanism, nicknamed &quot;place-oriented programming&quot; by <a href="http://www.infoq.com/presentations/Value-Values">Rich Hickey</a>, saves storage space but makes it impossible to retrieve the entire history of a particular record. This design decision reflects the computer scientist’s perspective that &quot;history&quot; is less important than the price of its storage.</p>
+
+<p>If you were to instead ask an archaeologist where the old data can be found, the answer would be &quot;hopefully, it's just buried underneath&quot;.</p>
+
+<p>(Disclaimer: My understanding of the views of a typical archaeologist is based on visiting a few museums, reading several Wikipedia articles, and watching the entire Indiana Jones series.)</p>
+
+<h3 id="designing-a-database-like-an-archaeologist">Designing a Database Like an Archaeologist</h3>
+
+<p>If we were to ask our friendly archaeologist to design a database, we might expect the requirements to reflect what would be found at an excavation site:</p>
+
+<ul>
+<li>All data is found and catalogued at the site.</li>
+<li>Digging deeper will expose the state of things in times past.</li>
+<li>Artifacts found at the same layer are from the same period.</li>
+<li>Each artifact will consist of state that it accumulated in different periods.</li>
+</ul>
+
+<p>For example, a wall may have Roman symbols on it on one layer, and in a lower layer there may be Greek symbols. Both these observations are recorded as part of the wall's state.</p>
+
+<p>This analogy is visualized in <a href="#figure-10.1">Figure 10.1</a>:</p>
+
+<ul>
+<li>The entire circle is the excavation site.</li>
+<li>Each ring is a <em>layer</em> (here numbered from 0 to 4).</li>
+<li>Each slice is a labeled artifact (‘A’ through ‘E’).</li>
+<li>Each artifact has a ‘symbol’ attribute (where a blank means that no update was made).</li>
+<li>Solid arrows denote a change in symbol between layers</li>
+<li>Dotted arrows are arbitrary relationships of interest between artifacts (e.g., from ‘E’ to ‘A’).</li>
+</ul>
+
+<div class="center figure">
+<a name="figure-10.1"></a><img src="functionalDB-images/image_0.png" alt="Figure 10.1 - The Excavation Site" title="Figure 10.1 - The Excavation Site" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 10.1 - The Excavation Site</small>
+</p>
+
+<p>If we translate the archaeologist's language into terms a database designer would use:</p>
+
+<ul>
+<li>The excavation site is a <em>database</em>.</li>
+<li>Each artifact is an <em>entity</em> with a corresponding <em>ID</em>.</li>
+<li>Each entity has a set of <em>attributes</em>, which may change over time.</li>
+<li>Each attribute has a specific <em>value</em> at a specific time.</li>
+</ul>
+
+<p>This may look very different from the kinds of databases you are used to working with. This design is sometimes referred to as &quot;functional database&quot;, since it uses ideas from the domain of functional programming. The rest of the chapter describes how to implement such a database.</p>
+
+<p>Since we are building a functional database, we will be using a functional programming language called Clojure.</p>
+
+<p>Clojure has several qualities that make it a good implementation language for a functional database, such as out-of-the-box immutability, higher order functions, and metaprogramming facilities. But ultimately, the reason Clojure was chosen was its emphasis on clean, rigorous design, which few programming languages possess.</p>
+
+<h2 id="laying-the-foundation">Laying the Foundation</h2>
+
+<p>Let’s start by declaring the core constructs that make up our database.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defrecord</span><span class="fu"> Database </span>[layers top-id curr-time])</code></pre>
+
+<p>A database consists of:</p>
+
+<ol style="list-style-type: decimal">
+<li>Layers of entities, each with its own unique timestamp (the rings in Figure 1).</li>
+<li>A top-id value which is the next available unique ID.</li>
+<li>The time at which the database was last updated.</li>
+</ol>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defrecord</span><span class="fu"> Layer </span>[storage VAET AVET VEAT EAVT])</code></pre>
+
+<p>Each layer consists of:</p>
+
+<ol style="list-style-type: decimal">
+<li>A data store for entities.</li>
+<li>Indexes that are used to speed up queries to the database. (These indexes and the meaning of their names will be explained later.)</li>
+</ol>
+
+<p>In our design, a single conceptual ‘database’ may consist of many <code>Database</code> instances, each of which represents a snapshot of the database at <code>curr-time</code>. A <code>Layer</code> may share the exact same entity with another <code>Layer</code> if the entity’s state hasn’t changed between the times that they represent.</p>
+
+<h3 id="entities">Entities</h3>
+
+<p>Our database wouldn't be of any use without entities to store, so we define those next. As discussed before, an entity has an ID and a list of attributes; we create them using the <code>make-entity</code> function.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defrecord</span><span class="fu"> Entity </span>[id <span class="kw">attrs</span>])
+
+(<span class="kw">defn</span><span class="fu"> make-entity</span>
+   ([] (make-entity <span class="kw">:db</span>/no-id-yet))
+   ([id] (Entity.  id {})))</code></pre>
+
+<p>Note that if no ID is given, the entity’s ID is set to be <code>:db/no-id-yet</code>, which means that something else is responsible for giving it an ID. We’ll see how that works later.</p>
+
+<h4 id="attributes">Attributes</h4>
+
+<p>Each attribute consists of its name, value, and the timestamps of its most recent update as well as the one before that. Each attribute also has two fields that describe its <code>type</code> and <code>cardinality</code>.</p>
+
+<p>In the case that an attribute is used to represent a relationship to another entity, its <code>type</code> will be <code>:db/ref</code> and its value will be the ID of the related entity. This simple type system also acts as an extension point. Users are free to define their own types and leverage them to provide additional semantics for their data.</p>
+
+<p>An attribute's <code>cardinality</code> specifies whether the attribute represents a single value or a set of values. We use this field to determine the set of operations that are permitted on this attribute.</p>
+
+<p>Creating an attribute is done using the <code>make-attr</code> function.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defrecord</span><span class="fu"> Attr </span>[<span class="kw">name</span> value ts prev-ts])
+
+(<span class="kw">defn</span><span class="fu"> make-attr</span>
+   ([<span class="kw">name</span> value <span class="kw">type</span> <span class="co">; these ones are required</span>
+       &amp; {<span class="kw">:keys</span> [cardinality] <span class="kw">:or</span> {cardinality <span class="kw">:db</span>/single}} ]
+     {<span class="kw">:pre</span> [(<span class="kw">contains?</span> #{<span class="kw">:db</span>/single <span class="kw">:db</span>/multiple} cardinality)]}
+    (<span class="kw">with-meta</span> (Attr. <span class="kw">name</span> value -<span class="dv">1</span> -<span class="dv">1</span>) {<span class="kw">:type</span> <span class="kw">type</span> <span class="kw">:cardinality</span> cardinality})))</code></pre>
+
+<p>There are a couple of interesting patterns used in this constructor function:</p>
+
+<ul>
+<li>We use Clojure’s <em>Design by Contract</em> pattern to validate that the cardinality parameter is a permissible value.</li>
+<li>We use Clojure’s destructuring mechanism to provide a default value of <code>:db/single</code> if one is not given.</li>
+<li>We use Clojure’s metadata capabilities to distinguish between an attribute's data (name, value and timestamps) and its metadata (type and cardinality). In Clojure, metadata handling is done using the functions <code>with-meta</code> (to set) and <code>meta</code> (to read).</li>
+</ul>
+
+<p>Attributes only have meaning if they are part of an entity. We make this connection with the <code>add-attr</code> function, which adds a given attribute to an entity's attribute map (called <code>:attrs</code>).</p>
+
+<p>Note that instead of using the attribute’s name directly, we first convert it into a keyword to adhere to Clojure’s idiomatic usage of maps.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> add-attr </span>[ent attr]
+   (<span class="kw">let</span> [attr-id (<span class="kw">keyword</span> (<span class="kw">:name</span> attr))]
+      (<span class="kw">assoc-in</span> ent [<span class="kw">:attrs</span> attr-id] attr)))</code></pre>
+
+<h3 id="storage">Storage</h3>
+
+<p>So far we have talked a lot about <em>what</em> we are going to store, without thinking about <em>where</em> we are going to store it. In this chapter, we resort to the simplest storage mechanism: storing the data in memory. This is certainly not reliable, but it simplifies development and debugging and allows us to focus on more interesting parts of the program.</p>
+
+<p>We will access the storage via a simple <em>protocol</em>, which will make it possible to define additional storage providers for a database owner to select from.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defprotocol</span><span class="fu"> Storage</span>
+   (get-entity [storage e-id] )
+   (write-entity [storage entity])
+   (drop-entity [storage entity]))</code></pre>
+
+<p>And here's our in-memory implementation of the protocol, which uses a map as the store:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defrecord</span><span class="fu"> InMemory </span>[] Storage
+   (get-entity [storage e-id] (e-id storage))
+   (write-entity [storage entity] (<span class="kw">assoc</span> storage (<span class="kw">:id</span> entity) entity))
+   (drop-entity [storage entity] (<span class="kw">dissoc</span> storage (<span class="kw">:id</span> entity))))</code></pre>
+
+<h3 id="indexing-the-data">Indexing the Data</h3>
+
+<p>Now that we've defined the basic elements of our database, we can start thinking about how we're going to query it. By virtue of how we've structured our data, any query is necessarily going to be interested in at least one of an entity's ID, and the name and value of some of its attributes. This triplet of <code>(entity-id, attribute-name, attribute-value)</code> is important enough to our query process that we give it an explicit name: a <em>datom</em>.</p>
+
+<p>Datoms are important because they represent facts, and our database accumulates facts.</p>
+
+<p>If you've used a database system before, you are probably already familiar with the concept of an <em>index</em>, which is a supporting data structure that consumes extra space in order to decrease the average query time. In our database, an index is a three-leveled structure which stores the components of a datom in a specific order. Each index derives its name from the order it stores the datom's components in.</p>
+
+<p>For example, let’s look at at the index sketched in <a href="#figure-10.2">Figure 10.2</a>:</p>
+
+<ul>
+<li>The first level stores entity-IDs</li>
+<li>The second level stores the related attribute-names</li>
+<li>The third level stores the related value</li>
+</ul>
+
+<p>This index is named EAVT, as the top level map holds Entity IDs, the second level holds Attribute names, and the leaves hold Values. The &quot;T&quot; comes from the fact that each layer in the database has its own indexes, hence the index itself is relevant for a specific Time.</p>
+
+<div class="center figure">
+<a name="figure-10.2"></a><img src="functionalDB-images/image_1.png" alt="Figure 10.2 - EAVT" title="Figure 10.2 - EAVT" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 10.2 - EAVT</small>
+</p>
+
+<p><a href="#figure-10.3">Figure 10.3</a> shows an index that would be called AVET since:</p>
+
+<ul>
+<li>The first level map holds attribute-name.</li>
+<li>The second level map holds the values (of the attributes).</li>
+<li>The third level set holds the entity-IDs (of the entities whose attribute is at the first level).</li>
+</ul>
+
+<div class="center figure">
+<a name="figure-10.3"></a><img src="functionalDB-images/image_2.png" alt="Figure 10.3 - AVET" title="Figure 10.3 - AVET" />
+</div>
+
+<p class="center figcaption">
+<small>Figure 10.3 - AVET</small>
+</p>
+
+<p>Our indexes are implemented as a map of maps, where the keys of the root map act as the first level, each such key points to a map whose keys act as the index’s second-level and the values are the index’s third level. Each element in the third level is a set, holding the leaves of the index.</p>
+
+<p>Each index stores the components of a datom as some permutation of its canonical 'EAV' ordering (entity_id, attribute-name, attribute-value). However, when we are working with datoms <em>outside</em> of the index, we expect them to be in canonical format. We thus provide each index with functions <code>from-eav</code> and <code>to-eav</code> to convert to and from these orderings.</p>
+
+<p>In most database systems, indexes are an optional component; for example, in an RDBMS (Relational Database Management System) like PostgreSQL or MySQL, you will choose to add indexes only to certain columns in a table. We provide each index with a <code>usage-pred</code> function that determines for an attribute whether it should be included in this index or not.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> make-index </span>[from-eav to-eav usage-pred]
+    (<span class="kw">with-meta</span> {} {<span class="kw">:from-eav</span> from-eav <span class="kw">:to-eav</span> to-eav <span class="kw">:usage-pred</span> usage-pred}))
+
+ (<span class="kw">defn</span><span class="fu"> from-eav </span>[<span class="kw">index</span>] (<span class="kw">:from-eav</span> (<span class="kw">meta</span> <span class="kw">index</span>)))
+ (<span class="kw">defn</span><span class="fu"> to-eav </span>[<span class="kw">index</span>] (<span class="kw">:to-eav</span> (<span class="kw">meta</span> <span class="kw">index</span>)))
+ (<span class="kw">defn</span><span class="fu"> usage-pred </span>[<span class="kw">index</span>] (<span class="kw">:usage-pred</span> (<span class="kw">meta</span> <span class="kw">index</span>)))</code></pre>
+
+<p>In our database there are four indexes: EAVT (see <a href="#figure-10.2">Figure 10.2</a>), AVET (see <a href="#figure-10.3">Figure 10.3</a>), VEAT and VAET. We can access these as a vector of values returned from the <code>indexes</code> function.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> indexes</span>[] [<span class="kw">:VAET</span> <span class="kw">:AVET</span> <span class="kw">:VEAT</span> <span class="kw">:EAVT</span>])</code></pre>
+
+<p>To demonstrate how all of this comes together, the result of indexing the following five entities is visualized in Table 10.1.</p>
+
+<ol style="list-style-type: decimal">
+<li>Julius Caesar (also known as JC) lives in Rome</li>
+<li>Brutus (also known as B) lives in Rome</li>
+<li>Cleopatra (also known as Cleo) lives in Egypt</li>
+<li>Rome’s river is the Tiber</li>
+<li>Egypt’s river is the Nile</li>
+</ol>
+
+<table>
+  <tr>
+    <td>
+EAVT index
+</td>
+    <td>
+AVET index
+</td>
+  </tr>
+  <tr>
+    <td><ul>
+<li>
+<span style="background-color:lightblue">JC</span> ⇒ {<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:pink">Rome</span>}}
+</li>
+<li>
+<span style="background-color:lightblue">B</span> ⇒ {<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:pink">Rome</span>}}
+</li>
+<li>
+<span style="background-color:lightblue">Cleo</span> ⇒ {<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:pink">Egypt</span>}}
+</li>
+<li>
+<span style="background-color:lightblue">Rome</span> ⇒ {<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:pink">Tiber</span>}}
+</li>
+<li>
+<span style="background-color:lightblue">Egypt</span> ⇒ {<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:pink">Nile</span>}}
+</li>
+</ul></td>
+<td><ul>
+<li>
+<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">JC, B</span>}}</br> {<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Cleo</span>}}
+</li>
+<li>
+<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">Tiber</span>}}</br> {<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Nile</span>}}
+</li>
+</ul></td>
+  </tr>
+  <tr>
+    <td>
+VEAT index
+</td>
+    <td>
+VAET index
+</td>
+  </tr>
+  <tr>
+    <td><ul>
+<li>
+<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">JC</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}<br/> {<span style="background-color:lightblue">B</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}
+</li>
+<li>
+<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Cleo</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}
+</li>
+<li>
+<span style="background-color:pink">Tiber</span> ⇒ {<span style="background-color:lightblue">Rome</span> ⇒ {<span style="background-color:lightgreen">river</span>}}
+</li>
+<li>
+<span style="background-color:pink">Nile</span> ⇒ {<span style="background-color:lightblue">Egypt</span> ⇒ {<span style="background-color:lightgreen">river</span>}}
+</li></ul></td>
+<td><ul>
+<li>
+<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:lightblue">JC, B</span>}}
+</li>
+<li>
+<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:lightblue">Cleo</span>}}
+</li>
+<li>
+<span style="background-color:pink">Tiber</span> ⇒ {<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:lightblue">Rome</span>}}
+</li>
+<li>
+<span style="background-color:pink">Nile</span> ⇒ {<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:lightblue">Egypt</span>}}
+</li></ul></td>
+  </tr>
+</table>
+
+<p>: <b>Table 10.1</b> - Indexes</p>
+
+<p></p>
+
+<h3 id="database">Database</h3>
+
+<p>We now have all the components we need to construct our database. Initializing our database means:</p>
+
+<ul>
+<li>creating an initial empty layer with no data</li>
+<li>creating a set of empty indexes</li>
+<li>setting its <code>top-id</code> and <code>curr-time</code> to be 0</li>
+</ul>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> ref</span>? [attr] (<span class="kw">=</span> <span class="kw">:db</span>/ref (<span class="kw">:type</span> (<span class="kw">meta</span> attr))))
+
+(<span class="kw">defn</span><span class="fu"> always</span>[&amp; more] true)
+
+(<span class="kw">defn</span><span class="fu"> make-db </span>[]
+   (<span class="kw">atom</span> 
+       (Database. [(Layer.
+                   (fdb.storage.InMemory.) <span class="co">; storage</span>
+                   (make-index #(<span class="kw">vector</span> %<span class="dv">3</span> %<span class="dv">2</span> %<span class="dv">1</span>) #(<span class="kw">vector</span> %<span class="dv">3</span> %<span class="dv">2</span> %<span class="dv">1</span>) #(ref? %))<span class="co">;VAET                     </span>
+                   (make-index #(<span class="kw">vector</span> %<span class="dv">2</span> %<span class="dv">3</span> %<span class="dv">1</span>) #(<span class="kw">vector</span> %<span class="dv">3</span> %<span class="dv">1</span> %<span class="dv">2</span>) always)<span class="co">;AVET                        </span>
+                   (make-index #(<span class="kw">vector</span> %<span class="dv">3</span> %<span class="dv">1</span> %<span class="dv">2</span>) #(<span class="kw">vector</span> %<span class="dv">2</span> %<span class="dv">3</span> %<span class="dv">1</span>) always)<span class="co">;VEAT                       </span>
+                   (make-index #(<span class="kw">vector</span> %<span class="dv">1</span> %<span class="dv">2</span> %<span class="dv">3</span>) #(<span class="kw">vector</span> %<span class="dv">1</span> %<span class="dv">2</span> %<span class="dv">3</span>) always)<span class="co">;EAVT</span>
+                  )] <span class="dv">0</span> <span class="dv">0</span>)))</code></pre>
+
+<p>There is one snag, though: all collections in Clojure are immutable. Since write operations are pretty critical in a database, we define our structure to be an <em>Atom</em>, which is a Clojure reference type that provides the capability of atomic writes.</p>
+
+<p>You may be wondering why we use the <code>always</code> function for the AVET, VEAT and EAVT indexes, and the <code>ref?</code> predicate for the VAET index. This is because these indexes are used in different scenarios, which we’ll see later when we explore queries in depth.</p>
+
+<h3 id="basic-accessors">Basic Accessors</h3>
+
+<p>Before we can build complex querying facilities for our database, we need to provide a lower-level API that different parts of the system can use to retrieve the components we've built by their associated identifiers from any point in time. Consumers of the database can also use this API; however, it is more likely that they will be using the more fully-featured components built on top of it.</p>
+
+<p>This lower-level API is composed of the following four accessor functions:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> entity-at</span>
+   ([db ent-id] (entity-at db (<span class="kw">:curr-time</span> db) ent-id))
+   ([db ts ent-id] (get-entity (<span class="kw">get-in</span> db [<span class="kw">:layers</span> ts <span class="kw">:storage</span>]) ent-id)))
+
+(<span class="kw">defn</span><span class="fu"> attr-at</span>
+   ([db ent-id attr-name] (attr-at db ent-id attr-name (<span class="kw">:curr-time</span> db)))
+   ([db ent-id attr-name ts] (<span class="kw">get-in</span> (entity-at db ts ent-id) [<span class="kw">:attrs</span> attr-name])))
+
+(<span class="kw">defn</span><span class="fu"> value-of-at</span>
+   ([db ent-id attr-name]  (<span class="kw">:value</span> (attr-at db ent-id attr-name)))
+   ([db ent-id attr-name ts] (<span class="kw">:value</span> (attr-at db ent-id attr-name ts))))
+
+(<span class="kw">defn</span><span class="fu"> indx-at</span>
+   ([db kind] (indx-at db kind (<span class="kw">:curr-time</span> db)))
+   ([db kind ts] (kind ((<span class="kw">:layers</span> db) ts))))</code></pre>
+
+<p>Since we treat our database just like any other value, each of these functions take a database as an argument. Each element is retrieved by its associated identifier, and optionally the timestamp of interest. This timestamp is used to find the corresponding layer that our lookup should be applied to.</p>
+
+<h4 id="evolution">Evolution</h4>
+
+<p>A first usage of the basic accessors is to provide a &quot;read-into-the-past&quot; API. This is possible as, in our database, an update operation is done by appending a new layer (as opposed to overwriting). Therefore we can use the <code>prev-ts</code> property to look at the attribute at that layer, and continue looking deeper into history to observe how the attribute’s value evolved throughout time.</p>
+
+<p>The function <code>evolution-of</code> does exactly that. It returns a sequence of pairs, each consisting of the timestamp and value of an attribute’s update.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> evolution-of </span>[db ent-id attr-name]
+   (<span class="kw">loop</span> [res [] ts (<span class="kw">:curr-time</span> db)]
+     (<span class="kw">if</span> (<span class="kw">=</span> -<span class="dv">1</span> ts) (<span class="kw">reverse</span> res)
+         (<span class="kw">let</span> [attr (attr-at db ent-id attr-name ts)]
+           (<span class="kw">recur</span> (<span class="kw">conj</span> res {(<span class="kw">:ts</span> attr) (<span class="kw">:value</span> attr)})  (<span class="kw">:prev-ts</span> attr))))))</code></pre>
+
+<h2 id="data-behavior-and-life-cycle">Data Behavior and Life Cycle</h2>
+
+<p>So far, our discussion has focused on the structure of our data: what the core components are and how they are aggregated together. It's time to explore the dynamics of our system: how data is changed over time through the add--update--remove <em>data lifecycle</em>.</p>
+
+<p>As we've already discussed, data in an archaeologist's world never actually changes. Once it is created, it exists forever and can only be hidden from the world by data in a newer layer. The term &quot;hidden&quot; is crucial here. Older data does not &quot;disappear&quot;—it is buried, and can be revealed again by exposing an older layer. Conversely, updating data means obscuring the old by adding a new layer on top of it with something else. We can thus &quot;delete&quot; data by adding a layer of &quot;nothing&quot; on top of it.</p>
+
+<p>This means that when we talk about data lifecycle, we are really talking about adding layers to our data over time.</p>
+
+<h3 id="the-bare-necessities">The Bare Necessities</h3>
+
+<p>The data lifecycle consists of three basic operations:</p>
+
+<ul>
+<li>adding an entity with the <code>add-entity</code> function</li>
+<li>removing an entity with the <code>remove-entity</code> function</li>
+<li>updating an entity with the <code>update-entity</code> function</li>
+</ul>
+
+<p>Remember that, even though these functions provide the illusion of mutability, all that we are really doing in each case is adding another layer to the data. Also, since we are using Clojure's persistent data structures, from the caller's perspective we pay the same price for these operations as for an &quot;in-place&quot; change (i.e., negligible performance overhead), while maintaining immutability for all other users of the data structure.</p>
+
+<h4 id="adding-an-entity">Adding an Entity</h4>
+
+<p>Adding an entity requires us to do three things:</p>
+
+<ul>
+<li>prepare the entity for addition (by giving it an ID and a timestamp)</li>
+<li>place the entity in storage</li>
+<li>update indexes as necessary</li>
+</ul>
+
+<p>These steps are performed in the <code>add-entity</code> function.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> add-entity </span>[db ent]
+   (<span class="kw">let</span> [[fixed-ent next-top-id] (fix-new-entity db ent)
+         layer-with-updated-storage (<span class="kw">update-in</span> 
+                            (<span class="kw">last</span> (<span class="kw">:layers</span> db)) [<span class="kw">:storage</span>] write-entity fixed-ent)
+         add-fn (<span class="kw">partial</span> add-entity-to-index fixed-ent)
+         new-layer (<span class="kw">reduce</span> add-fn layer-with-updated-storage (indexes))]
+    (<span class="kw">assoc</span> db <span class="kw">:layers</span> (<span class="kw">conj</span> (<span class="kw">:layers</span> db) new-layer) <span class="kw">:top-id</span> next-top-id)))</code></pre>
+
+<p>Preparing an entity is done by calling the <code>fix-new-entity</code> function and its auxiliary functions <code>next-id</code>, <code>next-ts</code> and <code>update-creation-ts</code>. These latter two helper functions are responsible for finding the next timestamp of the database (done by <code>next-ts</code>), and updating the creation timestamp of the given entity (done by <code>update-creation-ts</code>). Updating the creation timestamp of an entity means going over the attributes of the entity and updating their <code>:ts</code> fields.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> next-ts </span>[db] (<span class="kw">inc</span> (<span class="kw">:curr-time</span> db)))
+
+(<span class="kw">defn-</span><span class="fu"> update-creation-ts </span>[ent ts-val]
+   (<span class="kw">reduce</span> #(<span class="kw">assoc-in</span> %<span class="dv">1</span> [<span class="kw">:attrs</span> %<span class="dv">2</span> <span class="kw">:ts</span> ] ts-val) ent (<span class="kw">keys</span> (<span class="kw">:attrs</span> ent))))
+
+(<span class="kw">defn-</span><span class="fu"> next-id </span>[db ent]
+   (<span class="kw">let</span> [top-id (<span class="kw">:top-id</span> db)
+         ent-id (<span class="kw">:id</span> ent)
+         increased-id (<span class="kw">inc</span> top-id)]
+         (<span class="kw">if</span> (<span class="kw">=</span> ent-id <span class="kw">:db</span>/no-id-yet)
+             [(<span class="kw">keyword</span> (<span class="kw">str</span> increased-id)) increased-id]
+             [ent-id top-id])))
+
+(<span class="kw">defn-</span><span class="fu"> fix-new-entity </span>[db ent]
+   (<span class="kw">let</span> [[ent-id next-top-id] (next-id db ent)
+         new-ts               (next-ts db)]
+       [(update-creation-ts (<span class="kw">assoc</span> ent <span class="kw">:id</span> ent-id) new-ts) next-top-id]))</code></pre>
+
+<p>To add the entity to storage, we locate the most recent layer in the database and update the storage in that layer with a new layer, the results of which are stored in <code>layer-with-updated-storage</code>.</p>
+
+<p>Finally, we must update the indexes. This means, for each of the indexes (done by the combination of <code>reduce</code> and the <code>partial</code>-ed <code>add-entity-to-index</code> at the <code>add-entity</code> function):</p>
+
+<ul>
+<li>Find the attributes that should be indexed (see the combination of <code>filter</code> with the index’s <code>usage-pred</code> that operates on the attributes in <code>add-entity-to-index</code>)</li>
+<li>Build an index-path from the the entity’s ID (see the combination of the <code>partial</code>-ed <code>update-entry-in-index</code> with <code>from-eav</code> at the <code>update-attr-in-index</code> function)</li>
+<li>Add that path to the index (see the <code>update-entry-in-index</code> function)</li>
+</ul>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> add-entity-to-index </span>[ent layer ind-name]
+   (<span class="kw">let</span> [ent-id (<span class="kw">:id</span> ent)
+         <span class="kw">index</span> (ind-name layer)
+         all-attrs  (<span class="kw">vals</span> (<span class="kw">:attrs</span> ent))
+         relevant-attrs (<span class="kw">filter</span> #((usage-pred <span class="kw">index</span>) %) all-attrs)
+         add-in-index-fn (<span class="kw">fn</span> [ind attr] 
+                                 (update-attr-in-index ind ent-id (<span class="kw">:name</span> attr) 
+                                                                  (<span class="kw">:value</span> attr) 
+                                                                  <span class="kw">:db</span>/add))]
+        (<span class="kw">assoc</span> layer ind-name  (<span class="kw">reduce</span> add-in-index-fn <span class="kw">index</span> relevant-attrs))))
+
+(<span class="kw">defn-</span><span class="fu"> update-attr-in-index </span>[<span class="kw">index</span> ent-id attr-name target-val operation]
+   (<span class="kw">let</span> [colled-target-val (collify target-val)
+         update-entry-fn (<span class="kw">fn</span> [ind vl] 
+                             (update-entry-in-index 
+                                ind 
+                                ((from-eav <span class="kw">index</span>) ent-id attr-name vl) 
+                                operation))]
+     (<span class="kw">reduce</span> update-entry-fn <span class="kw">index</span> colled-target-val)))
+
+(<span class="kw">defn-</span><span class="fu"> update-entry-in-index </span>[<span class="kw">index</span> <span class="kw">path</span> operation]
+   (<span class="kw">let</span> [update-path (<span class="kw">butlast</span> <span class="kw">path</span>)
+         update-value (<span class="kw">last</span> <span class="kw">path</span>)
+         to-be-updated-set (<span class="kw">get-in</span> <span class="kw">index</span> update-path #{})]
+     (<span class="kw">assoc-in</span> <span class="kw">index</span> update-path (<span class="kw">conj</span> to-be-updated-set update-value))))</code></pre>
+
+<p>All of these components are added as a new layer to the given database. All that’s left is to update the database’s timestamp and <code>top-id</code> fields. That last step occurs on the last line of <code>add-entity</code>, which also returns the updated database.</p>
+
+<p>We also provide an <code>add-entities</code> convenience function that adds multiple entities to the database in one call by iteratively applying <code>add-entity</code>.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> add-entities </span>[db ents-seq] (<span class="kw">reduce</span> add-entity db ents-seq))</code></pre>
+
+<h4 id="removing-an-entity">Removing an Entity</h4>
+
+<p>Removing an entity from our database means adding a layer in which it does not exist. To do this, we need to:</p>
+
+<ul>
+<li>Remove the entity itself</li>
+<li>Update any attributes of other entities that reference it</li>
+<li>Clear the entity from our indexes</li>
+</ul>
+
+<p>This &quot;construct-without&quot; process is executed by the <code>remove-entity</code> function, which looks very similar to <code>add-entity</code>:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> remove-entity </span>[db ent-id]
+   (<span class="kw">let</span> [ent (entity-at db ent-id)
+         layer (remove-back-refs db ent-id (<span class="kw">last</span> (<span class="kw">:layers</span> db)))
+         no-ref-layer (<span class="kw">update-in</span> layer [<span class="kw">:VAET</span>] <span class="kw">dissoc</span> ent-id)
+         no-ent-layer (<span class="kw">assoc</span> no-ref-layer <span class="kw">:storage</span> 
+                                   (drop-entity  
+                                          (<span class="kw">:storage</span> no-ref-layer) ent))
+         new-layer (<span class="kw">reduce</span> (<span class="kw">partial</span> remove-entity-from-index ent) 
+                                 no-ent-layer (indexes))]
+     (<span class="kw">assoc</span> db <span class="kw">:layers</span> (<span class="kw">conj</span>  (<span class="kw">:layers</span> db) new-layer))))</code></pre>
+
+<p>Reference removal is done by the <code>remove-back-refs</code> function:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> remove-back-refs </span>[db e-id layer]
+   (<span class="kw">let</span> [reffing-datoms (reffing-to e-id layer)
+         remove-fn (<span class="kw">fn</span>[d [<span class="kw">e</span> a]] (update-entity db <span class="kw">e</span> a e-id <span class="kw">:db</span>/remove))
+         clean-db (<span class="kw">reduce</span> remove-fn db reffing-datoms)]
+     (<span class="kw">last</span> (<span class="kw">:layers</span> clean-db))))</code></pre>
+
+<p>We begin by using <code>reffing-datoms-to</code> to find all entities that reference ours in the given layer; it returns a sequence of triplets that contain the ID of the referencing entity, as well as the attribute name and the ID of the removed entity.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> reffing-to </span>[e-id layer]
+   (<span class="kw">let</span> [vaet (<span class="kw">:VAET</span> layer)]
+         (<span class="kw">for</span> [[attr-name reffing-set] (e-id vaet)
+               reffing reffing-set]
+              [reffing attr-name])))</code></pre>
+
+<p>We then apply <code>update-entity</code> to each triplet to update the attributes that reference our removed entity. (We'll explore how <code>update-entity</code> works in the next section.)</p>
+
+<p>The last step of <code>remove-back-refs</code> is to clear the reference itself from our indexes, and more specifically from the VAET index, since it is the only index that stores reference information.</p>
+
+<h4 id="updating-an-entity">Updating an Entity</h4>
+
+<p>At its essence, an update is the modification of an entity’s attribute’s value. The modification process itself depends on the cardinality of the attribute: an attribute with cardinality <code>:db/multiple</code> holds a set of values, so we must allow items to be added to or removed from this set, or the set to be replaced entirely. An attribute with cardinality <code>:db/single</code> holds a single value, and thus only allows replacement.</p>
+
+<p>Since we also have indexes that provide lookups directly on attributes and their values, these will also have to be updated.</p>
+
+<p>As with <code>add-entity</code> and <code>remove-entity</code>, we won't actually be modifying our entity in place, but will instead add a new layer which contains the updated entity.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> update-entity</span>
+   ([db ent-id attr-name new-val]
+    (update-entity db ent-id attr-name new-val <span class="kw">:db</span>/reset-to))
+   ([db ent-id attr-name new-val operation]
+      (<span class="kw">let</span> [update-ts (next-ts db)
+            layer (<span class="kw">last</span> (<span class="kw">:layers</span> db))
+            attr (attr-at db ent-id attr-name)
+            updated-attr (update-attr attr new-val update-ts operation)
+            fully-updated-layer (update-layer layer ent-id 
+                                              attr updated-attr 
+                                              new-val operation)]
+        (<span class="kw">update-in</span> db [<span class="kw">:layers</span>] <span class="kw">conj</span> fully-updated-layer))))</code></pre>
+
+<p>To update an attribute, we locate it with <code>attr-at</code> and then use <code>update-attr</code> to perform the actual update.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> update-attr </span>[attr new-val new-ts operation]
+    {<span class="kw">:pre</span>  [(<span class="kw">if</span> (single? attr)
+            (<span class="kw">contains?</span> #{<span class="kw">:db</span>/reset-to <span class="kw">:db</span>/remove} operation)
+            (<span class="kw">contains?</span> #{<span class="kw">:db</span>/reset-to <span class="kw">:db</span>/add <span class="kw">:db</span>/remove} operation))]}
+    (<span class="kw">-&gt;</span> attr
+       (update-attr-modification-time new-ts)
+       (update-attr-value new-val operation)))</code></pre>
+
+<p>We use two helper functions to perform the update. <code>update-attr-modification-time</code> updates timestamps to reflect the creation of the black arrows in Figure 1:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> update-attr-modification-time  </span>
+  [attr new-ts]
+       (<span class="kw">assoc</span> attr <span class="kw">:ts</span> new-ts <span class="kw">:prev-ts</span> (<span class="kw">:ts</span> attr)))</code></pre>
+
+<p><code>update-attr-value</code> actually updates the value:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> update-attr-value </span>[attr value operation]
+   (<span class="kw">cond</span>
+      (single? attr)    (<span class="kw">assoc</span> attr <span class="kw">:value</span> #{value})
+      <span class="co">; now we&#39;re talking about an attribute of multiple values</span>
+      (<span class="kw">=</span> <span class="kw">:db</span>/reset-to operation) 
+        (<span class="kw">assoc</span> attr <span class="kw">:value</span> value)
+      (<span class="kw">=</span> <span class="kw">:db</span>/add operation) 
+        (<span class="kw">assoc</span> attr <span class="kw">:value</span> (CS/union (<span class="kw">:value</span> attr) value))
+      (<span class="kw">=</span> <span class="kw">:db</span>/remove operation)
+        (<span class="kw">assoc</span> attr <span class="kw">:value</span> (CS/difference (<span class="kw">:value</span> attr) value))))</code></pre>
+
+<p>All that remains is to remove the old value from the indexes and add the new one to them, and then construct the new layer with all of our updated components. Luckily, we can leverage the code we wrote for adding and removing entities to do this.</p>
+
+<h3 id="transactions">Transactions</h3>
+
+<p>Each of the operations in our low-level API acts on a single entity. However, nearly all databases have a way for users to do multiple operations as a single <em>transaction</em>. This means:</p>
+
+<ul>
+<li>The batch of operations is viewed as a single atomic operation, so all of the operations either succeed together or fail together.</li>
+<li>The database is in a valid state before and after the transaction.</li>
+<li>The batch update appears to be <em>isolated</em>; other queries should never see a database state in which only some of the operations have been applied.</li>
+</ul>
+
+<p>We can fulfill these requirements through an interface that consumes a database and a set of operations to be performed, and produces a database whose state reflects the given changes. All of the changes submitted in the batch should be applied through the addition of a <em>single</em> layer. However, we have a problem: All of the functions we wrote in our low-level API add a new layer to the database. If we were to perform a batch with <em>n</em> operations, we would thus see <em>n</em> new layers added, when what we would really like is to have exactly one new layer.</p>
+
+<p>The key here is that the layer we want is the <em>top</em> layer that would be produced by performing those updates in sequence. Therefore, the solution is to execute the user’s operations one after another, each creating a new layer. When the last layer is created, we take only that top layer and place it on the initial database (leaving all the intermediate layers to pine for the fjords). Only after we've done all this will we update the database's timestamp.</p>
+
+<p>All this is done in the <code>transact-on-db</code> function, which receives the initial value of the database and the batch of operations to perform, and returns its updated value.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> transact-on-db </span>[initial-db ops]
+    (<span class="kw">loop</span> [[op &amp; rst-ops] ops transacted initial-db]
+      (<span class="kw">if</span> op
+          (<span class="kw">recur</span> rst-ops (<span class="kw">apply</span> (<span class="kw">first</span> op) transacted (<span class="kw">rest</span> op)))
+          (<span class="kw">let</span> [initial-layer  (<span class="kw">:layers</span> initial-db)
+                new-layer (<span class="kw">last</span> (<span class="kw">:layers</span> transacted))]
+            (<span class="kw">assoc</span> initial-db <span class="kw">:layers</span> (<span class="kw">conj</span> initial-layer new-layer) 
+                              <span class="kw">:curr-time</span> (next-ts initial-db) 
+                              <span class="kw">:top-id</span> (<span class="kw">:top-id</span> transacted))))))</code></pre>
+
+<p>Note here that we used the term <em>value</em>, meaning that only the caller to this function is exposed to the updated state; all other users of the database are unaware of this change (as a database is a value, and therefore cannot change). In order to have a system where users can be exposed to state changes performed by others, users do not interact directly with the database, but rather refer to it using another level of indirection. This additional level is implemented using Clojure's <code>Atom</code>, a reference type. Here we leverage the main three key features of an <code>Atom</code>, which are:</p>
+
+<ol style="list-style-type: decimal">
+<li>It references a value.</li>
+<li>It is possible to update the referencing of the <code>Atom</code> to another value by executing a transaction (using Clojure's Software Transaction Memory capabilities). The transaction accepts an <code>Atom</code> and a function. That function operates on the value of the <code>Atom</code> and returns a new value. After the execution of the transaction, the <code>Atom</code> references the value that was returned from the function.</li>
+<li>Getting to the value that is referenced by the <code>Atom</code> is done by dereferencing it, which returns the state of that <code>Atom</code> at that time.</li>
+</ol>
+
+<p>In between Clojure's <code>Atom</code> and the work done in <code>transact-on-db</code>, there's still a gap to be bridged; namely, to invoke the transaction with the right inputs.</p>
+
+<p>To have the simplest and clearest APIs, we would like users to just provide the <code>Atom</code> and the list of operations, and have the database transform the user input into a proper transaction.</p>
+
+<p>That transformation occurs in the following transaction call chain:</p>
+
+<pre><code>transact →  _transact → swap! → transact-on-db</code></pre>
+
+<p>Users call <code>transact</code> with the <code>Atom</code> (i.e., the connection) and the operations to perform, which relays its input to <code>_transact</code>, adding to it the name of the function that updates the <code>Atom</code> (<code>swap!</code>).</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> transact </span>[db-conn &amp; txs]  `(_transact <span class="kw">~db-conn</span> <span class="kw">swap!</span> <span class="kw">~@txs))</span></code></pre>
+
+<p><code>_transact</code> prepares the call to <code>swap!</code>. It does so by creating a list that begins with <code>swap!</code>, followed by the <code>Atom</code>, then the <code>transact-on-db</code> symbol and the batch of operations.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu">  </span>_transact [db op &amp; txs]
+   (<span class="kw">when</span> txs
+     (<span class="kw">loop</span> [[frst-tx# &amp; rst-tx#] txs  res#  [op db `transact-on-db]  accum-txs# []]
+       (<span class="kw">if</span> frst-tx#
+           (<span class="kw">recur</span> rst-tx# res#  (<span class="kw">conj</span>  accum-txs#  (<span class="kw">vec</span> frst-tx#)))
+           (<span class="kw">list*</span> (<span class="kw">conj</span> res#  accum-txs#))))))</code></pre>
+
+<p><code>swap!</code> invokes <code>transact-on-db</code> within a transaction (with the previously prepared arguments), and <code>transact-on-db</code> creates the new state of the database and returns it.</p>
+
+<p>At this point we can see that with few minor tweaks, we can also provide a way to ask &quot;what if&quot; questions. This can be done by replacing <code>swap!</code> with a function that would not make any change to the system. This scenario is implemented with the <code>what-if</code> call chain:</p>
+
+<p><code>what-if</code> <span class="math">\(\to\)</span> <code>_transact</code> <span class="math">\(\to\)</span> <code>_what-if</code> <span class="math">\(\to\)</span> <code>transact-on-db</code></p>
+
+<p>The user calls <code>what-if</code> with the database value and the operations to perform. It then relays these inputs to <code>_transact</code>, adding to them a function that mimics <code>swap!</code>'s APIs, without its effect (callled <code>_what-if</code>).</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> what-if </span>[db &amp; ops]  `(_transact <span class="kw">~db</span> _what-if  <span class="kw">~@ops))</span></code></pre>
+
+<p><code>_transact</code> prepares the call to <code>_what-if</code>. It does so by creating a list that begins with <code>_what-if</code>, followed by the database, then the <code>transact-on-db</code> symbol and the batch of operations. <code>_what-if</code> invokes <code>transact-on-db</code>, just like <code>swap!</code> does in the transaction scenario, but does not inflict any change on the system.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn-</span><span class="fu"> </span>_what-if [db f txs]  (f db txs))</code></pre>
+
+<p>Note that we are not using functions, but macros. The reason for using macros here is that arguments to macros do not get evaluated as the call happens; this allows us to offer a cleaner API design where the user provides the operations structured in the same way that any function call is structured in Clojure.</p>
+
+<p>The above process can be seen in the following examples. For Transaction, the user call:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(transact db-conn  (add-entity e1) (update-entity e2 atr2 val2 <span class="kw">:db</span>/add))  </code></pre>
+
+<p>changes into:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(_transact db-conn <span class="kw">swap!</span> (add-entity e1) (update-entity e2 atr2 val2 <span class="kw">:db</span>/add))</code></pre>
+
+<p>which becomes:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">swap!</span> db-conn transact-on-db [[add-entity e1][update-entity e2 atr2 val2 <span class="kw">:db</span>/add]])</code></pre>
+
+<p>For what-if, the user call:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(what-if my-db (add-entity e3) (remove-entity e4))</code></pre>
+
+<p>changes into:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(_transact my-db _what-if (add-entity e3) (remove-entity e4))</code></pre>
+
+<p>then:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(_what-if my-db transact-on-db [[add-entity e3] [remove-entity e4]])</code></pre>
+
+<p>and eventually:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(transact-on-db my-db  [[add-entity e3] [remove-entity e4]])</code></pre>
+
+<h2 id="insight-extraction-as-libraries">Insight Extraction as Libraries</h2>
+
+<p>At this point we have the core functionality of the database in place, and it is time to add its <em>raison d'être</em>: insights extraction. The architecture approach we used here is to allow adding these capabilities as libraries, as different usages of the database would need different such mechanisms.</p>
+
+<h3 id="graph-traversal">Graph Traversal</h3>
+
+<p>A reference connection between entities is created when an entity’s attribute’s type is <code>:db/ref</code>, which means that the value of that attribute is an ID of another entity. When a referring entity is added to the database, the reference is indexed at the VAET index.<br />The information found in the VAET index can be leveraged to extract all the incoming links to an entity. This is done in the <code>incoming-refs</code> function, which collects all the leaves that are reachable from the entity at that index:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> incoming-refs </span>[db ts ent-id &amp; ref-names]
+   (<span class="kw">let</span> [vaet (indx-at db <span class="kw">:VAET</span> ts)
+         all-attr-map (vaet ent-id)
+         filtered-map (<span class="kw">if</span> ref-names 
+                          (<span class="kw">select-keys</span> ref-names all-attr-map) 
+                          all-attr-map)]
+      (<span class="kw">reduce</span> <span class="kw">into</span> #{} (<span class="kw">vals</span> filtered-map))))</code></pre>
+
+<p>We can also go through all of a given entity’s attributes and collect all the values of attributes of type <code>:db/ref</code>, and by that extract all the outgoing references from that entity. This is done by the <code>outgoing-refs</code> function.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> outgoing-refs </span>[db ts ent-id &amp; ref-names]
+   (<span class="kw">let</span> [val-filter-fn (<span class="kw">if</span> ref-names #(<span class="kw">vals</span> (<span class="kw">select-keys</span> ref-names %)) <span class="kw">vals</span>)]
+   (<span class="kw">if-not</span> ent-id []
+     (<span class="kw">-&gt;&gt;</span> (entity-at db ts ent-id)
+          (<span class="kw">:attrs</span>) (val-filter-fn) (<span class="kw">filter</span> ref?) (<span class="kw">mapcat</span> <span class="kw">:value</span>)))))</code></pre>
+
+<p>These two functions act as the basic building blocks for any graph traversal operation, as they are the ones that raise the level of abstraction from entities and attributes to nodes and links in a graph. Once we have the ability to look at our database as a graph, we can provide various graph traversing and querying APIs. We leave this as a solved exercise to the reader; one solution can be found in the chapter's source code (see <code>graph.clj</code>).</p>
+
+<h2 id="querying-the-database">Querying the Database</h2>
+
+<p>The second library we present provides querying capabilities, which is the main concern of this section. A database is not very useful to its users without a powerful query mechanism. This feature is usually exposed to users through a <em>query language</em> that is used to declaratively specify the set of data of interest.</p>
+
+<p>Our data model is based on accumulation of facts (i.e., datoms) over time. For this model, a natural place to look for the right query language is <em>logic programming</em>. A commonly used query language influenced by logic programming is <em>Datalog</em> which, in addition to being well-suited for our data model, has a very elegant adaptation to Clojure’s syntax. Our query engine will implement a subset of the Datalog language from the <a href="http://docs.datomic.com/query.html">Datomic database</a>.</p>
+
+<h3 id="query-language">Query Language</h3>
+
+<p>Let's look at an example query in our proposed language. This query asks: &quot;What are the names and birthdays of entities who like pizza, speak English, and who have a birthday this month?&quot;</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">{  <span class="kw">:find</span> [?nm ?bd ]
+   <span class="kw">:where</span> [
+      [?e  <span class="kw">:likes</span> <span class="st">&quot;pizza&quot;</span>]
+      [?e  <span class="kw">:name</span>  ?nm]
+      [?e  <span class="kw">:speak</span> <span class="st">&quot;English&quot;</span>]
+      [?e  <span class="kw">:bday</span> (bday-mo? ?bd)]]}</code></pre>
+
+<h4 id="syntax">Syntax</h4>
+
+<p>We use the syntax of Clojure’s data literals directly to provide the basic syntax for our queries. This allows us to avoid having to write a specialized parser, while still providing a form that is familiar and easily readable to programmers familiar with Clojure.</p>
+
+<p>A query is a map with two items:</p>
+
+<ul>
+<li>An item with <code>:where</code> as a key, and with a <em>rule</em> as a value. A rule is a vector of <em>clauses</em>, and a clause is a vector composed of three <em>predicates</em>, each of which operates on a different component of a datom. In the example above, <code>[?e  :likes &quot;pizza&quot;]</code> is a clause. This <code>:where</code> item defines a rule that acts as a filter on datoms in our database (like a SQL <code>WHERE</code> clause.)</li>
+<li>An item with <code>:find</code> as a key, and with a vector as a value. The vector defines which components of the selected datom should be projected into the results (like a SQL <code>SELECT</code> clause.)</li>
+</ul>
+
+<p>The description above omits a crucial requirement: how to make different clauses sync on a value (i.e., make a join operation between them), and how to structure the found values in the output (specified by the <code>:find</code> part).</p>
+
+<p>We fulfill both of these requirements using <em>variables</em>, which are denoted with a leading <code>?</code>. The only exception to this definition is the &quot;don't care&quot; variable <code>_</code> (underscore).</p>
+
+<p>A clause in a query is composed of three predicates; Table 10.2 defines what can act as a predicate in our query language.</p>
+
+<table>
+  <tr>
+    <td>
+Name
+</td>
+    <td>
+Meaning
+</td>
+    <td>
+Example
+</td>
+  </tr>
+  <tr>
+    <td>
+Constant
+</td>
+    <td>
+Is the value of the item in the datom equal to the constant?
+</td>
+    <td>
+:likes
+</td>
+  </tr>
+  <tr>
+    <td>
+Variable
+</td>
+    <td>
+Bind the value of the item in the datom to the variable and return true.
+</td>
+    <td>
+?e
+</td>
+  </tr>
+  <tr>
+    <td>
+Don’t-care
+</td>
+    <td>
+Always returns true.
+</td>
+    <td>
+_
+</td>
+  </tr>
+  <tr>
+    <td>
+Unary operator
+</td>
+    <td>
+Unary operation that takes a variable as its operand.<br/> Bind the datom's item's value to the variable (unless it's an '_').<br/> Replace the variable with the value of the item in the datom.<br/> Return the application of the operation.
+</td>
+    <td>
+(bday-mo? _)
+</td>
+  </tr>
+  <tr>
+    <td>
+Binary operator
+</td>
+    <td>
+A binary operation that must have a variable as one of its operands.<br/> Bind the datom's item's value to the variable (unless it's an '_').<br/><br /> Replace the variable with the value of the item in the datom.<br/> Return the result of the operation.
+</td>
+    <td>
+(&gt; ?age 20)
+</td>
+  </tr>
+</table>
+
+<p>: <b>Table 10.2</b> - Predicates</p>
+
+<h4 id="limitations-of-our-query-language">Limitations of our Query Language</h4>
+
+<p>Engineering is all about managing tradeoffs, and designing our query engine is no different. In our case, the main tradeoff we must address is feature-richness versus complexity. Resolving this tradeoff requires us to look at common use-cases of the system, and from there deciding what limitations would be acceptable.</p>
+
+<p>In our database, we decided to build a query engine with the following limitations:</p>
+
+<ul>
+<li>Users cannot define logical operations between the clauses; they are always ‘ANDed’ together. (This can be worked around by using unary or binary predicates.)</li>
+<li>If there is more than one clause in a query, there must be one variable that is found in all of the clauses of that query. This variable acts as a joining variable. This limitation simplifies the query optimizer.</li>
+<li>A query is only executed on a single database.</li>
+</ul>
+
+<p>While these design decisions result in a query language that is less rich than Datalog, we are still able to support many types of simple but useful queries.</p>
+
+<h3 id="query-engine-design">Query Engine Design</h3>
+
+<p>While our query language allows the user to specify <em>what</em> they want to access, it hides the details of <em>how</em> this will be accomplished. The query engine is the database component responsible for yielding the data for a given query.</p>
+
+<p>This involves four steps:</p>
+
+<ol style="list-style-type: decimal">
+<li>Transformation to internal representation: Transform the query from its textual form into a data structure that is consumed by the query planner.</li>
+<li>Building a query plan: Determine an efficient <em>plan</em> for yielding the results of the given query. In our case, a query plan is a function to be invoked.</li>
+<li>Executing the plan: Execute the plan and send its results to the next phase.</li>
+<li>Unification and reporting: Extract only the results that need to be reported and format them as specified.</li>
+</ol>
+
+<h4 id="phase-1-transformation">Phase 1: Transformation</h4>
+
+<p>In this phase, we transform the given query from a representation that is easy for the user to understand into a representation that can be consumed efficiently by the query planner.</p>
+
+<p>The <code>:find</code> part of the query is transformed into a set of the given variable names:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> symbol-col-to-set </span>[coll] (<span class="kw">set</span> (<span class="kw">map</span> <span class="kw">str</span> coll)))</code></pre>
+
+<p>The <code>:where</code> part of the query retains its nested vector structure. However, each of the terms in each of the clauses is replaced with a predicate according to Table 10.2.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> clause-term-expr </span>[clause-term]
+   (<span class="kw">cond</span>
+    (variable? (<span class="kw">str</span> clause-term)) <span class="co">;variable</span>
+      #(<span class="kw">=</span> % %) 
+    (<span class="kw">not</span> (<span class="kw">coll?</span> clause-term)) <span class="co">;constant </span>
+      `#(<span class="kw">=</span> % <span class="kw">~clause-term)</span> 
+    (<span class="kw">=</span> <span class="dv">2</span> (<span class="kw">count</span> clause-term)) <span class="co">;unary operator</span>
+      `#(<span class="kw">~(first</span> clause-term) %) 
+    (variable? (<span class="kw">str</span> (<span class="kw">second</span> clause-term)))<span class="co">;binary operator, 1st operand is variable</span>
+      `#(<span class="kw">~(first</span> clause-term) % <span class="kw">~(last</span> clause-term))
+    (variable? (<span class="kw">str</span> (<span class="kw">last</span> clause-term)))<span class="co">;binary operator, 2nd operand is variable</span>
+      `#(<span class="kw">~(first</span> clause-term) <span class="kw">~(second</span> clause-term) %)))</code></pre>
+
+<p>For each clause, a vector with the variable names used in that clause is set as its metadata.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> clause-term-meta </span>[clause-term]
+   (<span class="kw">cond</span>
+   (<span class="kw">coll?</span> clause-term)  (<span class="kw">first</span> (<span class="kw">filter</span> #(variable? % false) (<span class="kw">map</span> <span class="kw">str</span> clause-term))) 
+   (variable? (<span class="kw">str</span> clause-term) false) (<span class="kw">str</span> clause-term) 
+   <span class="kw">:no-variable-in-clause</span> nil))</code></pre>
+
+<p>We use <code>pred-clause</code> to iterate over the terms in each clause:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> pred-clause </span>[clause]
+   (<span class="kw">loop</span> [[trm# &amp; rst-trm#] clause exprs# [] metas# []]
+     (<span class="kw">if</span>  trm#
+          (<span class="kw">recur</span> rst-trm# (<span class="kw">conj</span> exprs# `(clause-term-expr ~ trm#)) 
+                       (<span class="kw">conj</span> metas#`(clause-term-meta ~ trm#)))
+          (<span class="kw">with-meta</span> exprs# {<span class="kw">:db</span>/variable metas#}))))</code></pre>
+
+<p>Iterating over the clauses themselves happens in <code>q-clauses-to-pred-clauses</code>:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu">  q-clauses-to-pred-clauses </span>[clauses]
+     (<span class="kw">loop</span> [[frst# &amp; rst#] clauses preds-vecs# []]
+       (<span class="kw">if-not</span> frst#  preds-vecs#
+         (<span class="kw">recur</span> rst# `(<span class="kw">conj</span> <span class="kw">~preds-vecs#</span> (pred-clause <span class="kw">~frst#))))))</span></code></pre>
+
+<p>We are once again relying on the fact that macros do not eagerly evaluate their arguments. This allows us to define a simpler API where users provide variable names as symbols (e.g., <code>?name</code>) instead of asking the user to understand the internals of the engine by providing variable names as strings ( e.g., <code>&quot;?name&quot;</code>), or even worse, quoting the variable name (e.g., <code>'?name</code>).</p>
+
+<p>At the end of this phase, our example yields the following set for the <code>:find</code> part:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">#{<span class="st">&quot;?nm&quot;</span> <span class="st">&quot;?bd&quot;</span>} </code></pre>
+
+<p>and the following structure in Table 10.3 for the <code>:where</code> part. (Each cell in the <em>Predicate Clause</em> column holds the metadata found in its neighbor at the <em>Meta Clause</em> column.)</p>
+
+<table>
+<tr>
+    <td>
+Query Clause
+</td>
+    <td>
+Predicate Clause
+</td>
+    <td>
+Meta Clause
+</td>
+</tr>
+<tr>
+    <td>
+[?e  :likes &quot;pizza&quot;]
+</td>
+    <td>
+[#(= % %) #(= % :likes) #(= % &quot;pizza&quot;)]
+</td>
+    <td>
+[&quot;?e&quot; nil nil]
+</td>
+</tr>
+<tr>
+    <td>
+[?e  :name  ?nm]
+</td>
+    <td>
+[#(= % %) #(= % :name) #(= % %)]
+</td>
+    <td>
+[&quot;?e&quot; nil &quot;?nm&quot;]
+</td>
+</tr>
+<tr>
+    <td>
+[?e  :speak &quot;English&quot;]
+</td>
+    <td>
+[#(= % %) #(= % :speak) #(= % &quot;English&quot;)]
+</td>
+    <td>
+[&quot;?e&quot; nil nil]
+</td>
+</tr>
+<tr>
+    <td>
+[?e  :bday (bday-mo? ?bd)]
+</td>
+    <td>
+[#(= % %) #(= % :bday) #(bday-mo? %)]
+</td>
+    <td>
+[&quot;?e&quot; nil &quot;?bd&quot;]
+</td>
+</tr>
+</table>
+
+<p>: <b>Table 10.3</b> - Clauses</p>
+
+<p>This structure acts as the query that is executed in a later phase, once the engine decides on the right plan of execution.</p>
+
+<h4 id="phase-2-making-a-plan">Phase 2: Making a Plan</h4>
+
+<p>In this phase, we inspect the query in order to construct a good plan to produce the result it describes.</p>
+
+<p>In general, this will involve choosing the appropriate index (Table 10.4) and constructing a plan in the form of a function. We choose the index based on the <em>single</em> joining variable (that can operate on only a single kind of element).</p>
+
+<table>
+    <tr>
+        <td>
+Joining variable operates on
+</td><td>
+Index to use
+</td>
+    </tr>
+    <tr>
+        <td>
+Entity IDs
+</td><td>
+AVET
+</td>
+    </tr>
+    <tr>
+        <td>
+Attribute names
+</td><td>
+VEAT
+</td>
+    </tr>
+    <tr>
+        <td>
+Attribute values
+</td><td>
+EAVT
+</td>
+    </tr>
+</table>
+
+<p>: <b>Table 10.4</b> - Index Selection</p>
+
+<p>The reasoning behind this mapping will become clearer in the next section, when we actually execute the plan produced. For now, just note that the key here is to select an index whose leaves hold the elements that the joining variable operates on.</p>
+
+<p>Locating the index of the joining variable is done by <code>index-of-joining-variable</code>:</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> index-of-joining-variable </span>[query-clauses]
+   (<span class="kw">let</span> [metas-seq  (<span class="kw">map</span> #(<span class="kw">:db</span>/variable (<span class="kw">meta</span> %)) query-clauses) 
+         collapsing-fn (<span class="kw">fn</span> [accV v] (<span class="kw">map</span> #(<span class="kw">when</span> (<span class="kw">=</span> %<span class="dv">1</span> %<span class="dv">2</span>) %<span class="dv">1</span>)  accV v))
+         collapsed (<span class="kw">reduce</span> collapsing-fn metas-seq)] 
+     (<span class="kw">first</span> (keep-indexed #(<span class="kw">when</span> (variable? %<span class="dv">2</span> false) %<span class="dv">1</span>)  collapsed)))) </code></pre>
+
+<p>We begin by extracting the metadata of each clause in the query. This extracted metadata is a 3-element vector; each element is either a variable name or nil. (Note that there is no more than one variable name in that vector.) Once the vector is extracted, we produce from it (by reducing it) a single value, which is either a variable name or nil. If a variable name is produced, then it appeared in all of the metadata vectors at the same index; i.e., this is the joining variable. We can thus choose to use the index relevant for this joining variable based on the mapping described above.</p>
+
+<p>Once the index is chosen, we construct our plan, which is a function that closes over the query and the index name and executes the operations necessary to return the query results.</p>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> build-query-plan </span>[query]
+   (<span class="kw">let</span> [term-ind (index-of-joining-variable query)
+         ind-to-use (<span class="kw">case</span> term-ind <span class="dv">0</span> <span class="kw">:AVET</span> <span class="dv">1</span> <span class="kw">:VEAT</span> <span class="dv">2</span> <span class="kw">:EAVT</span>)]
+      (<span class="kw">partial</span> single-index-query-plan query ind-to-use)))</code></pre>
+
+<p>In our example the chosen index is the <code>AVET</code> index, as the joining variable acts on the entity IDs.</p>
+
+<h4 id="phase-3-execution-of-the-plan">Phase 3: Execution of the Plan</h4>
+
+<p>We saw in the previous phase that our query plan ends by calling <code>single-index-query-plan</code>. This function will:</p>
+
+<ol style="list-style-type: decimal">
+<li>Apply each predicate clause on an index (each predicate on its appropriate index level).</li>
+<li>Perform an AND operation across the results.</li>
+<li>Merge the results into a simpler data structure.</li>
+</ol>
+
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> single-index-query-plan </span>[query indx db]
+   (<span class="kw">let</span> [q-res (query-index (indx-at db indx) query)]
+     (bind-variables-to-query q-res (indx-at db indx))))</code></pre>
+
+<p>To better explain this process we'll demonstrate it using our exemplary query, assuming that our database holds the entities in Table 10.5.</p>
+
+<table>
+<tr>
+    <td>
+Entity ID
+</td>
+    <td>
+Attribute Name
+</td>
+    <td>
+Attribute Value
+</td>
+</tr>
+<tr>
+    <td>
+1
+</td>
+    <td>
+:name </br> :likes</br> :speak</br> :bday
+</td>
+    <td>
+USA</br> Pizza</br> English</br> July 4, 1776
+</td>
+</tr>
+<tr>
+    <td>
+2
+</td>
+    <td>
+:name </br> :likes</br> :speak</br> :bday
+</td>
+    <td>
+France</br> Red wine</br> French</br> July 14, 1789
+</td>
+</tr>
+<tr>
+    <td>
+3
+</td>
+    <td>
+:name </br> :likes</br> :speak</br> :bday
+</td>
+    <td>
+Canada</br> Snow</br> English</br> July 1, 1867
+</td>
+</tr>
+</table>
+
+<p><p>: <b>Table 10.5</b> - Example entities</p>
+<p>Now it is time to go deeper into the rabbit hole and take a look at the <code>query-index</code> function, where our query finally begins to yield some results:</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> query-index </span>[<span class="kw">index</span> pred-clauses]
+   (<span class="kw">let</span> [result-clauses (filter-index <span class="kw">index</span> pred-clauses)
+         relevant-items (items-that-answer-all-conditions (<span class="kw">map</span> <span class="kw">last</span> result-clauses) 
+                                                          (<span class="kw">count</span> pred-clauses))
+         cleaned-result-clauses (<span class="kw">map</span> (<span class="kw">partial</span> mask-path-leaf-with-items 
+                                              relevant-items)
+                                     result-clauses)] 
+     (<span class="kw">filter</span> #(<span class="kw">not-empty</span> (<span class="kw">last</span> %)) cleaned-result-clauses)))</code></pre>
+<p>This function starts by applying the predicate clauses on the previously chosen index. Each application of a predicate clause on an index returns a <em>result clause</em>.</p>
+<p>The main characteristics of a result are:</p>
+<ol style="list-style-type: decimal">
+<li>It is built of three items, each from a different level of the index, and each passed its respective predicate.</li>
+<li>The order of items matches the index's levels structure. (Predicate clauses are always in EAV order.) The re-ordering is done when applying the index's <code>from-eav</code> on the predicate clause.</li>
+<li>The metadata of the predicate clause is attached to it.</li>
+</ol>
+<p>All of this is done in the function <code>filter-index</code>.</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> filter-index </span>[<span class="kw">index</span> predicate-clauses]
+   (<span class="kw">for</span> [pred-clause predicate-clauses
+         <span class="kw">:let</span> [[lvl1-prd lvl2-prd lvl3-prd] (<span class="kw">apply</span> (from-eav <span class="kw">index</span>) pred-clause)] 
+         [k1 l2map] <span class="kw">index</span>  <span class="co">; keys and values of the first level</span>
+         <span class="kw">:when</span> (<span class="kw">try</span> (lvl1-prd k1) (<span class="kw">catch</span> Exception <span class="kw">e</span> false))<br />
+         [k2  l3-set] l2map  <span class="co">; keys and values of the second level</span>
+         <span class="kw">:when</span> (<span class="kw">try</span> (lvl2-prd k2) (<span class="kw">catch</span> Exception <span class="kw">e</span> false))
+         <span class="kw">:let</span> [res (<span class="kw">set</span> (<span class="kw">filter</span> lvl3-prd l3-set))] ]
+     (<span class="kw">with-meta</span> [k1 k2 res] (<span class="kw">meta</span> pred-clause))))</code></pre>
+<p>Assuming the query was executed on July 4th, the results of executing it on the above data are seen in Table 10.6.</p>
+<table>
+<tr>
+<td>
+Result Clause
+</td><td>
+Result Meta
+</td>
+</tr>
+<tr>
+<td>
+[:likes Pizza #{1}]
+</td><td>
+[&quot;?e&quot; nil nil]
+</td>
+</tr>
+<tr>
+<td>
+[:name USA #{1}]
+</td><td>
+[&quot;?e&quot; nil &quot;?nm&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:speak &quot;English&quot; #{1, 3}]
+</td><td>
+[&quot;?e&quot; nil nil]
+</td>
+</tr>
+<tr>
+<td>
+[:bday &quot;July 4, 1776&quot; #{1}]
+</td><td>
+[&quot;?e&quot; nil &quot;?bd&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:name France #{2}]
+</td><td>
+[&quot;?e&quot; nil &quot;?nm&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:bday &quot;July 14, 1789&quot; #{2}]
+</td><td>
+[&quot;?e&quot; nil &quot;?bd&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:name Canada #{3}]
+</td><td>
+[&quot;?e&quot; nil &quot;?nm&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:bday &quot;July 1, 1867&quot; {3}]
+</td><td>
+[&quot;?e&quot; nil &quot;?bd&quot;]
+</td>
+</tr>
+</table>
+<p>: <b>Table 10.6</b> - Query results</p>
+<p>Once we have produced all of the result clauses, we need to perform an <code>AND</code> operation between them. This is done by finding all of the elements that passed all the predicate clauses:</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> items-that-answer-all-conditions </span>[items-seq num-of-conditions]
+   (<span class="kw">-&gt;&gt;</span> items-seq <span class="co">; take the items-seq</span>
+         (<span class="kw">map</span> <span class="kw">vec</span>) <span class="co">; make each collection (actually a set) into a vector</span>
+         (<span class="kw">reduce</span> <span class="kw">into</span> []) <span class="co">;reduce all the vectors into one vector</span>
+         (frequencies) <span class="co">;count for each item in how many collections (sets) it was in</span>
+         (<span class="kw">filter</span> #(<span class="kw">&lt;=</span> num-of-conditions (<span class="kw">last</span> %))) <span class="co">;items that answered all conditions</span>
+         (<span class="kw">map</span> <span class="kw">first</span>) <span class="co">; take from the duos the items themselves</span>
+         (<span class="kw">set</span>))) <span class="co">; return it as set</span></code></pre>
+<p>In our example, the result of this step is a set that holds the value <em>1</em> (which is the entity ID of USA).</p>
+<p>We now have to remove the items that didn’t pass all of the conditions:</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> mask-path-leaf-with-items </span>[relevant-items <span class="kw">path</span>]
+     (<span class="kw">update-in</span> <span class="kw">path</span> [<span class="dv">2</span>] CS/intersection relevant-items))</code></pre>
+<p>Finally, we remove all of the result clauses that are &quot;empty&quot; (i.e., their last item is empty). We do this in the last line of the <code>query-index</code> function. Our example leaves us with the items in Table 10.7.</p>
+<table>
+<tr>
+<td>
+Result Clause
+</td><td>
+Result Meta
+</td>
+</tr>
+<tr>
+<td>
+[:likes Pizza #{1}]
+</td><td>
+[&quot;?e&quot; nil nil]
+</td>
+</tr>
+<tr>
+<td>
+[:name USA #{1}]
+</td><td>
+[&quot;?e&quot; nil &quot;?nm&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:bday &quot;July 4, 1776&quot; #{1}]
+</td><td>
+[&quot;?e&quot; nil &quot;?bd&quot;]
+</td>
+</tr>
+<tr>
+<td>
+[:speak &quot;English&quot; #{1}]
+</td><td>
+[&quot;?e&quot; nil nil]
+</td>
+</tr>
+</table>
+<p>: <b>Table 10.7</b> - Filtered query results</p>
+<p>We are now ready to report the results. The result clause structure is unwieldy for this purpose, so we will convert it into an an index-like structure (map of maps)—with a significant twist.</p>
+<p>To understand the twist, we must first introduce the idea of a <em>binding pair</em>, which is a pair that matches a variable name to its value. The variable name is the one used at the predicate clauses, and the value is the value found in the result clauses.</p>
+<p>The twist to the index structure is that now we hold a binding pair of the entity-id / attr-name / value in the location where we held an entity-id / attr-name / value in an index:</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> bind-variables-to-query </span>[q-res <span class="kw">index</span>]
+   (<span class="kw">let</span> [seq-res-path (<span class="kw">mapcat</span> (<span class="kw">partial</span> combine-path-and-meta (from-eav <span class="kw">index</span>)) 
+                               q-res)       <br />
+         res-path (<span class="kw">map</span> #(<span class="kw">-&gt;&gt;</span> %<span class="dv">1</span> (<span class="kw">partition</span> <span class="dv">2</span>)(<span class="kw">apply</span> (to-eav <span class="kw">index</span>))) seq-res-path)] 
+     (<span class="kw">reduce</span> #(<span class="kw">assoc-in</span> %<span class="dv">1</span>  (<span class="kw">butlast</span> %<span class="dv">2</span>) (<span class="kw">last</span> %<span class="dv">2</span>)) {} res-path)))</p>
+<p>(<span class="kw">defn</span><span class="fu"> combine-path-and-meta </span>[from-eav-fn <span class="kw">path</span>]
+    (<span class="kw">let</span> [expanded-path [(<span class="kw">repeat</span> (<span class="kw">first</span> <span class="kw">path</span>)) (<span class="kw">repeat</span> (<span class="kw">second</span> <span class="kw">path</span>)) (<span class="kw">last</span> <span class="kw">path</span>)] 
+          meta-of-path (<span class="kw">apply</span> from-eav-fn (<span class="kw">map</span> <span class="kw">repeat</span> (<span class="kw">:db</span>/variable (<span class="kw">meta</span> <span class="kw">path</span>))))
+          combined-data-and-meta-path (<span class="kw">interleave</span> meta-of-path expanded-path)]
+       (<span class="kw">apply</span> (<span class="kw">partial</span> <span class="kw">map</span> <span class="kw">vector</span>) combined-data-and-meta-path)))</code></pre>
+<p>At the end of phase 3 of our example execution, we have the following structure at hand:</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">{[<span class="dv">1</span> <span class="st">&quot;?e&quot;</span>]{ 
+    {[<span class="kw">:likes</span> nil]    [<span class="st">&quot;Pizza&quot;</span> nil]}
+    {[<span class="kw">:name</span> nil]     [<span class="st">&quot;USA&quot;</span> <span class="st">&quot;?nm&quot;</span>]}
+    {[<span class="kw">:speaks</span> nil]   [<span class="st">&quot;English&quot;</span> nil]} 
+    {[<span class="kw">:bday</span> nil] [<span class="st">&quot;July 4, 1776&quot;</span> <span class="st">&quot;?bd&quot;</span>]} 
+}}</code></pre>
+<h4 id="phase-4-unify-and-report">Phase 4: Unify and Report</h4>
+<p>At this point, we’ve produced a superset of the results that the user initially asked for. In this phase, we'll extract the values that the user wants. This process is called <em>unification</em>: it is here that we will unify the binding pairs structure with the vector of variable names that the user defined in the <code>:find</code> clause of the query.</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> unify </span>[binded-res-col needed-vars]
+   (<span class="kw">map</span> (<span class="kw">partial</span> locate-vars-in-query-res needed-vars) binded-res-col))</code></pre>
+<p>Each unification step is handled by <code>locate-vars-in-query-result</code>, which iterates over a query result (structured as an index entry, but with binding pairs) to detect all the variables and values that the user asked for.</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> locate-vars-in-query-res </span>[vars-set q-res]
+   (<span class="kw">let</span> [[e-pair av-map]  q-res
+         e-res (resultify-bind-pair vars-set [] e-pair)]
+     (<span class="kw">map</span> (<span class="kw">partial</span> resultify-av-pair vars-set e-res)  av-map)))</p>
+<p>(<span class="kw">defn</span><span class="fu"> resultify-bind-pair </span>[vars-set accum pair]
+   (<span class="kw">let</span> [[ var-name _] pair]
+      (<span class="kw">if</span> (<span class="kw">contains?</span> vars-set var-name) (<span class="kw">conj</span> accum pair) accum)))</p>
+<p>(<span class="kw">defn</span><span class="fu"> resultify-av-pair </span>[vars-set accum-res av-pair]
+   (<span class="kw">reduce</span> (<span class="kw">partial</span> resultify-bind-pair vars-set) accum-res av-pair))</code></pre>
+<p>At the end of this phase, the results for our example are:</p>
+<pre><code>[(&quot;?nm&quot; &quot;USA&quot;) (&quot;?bd&quot; &quot;July 4, 1776&quot;)]</code></pre>
+<h4 id="running-the-show">Running the Show</h4>
+<p>We've finally built all of the components we need for our user-facing query mechanism, the <code>q</code> macro, which receives as arguments a database and a query.</p>
+<pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defmacro</span><span class="fu"> q</span>
+  [db query]
+  `(<span class="kw">let</span> [pred-clauses#  (q-clauses-to-pred-clauses <span class="kw">~(:where</span> query)) 
+         needed-vars# (symbol-col-to-set  <span class="kw">~(:find</span> query))
+         query-plan# (build-query-plan pred-clauses#)
+         query-internal-res# (query-plan# <span class="kw">~db)]</span>
+     (unify query-internal-res# needed-vars#)))</code></pre>
+<h2 id="summary">Summary</h2>
+<p>Our journey started with a conception of a different kind of database, and ended with one that:</p>
+<ul>
+<li>Supports ACI transactions (durability was lost when we decided to have the data stored in-memory).</li>
+<li>Supports &quot;what if&quot; interactions.</li>
+<li>Answers time-related questions.</li>
+<li>Handles simple datalog queries that are optimized with indexes.</li>
+<li>Provides APIs for graph queries.</li>
+<li>Introduces and implements the notion of evolutionary queries.</li>
+</ul>
+<p>There are still many things that we could improve: We could add caching to several components to improve performance; support richer queries; and add real storage support to provide data durability, to name a few.</p>
+<p>However, our final product can do a great many things, and was implemented in 488 lines of Clojure source code, 73 of which are blank lines and 55 of which are docstrings.</p>
+<p>Finally, there's one thing that is still missing: a name. The only sensible option for an in-memory, index-optimized, query-supporting, library developer-friendly, time-aware functional database implemented in 360 lines of Clojure code is CircleDB.</p></p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

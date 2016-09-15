@@ -160,3 +160,19 @@ table.table-striped tbody tr:nth-child(odd) th {
   width: 500px;
   margin-left: 10px;
 }
+
+#fh-cover {
+  float:left;
+/*  margin-top: 40px;*/
+}
+
+#fh-row {
+  width: 900px;
+  margin: 0 auto;
+}
+
+#fh-chapters-list {
+  float: left;
+  width: 500px;
+  margin-left: 10px;
+}
