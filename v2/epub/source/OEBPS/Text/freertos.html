@@ -437,7 +437,7 @@ typedef struct QueueDefinition
 
   <p>Since a mutex doesn't store any data in the queue, it doesn't need any internal storage, and so the <code>pcHead</code> and <code>pcTail</code> fields aren't needed. FreeRTOS sets the <code>uxQueueType</code> field (really the <code>pcHead</code> field) to <code>0</code> to note that this queue is being used for a mutex. FreeRTOS uses the overloaded <code>pcTail</code> fields to implement priority inheritance for mutexes.</p>
 
-  <p>In case you're not familiar with priority inheritance, I'll quote Michael Barr again to define it, this time from his article, "<a href="http://www.eetimes.com/discussion/beginner-s-corner/4023947/Introduction-to-Priority-Inversion">Introduction to Priority Inversion</a>":</p>
+  <p>In case you're not familiar with priority inheritance, I'll quote Michael Barr again to define it, this time from his article, "<a href="https://barrgroup.com/Embedded-Systems/How-To/RTOS-Priority-Inversion">Introduction to Priority Inversion</a>":</p>
 
   <blockquote><p>
     [Priority inheritance] mandates that a lower-priority task inherit the priority of any higher-priority task pending on a resource they share. This priority change should take place as soon as the high-priority task begins to pend; it should end when the resource is released.
