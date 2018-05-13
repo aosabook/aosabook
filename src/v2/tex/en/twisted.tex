@@ -622,7 +622,7 @@ class Echo(protocol.Protocol):
 
 class EchoFactory(protocol.Factory):
     def buildProtocol(self, addr):
-    return Echo()
+        return Echo()
 \end{verbatim}
 
 \noindent The \code{echo\_server.tac} file:
