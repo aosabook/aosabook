@@ -134,7 +134,7 @@ the processor. Code that is defined at runtime (and run using \code{eval}) is
 handled similarly, except that everything happens at the \code{eval} call site
 instead of when the file is loaded.
 
-There are a few different way to implement the key pieces of a language
+There are a few different ways to implement the key pieces of a language
 front end, and while IronPython and IronRuby are very similar (they were
 developed side-by-side, after all) they differ in a few key areas. Both
 IronPython and IronRuby have fairly standard parser designs---both use a
@@ -317,7 +317,7 @@ interpreter takes the list of instructions and executes them one by one,
 jumping forward or backwards depending on the return value of the \code{Run()}
 method.
 
-Once a a piece of code has been executed a certain number of times, it will be
+Once a piece of code has been executed a certain number of times, it will be
 converted to a full \code{LambdaExpression} by calling
 \code{LightLambdaExpression.Reduce()}, then compiled to a \code{DynamicMethod}
 delegate (on a background thread for a bit of parallelism), and the old
@@ -371,7 +371,7 @@ are implemented as instances of the
 like Ruby or Python, just about every operation has a dynamic component; these
 dynamic operations are represented in the expression trees as
 \code{DynamicExpression} nodes, which the expression tree compiler knows to
-convert to a call site. When a call site is created, it is does not yet know
+convert to a call site. When a call site is created, it does not yet know
 how to perform the desired operation; however, it is created with an instance
 of the proper \emph{call site binder} that is specific to the language in use,
 and contains all of the necessary information about how to perform the
@@ -414,7 +414,7 @@ The binder instance that is associated with a call site may store some extra
 information with it that makes it specific to a call site, but a large number
 of call sites aren't unique in any way and can share the same binder instance.
 For example, in Python, the basic rules for addition are the same throughout
-the program; it depends on the two types on the either side of the \code{+},
+the program; it depends on the two types on both sides of the \code{+},
 and that's it. All of the addition operations in the program can share the same
 binder, and if both the L0 and L1 caches miss, the L2 cache contains a much
 larger number of recent rules (128) collected from across the entire program.
@@ -439,11 +439,11 @@ trees, however; it can be used with delegates alone.}.
 \noindent If the expression trees were expressed in C\#, the code would be similar to:
 
 \begin{verbatim}
-if(x is double && y is double) {       // check for doubles
-      return (double)x + (double)y;    // execute if doubles
- }
- return site.Update(site, x, y);       // not doubles, so find/create another rule 
-                                       // for these types
+if(x is double && y is double) {      // check for doubles
+     return (double)x + (double)y;    // execute if doubles
+}
+return site.Update(site, x, y);       // not doubles, so find/create another rule
+                                      // for these types
 \end{verbatim}
 
 The binder then produces a \emph{delegate} from the expression trees, which
