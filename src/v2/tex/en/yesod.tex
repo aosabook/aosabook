@@ -174,7 +174,7 @@ is copied between buffers, preferably copying just once from the
 source to destination buffer.
 
 Haskell's solution is the \emph{builder}. A builder is an instruction for how
-to fill a memory buffer, such as: place the five bytes "hello" in the
+to fill a memory buffer, such as: place the five bytes ``hello'' in the
 next open position. Instead of passing a stream of memory buffers to
 the server, a WAI application passes a stream of these
 instructions. The server takes the stream and uses it to fill up
@@ -230,7 +230,7 @@ infinite headers. Warp can be the only web server you need, though it
 is also quite happy to sit behind a reverse HTTP proxy.
 
 The PONG benchmark measures the requests per second of various servers
-for the 4-byte response body "PONG". In the graph shown in \aosafigref{fig.yesod.warp}, Yesod is measured
+for the 4-byte response body ``PONG''. In the graph shown in \aosafigref{fig.yesod.warp}, Yesod is measured
 as a framework on top of Warp. As can be seen, the Haskell servers
 (Warp, Happstack and Snap) lead the pack.
 
@@ -367,7 +367,7 @@ you searching through your code trying to pin down a bug.
 
 The HTML language, Hamlet, was the first language written, and
 originally based its syntax on Haml. Since it was at the time a
-"reduced" Haml, Hamlet seemed appropriate. As we added CSS and
+``reduced'' Haml, Hamlet seemed appropriate. As we added CSS and
 Javascript options, we decided to keep the naming theme with Cassius
 and Julius. At this point, Hamlet looks nothing like Haml, but the
 name stuck anyway.
@@ -694,8 +694,8 @@ that list as a new field in the original \code{Person} entity. But that
 approach would not work in SQL. In SQL, we call this kind of
 relationship a one-to-many relationship.
 
-The idea is to store a reference to the "one" entity (person) with
-each "many" entity (skill). Then if we want to find all the skills a
+The idea is to store a reference to the \emph{one} entity (person) with
+each \emph{many} entity (skill). Then if we want to find all the skills a
 person has, we simply find all skills that reference that person. For
 this reference, every entity has an ID. And as you might expect by
 now, these IDs are completely type-safe. The datatype for a Person ID
@@ -761,9 +761,9 @@ like:
 /entry/#EntryId EntryR GET
 \end{verbatim}
 
-The first line defines the homepage. This says "I respond to the root
-path of the domain, I'm called HomepageR, and I answer GET requests."
-(The trailing "R" on the resource names is simply a convention, it
+The first line defines the homepage. This says ``I respond to the root
+path of the domain, I'm called HomepageR, and I answer GET requests.''
+(The trailing ``R'' on the resource names is simply a convention, it
 doesn't hold any special meaning besides giving a cue to the developer
 that something is a route.)
 
@@ -794,7 +794,7 @@ approach, however, provides some advantages:
 
 \begin{aosaitemize}
 
-\item Typing "EntryId" is much more semantic/developer-friendly than a
+\item Typing ``EntryId'' is much more semantic/developer-friendly than a
   regular expression.
 
 \item Regular expressions cannot express everything (or at least,
@@ -1026,7 +1026,7 @@ implement. The first lesson is:
 
 As this was my first major piece of Haskell code, I learned a lot
 about the language during Yesod's development. I'm sure others can
-relate to the feeling of "How did I ever write code like this?" Even
+relate to the feeling of ``How did I ever write code like this?'' Even
 though that initial code was not of the same caliber as the code we
 have in Yesod at this point, it was solid enough to kick-start the
 project. The second lesson is:
