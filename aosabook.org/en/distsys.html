@@ -711,7 +711,7 @@ clients. This is known as collapsed forwarding.</p>
 
 <p>Imagine there is a request for the same data (let's call it littleB)
 across several nodes, and that piece of data is not in the cache. If
-that request is routed thought the proxy, then all of those requests
+that request is routed through the proxy, then all of those requests
 can be collapsed into one, which means we only have to read littleB
 off disk once. (See <a href="#fig.distsys.14">Figure 1.14</a>.) There is some cost associated with this design, since
 each request can have slightly higher latency, and some requests may
