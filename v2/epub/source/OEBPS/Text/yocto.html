@@ -199,7 +199,7 @@ pkg_prerm_${PN}() {
 
   <p>One of the other interesting things about the DataSmart module centers around variable expansion. As BitBake variables can contain executable Python code, one of the things that needs to be done is run the variable through BitBake's <code>bb.codeparser</code> to ensure that it's valid Python and that it contains no circular references. An example of a variable containing Python code is this example taken from <code>./meta/conf/distro/include/tclibc-eglibc.inc</code>:</p>
   <pre>
-LIBCEXTENSION = "${@[", '-gnu'][(d.getVar('ABIEXTENSION', True) or ") != "]}"
+LIBCEXTENSION = "${@['', '-gnu'][(d.getVar('ABIEXTENSION', True) or '') != '']}"
 </pre>
 
   <p>This variable is included from one of the OE-Core configuration files, <code>./meta/conf/distro/include/defaultsetup.conf</code>, and is used to provide a set of default options across different distro configurations that one would want to lay on top of Poky or OpenEmbedded. This file imports some <code>eglibc</code>-specific variables that are set dependent on the value of another BitBake variable <code>ABIEXTENSION</code>. During the creation of the datastore, the Python code within this variable needs to be parsed and validated to ensure tasks that use this variable will not fail.</p>

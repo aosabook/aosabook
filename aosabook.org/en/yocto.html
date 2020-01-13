@@ -481,7 +481,7 @@ Python and that it contains no circular references.  An example of a
 variable containing Python code is this example taken from
 <code>./meta/conf/distro/include/tclibc-eglibc.inc</code>:</p>
 
-<pre>LIBCEXTENSION = "${@[", '-gnu'][(d.getVar('ABIEXTENSION', True) or ") != "]}"
+<pre>LIBCEXTENSION = "${@['', '-gnu'][(d.getVar('ABIEXTENSION', True) or '') != '']}"
 </pre>
 
 <p>This variable is included from one of the OE-Core configuration files,
