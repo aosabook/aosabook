@@ -3,11 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="provenance" content="$Id: index.html 1472 2012-09-21 22:17:41Z audrey $" />
-    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap.css" type="text/css" />
-    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/bootstrap-responsive.css" type="text/css" />
-    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/code.css" type="text/css" />
-    <link rel="stylesheet" href="http://aosabook.org/en/500L/theme/css/500L.css" type="text/css" />
+    <link rel="stylesheet" href="../../css/bootstrap.css" type="text/css">
+    <link rel="stylesheet" href="../../css/bootstrap-responsive.css" type="text/css">
+    <link rel="stylesheet" href="../../css/aosa.css" type="text/css">
     <title>500 Lines or Less | An Archaeology-Inspired Database</title>
     <script type="text/x-mathjax-config">
         MathJax.Hub.Config({
@@ -24,7 +22,7 @@
     <div class="container">
       <div class="row">
         <div class="hero-unit">
-	  <a class='pull-right' href='/en/index.html'></a>
+	  <a class='pull-right' href='../index.html'></a>
           <h1>An Archaeology-Inspired Database</h1>
           <h2 class="author">Yoav Rubin</h2>
           <blockquote class="pull-right">
@@ -284,10 +282,10 @@ AVET index
 </ul></td>
 <td><ul>
 <li>
-<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">JC, B</span>}}</br> {<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Cleo</span>}}
+<span style="background-color:lightgreen">lives-in</span> ⇒ {<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">JC, B</span>}}<br> {<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Cleo</span>}}
 </li>
 <li>
-<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">Tiber</span>}}</br> {<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Nile</span>}}
+<span style="background-color:lightgreen">river</span> ⇒ {<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">Tiber</span>}}<br> {<span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Nile</span>}}
 </li>
 </ul></td>
   </tr>
@@ -302,7 +300,7 @@ VAET index
   <tr>
     <td><ul>
 <li>
-<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">JC</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}<br/> {<span style="background-color:lightblue">B</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}
+<span style="background-color:pink">Rome</span> ⇒ {<span style="background-color:lightblue">JC</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}<br> {<span style="background-color:lightblue">B</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}
 </li>
 <li>
 <span style="background-color:pink">Egypt</span> ⇒ {<span style="background-color:lightblue">Cleo</span> ⇒ {<span style="background-color:lightgreen">lives-in</span>}}
@@ -803,7 +801,7 @@ _
 Unary operator
 </td>
     <td>
-Unary operation that takes a variable as its operand.<br/> Bind the datom's item's value to the variable (unless it's an '_').<br/> Replace the variable with the value of the item in the datom.<br/> Return the application of the operation.
+Unary operation that takes a variable as its operand.<br> Bind the datom's item's value to the variable (unless it's an '_').<br> Replace the variable with the value of the item in the datom.<br> Return the application of the operation.
 </td>
     <td>
 (bday-mo? _)
@@ -814,7 +812,7 @@ Unary operation that takes a variable as its operand.<br/> Bind the datom's item
 Binary operator
 </td>
     <td>
-A binary operation that must have a variable as one of its operands.<br/> Bind the datom's item's value to the variable (unless it's an '_').<br/><br /> Replace the variable with the value of the item in the datom.<br/> Return the result of the operation.
+A binary operation that must have a variable as one of its operands.<br> Bind the datom's item's value to the variable (unless it's an '_').<br><br /> Replace the variable with the value of the item in the datom.<br> Return the result of the operation.
 </td>
     <td>
 (&gt; ?age 20)
@@ -1061,10 +1059,10 @@ Attribute Value
 1
 </td>
     <td>
-:name </br> :likes</br> :speak</br> :bday
+:name <br> :likes<br> :speak<br> :bday
 </td>
     <td>
-USA</br> Pizza</br> English</br> July 4, 1776
+USA<br> Pizza<br> English<br> July 4, 1776
 </td>
 </tr>
 <tr>
@@ -1072,10 +1070,10 @@ USA</br> Pizza</br> English</br> July 4, 1776
 2
 </td>
     <td>
-:name </br> :likes</br> :speak</br> :bday
+:name <br> :likes<br> :speak<br> :bday
 </td>
     <td>
-France</br> Red wine</br> French</br> July 14, 1789
+France<br> Red wine<br> French<br> July 14, 1789
 </td>
 </tr>
 <tr>
@@ -1083,10 +1081,10 @@ France</br> Red wine</br> French</br> July 14, 1789
 3
 </td>
     <td>
-:name </br> :likes</br> :speak</br> :bday
+:name <br> :likes<br> :speak<br> :bday
 </td>
     <td>
-Canada</br> Snow</br> English</br> July 1, 1867
+Canada<br> Snow<br> English<br> July 1, 1867
 </td>
 </tr>
 </table>
@@ -1244,8 +1242,8 @@ Result Meta
    (<span class="kw">let</span> [seq-res-path (<span class="kw">mapcat</span> (<span class="kw">partial</span> combine-path-and-meta (from-eav <span class="kw">index</span>)) 
                                q-res)       <br />
          res-path (<span class="kw">map</span> #(<span class="kw">-&gt;&gt;</span> %<span class="dv">1</span> (<span class="kw">partition</span> <span class="dv">2</span>)(<span class="kw">apply</span> (to-eav <span class="kw">index</span>))) seq-res-path)] 
-     (<span class="kw">reduce</span> #(<span class="kw">assoc-in</span> %<span class="dv">1</span>  (<span class="kw">butlast</span> %<span class="dv">2</span>) (<span class="kw">last</span> %<span class="dv">2</span>)) {} res-path)))</p>
-<p>(<span class="kw">defn</span><span class="fu"> combine-path-and-meta </span>[from-eav-fn <span class="kw">path</span>]
+     (<span class="kw">reduce</span> #(<span class="kw">assoc-in</span> %<span class="dv">1</span>  (<span class="kw">butlast</span> %<span class="dv">2</span>) (<span class="kw">last</span> %<span class="dv">2</span>)) {} res-path)))
+(<span class="kw">defn</span><span class="fu"> combine-path-and-meta </span>[from-eav-fn <span class="kw">path</span>]
     (<span class="kw">let</span> [expanded-path [(<span class="kw">repeat</span> (<span class="kw">first</span> <span class="kw">path</span>)) (<span class="kw">repeat</span> (<span class="kw">second</span> <span class="kw">path</span>)) (<span class="kw">last</span> <span class="kw">path</span>)] 
           meta-of-path (<span class="kw">apply</span> from-eav-fn (<span class="kw">map</span> <span class="kw">repeat</span> (<span class="kw">:db</span>/variable (<span class="kw">meta</span> <span class="kw">path</span>))))
           combined-data-and-meta-path (<span class="kw">interleave</span> meta-of-path expanded-path)]
@@ -1265,11 +1263,11 @@ Result Meta
 <pre class="sourceCode clojure"><code class="sourceCode clojure">(<span class="kw">defn</span><span class="fu"> locate-vars-in-query-res </span>[vars-set q-res]
    (<span class="kw">let</span> [[e-pair av-map]  q-res
          e-res (resultify-bind-pair vars-set [] e-pair)]
-     (<span class="kw">map</span> (<span class="kw">partial</span> resultify-av-pair vars-set e-res)  av-map)))</p>
-<p>(<span class="kw">defn</span><span class="fu"> resultify-bind-pair </span>[vars-set accum pair]
+     (<span class="kw">map</span> (<span class="kw">partial</span> resultify-av-pair vars-set e-res)  av-map)))
+(<span class="kw">defn</span><span class="fu"> resultify-bind-pair </span>[vars-set accum pair]
    (<span class="kw">let</span> [[ var-name _] pair]
-      (<span class="kw">if</span> (<span class="kw">contains?</span> vars-set var-name) (<span class="kw">conj</span> accum pair) accum)))</p>
-<p>(<span class="kw">defn</span><span class="fu"> resultify-av-pair </span>[vars-set accum-res av-pair]
+      (<span class="kw">if</span> (<span class="kw">contains?</span> vars-set var-name) (<span class="kw">conj</span> accum pair) accum)))
+(<span class="kw">defn</span><span class="fu"> resultify-av-pair </span>[vars-set accum-res av-pair]
    (<span class="kw">reduce</span> (<span class="kw">partial</span> resultify-bind-pair vars-set) accum-res av-pair))</code></pre>
 <p>At the end of this phase, the results for our example are:</p>
 <pre><code>[(&quot;?nm&quot; &quot;USA&quot;) (&quot;?bd&quot; &quot;July 4, 1776&quot;)]</code></pre>
@@ -1294,7 +1292,7 @@ Result Meta
 </ul>
 <p>There are still many things that we could improve: We could add caching to several components to improve performance; support richer queries; and add real storage support to provide data durability, to name a few.</p>
 <p>However, our final product can do a great many things, and was implemented in 488 lines of Clojure source code, 73 of which are blank lines and 55 of which are docstrings.</p>
-<p>Finally, there's one thing that is still missing: a name. The only sensible option for an in-memory, index-optimized, query-supporting, library developer-friendly, time-aware functional database implemented in 360 lines of Clojure code is CircleDB.</p></p>
+<p>Finally, there's one thing that is still missing: a name. The only sensible option for an in-memory, index-optimized, query-supporting, library developer-friendly, time-aware functional database implemented in 360 lines of Clojure code is CircleDB.</p>
         </div>
       </div>
     </div>
