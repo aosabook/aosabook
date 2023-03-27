@@ -7,8 +7,11 @@
     <title>The Performance of Open Source Software: Warp</title>
   </head>
   <body>
-    <h1>Warp</h1>
-    <p class="author">Kazu Yamamoto, Michael Snoyman, and Andreas Voellmy</p>
+
+    <div class="titlebox">
+      <h1>Warp</h1>
+      <p class="author">Kazu Yamamoto, Michael Snoyman, and Andreas Voellmy</p>
+    </div>
 
 <p>Warp is a high-performance <span class="caps">HTTP</span> server library written in Haskell, a purely functional programming language. Both Yesod, a web application framework, and <code>mighty</code>, an <span class="caps">HTTP</span> server, are implemented over Warp. According to our throughput benchmark, <code>mighty</code> provides performance on a par with <code>nginx</code>. This article will explain the architecture of Warp and how we achieved its performance. Warp can run on many platforms, including Linux, <span class="caps">BSD</span> variants, Mac <span class="caps">OS</span>, and Windows. To simplify our explanation, however, we will only talk about Linux for the remainder of this article.</p>
 
