@@ -19,10 +19,8 @@
   <body>
     <h1>Dagoba: an in-memory graph database</h1>
     <p class="author">Dann Toliver</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p><em><a href="https://twitter.com/dann">Dann</a> enjoys building things, like programming languages, databases, distributed systems, communities of smart friendly humans, and pony castles with his two year old.</em></p>
+
+    <p><em><a href="https://twitter.com/dann">Dann</a> enjoys building things, like programming languages, databases, distributed systems, communities of smart friendly humans, and pony castles with his two year old.</em></p>
 
 <h2 id="prologue">Prologue</h2>
 
@@ -1136,7 +1134,6 @@ children = <span class="kw">function</span>(x) { <span class="kw">return</span> 
 <p>Many thanks are due to Amy Brown, Michael DiBernardo, Colin Lupton, Scott Rostrup, Michael Russo, Erin Toliver, and Leo Zovic for their invaluable contributions to this chapter.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>One of the very first database designs was the hierarchical model, which grouped items into tree-shaped hierarchies and is still used as the basis of IBM's IMS product, a high-speed transaction processing system. It's influence can also been seen in XML, file systems and geographic information storage. The network model, invented by Charles Bachmann and standardized by CODASYL, generalized the hierarchical model by allowing multiple parents, forming a DAG instead of a tree. These navigational database models came in to vogue in the 1960s and continued their dominance until performance gains made relational databases usable in the 1980s.<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>Edgar F. Codd developed relational database theory while working at IBM, but Big Blue feared that a relational database would cannibalize the sales of IMS. While IBM eventually built a research prototype called System R, it was based around a new non-relational language called SEQUEL, instead of Codd's original Alpha language. The SEQUEL language was copied by Larry Ellison in his Oracle Database based on pre-launch conference papers, and the name changed to SQL to avoid trademark disputes.<a href="#fnref2">↩</a></p></li>
@@ -1174,8 +1171,5 @@ children = <span class="kw">function</span>(x) { <span class="kw">return</span> 
 <li id="fn34"><p>Not <em>too</em> interconnected, though—you'd like the number of edges to grow in direct proportion to the number of vertices. In other words, the average number of edges connected to a vertex shouldn't vary with the size of the graph. Most systems we'd consider putting in a graph database already have this property: if Loki had 100,000 additional grandchildren the degree of the Thor vertex wouldn't increase.<a href="#fnref34">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-    </div>
   </body>
 </html>

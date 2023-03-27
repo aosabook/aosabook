@@ -19,10 +19,8 @@
   <body>
     <h1>DBDB: Dog Bed Database</h1>
     <p class="author">Taavi Burns</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p><em>As the newest bass (and sometimes tenor) in <a href="http://www.countermeasuremusic.com">Countermeasure</a>, Taavi strives to break the mould... sometimes just by ignoring its existence. This is certainly true through the diversity of workplaces in his career: IBM (doing C and Perl), FreshBooks (all the things), Points.com (doing Python), and now at PagerDuty (doing Scala). Aside from that—when not gliding along on his Brompton folding bike—you might find him playing Minecraft with his son or engaging in parkour (or rock climbing, or other adventures) with his wife. He knits continental.</em></p>
+
+    <p><em>As the newest bass (and sometimes tenor) in <a href="http://www.countermeasuremusic.com">Countermeasure</a>, Taavi strives to break the mould... sometimes just by ignoring its existence. This is certainly true through the diversity of workplaces in his career: IBM (doing C and Perl), FreshBooks (all the things), Points.com (doing Python), and now at PagerDuty (doing Scala). Aside from that—when not gliding along on his Brompton folding bike—you might find him playing Minecraft with his son or engaging in parkour (or rock climbing, or other adventures) with his wife. He knits continental.</em></p>
 
 <h2 id="introduction">Introduction</h2>
 
@@ -472,14 +470,10 @@
 <p>DBDB is a simple database that makes simple guarantees, and yet things still became complicated in a hurry. The most important thing I did to manage this complexity was to implement an ostensibly mutable object with an immutable data structure. I encourage you to consider this technique the next time you find yourself in the middle of a tricky problem that seems to have more edge cases than you can keep track of.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>Bonus feature: Can you guarantee that the compacted tree structure is balanced? This helps maintain performance over time.<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>Calling <code>fsync</code> on a file descriptor asks the operating system and hard drive (or SSD) to write all buffered data immediately. Operating systems and drives don't usually write everything immediately in order to improve performance.<a href="#fnref2">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-    </div>
   </body>
 </html>

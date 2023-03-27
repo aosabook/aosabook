@@ -10,10 +10,8 @@
   <body>
     <h1>Talos</h1>
     <p class="author">Clint Talbert and Joel Maher</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p>At Mozilla, one of our very first automation systems was a performance testing framework we dubbed Talos. Talos had been faithfully maintained without substantial modification since its inception in 2007, even though many of the original assumptions and design decisions behind Talos were lost as ownership of the tool changed hands.</p>
+
+    <p>At Mozilla, one of our very first automation systems was a performance testing framework we dubbed Talos. Talos had been faithfully maintained without substantial modification since its inception in 2007, even though many of the original assumptions and design decisions behind Talos were lost as ownership of the tool changed hands.</p>
 
 <p>In the summer of 2011, we finally began to look askance at the noise and the variation in the Talos numbers, and we began to wonder how we could make some small modification to the system to start improving it. We had no idea we were about to open Pandora’s Box.</p>
 
@@ -140,18 +138,12 @@ $$ \frac{565.5 + 675}{2} = 620.25 $$
 
 <p>In the last year, we dug into every part of performance testing automation at Mozilla. We have analyzed the test harness, the reporting tools, and the statistical soundness of the results that were being generated. Over the course of that year, we used what we learned to make the Talos framework easier to maintain, easier to run, simpler to set up, easier to test experimental patches with, and less error prone. We have created Datazilla as an extensible system for storing and retrieving all of our performance metrics from Talos and any future performance automation. We have rebooted our performance statistical analysis and created statistically viable, per-push regression/improvement detection. We have made all of these systems easier to use and more open so that any contributor anywhere can take a look at our code and even experiment with new methods of statistical analysis on our performance data. Our constant commitment to reviewing the data again and again at each milestone of the project and our willingness to throw out data that proved inconclusive or invalid helped us retain our focus as we drove this gigantic project forward. Bringing in people from across teams at Mozilla as well as many new volunteers helped lend the effort validity and also helped to establish a resurgence in performance monitoring and data analysis across several areas of Mozilla’s efforts, resulting in an even more data-driven, performance-focused culture.</p>
 
-<!-- TODO These urls are pretty long; can you shorten? -->
-
 <div class="footnotes">
-<hr />
 <ol>
-<li id="fn1"><p>Https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/ttest.py.<a href="#fnref1">↩</a></p></li>
-<li id="fn2"><p>Https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/fdr.py.<a href="#fnref2">↩</a></p></li>
-<li id="fn3"><p>Https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/data_smoothing.py.<a href="#fnref3">↩</a></p></li>
+<li id="fn1"><p>https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/ttest.py.<a href="#fnref1">↩</a></p></li>
+<li id="fn2"><p>https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/fdr.py.<a href="#fnref2">↩</a></p></li>
+<li id="fn3"><p>https://github.com/mozilla/datazilla/blob/2c369a346fe61072e52b07791492c815fe316291/vendor/dzmetrics/data_smoothing.py.<a href="#fnref3">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-          </div>
   </body>
 </html>

@@ -19,10 +19,8 @@
   <body>
     <h1>A Simple Web Server</h1>
     <p class="author">Greg Wilson</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p><em><a href="https://twitter.com/gvwilson">Greg Wilson</a> is the founder of Software Carpentry, a crash course in computing skills for scientists and engineers. He has worked for 30 years in both industry and academia, and is the author or editor of several books on computing, including the 2008 Jolt Award winner <em>Beautiful Code</em> and the first two volumes of <em>The Architecture of Open Source Applications</em>. Greg received a PhD in Computer Science from the University of Edinburgh in 1993.</em></p>
+
+    <p><em><a href="https://twitter.com/gvwilson">Greg Wilson</a> is the founder of Software Carpentry, a crash course in computing skills for scientists and engineers. He has worked for 30 years in both industry and academia, and is the author or editor of several books on computing, including the 2008 Jolt Award winner <em>Beautiful Code</em> and the first two volumes of <em>The Architecture of Open Source Applications</em>. Greg received a PhD in Computer Science from the University of Edinburgh in 1993.</em></p>
 
 <h2 id="introduction">Introduction</h2>
 
@@ -605,14 +603,10 @@ content length: 61
 <p>These ideas are generally useful; see if you can find ways to use them in your own projects.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>We're going to use <code>handle_error</code> several times throughout this chapter, including several cases where the status code <code>404</code> isn't appropriate. As you read on, try to think of how you would extend this program so that the status response code can be supplied easily in each case.<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>Our code also uses the <code>popen2</code> library function, which has been deprecated in favor of the <code>subprocess</code> module. However, <code>popen2</code> was the less distracting tool to use in this example.<a href="#fnref2">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-    </div>
   </body>
 </html>

@@ -10,9 +10,6 @@
 
     <h1>Yesod</h1>
     <p class="author"><a href="intro2.html#snoyman-michael">Michael Snoyman</a></p>
-  <div class="container">
-    <div class="row">
-      <div class="span8 offset2">
         
 <p>Yesod is a web framework written in the Haskell programming
 language. While many popular web frameworks exploit the dynamic nature
@@ -630,10 +627,8 @@ type: <code>Text</code> becomes a <code>VARCHAR</code>, <code>Day</code> becomes
 <em>document</em>, and its three fields each become a MongoDB
 <em>field</em>. There is no need for datatypes or creation of a schema
 in MongoDB.</p>
-</div>
 
-<div class="span4 offset4">
-<table class="table table-condensed">
+<table>
 <tr>
 <td>Persistent</td>
 <td>SQL</td>
@@ -655,9 +650,6 @@ in MongoDB.</p>
 <td>N/A</td>
 </tr>
 </table>
-</div>
-
-<div class="span8 offset2">
 
 <h3>Type Safety</h3>
 
@@ -985,11 +977,7 @@ generate the database results from multiple handler functions.</p>
 of code that ties together HTML, CSS and Javascript, allowing you to
 add content to both the head and body, and can run any arbitrary code
 that belongs in a handler. For example, to implement our navbar:</p>
-</div>
-</div>
 
-<div class="row">
-<div class="span9 offset2">
 <pre>
 -- Get last five blog posts. The "lift" says to run this code like we're in the handler.
 entries &lt;- lift $ runDB $ selectList [] [LimitTo 5, Desc EntryPosted]
@@ -1001,11 +989,6 @@ toWidget [hamlet|
 toWidget [lucius| .navbar { color: red } |]
 toWidget [julius|alert("Some special Javascript to play with my navbar");|]
 </pre>
-</div>
-</div>
-
-<div class="row">
-<div class="span8 offset2">
 
 <p>But there is even more power at work here. When you produce a page in
 Yesod, the standard approach is to combine a number of widgets
@@ -1130,21 +1113,6 @@ general Haskell community. The final lesson is:</p>
 
 <p><em>Consider early on how to make your project approachable for
 others.</em></p>
-
-
-      <footer class="footer">
-        <hr>
-        <p class="pull-right">This work is made available under
-            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
-            Commons Attribution 3.0 Unported</a> license.  Please see
-            the <a href="../license.html">full description of the
-            license</a> for details.
-            <p><a href="#">Back to top</a><br/>
-        <a href="../index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
-      </footer>
-      </div>
-    </div>
-  </div>
 
 </body>
 </html>

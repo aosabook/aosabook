@@ -10,9 +10,6 @@
 
     <h1>Twisted</h1>
     <p class="author"><a href="intro2.html#mckellar-jessica">Jessica McKellar</a></p>
-  <div class="container">
-    <div class="row">
-      <div class="span8 offset2">
         
 <p>Twisted is an event-driven networking engine in Python. It was born in the
 early 2000s, when the writers of networked games had few scalable and no
@@ -302,7 +299,7 @@ synchronous and asynchronous versions of a toy URL fetching utility in
 Python-like pseudo-code:</p>
 
 <div class="row">
-  <div class="span4">
+  <div class="col-6">
       <p>Synchronous URL fetcher:</p>
 <pre>
 import getPage
@@ -328,7 +325,7 @@ finally:
 </pre>
   </div>
 
-  <div class="span4">
+  <div class="col-6">
 <p>Asynchronous URL fetcher:</p>
 <pre>
 from twisted.internet import reactor
@@ -354,7 +351,7 @@ getPage(url, processPage, logError)
 reactor.run()
 </pre>
   </div>
-</div> <!-- row -->
+</div>
 
 
 <p>In the asynchronous URL fetcher,
@@ -473,7 +470,7 @@ implementations, allowing for many protocols to utilize the same type of
 transport. Transports implement the <code>ITransport</code> interface, which has
 the following methods:</p>
 
-<table class="table table-condensed">
+<table>
 <tr><td><code>write</code></td><td>Write some data to the physical connection, in sequence, in a non-blocking fashion.</td></tr>
 <tr><td><code>writeSequence</code></td><td>Write a list of strings to the physical connection.</td></tr>
 <tr><td><code>loseConnection</code></td><td>Write all pending data and then close the connection.</td></tr>
@@ -491,7 +488,7 @@ easier. A mock transport can simply write data to a string for inspection.</p>
 and IMAP are examples of application protocols. Protocols implement the
 <code>IProtocol</code> interface, which has the following methods:</p>
 
-<table class="table table-condensed">
+<table>
 <tr><td><code>makeConnection</code></td><td>Make a connection to a transport and a server.</td></tr>
 <tr><td><code>connectionMade</code></td><td>Called when a connection is made.</td></tr>
 <tr><td><code>dataReceived</code></td><td>Called whenever data is received.</td></tr>
@@ -587,7 +584,7 @@ register with a single application.</p>
 
 <p>The core of the <code>IService</code> interface is:</p>
 
-<table class="table table-condensed">
+<table>
 <tr><td><code>startService</code></td><td>Start the service. This might include loading configuration data, setting up database connections, or listening on a port</td></tr>
 <tr><td><code>stopService</code></td><td>Shut down the service. This might include saving state to disk, closing database connections, or stopping listening on a port</td></tr>
 </table>
@@ -692,9 +689,6 @@ instance of the application, logging to
 <code>twistd.log</code>. After starting and stopping the
 application, the log looks like this:</p>
 
-</div>
-
-<div class="span9 offset2">
 <pre>
 2011-11-19 22:23:07-0500 [-] Log opened.
 2011-11-19 22:23:07-0500 [-] twistd 11.0.0 (/usr/bin/python 2.7.1) starting up.
@@ -707,8 +701,6 @@ application, the log looks like this:</p>
 2011-11-19 22:23:20-0500 [-] Main loop terminated.
 2011-11-19 22:23:20-0500 [-] Server Shut Down.
 </pre>
-</div>
-<div class="span8 offset2">
 
 <p>Running a service using the Twisted application infrastructure allows
 developers to skip writing boilerplate code for common service functionalities
@@ -991,21 +983,6 @@ project that continues to have very active development and adoption.</p>
 
 <p>Twisted looks forward to being the engine of your Internet for another ten
 years.</p>
-
-
-      <footer class="footer">
-        <hr>
-        <p class="pull-right">This work is made available under
-            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
-            Commons Attribution 3.0 Unported</a> license.  Please see
-            the <a href="../license.html">full description of the
-            license</a> for details.
-            <p><a href="#">Back to top</a><br/>
-        <a href="../index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
-      </footer>
-      </div>
-    </div>
-  </div>
 
 </body>
 </html>

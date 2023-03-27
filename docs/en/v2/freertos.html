@@ -10,9 +10,6 @@
 
     <h1>FreeRTOS</h1>
     <p class="author"><a href="intro2.html#svec-christopher">Christopher Svec</a></p>
-  <div class="container">
-    <div class="row">
-      <div class="span8 offset2">
         
 <p>FreeRTOS (pronounced "free-arr-toss") is an open source real-time
 operating system (RTOS) for embedded systems. <a href="http://www.freertos.org/index.html?http://www.freertos.org/FreeRTOS_Features.html">FreeRTOS</a> supports many
@@ -227,15 +224,9 @@ priority), 1, 2, 3, and 4 (highest priority).</p>
 currently ready to run. It implements the ready list as an array of
 task lists like this:</p>
 
-</div>
-
-<div class="span9 offset2">
 <pre>
 static xList pxReadyTasksLists[ configMAX_PRIORITIES ];  /* Prioritised ready tasks.  */
 </pre>
-</div>
-
-<div class="span8 offset2">
 
 <p><code>pxReadyTasksLists[0]</code> is a list of all ready priority 0 tasks,
 <code>pxReadyTasksLists[1]</code> is a list of all ready priority 1 tasks,
@@ -253,9 +244,6 @@ millisecond range.  Every time the tick interrupt fires, the
 <code>vTaskSwitchContext()</code> selects the highest-priority ready task
 and puts it in the <code>pxCurrentTCB</code> variable like this:</p>
 
-</div>
-
-<div class="span9 offset2">
 <pre>
 /* Find the highest-priority queue that contains ready tasks. */
 while( listLIST_IS_EMPTY( &amp;( pxReadyTasksLists[ uxTopReadyPriority ] ) ) )
@@ -268,9 +256,7 @@ while( listLIST_IS_EMPTY( &amp;( pxReadyTasksLists[ uxTopReadyPriority ] ) ) )
 priority get an equal share of the processor time. */
 listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &amp;( pxReadyTasksLists[ uxTopReadyPriority ] ) );
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>Before the while loop starts, <code>uxTopReadyPriority</code> is guaranteed
 to be greater than or equal to the priority of the highest-priority
 ready task. The while() loop starts at priority level
@@ -314,9 +300,7 @@ each task. </p>
 <h3>Task Control Block (TCB)</h3>
 
 <p>The TCB is defined in <code>tasks.c</code> like this:</p>
-</div>
 
-<div class="span9 offset2">
 <pre>
 typedef struct tskTaskControlBlock
 {
@@ -357,9 +341,7 @@ typedef struct tskTaskControlBlock
 
 } tskTCB;
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>The TCB stores the address of the stack start address in
 <code>pxStack</code> and the current top of stack in <code>pxTopOfStack</code>. It
 also stores a pointer to the end of the stack in <code>pxEndOfStack</code>
@@ -414,9 +396,7 @@ special case code for handling new tasks.</p>
 <p>The way that a task's stack is made to look like it was interrupted by
 a context switch depends on the architecture FreeRTOS is running on,
 but this ARM Cortex-M3 processor's implementation is a good example:</p>
-</div>
 
-<div class="span9 offset2">
 <pre>
 unsigned int *pxPortInitialiseStack( unsigned int *pxTopOfStack, 
                                      pdTASK_CODE pxCode,
@@ -437,9 +417,7 @@ unsigned int *pxPortInitialiseStack( unsigned int *pxTopOfStack,
   return pxTopOfStack;
 }
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>The ARM Cortex-M3 processor pushes registers on the stack when a task
 is interrupted. <code>pxPortInitialiseStack()</code> modifies the stack to
 look like the registers were pushed even though the task hasn't
@@ -482,9 +460,7 @@ scheduling, and also to implement queues.</p>
 
 <p>The FreeRTOS list is a standard circular doubly linked list with a
 couple of interesting additions. Here's a list element:</p>
-</div>
 
-<div class="span9 offset2">
 <pre>
 struct xLIST_ITEM
 {
@@ -504,9 +480,7 @@ struct xLIST_ITEM
                                                 item is placed (if any). */
 };
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>Each list element holds a number, <code>xItemValue</code>, that is the
 usually the priority of the task being tracked or a timer value for
 event scheduling.  Lists are kept in high-to-low priority order,
@@ -526,8 +500,6 @@ leads us directly to the TCB needed to schedule the task.</p>
 to quickly determine if a list item is in a particular list.  Each
 list element can be put in a list, which is defined as:</p>
 
-</div>
-<div class="span9 offset2">
 <pre>
 typedef struct xLIST
 {
@@ -541,9 +513,7 @@ typedef struct xLIST
                                              used as a marker. */
 } xList;
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>The size of a list at any time is stored in <code>uxNumberOfItems</code>, for
 fast list-size operations.
 All new lists are initialized to contain a single element: the
@@ -561,17 +531,13 @@ the list.</p>
 
 <p>Most "traditional" list accesses you've used probably do all of
 their work within a single for() loop or function call like this:</p>
-</div>
 
-<div class="span9 offset2">
 <pre>
 for (listPtr = listStart; listPtr != NULL; listPtr = listPtr-&gt;next) {
   // Do something with listPtr here...
 }
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>FreeRTOS frequently needs to access a list across multiple for() and
 while() loops as well as function calls, and so it uses list functions
 that manipulate the <code>pxIndex</code> pointer to walk the list. The list
@@ -614,9 +580,7 @@ using queues.  Interrupt service routines (ISRs) also use queues for
 communication and synchronization.</p>
 
 <p>The basic queue data structure is:</p>
-</div>
 
-<div class="span9 offset2">
 <pre>
 typedef struct QueueDefinition
 {
@@ -649,9 +613,7 @@ typedef struct QueueDefinition
                                          
 } xQUEUE;
 </pre>
-</div>
 
-<div class="span8 offset2">
 <p>This is a fairly standard queue with head and tail pointers, as well
 as pointers to keep track of where we've just read from and written
 to.</p>
@@ -841,21 +803,6 @@ thing together.</p>
 <p>Last and most (the opposite of "not least"), thanks to my wife Sarah
 for sharing me with the research and writing for this chapter. Luckily
 she knew I was a geek when she married me!</p>
-
-
-      <footer class="footer">
-        <hr>
-        <p class="pull-right">This work is made available under
-            the <a href="http://creativecommons.org/licenses/by/3.0/legalcode">Creative
-            Commons Attribution 3.0 Unported</a> license.  Please see
-            the <a href="../license.html">full description of the
-            license</a> for details.
-            <p><a href="#">Back to top</a><br/>
-        <a href="../index.html">Back to <em>The Architecture of Open Source Applications</em>.</a></p>
-      </footer>
-     </div>
-    </div>
-     </div>
 
 </body>
 </html>

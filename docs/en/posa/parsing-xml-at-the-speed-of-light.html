@@ -9,10 +9,8 @@
   <body>
     <h1>Parsing XML at the Speed of Light</h1>
     <p class="author">Arseny Kapoulkine</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <h2 id="preface">Preface</h2>
+
+    <h2 id="preface">Preface</h2>
 
 <p><span class="caps">XML</span> is a standardized markup language that defines a set of rules for encoding hierarchically structured documents in a human-readable text-based format. <span class="caps">XML</span> is in widespread use, with documents ranging from very short and simple (such as <span class="caps">SOAP</span> queries) to multi-gigabyte documents (OpenStreetMap) with complicated data relationships (<span class="caps">COLLADA</span>). In order to process <span class="caps">XML</span> documents, users typically need a special library: an <span class="caps">XML</span> parser, which converts the document from text to internal representation. <span class="caps">XML</span> is a compromise between parsing performance, human readability and parsing-code complexity–therefore a fast <span class="caps">XML</span> parser can make the choice of <span class="caps">XML</span> as an underlying format for application data model more preferable.</p>
 
@@ -448,7 +446,6 @@ I don't want it to take up more than the rest of the page. -->
 <p>Optimizing software is hard. In order to be successful, optimization efforts almost always involve a combination of low-level micro-optimizations, high-level performance-oriented design decisions, careful algorithm selection and tuning, balancing among memory, performance, implementation complexity, and more. Pugixml is an example of a library that needs all of these approaches to deliver a very fast production-ready <span class="caps">XML</span> parser–even though compromises had to be made to achieve this. A lot of the implementation details can be adapted to different projects and tasks, be it another parsing library or something else entirely. The author hopes that the presented tricks were entertaining and that some of them will be useful for other projects.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>Document type (<span class="caps">DOCTYPE</span>) declarations are parsed but their contents are ignored. This decision is based on performance issues, implementation complexity and demand for the feature.<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>Note that conforming <span class="caps">XML</span> parsers are required to reject certain Unicode codepoints. Pugixml sacrifices this analysis for increased performance.<a href="#fnref2">↩</a></p></li>
@@ -472,8 +469,5 @@ I don't want it to take up more than the rest of the page. -->
 <li id="fn20"><p>It is possible to do this without storing extra data using a page alignment that is larger than the page size (i.e., allocate all pages using a 64k allocations with 64k alignment), but it is not possible to use large allocation alignments in a portable way without huge memory overhead.<a href="#fnref20">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-          </div>
   </body>
 </html>

@@ -9,10 +9,6 @@
   <body>
     <h1>Warp</h1>
     <p class="author">Kazu Yamamoto, Michael Snoyman, and Andreas Voellmy</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <!-- American (not British) spelling is used in this document. -->
 
 <p>Warp is a high-performance <span class="caps">HTTP</span> server library written in Haskell, a purely functional programming language. Both Yesod, a web application framework, and <code>mighty</code>, an <span class="caps">HTTP</span> server, are implemented over Warp. According to our throughput benchmark, <code>mighty</code> provides performance on a par with <code>nginx</code>. This article will explain the architecture of Warp and how we achieved its performance. Warp can run on many platforms, including Linux, <span class="caps">BSD</span> variants, Mac <span class="caps">OS</span>, and Windows. To simplify our explanation, however, we will only talk about Linux for the remainder of this article.</p>
 
@@ -471,8 +467,6 @@ ResponseSource Status ResponseHeaders (Source (ResourceT IO) (Flush Builder))</c
 <p>Warp is a versatile web server library, providing efficient <span class="caps">HTTP</span> communication for a wide range of use cases. In order to achieve its high performance, optimizations have been performed at many levels, including network communications, thread management, and request parsing.</p>
 
 <p>Haskell has proven to be an amazing language for writing such a code base. Features like immutability by default make it easier to write thread-safe code and avoid extra buffer copying. The multi-threaded run time drastically simplifies the process of writing event-driven code. And <span class="caps">GHC</span>'s powerful optimizations mean that in many cases, we can write high-level code and still reap the benefits of high performance. Yet with all of this performance, our code base is still relatively tiny (/under 1300 <span class="caps">SLOC</span> at time of writing). If you are looking to write maintainable, efficient, concurrent code, Haskell should be a strong consideration.</p>
-        </div>
-      </div>
-          </div>
+
   </body>
 </html>

@@ -19,10 +19,8 @@
   <body>
     <h1>Static Analysis</h1>
     <p class="author">Leah Hanson</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p><em>Leah Hanson is a proud alumni of Hacker School and loves helping people learn about Julia. She blogs at <a href="http://blog.leahhanson.us/">http://blog.leahhanson.us/</a> and tweets at <a href="https://twitter.com/astrieanna">@astrieanna</a>.</em></p>
+
+    <p><em>Leah Hanson is a proud alumni of Hacker School and loves helping people learn about Julia. She blogs at <a href="http://blog.leahhanson.us/">http://blog.leahhanson.us/</a> and tweets at <a href="https://twitter.com/astrieanna">@astrieanna</a>.</em></p>
 
 <h2 id="introduction">Introduction</h2>
 
@@ -852,8 +850,5 @@ check_locals(e::<span class="dt">Expr</span>) = isempty(unused_locals(e))</code>
 <p>In cases where that won’t work, the final fallback is writing a parser yourself; this is to be avoided when possible. It’s a lot of work to cover the full grammar of most programming languages, and you’ll have to update it yourself as new features are added to the language (rather than getting the updates automatically from upstream). Depending on the checks you want to do, you may be able to get away with parsing only some lines or a subset of language features, which would greatly decrease the cost of writing your own parser.</p>
 
 <p>Hopefully, your new understanding of how static analysis tools are written will help you understand the tools you use on your code, and maybe inspire you to write one of your own.</p>
-        </div>
-      </div>
-    </div>
   </body>
 </html>

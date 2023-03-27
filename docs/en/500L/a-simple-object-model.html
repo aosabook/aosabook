@@ -19,10 +19,8 @@
   <body>
     <h1>A Simple Object Model</h1>
     <p class="author">Carl Friedrich Bolz</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p><em>Carl Friedrich Bolz is a researcher at King's College London and is broadly interested in the implementation and optimization of all kinds of dynamic languages. He is one of the core authors of PyPy/RPython and has worked on implementations of Prolog, Racket, Smalltalk, PHP and Ruby. He's <a href="https://twitter.com/cfbolz">@cfbolz</a> on Twitter.</em></p>
+
+    <p><em>Carl Friedrich Bolz is a researcher at King's College London and is broadly interested in the implementation and optimization of all kinds of dynamic languages. He is one of the core authors of PyPy/RPython and has worked on implementations of Prolog, Racket, Smalltalk, PHP and Ruby. He's <a href="https://twitter.com/cfbolz">@cfbolz</a> on Twitter.</em></p>
 
 <h2 id="introduction">Introduction</h2>
 
@@ -657,7 +655,6 @@ EMPTY_MAP = Map({})</code></pre>
 <p>Such object models can also be useful in practice, not just as vehicles for experimentation. They can be embedded in and used from other languages. Examples of this approach are common: the GObject object model, written in C, that's used in GLib and other Gnome libraries; or the various class system implementations in JavaScript.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>P. Cointe, “Metaclasses are first class: The ObjVlisp Model,” SIGPLAN Not, vol. 22, no. 12, pp. 156–162, 1987.<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>It seems that the attribute-based model is conceptually more complex, because it needs both method lookup and call. In practice, calling something is defined by looking up and calling a special attribute <code>__call__</code>, so conceptual simplicity is regained. This won't be implemented in this chapter, however.)<a href="#fnref2">↩</a></p></li>
@@ -668,8 +665,5 @@ EMPTY_MAP = Map({})</code></pre>
 <li id="fn7"><p>How that works is beyond the scope of this chapter. I tried to give a reasonably readable account of it in a paper I wrote a few years ago. It uses an object model that is basically a variant of the one in this chapter: C. F. Bolz, A. Cuni, M. Fijałkowski, M. Leuschel, S. Pedroni, and A. Rigo, “Runtime feedback in a meta-tracing JIT for efficient dynamic languages,” in Proceedings of the 6th Workshop on Implementation, Compilation, Optimization of Object-Oriented Languages, Programs and Systems, New York, NY, USA, 2011, pp. 9:1–9:8.<a href="#fnref7">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-    </div>
   </body>
 </html>

@@ -19,10 +19,8 @@
   <body>
     <h1>The Same-Origin Policy</h1>
     <p class="author">Eunsuk Kang, Santiago Perez De Rosso, and Daniel Jackson</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <p><em>Eunsuk Kang is a PhD candidate and a member of the Software Design Group at MIT. He received his SM (Master of Science) in Computer Science from MIT (2010), and a Bachelor of Software Engineering from the University of Waterloo (2007). His research projects have focused on developing tools and techniques for software modeling and verification, with applications to security and safety-critical systems.</em></p>
+
+    <p><em>Eunsuk Kang is a PhD candidate and a member of the Software Design Group at MIT. He received his SM (Master of Science) in Computer Science from MIT (2010), and a Bachelor of Software Engineering from the University of Waterloo (2007). His research projects have focused on developing tools and techniques for software modeling and verification, with applications to security and safety-critical systems.</em></p>
 
 <p><em>Santiago Perez De Rosso is a PhD student in the Software Design Group at MIT. He received his SM in Computer Science from MIT (2015), and an undergraduate degree from ITBA (2011). He used to work at Google, developing frameworks and tools to make engineers more productive (2012). He currently spends most of his time thinking about design and version control.</em></p>
 
@@ -828,14 +826,10 @@ sig Time {}</code></pre>
 <p>Recall that in our discussion of HTTP requests, we imported the module <code>call</code> by passing <code>Endpoint</code> as its type parameter. As a result, the parametric type <code>T</code> is instantiated to <code>Endpoint</code>, and we obtain a set of <code>Call</code> objects that are associated with a pair of sender and receiver endpoints. A module can be imported multiple times; for example, we could declare a signature called <code>UnixProcess</code>, and instantiate the module <code>call</code> to obtain a distinct set of <code>Call</code> objects that are sent from one Unix process to another.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>Sooel Son and Vitaly Shmatikov. <em>The Postman Always Rings Twice: Attacking and Defending postMessage in HTML5 Websites</em>. Network and Distributed System Security Symposium (NDSS), 2013.<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>Sebastian Lekies, Martin Johns, and Walter Tighzert. <em>The State of the Cross-Domain Nation</em>. Web 2.0 Security and Privacy (W2SP), 2011.<a href="#fnref2">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-    </div>
   </body>
 </html>

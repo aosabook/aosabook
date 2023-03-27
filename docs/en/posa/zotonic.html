@@ -9,10 +9,8 @@
   <body>
     <h1>Zotonic</h1>
     <p class="author">Arjan Scherpenisse and Marc Worrell</p>
-    <div class="container">
-      <div class="row">
-        <div class='span10 offset1' id='content'>
-          <h2 id="introduction-to-zotonic">Introduction to Zotonic</h2>
+
+    <h2 id="introduction-to-zotonic">Introduction to Zotonic</h2>
 
 <p>Zotonic is an open source framework for doing full-stack web development, all the way from frontend to backend. Consisting of a small set of core functionalities, it implements a lightweight but extensible Content Management System on top. Zotonic’s main goal is to make it easy to create well-performing websites “out of the box”, so that a website scales well from the start.</p>
 
@@ -540,7 +538,6 @@ Cache-Control: public, max-age=315360000</code></pre>
 <p>The authors would like to thank Michiel Klønhammer (Maximonster Interactive Things), Andreas Stenius, Maas-Maarten Zeeman and Atilla Erdődi.</p>
 
 <div class="footnotes">
-<hr />
 <ol>
 <li id="fn1"><p>However, it is possible to put another web server in front, for example when other web systems are running on the same server. But for normal cases, this is not needed. It is interesting that a typical optimisation that other frameworks use is to put a caching web server such as Varnish in front of their application server for serving static files, but for Zotonic this does not speed up those requests significantly, as Zotonic also caches static files in memory.).<a href="#fnref1">↩</a></p></li>
 <li id="fn2"><p>Note that Zotonic does not set an ETag. Some browsers check the ETag for every use of the file by making a request to the server. Which defies the whole idea of caching and making fewer requests.<a href="#fnref2">↩</a></p></li>
@@ -551,8 +548,5 @@ Cache-Control: public, max-age=315360000</code></pre>
 <li id="fn7"><p>Erlang can also <em>share</em> parts of a byte array with references to those parts, thus circumventing the need to copy that data. An insert into a byte array can be represented by an io-list of three parts: a references to the unchanged head bytes, the inserted value, and a reference to the unchanged tail bytes.<a href="#fnref7">↩</a></p></li>
 </ol>
 </div>
-        </div>
-      </div>
-          </div>
   </body>
 </html>
