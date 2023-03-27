@@ -4,13 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../../css/aosa.css" type="text/css">
-    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <title>The Performance of Open Source Software: Talos</title>
   </head>
   <body>
 
     <div class="titlebox">
-      <h1>Talos</h1>
+      <h1>The Performance of Open Source Applications<br>Talos</h1>
       <p class="author">Clint Talbert and Joel Maher</p>
     </div>
 
@@ -78,7 +77,7 @@
 <p>These values would be submitted to Graph Server. Graph Server would drop the highest value and calculate the mean using these per page values and it would report that one value:</p>
 
 <p>
-$$ \frac{565.5 + 675}{2} = 620.25 $$
+(565.5 + 675) / 2 = 620.25
 </p>
 
 <p>This final value would be graphed over time, and as you can see it generates an approximate value that is not good for anything more than a coarse evaluation of performance. Furthermore, if a regression is detected using a value like this, it would be extremely difficult to work backwards and see which pages caused the regression so that a developer could be directed to a specific issue to fix.</p>

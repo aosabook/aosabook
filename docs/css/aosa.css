@@ -1,6 +1,11 @@
 @import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap");
 
+:root {
+    --aosablue: #C8D9E3;
+    --lightborder: 1px;
+}
+
 .row {
     display: flex;
     flex-flow: row wrap;
@@ -44,12 +49,12 @@ html {
 code, pre {
     font-family: "Source Code Pro", monospace;
     font-size: normal;
-    background-color: lightgray;
+    background-color: var(--aosablue);
 }
 
 body {
-    width: 72rem;
-    margin-left: 2rem;
+    width: 68rem;
+    margin-left: 1rem;
 }
 
 img.cover {
@@ -59,11 +64,20 @@ img.cover {
     padding-bottom: 2em;
 }
 
+div.titlebox {
+    background-color: var(--aosablue);
+    padding: 10px;
+}
+
+p.author {
+    font-size: 120%;
+}
+
 div.box {
     display: block;
     margin-left: auto;
     margin-right: auto;
-    outline-color: gray;
+    outline-color: var(--aosablue);
     outline-style: solid;
     outline-width: 1px;
     padding-bottom: 1px;
@@ -80,7 +94,6 @@ div.figure {
     padding-left: 10px;
     padding-right: 10px;
     padding-top: 1px;
-    text-align: center;
 }
 
 div.figure img {
@@ -111,16 +124,28 @@ div.table {
     padding-left: 10px;
     padding-right: 10px;
     padding-top: 1px;
-    text-align: center;
 }
 
 div.table table {
     font-size: small;
     margin-left: auto;
     margin-right: auto;
-    outline-color: gray;
+    outline-color: var(--aosablue);
     outline-style: solid;
-    outline-width: 1px;
+    outline-width: var(--lightborder);
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    vertical-align: top;
+    border: solid var(--lightborder) var(--aosablue);
+}
+
+th {
+    font-weight: bold;
 }
 
 dl.faq dt {
