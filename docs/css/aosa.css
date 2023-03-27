@@ -122,28 +122,3 @@ th {
 th.center {
     text-align: center;
 }
-
-.table-striped tbody tr:nth-child(odd) td,   
-table.table-striped tbody tr:nth-child(odd) th {
-  background-color: #D3E5F0;
-}
-
-.hero-unit {
-  background-color: #C8D9E3;
-}
-
-.volume-cover {
-  float:left;
-/*  margin-top: 40px;*/
-}
-
-.volume-row {
-  width: 900px;
-  margin: 0 auto;
-}
-
-.volume-chapters {
-  float: left;
-  width: 500px;
-  margin-left: 10px;
-}
