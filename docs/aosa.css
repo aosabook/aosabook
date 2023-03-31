@@ -2,7 +2,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap");
 
 :root {
-    --aosablue: #C8D9E3;
+    --aosablue: #e8f0f4;
     --lightborder: 1px;
 }
 
@@ -142,6 +142,7 @@ table {
 th, td {
     vertical-align: top;
     border: solid var(--lightborder) var(--aosablue);
+    padding: 3px;
 }
 
 th {
